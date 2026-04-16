@@ -1,0 +1,260 @@
+// Payment Form Styles
+.payment-form {
+    max-width: 500px;
+    margin: 0 auto;
+
+    .form-group {
+        margin-bottom: 1.5rem;
+
+        .form-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+            display: block;
+        }
+
+        .form-control {
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+            &:focus {
+                border-color: #7367f0;
+                box-shadow: 0 0 0 0.2rem rgba(115, 103, 240, 0.25);
+                outline: 0;
+            }
+
+            &.is-invalid {
+                border-color: #dc3545;
+
+                &:focus {
+                    border-color: #dc3545;
+                    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+                }
+            }
+
+            &:disabled {
+                background-color: #f8f9fa;
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+
+        .invalid-feedback {
+            display: block;
+            width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+            color: #dc3545;
+        }
+
+        .form-text {
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+        }
+    }
+
+    // Card input with type indicator
+    .card-input-wrapper {
+        position: relative;
+
+        .card-type-indicator {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+
+            .card-icon {
+                display: inline-block;
+                width: 32px;
+                height: 20px;
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+
+                &.card-visa {
+                    background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iIzAwNTFBNSIvPgo8cGF0aCBkPSJNMTYuNzUgN0gxNC4yNUwxMi41IDE3SDE1TDE2Ljc1IDdaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjMuMjUgN0gyMC43NUwxOSAxN0gyMS41TDIzLjI1IDdaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K');
+                }
+
+                &.card-mastercard {
+                    background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iI0VCMDAxQiIvPgo8Y2lyY2xlIGN4PSIxNSIgY3k9IjEyIiByPSI3IiBmaWxsPSIjRkY1RjAwIi8+CjxjaXJjbGUgY3g9IjI1IiBjeT0iMTIiIHI9IjciIGZpbGw9IiNGRkY1RjAiLz4KPC9zdmc+Cg==');
+                }
+
+                &.card-amex {
+                    background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iIzAwNkZDRiIvPgo8cGF0aCBkPSJNMTAgOEgxNEwxNiAxMkwxOCA4SDIyTDIwIDE2SDE2TDE0IDEyTDEyIDE2SDhMMTAgOFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=');
+                }
+
+                &.card-discover {
+                    background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iI0ZGNjAwMCIvPgo8cGF0aCBkPSJNOCAxMEgxMlYxNEg4VjEwWk0yOCAxMEgzMlYxNEgyOFYxMFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=');
+                }
+            }
+        }
+    }
+
+    // Form row for expiry date
+    .form-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+
+        .form-group {
+            margin-bottom: 0;
+            flex: 1;
+
+            &.col-md-6 {
+                flex: 1;
+            }
+        }
+    }
+
+    // CVV input styling
+    .cvv-input {
+        max-width: 120px;
+    }
+
+    // Security notice
+    .security-notice {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        margin-bottom: 1.5rem;
+
+        .security-icon {
+            font-size: 1.2rem;
+            color: #28a745;
+        }
+
+        small {
+            margin: 0;
+            line-height: 1.4;
+        }
+    }
+
+    // Submit button
+    .payment-submit-btn {
+        width: 100%;
+        padding: 0.875rem 1.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease-in-out;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        &.loading {
+            position: relative;
+
+            .spinner-border-sm {
+                width: 1rem;
+                height: 1rem;
+            }
+        }
+
+        &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(115, 103, 240, 0.3);
+        }
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .payment-form {
+        .form-row {
+            flex-direction: column;
+            gap: 0;
+
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+        }
+
+        .card-input-wrapper .card-type-indicator {
+            right: 8px;
+        }
+
+        .cvv-input {
+            max-width: 100%;
+        }
+    }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+    .payment-form {
+        .form-group {
+            .form-label {
+                color: #e9ecef;
+            }
+
+            .form-control {
+                background-color: #2d3748;
+                border-color: #4a5568;
+                color: #e9ecef;
+
+                &:focus {
+                    background-color: #2d3748;
+                    border-color: #7367f0;
+                }
+
+                &::placeholder {
+                    color: #a0aec0;
+                }
+            }
+        }
+
+        .security-notice {
+            background-color: #2d3748;
+            color: #e9ecef;
+        }
+    }
+}
+
+// Animation for form validation
+.form-control {
+    &.is-invalid {
+        animation: shake 0.5s ease-in-out;
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+// Loading state overlay
+.payment-form.loading {
+    position: relative;
+
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.8);
+        z-index: 10;
+        border-radius: 0.375rem;
+    }
+}

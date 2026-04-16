@@ -1,0 +1,160 @@
+/*================================================================================
+	Item Name: Vuexy - Vuejs, HTML & Laravel Admin Dashboard Template
+	Version: 2.0
+	Author: PIXINVENT
+	Author URL: http://www.themeforest.net/user/pixinvent
+================================================================================
+
+NOTE:
+------
+PLACE HERE YOUR OWN SCSS CODES AND IF NEEDED, OVERRIDE THE STYLES FROM THE OTHER STYLESHEETS.
+WE WILL RELEASE FUTURE UPDATES SO IN ORDER TO NOT OVERWRITE YOUR STYLES IT'S BETTER LIKE THIS.  */
+
+/* ---------- Navbar Header Fixes ---------- */
+.vertical-layout .main-menu .navbar-header,
+.navbar-header {
+  display: flex !important;
+  align-items: center !important;
+  padding: 1rem 1.5rem !important;
+  min-height: 80px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  position: relative !important;
+}
+
+.vertical-layout .main-menu .navbar-header::after,
+.navbar-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+.vertical-layout .main-menu .navbar-header .nav,
+.navbar-header .nav {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.vertical-layout .main-menu .navbar-header .nav-item.me-auto,
+.navbar-header .nav-item.me-auto {
+  flex: 1 !important;
+}
+
+.vertical-layout .main-menu .navbar-header .navbar-brand,
+.navbar-header .navbar-brand {
+  display: flex !important;
+  align-items: center !important;
+  text-decoration: none !important;
+}
+
+.vertical-layout .main-menu .navbar-header .brand-logo,
+.navbar-header .brand-logo {
+  display: block !important;
+}
+
+.vertical-layout .main-menu .navbar-header .brand-logo img,
+.navbar-header .brand-logo img {
+  max-height: 70px !important;
+  max-width: 180px !important;
+  width: auto !important;
+  height: auto !important;
+  display: block !important;
+  object-fit: contain !important;
+}
+
+.vertical-layout .main-menu .navbar-header .small-logo,
+.navbar-header .small-logo {
+  display: none !important;
+}
+
+.vertical-layout .main-menu .navbar-header .small-logo img,
+.navbar-header .small-logo img {
+  max-height: 50px !important;
+  max-width: 50px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+.vertical-layout .main-menu .navbar-header .nav-toggle,
+.navbar-header .nav-toggle {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.vertical-layout .main-menu .navbar-header .modern-nav-toggle,
+.navbar-header .modern-nav-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.vertical-layout .main-menu .navbar-header .toggle-icon,
+.navbar-header .toggle-icon {
+  display: block !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+.vertical-layout .main-menu .navbar-header .toggle-icon:hover,
+.navbar-header .toggle-icon:hover {
+  opacity: 0.8 !important;
+  transform: scale(1.1) !important;
+}
+
+/* When menu is collapsed, show small logo */
+.vertical-layout.menu-collapsed .main-menu .navbar-header .brand-logo,
+.menu-collapsed .navbar-header .brand-logo {
+  display: none !important;
+}
+
+.vertical-layout.menu-collapsed .main-menu .navbar-header .small-logo,
+.menu-collapsed .navbar-header .small-logo {
+  display: block !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1199px) {
+  .vertical-layout .main-menu .navbar-header,
+  .navbar-header {
+    min-height: 70px !important;
+    padding: 0.75rem 1rem !important;
+  }
+  
+  .vertical-layout .main-menu .navbar-header .brand-logo img,
+  .navbar-header .brand-logo img {
+    max-height: 60px !important;
+    max-width: 160px !important;
+  }
+  
+  .vertical-layout .main-menu .navbar-header .small-logo img,
+  .navbar-header .small-logo img {
+    max-height: 45px !important;
+    max-width: 45px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .vertical-layout .main-menu .navbar-header,
+  .navbar-header {
+    padding: 0.5rem 1rem !important;
+    min-height: 60px !important;
+  }
+  
+  .vertical-layout .main-menu .navbar-header .brand-logo img,
+  .navbar-header .brand-logo img {
+    max-height: 50px !important;
+    max-width: 140px !important;
+  }
+  
+  .vertical-layout .main-menu .navbar-header .small-logo img,
+  .navbar-header .small-logo img {
+    max-height: 40px !important;
+    max-width: 40px !important;
+  }
+}

@@ -1,0 +1,147 @@
+.company-list-card {
+    border: none;
+    box-shadow: 0 4px 24px 0 rgba(34, 41, 47, 0.1);
+    border-radius: 0.5rem;
+    width: 100%;
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid #ebe9f1;
+        padding: 1.25rem 1.5rem;
+
+        h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #5e5873;
+            margin-bottom: 0.25rem;
+        }
+
+        small {
+            font-size: 0.8125rem;
+        }
+    }
+}
+
+.company-table {
+    thead {
+        th {
+            background-color: #09418B !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.75rem 1.5rem;
+            border: none;
+        }
+    }
+
+    tbody {
+        tr {
+            background-color: transparent !important;
+
+            td {
+                padding: 1rem 1.5rem;
+                vertical-align: middle;
+                border-bottom: 1px solid #cdaba4 !important;
+                font-size: 0.875rem;
+                background-color: transparent !important;
+            }
+
+            &:last-child td {
+                border-bottom: none;
+            }
+        }
+    }
+}
+
+.company-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.company-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7367f0 0%, #9e95f5 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.company-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.company-name {
+    font-weight: 600;
+    color: #5e5873;
+    line-height: 1.3;
+}
+
+.company-email {
+    font-size: 0.75rem;
+    color: #b9b9c3;
+}
+
+.plan-name {
+    color: #6e6b7b;
+    font-weight: 500;
+}
+
+.join-date {
+    color: #6e6b7b;
+    font-size: 0.8125rem;
+}
+
+// Badge colors
+.badge {
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+.badge.bg-light-success,
+.badge[class*="light-success"] {
+    background-color: rgba(40, 199, 111, 0.12) !important;
+    color: #28c76f !important;
+}
+
+.badge.bg-light-warning,
+.badge[class*="light-warning"] {
+    background-color: rgba(255, 159, 67, 0.12) !important;
+    color: #ff9f43 !important;
+}
+
+.badge.bg-light-danger,
+.badge[class*="light-danger"] {
+    background-color: rgba(234, 84, 85, 0.12) !important;
+    color: #ea5455 !important;
+}
+
+.badge.bg-light-secondary,
+.badge[class*="light-secondary"] {
+    background-color: rgba(130, 134, 139, 0.12) !important;
+    color: #82868b !important;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    .company-table {
+        thead th,
+        tbody td {
+            padding: 0.75rem 1rem;
+        }
+    }
+
+    .company-email {
+        display: none;
+    }
+}

@@ -1,0 +1,315 @@
+// Error Boundary Styles
+.error-boundary {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    padding: 2rem;
+    background: #f8f9fa;
+
+    .error-content {
+        text-align: center;
+        max-width: 600px;
+        background: white;
+        border-radius: 0.75rem;
+        padding: 3rem 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+        .error-icon {
+            color: #dc3545;
+            margin-bottom: 1.5rem;
+
+            svg {
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        p {
+            color: #6c757d;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+
+            .btn {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.75rem 1.5rem;
+                border: none;
+                border-radius: 0.5rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+                text-decoration: none;
+                font-size: 0.875rem;
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                &.btn-primary {
+                    background-color: #7367f0;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5e50ee;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                &.btn-secondary {
+                    background-color: #6c757d;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5a6268;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                &.btn-outline {
+                    background-color: transparent;
+                    color: #7367f0;
+                    border: 1px solid #7367f0;
+
+                    &:hover:not(:disabled) {
+                        background-color: #7367f0;
+                        color: white;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                svg {
+                    width: 16px;
+                    height: 16px;
+                }
+            }
+        }
+
+        .retry-info {
+            margin-bottom: 1.5rem;
+
+            small {
+                color: #6c757d;
+                font-size: 0.875rem;
+                background: #f8f9fa;
+                padding: 0.25rem 0.75rem;
+                border-radius: 1rem;
+                border: 1px solid #e9ecef;
+            }
+        }
+
+        .error-help {
+            margin-bottom: 2rem;
+
+            p {
+                margin-bottom: 0;
+                font-size: 0.875rem;
+                color: #6c757d;
+
+                a {
+                    color: #7367f0;
+                    text-decoration: none;
+                    font-weight: 500;
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+            }
+        }
+
+        .error-details {
+            text-align: left;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.5rem;
+
+            summary {
+                cursor: pointer;
+                font-weight: 600;
+                margin-bottom: 1rem;
+                color: #495057;
+                padding: 0.5rem;
+                background: #e9ecef;
+                border-radius: 0.25rem;
+
+                &:hover {
+                    background: #dee2e6;
+                }
+            }
+
+            .error-stack {
+                h4 {
+                    color: #495057;
+                    margin: 1rem 0 0.5rem 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                }
+
+                pre {
+                    font-size: 0.75rem;
+                    color: #dc3545;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    margin: 0.5rem 0 1rem 0;
+                    padding: 1rem;
+                    background: #fff;
+                    border: 1px solid #dee2e6;
+                    border-radius: 0.25rem;
+                    max-height: 200px;
+                    overflow-y: auto;
+                    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                }
+            }
+        }
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .error-boundary {
+        padding: 1rem;
+
+        .error-content {
+            padding: 2rem 1.5rem;
+
+            .error-icon {
+                svg {
+                    width: 36px;
+                    height: 36px;
+                }
+            }
+
+            h3 {
+                font-size: 1.25rem;
+            }
+
+            p {
+                font-size: 0.875rem;
+            }
+
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+
+                .btn {
+                    width: 100%;
+                    max-width: 200px;
+                    justify-content: center;
+                }
+            }
+
+            .error-details {
+                padding: 1rem;
+
+                .error-stack {
+                    pre {
+                        font-size: 0.6875rem;
+                        max-height: 150px;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+    .error-boundary {
+        background: #2d3748;
+
+        .error-content {
+            background: #4a5568;
+            color: #e9ecef;
+
+            h3 {
+                color: #e9ecef;
+            }
+
+            p {
+                color: #a0aec0;
+            }
+
+            .retry-info {
+                small {
+                    background: #2d3748;
+                    color: #a0aec0;
+                    border-color: #718096;
+                }
+            }
+
+            .error-help {
+                p {
+                    color: #a0aec0;
+
+                    a {
+                        color: #9c88ff;
+                    }
+                }
+            }
+
+            .error-details {
+                background: #2d3748;
+                border-color: #718096;
+
+                summary {
+                    background: #718096;
+                    color: #e9ecef;
+
+                    &:hover {
+                        background: #4a5568;
+                    }
+                }
+
+                .error-stack {
+                    h4 {
+                        color: #e9ecef;
+                    }
+
+                    pre {
+                        background: #1a202c;
+                        border-color: #718096;
+                        color: #fc8181;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Animation for error boundary appearance
+.error-boundary {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

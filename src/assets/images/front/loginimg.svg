@@ -1,0 +1,320 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 952 1024" fill="none">
+  <defs>
+    <!-- Full background gradient — soft green-blue matching PeopleGem logo -->
+    <linearGradient id="pageBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a3c34;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#1b4332;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14304a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="gemGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#43a047;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1e88e5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00897b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#66bb6a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2e7d32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#42a5f5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1565c0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffa726;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e65100;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2e7d32;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1976d2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00796b;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="shadowSmall" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="20" flood-color="#43a047" flood-opacity="0.15"/>
+    </filter>
+    <filter id="glowBlue" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="20" flood-color="#1e88e5" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Full background -->
+  <rect width="952" height="1024" fill="url(#pageBg)"/>
+
+  <!-- Subtle pattern overlay -->
+  <g opacity="0.04">
+    <circle cx="100" cy="100" r="200" fill="#43a047"/>
+    <circle cx="850" cy="900" r="250" fill="#1e88e5"/>
+    <circle cx="800" cy="150" r="150" fill="#f57c00"/>
+    <circle cx="150" cy="850" r="180" fill="#00897b"/>
+  </g>
+
+  <!-- Decorative gem shapes in background -->
+  <g opacity="0.06">
+    <polygon points="80,120 130,150 130,200 80,230 30,200 30,150" fill="#66bb6a"/>
+    <polygon points="820,80 870,110 870,155 820,185 770,155 770,110" fill="#42a5f5"/>
+    <polygon points="870,700 920,730 920,775 870,805 820,775 820,730" fill="#ffa726"/>
+    <polygon points="60,650 110,680 110,725 60,755 10,725 10,680" fill="#42a5f5"/>
+    <polygon points="450,50 500,80 500,125 450,155 400,125 400,80" fill="#66bb6a"/>
+    <polygon points="500,880 550,910 550,955 500,985 450,955 450,910" fill="#00897b"/>
+  </g>
+
+  <!-- Floating dots -->
+  <g opacity="0.12">
+    <circle cx="200" cy="160" r="4" fill="#66bb6a"/>
+    <circle cx="750" cy="180" r="3" fill="#42a5f5"/>
+    <circle cx="300" cy="100" r="5" fill="#ffa726"/>
+    <circle cx="650" cy="130" r="3" fill="#66bb6a"/>
+    <circle cx="180" cy="880" r="4" fill="#42a5f5"/>
+    <circle cx="780" cy="850" r="5" fill="#66bb6a"/>
+    <circle cx="400" cy="950" r="3" fill="#ffa726"/>
+    <circle cx="600" cy="920" r="4" fill="#42a5f5"/>
+  </g>
+
+  <!-- ==================== MAIN DASHBOARD CARD ==================== -->
+  <g filter="url(#shadow)">
+    <rect x="126" y="195" rx="18" ry="18" width="700" height="470" fill="white"/>
+  </g>
+
+  <!-- Dashboard header bar -->
+  <rect x="126" y="195" rx="18" ry="18" width="700" height="56" fill="url(#headerGrad)"/>
+  <rect x="126" y="233" width="700" height="18" fill="url(#headerGrad)"/>
+
+  <!-- Window dots -->
+  <circle cx="160" cy="223" r="7" fill="#ff5f57"/>
+  <circle cx="182" cy="223" r="7" fill="#ffbd2e"/>
+  <circle cx="204" cy="223" r="7" fill="#28c840"/>
+
+  <!-- Dashboard title -->
+  <text x="240" y="229" font-family="Arial, sans-serif" font-size="17" font-weight="bold" fill="white" letter-spacing="0.5">PeopleGem Dashboard</text>
+
+  <!-- Search bar placeholder -->
+  <rect x="560" y="210" rx="12" ry="12" width="240" height="26" fill="rgba(255,255,255,0.15)"/>
+  <text x="580" y="228" font-family="Arial, sans-serif" font-size="11" fill="rgba(255,255,255,0.5)">Search employees...</text>
+
+  <!-- ---- LEFT COLUMN: Team Overview ---- -->
+  <text x="156" y="285" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#37474f" letter-spacing="0.3">TEAM OVERVIEW</text>
+
+  <!-- Person 1 -->
+  <g transform="translate(156, 300)">
+    <rect rx="12" ry="12" width="310" height="58" fill="#f8fdf8"/>
+    <circle cx="32" cy="29" r="22" fill="url(#greenGrad)"/>
+    <circle cx="32" cy="22" r="8" fill="white"/>
+    <path d="M 18 38 Q 18 30 32 30 Q 46 30 46 38" fill="white" opacity="0.85"/>
+    <text x="64" y="24" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#263238">Sarah Johnson</text>
+    <text x="64" y="42" font-family="Arial, sans-serif" font-size="10.5" fill="#78909c">HR Manager · London</text>
+    <rect x="230" y="14" rx="10" ry="10" width="60" height="22" fill="#e8f5e9"/>
+    <circle cx="244" cy="25" r="4" fill="#43a047"/>
+    <text x="253" y="29" font-family="Arial, sans-serif" font-size="10" fill="#2e7d32">Active</text>
+  </g>
+
+  <!-- Person 2 -->
+  <g transform="translate(156, 367)">
+    <rect rx="12" ry="12" width="310" height="58" fill="#f5f9ff"/>
+    <circle cx="32" cy="29" r="22" fill="url(#blueGrad)"/>
+    <circle cx="32" cy="22" r="8" fill="white"/>
+    <path d="M 18 38 Q 18 30 32 30 Q 46 30 46 38" fill="white" opacity="0.85"/>
+    <text x="64" y="24" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#263238">James Wilson</text>
+    <text x="64" y="42" font-family="Arial, sans-serif" font-size="10.5" fill="#78909c">Team Lead · Manchester</text>
+    <rect x="230" y="14" rx="10" ry="10" width="68" height="22" fill="#e3f2fd"/>
+    <circle cx="244" cy="25" r="4" fill="#1976d2"/>
+    <text x="253" y="29" font-family="Arial, sans-serif" font-size="10" fill="#1565c0">On Leave</text>
+  </g>
+
+  <!-- Person 3 -->
+  <g transform="translate(156, 434)">
+    <rect rx="12" ry="12" width="310" height="58" fill="#fffbf5"/>
+    <circle cx="32" cy="29" r="22" fill="url(#orangeGrad)"/>
+    <circle cx="32" cy="22" r="8" fill="white"/>
+    <path d="M 18 38 Q 18 30 32 30 Q 46 30 46 38" fill="white" opacity="0.85"/>
+    <text x="64" y="24" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#263238">Emma Davis</text>
+    <text x="64" y="42" font-family="Arial, sans-serif" font-size="10.5" fill="#78909c">Payroll Admin · Bristol</text>
+    <rect x="230" y="14" rx="10" ry="10" width="60" height="22" fill="#e8f5e9"/>
+    <circle cx="244" cy="25" r="4" fill="#43a047"/>
+    <text x="253" y="29" font-family="Arial, sans-serif" font-size="10" fill="#2e7d32">Active</text>
+  </g>
+
+  <!-- Person 4 -->
+  <g transform="translate(156, 501)">
+    <rect rx="12" ry="12" width="310" height="58" fill="#f8f5ff"/>
+    <circle cx="32" cy="29" r="22" fill="#7e57c2"/>
+    <circle cx="32" cy="22" r="8" fill="white"/>
+    <path d="M 18 38 Q 18 30 32 30 Q 46 30 46 38" fill="white" opacity="0.85"/>
+    <text x="64" y="24" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#263238">Priya Sharma</text>
+    <text x="64" y="42" font-family="Arial, sans-serif" font-size="10.5" fill="#78909c">Compliance Officer · Leeds</text>
+    <rect x="230" y="14" rx="10" ry="10" width="60" height="22" fill="#e8f5e9"/>
+    <circle cx="244" cy="25" r="4" fill="#43a047"/>
+    <text x="253" y="29" font-family="Arial, sans-serif" font-size="10" fill="#2e7d32">Active</text>
+  </g>
+
+  <!-- ---- RIGHT COLUMN: Stats ---- -->
+  <!-- Employees stat -->
+  <g transform="translate(490, 275)">
+    <rect rx="14" ry="14" width="155" height="90" fill="#f0f9f0" filter="url(#shadowSmall)"/>
+    <g transform="translate(15, 15)">
+      <circle cx="16" cy="12" r="11" fill="#43a047" opacity="0.15"/>
+      <circle cx="16" cy="8" r="5" fill="#43a047" opacity="0.7"/>
+      <path d="M 7 19 Q 7 13 16 13 Q 25 13 25 19" fill="#43a047" opacity="0.7"/>
+    </g>
+    <text x="15" y="60" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#2e7d32">248</text>
+    <text x="15" y="78" font-family="Arial, sans-serif" font-size="11" fill="#66bb6a">Total Employees</text>
+  </g>
+
+  <!-- Locations stat -->
+  <g transform="translate(660, 275)">
+    <rect rx="14" ry="14" width="155" height="90" fill="#eef5ff" filter="url(#shadowSmall)"/>
+    <g transform="translate(15, 12)">
+      <circle cx="14" cy="14" r="11" fill="#1e88e5" opacity="0.15"/>
+      <path d="M 14 5 C 9 5 5 9 5 14 C 5 20 14 28 14 28 C 14 28 23 20 23 14 C 23 9 19 5 14 5 Z" fill="#1e88e5" opacity="0.7" transform="scale(0.8) translate(3,2)"/>
+    </g>
+    <text x="15" y="60" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1565c0">12</text>
+    <text x="15" y="78" font-family="Arial, sans-serif" font-size="11" fill="#42a5f5">Locations</text>
+  </g>
+
+  <!-- Attendance stat -->
+  <g transform="translate(490, 380)">
+    <rect rx="14" ry="14" width="155" height="90" fill="#fff8ee" filter="url(#shadowSmall)"/>
+    <g transform="translate(15, 12)">
+      <circle cx="14" cy="14" r="11" fill="#f57c00" opacity="0.15"/>
+      <circle cx="14" cy="14" r="8" fill="none" stroke="#f57c00" stroke-width="2" opacity="0.7"/>
+      <line x1="14" y1="14" x2="14" y2="9" stroke="#f57c00" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="14" y1="14" x2="18" y2="14" stroke="#f57c00" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+    </g>
+    <text x="15" y="60" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#e65100">96%</text>
+    <text x="15" y="78" font-family="Arial, sans-serif" font-size="11" fill="#ffa726">Attendance Rate</text>
+  </g>
+
+  <!-- Leave stat -->
+  <g transform="translate(660, 380)">
+    <rect rx="14" ry="14" width="155" height="90" fill="#f5eeff" filter="url(#shadowSmall)"/>
+    <g transform="translate(15, 12)">
+      <circle cx="14" cy="14" r="11" fill="#7b1fa2" opacity="0.15"/>
+      <rect x="6" y="7" rx="2" ry="2" width="16" height="14" fill="none" stroke="#7b1fa2" stroke-width="1.5" opacity="0.7"/>
+      <line x1="6" y1="12" x2="22" y2="12" stroke="#7b1fa2" stroke-width="1.5" opacity="0.5"/>
+      <line x1="11" y1="5" x2="11" y2="8" stroke="#7b1fa2" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="17" y1="5" x2="17" y2="8" stroke="#7b1fa2" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+    </g>
+    <text x="15" y="60" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#7b1fa2">5</text>
+    <text x="15" y="78" font-family="Arial, sans-serif" font-size="11" fill="#ab47bc">On Leave Today</text>
+  </g>
+
+  <!-- Shift progress section -->
+  <g transform="translate(490, 488)">
+    <rect rx="14" ry="14" width="325" height="75" fill="white" stroke="#eeeeee" stroke-width="1"/>
+    <text x="18" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#37474f">Today's Shift Coverage</text>
+    <!-- Progress bar track -->
+    <rect x="18" y="38" rx="5" ry="5" width="290" height="10" fill="#e8f5e9"/>
+    <!-- Progress bar fill -->
+    <rect x="18" y="38" rx="5" ry="5" width="230" height="10" fill="url(#greenGrad)"/>
+    <text x="18" y="65" font-family="Arial, sans-serif" font-size="10" fill="#78909c">38 of 48 employees clocked in</text>
+    <text x="255" y="65" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#2e7d32">79%</text>
+  </g>
+
+  <!-- Bottom nav bar -->
+  <g transform="translate(146, 580)">
+    <rect rx="12" ry="12" width="660" height="46" fill="#fafafa"/>
+    <g transform="translate(25, 11)">
+      <rect x="0" y="0" rx="2" ry="2" width="9" height="9" fill="#43a047"/>
+      <rect x="11" y="0" rx="2" ry="2" width="9" height="9" fill="#81c784" opacity="0.5"/>
+      <rect x="0" y="11" rx="2" ry="2" width="9" height="9" fill="#81c784" opacity="0.5"/>
+      <rect x="11" y="11" rx="2" ry="2" width="9" height="9" fill="#43a047"/>
+      <text x="28" y="16" font-family="Arial, sans-serif" font-size="11" fill="#43a047" font-weight="600">Dashboard</text>
+    </g>
+    <g transform="translate(145, 11)">
+      <circle cx="8" cy="8" r="6" fill="#e0e0e0"/>
+      <circle cx="8" cy="5" r="3" fill="#bdbdbd"/>
+      <text x="22" y="16" font-family="Arial, sans-serif" font-size="11" fill="#9e9e9e">Employees</text>
+    </g>
+    <g transform="translate(265, 11)">
+      <circle cx="10" cy="10" r="7" fill="none" stroke="#bdbdbd" stroke-width="1.5"/>
+      <line x1="10" y1="10" x2="10" y2="5" stroke="#bdbdbd" stroke-width="1.5"/>
+      <text x="22" y="16" font-family="Arial, sans-serif" font-size="11" fill="#9e9e9e">Attendance</text>
+    </g>
+    <g transform="translate(385, 11)">
+      <rect x="1" y="1" rx="2" ry="2" width="14" height="14" fill="none" stroke="#bdbdbd" stroke-width="1.5"/>
+      <text x="22" y="16" font-family="Arial, sans-serif" font-size="11" fill="#9e9e9e">Rota</text>
+    </g>
+    <g transform="translate(470, 11)">
+      <path d="M 8 2 L 1 6 L 1 12 C 1 15 5 18 8 19 C 11 18 15 15 15 12 L 15 6 Z" fill="none" stroke="#bdbdbd" stroke-width="1.3"/>
+      <text x="22" y="16" font-family="Arial, sans-serif" font-size="11" fill="#9e9e9e">Compliance</text>
+    </g>
+    <g transform="translate(580, 11)">
+      <rect x="1" y="4" rx="1" ry="1" width="14" height="10" fill="none" stroke="#bdbdbd" stroke-width="1.5"/>
+      <line x1="1" y1="8" x2="15" y2="8" stroke="#bdbdbd" stroke-width="1"/>
+      <text x="22" y="16" font-family="Arial, sans-serif" font-size="11" fill="#9e9e9e">Payroll</text>
+    </g>
+  </g>
+
+  <!-- ==================== FLOATING CARDS ==================== -->
+
+  <!-- Top-right: Payroll notification -->
+  <g transform="translate(630, 110)" filter="url(#shadow)">
+    <rect rx="14" ry="14" width="230" height="66" fill="white"/>
+    <circle cx="34" cy="33" r="20" fill="#e8f5e9"/>
+    <path d="M 27 33 L 32 38 L 41 29" fill="none" stroke="#43a047" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="62" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#263238">Payroll Processed</text>
+    <text x="62" y="44" font-family="Arial, sans-serif" font-size="10" fill="#78909c">248 employees paid</text>
+  </g>
+
+  <!-- Top-left: Compliance -->
+  <g transform="translate(80, 120)" filter="url(#shadow)">
+    <rect rx="14" ry="14" width="230" height="66" fill="white"/>
+    <circle cx="34" cy="33" r="20" fill="#fff3e0"/>
+    <path d="M 34 20 L 22 26 L 22 34 C 22 40 28 46 34 48 C 40 46 46 40 46 34 L 46 26 Z" fill="none" stroke="#f57c00" stroke-width="2"/>
+    <path d="M 29 34 L 33 38 L 39 32" fill="none" stroke="#f57c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="62" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#263238">Compliance Check</text>
+    <text x="62" y="44" font-family="Arial, sans-serif" font-size="10" fill="#78909c">All documents verified</text>
+  </g>
+
+  <!-- Bottom-left: Rota -->
+  <g transform="translate(80, 680)" filter="url(#shadow)">
+    <rect rx="14" ry="14" width="220" height="66" fill="white"/>
+    <circle cx="34" cy="33" r="20" fill="#e3f2fd"/>
+    <rect x="24" y="24" rx="3" ry="3" width="20" height="16" fill="none" stroke="#1e88e5" stroke-width="2"/>
+    <line x1="24" y1="30" x2="44" y2="30" stroke="#1e88e5" stroke-width="1.5"/>
+    <line x1="30" y1="21" x2="30" y2="25" stroke="#1e88e5" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="38" y1="21" x2="38" y2="25" stroke="#1e88e5" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="62" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#263238">Weekly Rota Ready</text>
+    <text x="62" y="44" font-family="Arial, sans-serif" font-size="10" fill="#78909c">12 shifts scheduled</text>
+  </g>
+
+  <!-- Bottom-right: Leave approved -->
+  <g transform="translate(650, 680)" filter="url(#shadow)">
+    <rect rx="14" ry="14" width="220" height="66" fill="white"/>
+    <circle cx="34" cy="33" r="20" fill="#f3e5f5"/>
+    <rect x="25" y="24" rx="2" ry="2" width="18" height="16" fill="none" stroke="#7b1fa2" stroke-width="2"/>
+    <line x1="25" y1="30" x2="43" y2="30" stroke="#7b1fa2" stroke-width="1.5"/>
+    <path d="M 30 35 L 33 38 L 38 33" fill="none" stroke="#7b1fa2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="62" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#263238">Leave Approved</text>
+    <text x="62" y="44" font-family="Arial, sans-serif" font-size="10" fill="#78909c">James Wilson · 3 days</text>
+  </g>
+
+  <!-- ==================== DECORATIVE ELEMENTS ==================== -->
+
+  <!-- Soft glow behind dashboard -->
+  <circle cx="476" cy="440" r="300" fill="#43a047" opacity="0.03" filter="url(#glowGreen)"/>
+  <circle cx="476" cy="440" r="200" fill="#1e88e5" opacity="0.02" filter="url(#glowBlue)"/>
+
+  <!-- Bottom gem shapes -->
+  <g transform="translate(430, 810)" opacity="0.08">
+    <polygon points="50,0 100,30 100,75 50,105 0,75 0,30" fill="url(#gemGrad)"/>
+  </g>
+  <g transform="translate(200, 800)" opacity="0.05">
+    <polygon points="30,0 60,18 60,45 30,63 0,45 0,18" fill="#66bb6a"/>
+  </g>
+  <g transform="translate(700, 820)" opacity="0.05">
+    <polygon points="25,0 50,15 50,38 25,53 0,38 0,15" fill="#42a5f5"/>
+  </g>
+
+  <!-- Connecting lines (subtle network effect) -->
+  <g opacity="0.04" stroke="white" stroke-width="1">
+    <line x1="200" y1="160" x2="310" y2="195"/>
+    <line x1="750" y1="140" x2="630" y2="195"/>
+    <line x1="300" y1="750" x2="310" y2="665"/>
+    <line x1="760" y1="740" x2="650" y2="665"/>
+  </g>
+</svg>

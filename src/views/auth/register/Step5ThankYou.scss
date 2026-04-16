@@ -1,0 +1,590 @@
+// Step5ThankYou Component Styles
+.thank-you-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+
+    .thank-you-content {
+        background: white;
+        border-radius: 1rem;
+        padding: 3rem;
+        max-width: 800px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        animation: slideInUp 0.6s ease-out;
+
+        .success-animation {
+            margin-bottom: 2rem;
+
+            .checkmark-circle {
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #28a745, #20c997);
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: scaleIn 0.5s ease-out 0.2s both;
+
+                .checkmark {
+                    font-size: 3rem;
+                    color: white;
+                    font-weight: bold;
+                    animation: checkmarkPop 0.3s ease-out 0.7s both;
+                }
+            }
+        }
+
+        .thank-you-message {
+            margin-bottom: 3rem;
+
+            h1 {
+                font-size: 3rem;
+                color: #495057;
+                margin-bottom: 0.5rem;
+                font-weight: 700;
+                animation: fadeInUp 0.5s ease-out 0.4s both;
+            }
+
+            .subtitle {
+                font-size: 1.25rem;
+                color: #6c757d;
+                margin-bottom: 0;
+                animation: fadeInUp 0.5s ease-out 0.6s both;
+            }
+        }
+
+        .registration-summary {
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.5s ease-out 0.8s both;
+
+            .summary-card {
+                background: #f8f9fa;
+                border-radius: 0.75rem;
+                padding: 2rem;
+                text-align: left;
+
+                h3 {
+                    color: #495057;
+                    margin-bottom: 1.5rem;
+                    text-align: center;
+                    font-weight: 600;
+                }
+
+                .user-info,
+                .plan-info,
+                .payment-info {
+                    margin-bottom: 2rem;
+
+                    &:last-child {
+                        margin-bottom: 0;
+                    }
+
+                    h4 {
+                        color: #7367f0;
+                        margin-bottom: 1rem;
+                        font-weight: 600;
+                        font-size: 1.125rem;
+                    }
+
+                    h5 {
+                        color: #495057;
+                        margin-bottom: 0.75rem;
+                        font-weight: 600;
+                        font-size: 1rem;
+                    }
+
+                    .info-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 0.5rem 0;
+                        border-bottom: 1px solid #e9ecef;
+
+                        &:last-child {
+                            border-bottom: none;
+                        }
+
+                        .label {
+                            font-weight: 500;
+                            color: #6c757d;
+                        }
+
+                        .value {
+                            color: #495057;
+                            font-weight: 500;
+
+                            &.success {
+                                color: #28a745;
+                                font-weight: 600;
+                            }
+                        }
+                    }
+
+                    .plan-details {
+                        .plan-name {
+                            font-size: 1.125rem;
+                            font-weight: 600;
+                            color: #7367f0;
+                            margin-bottom: 0.5rem;
+                        }
+
+                        .plan-description {
+                            color: #6c757d;
+                            margin-bottom: 1rem;
+                            font-size: 0.875rem;
+                        }
+
+                        .selected-tools {
+                            ul {
+                                list-style: none;
+                                padding: 0;
+                                margin: 0;
+
+                                li {
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    padding: 0.5rem 0;
+                                    border-bottom: 1px solid #e9ecef;
+
+                                    &:last-child {
+                                        border-bottom: none;
+                                    }
+
+                                    .tool-icon {
+                                        color: #28a745;
+                                        font-weight: bold;
+                                        margin-right: 0.5rem;
+                                    }
+
+                                    .tool-name {
+                                        flex: 1;
+                                        text-align: left;
+                                    }
+
+                                    .tool-price {
+                                        font-weight: 500;
+                                        color: #495057;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    .payment-details {
+                        background: white;
+                        border-radius: 0.5rem;
+                        padding: 1rem;
+                    }
+                }
+            }
+        }
+
+        .next-steps {
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.5s ease-out 1s both;
+
+            h3 {
+                color: #495057;
+                margin-bottom: 2rem;
+                font-weight: 600;
+            }
+
+            .steps-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1.5rem;
+
+                .step-item {
+                    background: #f8f9fa;
+                    border-radius: 0.75rem;
+                    padding: 1.5rem;
+                    text-align: center;
+                    transition: transform 0.2s ease-in-out;
+
+                    &:hover {
+                        transform: translateY(-2px);
+                    }
+
+                    .step-icon {
+                        font-size: 2.5rem;
+                        margin-bottom: 1rem;
+                    }
+
+                    .step-content {
+                        h4 {
+                            color: #495057;
+                            margin-bottom: 0.5rem;
+                            font-weight: 600;
+                            font-size: 1rem;
+                        }
+
+                        p {
+                            color: #6c757d;
+                            margin-bottom: 0;
+                            font-size: 0.875rem;
+                            line-height: 1.4;
+                        }
+                    }
+                }
+            }
+        }
+
+        .redirect-section {
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.5s ease-out 1.2s both;
+
+            .redirect-message {
+                color: #6c757d;
+                margin-bottom: 1.5rem;
+                font-size: 1rem;
+
+                .countdown {
+                    font-weight: bold;
+                    color: #7367f0;
+                    font-size: 1.125rem;
+                }
+            }
+
+            .btn {
+                padding: 0.875rem 2rem;
+                border: none;
+                border-radius: 0.5rem;
+                font-weight: 600;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+
+                &.btn-primary {
+                    background-color: #7367f0;
+                    color: white;
+
+                    &:hover {
+                        background-color: #5e50ee;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(115, 103, 240, 0.3);
+                    }
+                }
+            }
+
+            .redirecting {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+
+                .spinner {
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #7367f0;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+
+                p {
+                    color: #6c757d;
+                    margin: 0;
+                    font-weight: 500;
+                }
+            }
+        }
+
+        .support-info {
+            animation: fadeInUp 0.5s ease-out 1.4s both;
+
+            p {
+                color: #6c757d;
+                margin: 0;
+                font-size: 0.875rem;
+
+                a {
+                    color: #7367f0;
+                    text-decoration: none;
+                    font-weight: 500;
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Animations
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes checkmarkPop {
+    from {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .thank-you-container {
+        padding: 1rem;
+
+        .thank-you-content {
+            padding: 2rem 1.5rem;
+
+            .success-animation {
+                .checkmark-circle {
+                    width: 80px;
+                    height: 80px;
+
+                    .checkmark {
+                        font-size: 2rem;
+                    }
+                }
+            }
+
+            .thank-you-message {
+                h1 {
+                    font-size: 2rem;
+                }
+
+                .subtitle {
+                    font-size: 1rem;
+                }
+            }
+
+            .registration-summary {
+                .summary-card {
+                    padding: 1.5rem;
+
+                    .info-row {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 0.25rem;
+
+                        .label {
+                            font-size: 0.875rem;
+                        }
+
+                        .value {
+                            font-size: 0.875rem;
+                        }
+                    }
+
+                    .selected-tools {
+                        ul {
+                            li {
+                                flex-direction: column;
+                                align-items: flex-start;
+                                gap: 0.25rem;
+
+                                .tool-name {
+                                    text-align: left;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            .next-steps {
+                .steps-grid {
+                    grid-template-columns: 1fr;
+                    gap: 1rem;
+
+                    .step-item {
+                        padding: 1rem;
+
+                        .step-icon {
+                            font-size: 2rem;
+                        }
+                    }
+                }
+            }
+
+            .redirect-section {
+                .btn {
+                    width: 100%;
+                }
+            }
+        }
+    }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+    .thank-you-container {
+        .thank-you-content {
+            background: #2d3748;
+            color: #e9ecef;
+
+            .thank-you-message {
+                h1 {
+                    color: #e9ecef;
+                }
+
+                .subtitle {
+                    color: #a0aec0;
+                }
+            }
+
+            .registration-summary {
+                .summary-card {
+                    background: #4a5568;
+
+                    h3 {
+                        color: #e9ecef;
+                    }
+
+                    .user-info,
+                    .plan-info,
+                    .payment-info {
+                        h4 {
+                            color: #9c88ff;
+                        }
+
+                        h5 {
+                            color: #e9ecef;
+                        }
+
+                        .info-row {
+                            border-bottom-color: #718096;
+
+                            .label {
+                                color: #a0aec0;
+                            }
+
+                            .value {
+                                color: #e9ecef;
+                            }
+                        }
+
+                        .plan-details {
+                            .plan-name {
+                                color: #9c88ff;
+                            }
+
+                            .plan-description {
+                                color: #a0aec0;
+                            }
+
+                            .selected-tools {
+                                ul {
+                                    li {
+                                        border-bottom-color: #718096;
+
+                                        .tool-name,
+                                        .tool-price {
+                                            color: #e9ecef;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        .payment-details {
+                            background: #2d3748;
+                        }
+                    }
+                }
+            }
+
+            .next-steps {
+                h3 {
+                    color: #e9ecef;
+                }
+
+                .steps-grid {
+                    .step-item {
+                        background: #4a5568;
+
+                        .step-content {
+                            h4 {
+                                color: #e9ecef;
+                            }
+
+                            p {
+                                color: #a0aec0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            .redirect-section {
+                .redirect-message {
+                    color: #a0aec0;
+                }
+
+                .redirecting {
+                    p {
+                        color: #a0aec0;
+                    }
+                }
+            }
+
+            .support-info {
+                p {
+                    color: #a0aec0;
+
+                    a {
+                        color: #9c88ff;
+                    }
+                }
+            }
+        }
+    }
+}

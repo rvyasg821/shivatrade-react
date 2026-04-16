@@ -1,0 +1,48 @@
+.dashboard-charts {
+    margin-bottom: 1.5rem;
+}
+
+.chart-card {
+    border: none;
+    box-shadow: 0 4px 24px 0 rgba(34, 41, 47, 0.1);
+    border-radius: 0.5rem;
+    height: 100%;
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid #ebe9f1;
+        padding: 1.25rem 1.5rem;
+
+        h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #5e5873;
+            margin-bottom: 0.25rem;
+        }
+
+        small {
+            font-size: 0.8125rem;
+        }
+    }
+
+    .card-body {
+        padding: 1rem 1.5rem;
+    }
+}
+
+// ApexCharts tooltip customization
+.apexcharts-tooltip {
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 24px 0 rgba(34, 41, 47, 0.1) !important;
+}
+
+.apexcharts-tooltip-title {
+    background: #f8f8f8 !important;
+    border-bottom: 1px solid #ebe9f1 !important;
+}
+
+// Legend styling
+.apexcharts-legend-text {
+    color: #6e6b7b !important;
+    font-size: 13px !important;
+}

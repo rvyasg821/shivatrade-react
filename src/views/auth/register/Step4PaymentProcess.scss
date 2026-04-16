@@ -1,0 +1,478 @@
+// Step4PaymentProcess Component Styles
+.payment-process-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+
+    .payment-process-content {
+        background: white;
+        border-radius: 1rem;
+        padding: 3rem;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+
+        .brand-logo {
+            margin-bottom: 2rem;
+
+            .logo-placeholder {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 80px;
+                height: 80px;
+                background: linear-gradient(135deg, #7367f0, #9c88ff);
+                border-radius: 50%;
+                margin-bottom: 1rem;
+
+                .logo-text {
+                    color: white;
+                    font-weight: bold;
+                    font-size: 0.875rem;
+                }
+            }
+        }
+
+        .payment-status {
+            margin-bottom: 3rem;
+
+            .status-icon {
+                margin-bottom: 1.5rem;
+
+                &.loading {
+                    .payment-loader {
+                        display: inline-block;
+                    }
+                }
+
+                &.success {
+                    .status-emoji {
+                        font-size: 4rem;
+                        animation: bounceIn 0.6s ease-out;
+                    }
+                }
+
+                &.error {
+                    .status-emoji {
+                        font-size: 4rem;
+                        animation: shake 0.5s ease-in-out;
+                    }
+                }
+
+                .status-emoji {
+                    font-size: 4rem;
+                    display: block;
+                }
+
+                .payment-loader {
+                    display: none;
+
+                    .payment-circle {
+                        position: relative;
+                        width: 100px;
+                        height: 100px;
+                        border: 4px solid #f3f3f3;
+                        border-top: 4px solid #7367f0;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+
+                        .payment-inner-circle {
+                            width: 70px;
+                            height: 70px;
+                            background: white;
+                            border-radius: 50%;
+                            position: absolute;
+                        }
+
+                        .text-loader {
+                            font-size: 2rem;
+                            color: #7367f0;
+                            font-weight: bold;
+                            z-index: 1;
+                            margin: 0;
+                        }
+                    }
+                }
+            }
+
+            .status-message {
+                h2 {
+                    font-size: 1.5rem;
+                    color: #495057;
+                    margin-bottom: 0.5rem;
+                    font-weight: 600;
+                }
+
+                .retry-info {
+                    color: #ffc107;
+                    font-size: 0.875rem;
+                    margin-bottom: 0.5rem;
+                }
+
+                .success-info {
+                    color: #28a745;
+                    font-size: 0.875rem;
+                    margin-bottom: 0;
+                }
+
+                p {
+                    color: #6c757d;
+                    margin-bottom: 0;
+                    line-height: 1.5;
+                }
+            }
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+
+            .btn {
+                padding: 0.75rem 1.5rem;
+                border: none;
+                border-radius: 0.5rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                &.btn-primary {
+                    background-color: #7367f0;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5e50ee;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                &.btn-secondary {
+                    background-color: #6c757d;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5a6268;
+                        transform: translateY(-1px);
+                    }
+                }
+            }
+        }
+
+        .progress-indicator {
+            margin-bottom: 2rem;
+
+            .progress-steps {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 1rem;
+
+                .step {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.5rem;
+                    position: relative;
+
+                    &:not(:last-child)::after {
+                        content: '';
+                        position: absolute;
+                        top: 15px;
+                        left: calc(100% + 0.5rem);
+                        width: 1rem;
+                        height: 2px;
+                        background-color: #e9ecef;
+                    }
+
+                    &.completed {
+                        .step-number {
+                            background-color: #28a745;
+                            color: white;
+                        }
+
+                        &:not(:last-child)::after {
+                            background-color: #28a745;
+                        }
+                    }
+
+                    &.active {
+                        .step-number {
+                            background-color: #7367f0;
+                            color: white;
+                            animation: pulse 2s infinite;
+                        }
+                    }
+
+                    .step-number {
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 50%;
+                        background-color: #e9ecef;
+                        color: #6c757d;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                    }
+
+                    .step-label {
+                        font-size: 0.75rem;
+                        color: #6c757d;
+                        white-space: nowrap;
+                    }
+                }
+            }
+        }
+
+        .security-notice {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+
+            .security-icon {
+                font-size: 1.25rem;
+                color: #28a745;
+            }
+
+            .security-text {
+                font-size: 0.875rem;
+                color: #495057;
+                text-align: left;
+
+                strong {
+                    color: #28a745;
+                }
+            }
+        }
+    }
+}
+
+// Animations
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    70% {
+        transform: scale(0.9);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .payment-process-container {
+        padding: 1rem;
+
+        .payment-process-content {
+            padding: 2rem 1.5rem;
+
+            .brand-logo {
+                .logo-placeholder {
+                    width: 60px;
+                    height: 60px;
+
+                    .logo-text {
+                        font-size: 0.75rem;
+                    }
+                }
+            }
+
+            .payment-status {
+                .status-icon {
+                    .status-emoji {
+                        font-size: 3rem;
+                    }
+
+                    .payment-loader {
+                        .payment-circle {
+                            width: 80px;
+                            height: 80px;
+
+                            .payment-inner-circle {
+                                width: 56px;
+                                height: 56px;
+                            }
+
+                            .text-loader {
+                                font-size: 1.5rem;
+                            }
+                        }
+                    }
+                }
+
+                .status-message {
+                    h2 {
+                        font-size: 1.25rem;
+                    }
+                }
+            }
+
+            .action-buttons {
+                flex-direction: column;
+
+                .btn {
+                    width: 100%;
+                }
+            }
+
+            .progress-indicator {
+                .progress-steps {
+                    gap: 0.5rem;
+
+                    .step {
+                        .step-number {
+                            width: 24px;
+                            height: 24px;
+                            font-size: 0.75rem;
+                        }
+
+                        .step-label {
+                            font-size: 0.6875rem;
+                        }
+
+                        &:not(:last-child)::after {
+                            top: 12px;
+                            width: 0.5rem;
+                        }
+                    }
+                }
+            }
+
+            .security-notice {
+                flex-direction: column;
+                text-align: center;
+
+                .security-text {
+                    text-align: center;
+                }
+            }
+        }
+    }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+    .payment-process-container {
+        .payment-process-content {
+            background: #2d3748;
+            color: #e9ecef;
+
+            .payment-status {
+                .status-message {
+                    h2 {
+                        color: #e9ecef;
+                    }
+
+                    p {
+                        color: #a0aec0;
+                    }
+                }
+            }
+
+            .progress-indicator {
+                .progress-steps {
+                    .step {
+                        .step-number {
+                            background-color: #4a5568;
+                            color: #a0aec0;
+                        }
+
+                        .step-label {
+                            color: #a0aec0;
+                        }
+
+                        &:not(:last-child)::after {
+                            background-color: #4a5568;
+                        }
+
+                        &.completed {
+                            .step-number {
+                                background-color: #28a745;
+                                color: white;
+                            }
+
+                            &:not(:last-child)::after {
+                                background-color: #28a745;
+                            }
+                        }
+                    }
+                }
+            }
+
+            .security-notice {
+                background: #2d5a2d;
+
+                .security-text {
+                    color: #e9ecef;
+                }
+            }
+        }
+    }
+}

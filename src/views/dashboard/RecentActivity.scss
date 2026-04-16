@@ -1,0 +1,130 @@
+.recent-activity-card {
+    width: 100%;
+    border: none;
+    box-shadow: 0 4px 24px 0 rgba(34, 41, 47, 0.1);
+    border-radius: 0.5rem;
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid #ebe9f1;
+        padding: 1.25rem 1.5rem;
+
+        h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #5e5873;
+        }
+    }
+
+    .activity-list-body {
+        padding: 0;
+        max-height: 355px;
+        overflow-y: auto;
+
+        &::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: #d8d6de;
+            border-radius: 4px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background-color: #f8f8f8;
+        }
+    }
+}
+
+.activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #ebe9f1;
+    transition: background-color 0.15s ease;
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover {
+        background-color: #f8f8f8;
+    }
+}
+
+.activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 1rem;
+}
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.activity-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #5e5873;
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: #b9b9c3;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.activity-description {
+    font-size: 0.8125rem;
+    color: #6e6b7b;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.activity-amount {
+    font-weight: 600;
+    color: #28c76f;
+    background: rgba(40, 199, 111, 0.12);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+// Light background colors
+.bg-light-success {
+    background-color: rgba(40, 199, 111, 0.12) !important;
+}
+
+.bg-light-info {
+    background-color: rgba(0, 207, 232, 0.12) !important;
+}
+
+.bg-light-primary {
+    background-color: rgba(115, 103, 240, 0.12) !important;
+}
+
+.bg-light-secondary {
+    background-color: rgba(130, 134, 139, 0.12) !important;
+}

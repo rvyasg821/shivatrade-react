@@ -1,0 +1,139 @@
+.stats-container {
+    padding: 1rem;
+}
+
+.stats-section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #5e5873;
+    margin-bottom: 1.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+
+    @media (max-width: 1200px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 576px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.stats-card {
+    border: none;
+    box-shadow: 0 4px 24px 0 rgba(34, 41, 47, 0.1);
+    border-radius: 0.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(34, 41, 47, 0.15);
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+}
+
+.stats-card-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stats-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stats-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.stats-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-title {
+    font-size: 0.875rem;
+    color: #6e6b7b;
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+
+    p {
+        color: #6e6b7b;
+        margin: 0;
+    }
+}
+
+.stats-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+
+    p {
+        color: #ea5455;
+        margin: 0;
+        font-size: 1rem;
+    }
+}
+
+// Light background colors
+.bg-light-primary {
+    background-color: rgba(115, 103, 240, 0.12) !important;
+}
+
+.bg-light-success {
+    background-color: rgba(40, 199, 111, 0.12) !important;
+}
+
+.bg-light-info {
+    background-color: rgba(0, 207, 232, 0.12) !important;
+}
+
+.bg-light-warning {
+    background-color: rgba(255, 159, 67, 0.12) !important;
+}
+
+.bg-light-danger {
+    background-color: rgba(234, 84, 85, 0.12) !important;
+}
+
+.bg-light-secondary {
+    background-color: rgba(130, 134, 139, 0.12) !important;
+}
+
+.bg-light-dark {
+    background-color: rgba(75, 75, 75, 0.12) !important;
+}

@@ -1,0 +1,203 @@
+[
+  {
+    "group_name": "general",
+    "name": "General",
+    "createdAt": "2025-05-22T13:30:22.493Z",
+    "slug": "general-settings",
+    "soft_delete": false,
+    "status": true,
+    "updatedAt": "2025-07-24T08:41:01.220Z",
+    "values": [
+      {
+        "group": "general",
+        "settings": [
+          {
+            "name": "Admin Email",
+            "key": "admin_email",
+            "type": "string",
+            "value": "admin@example.com",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group_name": "smtp",
+    "name": "SMTP setting",
+    "createdAt": "2025-05-22T13:30:22.510Z",
+    "slug": "email-settings",
+    "soft_delete": false,
+    "status": true,
+    "updatedAt": "2025-07-24T08:40:39.505Z",
+    "values": [
+      {
+        "group": "smtp",
+        "settings": [
+          {
+            "name": "From Name",
+            "key": "from_name",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "From Email",
+            "key": "from_email",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": true,
+            "status": true
+          },
+          {
+            "name": "SMTP Host",
+            "key": "host",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "SMTP Port",
+            "key": "port",
+            "type": "number",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "SMTP Auth Email",
+            "key": "auth_email",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": true,
+            "status": true
+          },
+
+          {
+            "name": "SMTP Auth Password",
+            "key": "auth_password",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "BCC Email",
+            "key": "bcc_email",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": true,
+            "status": true
+          },
+          {
+            "name": "BCC Enable",
+            "key": "bcc_include",
+            "type": "boolean",
+            "value": false,
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          }
+        ]
+      }
+    ]
+  },
+ {
+  "group_name": "Amazon Setting",
+  "name": "Amazon Setting",
+  "createdAt": "2025-05-22T13:30:22.520Z",
+  "slug": "amazon_setting",
+  "soft_delete": false,
+  "status": true,
+  "updatedAt": "2025-07-23T14:24:31.041Z",
+  "values": [
+    {
+      "group": "amazon-credentials",
+      "settings": [
+        {
+          "name": "Amazon Id",
+          "key": "amazon_id",
+          "type": "string",
+          "value": "your_amazon_id",
+          "isCurrency": false,
+          "isEmail": false,
+          "status": true
+        },
+        {
+          "name": "Amazon Secret Key",
+          "key": "amazon_secret_key",
+          "type": "string",
+          "value": "your_amazon_secret_key",
+          "isCurrency": false,
+          "isEmail": false,
+          "status": true
+        }
+      ]
+    }
+  ]
+}
+,
+  {
+    "group_name": "payment",
+    "name": "Payment",
+    "createdAt": "2025-05-22T13:30:22.524Z",
+    "slug": "payment-setting",
+    "soft_delete": false,
+    "status": true,
+    "updatedAt": "2025-07-23T14:24:33.241Z",
+    "values": [
+      {
+        "group": "stripe",
+        "settings": [
+          {
+            "name": "Stripe Publishable Key",
+            "key": "stripe_publishable_key",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "Stripe Secret Key",
+            "key": "stripe_secret_key",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "Platform Account ID",
+            "key": "platform_account_id",
+            "type": "string",
+            "value": "",
+            "isCurrency": false,
+            "isEmail": false,
+            "status": true
+          },
+          {
+            "name": "stripe currency",
+            "key": "stripe_currency",
+            "type": "string",
+            "value": "",
+            "isCurrency": true,
+            "isEmail": false,
+            "status": true
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,1177 @@
+// Super Admin Edit Subscription Page Styles
+.admin-edit-subscription-page {
+
+
+  // Global Editable Field Styles (applied anywhere in the page)
+  .editable-field {
+    position: relative;
+
+    input.form-control,
+    .form-control {
+      border: 2px solid #d7a887 !important;
+      background-color: rgba(230, 201, 183, 0.08) !important;
+      padding-right: 2.5rem;
+
+      &:focus {
+        border-color: #e6c9b7 !important;
+        box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25) !important;
+        background-color: #fff !important;
+      }
+
+      &:hover {
+        background-color: rgba(230, 201, 183, 0.12) !important;
+      }
+    }
+
+    &::after {
+      content: '✎';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #d7a887;
+      font-size: 1rem;
+      pointer-events: none;
+      font-weight: bold;
+      z-index: 2;
+    }
+  }
+
+  // Global Editable Input Group Styles
+  .input-group.editable-input {
+    .input-group-text {
+      background: rgba(230, 201, 183, 0.25) !important;
+      border: 2px solid #d7a887 !important;
+      border-right: none !important;
+      color: #09418B !important;
+      font-weight: 600;
+    }
+
+    input.form-control,
+    .form-control {
+      border: 2px solid #d7a887 !important;
+      border-left: none !important;
+      background-color: rgba(230, 201, 183, 0.08) !important;
+
+      &:focus {
+        border-color: #d7a887 !important;
+        box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25) !important;
+        background-color: #fff !important;
+      }
+
+      &:hover {
+        background-color: rgba(230, 201, 183, 0.12) !important;
+      }
+    }
+  }
+
+  // Editable badge styling
+  label,
+  .form-label {
+    small.text-success {
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(230, 201, 183, 0.4) !important;
+      color: #09418B !important;
+      padding: 0.125rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+  }
+
+  // Custom location input styles
+  .custom-location-input {
+    .input-group {
+      flex-wrap: nowrap !important;
+
+      .form-control {
+        border: 2px solid #d7a887 !important;
+        border-right: none !important;
+        border-radius: 0.375rem 0 0 0.375rem !important;
+        background-color: rgba(230, 201, 183, 0.08) !important;
+
+        &:focus {
+          border-color: #d7a887 !important;
+          box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25) !important;
+          background-color: #fff !important;
+        }
+
+        &:hover {
+          background-color: rgba(230, 201, 183, 0.12) !important;
+        }
+      }
+
+      .custom-location-close {
+        border: 2px solid #d7a887 !important;
+        border-left: none !important;
+        border-radius: 0 0.375rem 0.375rem 0 !important;
+        background-color: rgba(230, 201, 183, 0.15) !important;
+        color: #09418B !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.375rem 0.75rem;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background-color: rgba(220, 53, 69, 0.1) !important;
+          border-color: #dc3545 !important;
+          color: #dc3545 !important;
+        }
+
+        &:focus {
+          box-shadow: none !important;
+        }
+
+        svg {
+          stroke-width: 2.5;
+        }
+      }
+    }
+  }
+
+  // Tool price edit input styles (global)
+  .tool-price-edit {
+    .input-group.input-group-sm {
+      max-width: 150px;
+      flex-wrap: nowrap !important;
+      display: inline-flex !important;
+
+      > .input-group-text {
+        background: rgba(230, 201, 183, 0.25) !important;
+        border: 2px solid #d7a887 !important;
+        border-right: none !important;
+        border-radius: 0.25rem 0 0 0.25rem !important;
+        color: #09418B !important;
+        font-size: 0.8125rem !important;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem !important;
+        height: 31px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        margin-right: -2px !important;
+        position: relative;
+        z-index: 1;
+      }
+
+      > input,
+      > .form-control,
+      > .form-control-sm,
+      > .tool-price-input {
+        font-size: 0.8125rem !important;
+        padding: 0.25rem 0.5rem !important;
+        text-align: right;
+        border: 2px solid #d7a887 !important;
+        border-left: none !important;
+        border-radius: 0 0.25rem 0.25rem 0 !important;
+        background-color: rgba(230, 201, 183, 0.08) !important;
+        height: 31px !important;
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 80px !important;
+        margin: 0 !important;
+
+        &:focus {
+          border-color: #d7a887 !important;
+          box-shadow: 0 0 0 0.15rem rgba(230, 201, 183, 0.25) !important;
+          background-color: #fff !important;
+          z-index: 2;
+          position: relative;
+        }
+
+        &:hover {
+          background-color: rgba(230, 201, 183, 0.12) !important;
+        }
+      }
+    }
+  }
+
+  .page-header {
+    margin-bottom: 2rem;
+
+    h3 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: #6c757d;
+    }
+  }
+
+  // Company Info Card
+  .company-info-card {
+    background: #e6c9b7;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: white;
+    box-shadow: 0 4px 12px rgba(230, 201, 183, 0.2);
+
+    .company-title {
+      font-size: 1.285rem;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 0.25rem;
+    }
+
+    .plan-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #09418B;
+      color: white;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .info-list {
+      .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .label {
+          font-size: 0.875rem;
+          color: rgba(255, 255, 255, 0.9);
+          font-weight: 500;
+        }
+
+        .value {
+          font-size: 0.875rem;
+          color: white;
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  // Form Sections
+  .form-section {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+
+    .section-header {
+      margin-bottom: 1.5rem;
+
+      h5 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+      }
+
+      .section-subtitle {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+      }
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #495057;
+      margin-bottom: 0.5rem;
+
+      small.text-success {
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: rgba(230, 201, 183, 0.3);
+        color: #09418B;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.25rem;
+      }
+    }
+
+    .form-control {
+      font-size: 0.875rem;
+      border-radius: 0.375rem;
+      border: 1px solid #ced4da;
+      padding: 0.571rem 1rem;
+
+      &:focus {
+        border-color: #e6c9b7;
+        box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25);
+      }
+
+      &:disabled {
+        background-color: #e9ecef;
+      }
+    }
+
+    // Editable field styling
+    .editable-field {
+      position: relative;
+
+      .form-control {
+        border: 2px solid #d7a887;
+        background-color: rgba(230, 201, 183, 0.08);
+        padding-right: 2.5rem;
+
+        &:focus {
+          border-color: #e6c9b7;
+          box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25);
+          background-color: #fff;
+        }
+
+        &:hover {
+          background-color: rgba(230, 201, 183, 0.12);
+        }
+      }
+
+      &::after {
+        content: '✎';
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #d7a887;
+        font-size: 1rem;
+        pointer-events: none;
+        font-weight: bold;
+      }
+    }
+
+    // Input group styling for price fields
+    .input-group {
+      .input-group-text {
+        background: #f8f9fa;
+        border-color: #ced4da;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #495057;
+      }
+
+      .form-control {
+        border-left: none;
+
+        &:focus {
+          border-color: #e6c9b7;
+          box-shadow: none;
+
+          & + .input-group-text,
+          & ~ .input-group-text {
+            border-color: #e6c9b7;
+          }
+        }
+      }
+
+      &.editable-input {
+        .input-group-text {
+          background: rgba(230, 201, 183, 0.25);
+          border: 2px solid #d7a887;
+          border-right: none;
+          color: #09418B;
+          font-weight: 600;
+        }
+
+        .form-control {
+          border: 2px solid #d7a887;
+          border-left: none;
+          background-color: rgba(230, 201, 183, 0.08);
+
+          &:focus {
+            border-color: #e6c9b7;
+            box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25);
+            background-color: #fff;
+          }
+
+          &:hover {
+            background-color: rgba(230, 201, 183, 0.12);
+          }
+        }
+      }
+    }
+
+    // Helper text styling
+    small.text-info {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+    }
+
+    small.text-muted {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  // Discount Section
+  .discount-section {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+
+    .discount-input-wrapper {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+
+      .form-control {
+        flex: 1;
+      }
+
+      .btn {
+        white-space: nowrap;
+        min-width: 100px;
+      }
+    }
+
+    .applied-discount-card {
+      background: linear-gradient(118deg, rgba(40, 167, 69, 0.1), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(40, 167, 69, 0.3);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .discount-details {
+        .discount-code-text {
+          font-size: 1rem;
+          font-weight: 600;
+          color: #28a745;
+          margin-bottom: 0.25rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .discount-value-text {
+          font-size: 0.875rem;
+          color: #6c757d;
+          margin: 0;
+        }
+      }
+
+      .btn-remove {
+        background: transparent;
+        border: none;
+        color: #dc3545;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+          background: rgba(220, 53, 69, 0.1);
+        }
+      }
+    }
+  }
+
+  // Tools Section
+  .tools-section {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+
+    .section-header {
+      margin-bottom: 1.5rem;
+
+      h5 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+      }
+
+      .section-subtitle {
+        font-size: 0.9375rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+      }
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .tool-card {
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: #e6c9b7;
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+      }
+
+      &:hover {
+        border-color: #e6c9b7;
+        box-shadow: 0 4px 16px rgba(230, 201, 183, 0.15);
+        transform: translateY(-2px);
+
+        &::before {
+          transform: scaleX(1);
+        }
+      }
+
+      &.selected {
+        border-color: #e6c9b7;
+        background: linear-gradient(135deg, rgba(230, 201, 183, 0.05), rgba(230, 201, 183, 0.02));
+        box-shadow: 0 4px 12px rgba(230, 201, 183, 0.2);
+
+        &::before {
+          transform: scaleX(1);
+        }
+
+        .tool-name {
+          color: #e6c9b7;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+
+        &:hover {
+          transform: none;
+          border-color: #e9ecef;
+          box-shadow: none;
+
+          &::before {
+            transform: scaleX(0);
+          }
+        }
+      }
+
+      &.mandatory {
+        border-color: #09418B;
+        background: linear-gradient(135deg, rgba(97, 50, 40, 0.05), rgba(97, 50, 40, 0.02));
+        cursor: not-allowed;
+
+        &::before {
+          background: #09418B;
+          transform: scaleX(1);
+        }
+
+        &:hover {
+          transform: none;
+          box-shadow: 0 4px 12px rgba(97, 50, 40, 0.15);
+        }
+
+        .tool-name {
+          color: #09418B;
+        }
+
+        .tool-checkbox {
+          input[type="checkbox"] {
+            +label {
+              background-color: #09418B;
+              border-color: #09418B;
+              cursor: not-allowed;
+
+              &::after {
+                display: block;
+              }
+            }
+          }
+        }
+      }
+
+      .tool-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+
+        .tool-checkbox {
+          position: relative;
+
+          input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+
+            +label {
+              position: relative;
+              cursor: pointer;
+              padding: 0;
+              margin: 0;
+              width: 24px;
+              height: 24px;
+              border: 2px solid #09418B;
+              border-radius: 0.375rem;
+              display: inline-block;
+              transition: all 0.2s ease;
+
+              &::after {
+                content: '';
+                position: absolute;
+                display: none;
+                left: 7px;
+                top: 3px;
+                width: 6px;
+                height: 10px;
+                border: solid white;
+                border-width: 0 2px 2px 0;
+                transform: rotate(45deg);
+              }
+            }
+
+            &:checked+label {
+              background-color: #09418B;
+              border-color: #09418B;
+
+              &::after {
+                display: block;
+              }
+            }
+          }
+        }
+
+        .selected-badge {
+          background: #28a745;
+          color: white;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: pop-in 0.3s ease;
+        }
+
+        .mandatory-badge {
+          background: #09418B;
+          color: white;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.25rem;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+
+      .tool-card-body {
+        .tool-name {
+          font-size: 1.0625rem;
+          font-weight: 600;
+          color: #495057;
+          margin: 0 0 0.5rem 0;
+          transition: color 0.2s ease;
+        }
+
+        .tool-description {
+          font-size: 0.875rem;
+          color: #6c757d;
+          line-height: 1.5;
+          margin: 0 0 0.75rem 0;
+          min-height: 40px;
+        }
+
+        .tool-price-input {
+          margin-top: 0.75rem;
+
+          .price-label {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+            display: block;
+          }
+
+          .price-input {
+            font-size: 0.875rem;
+            border-radius: 0.375rem;
+            border: 1px solid #ced4da;
+            padding: 0.438rem 0.75rem;
+            width: 100%;
+
+            &:focus {
+              border-color: #e6c9b7;
+              box-shadow: 0 0 0 0.2rem rgba(230, 201, 183, 0.25);
+            }
+
+            &:disabled {
+              background-color: #e9ecef;
+              cursor: not-allowed;
+            }
+          }
+        }
+
+        .tool-price-info {
+          margin-top: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+
+          .tool-price {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #09418B;
+          }
+
+          .tool-price-detail {
+            font-size: 0.75rem;
+            color: #6c757d;
+          }
+
+          .pricing-mode-badge {
+            display: inline-block;
+            background: rgba(230, 201, 183, 0.2);
+            color: #09418B;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+            width: fit-content;
+          }
+
+          // Tool price edit input styles
+          .tool-price-edit {
+            .input-group {
+              max-width: 150px;
+
+              .input-group-text {
+                background: rgba(230, 201, 183, 0.25);
+                border: 2px solid #d7a887;
+                border-right: none;
+                color: #09418B;
+                font-size: 0.875rem;
+                font-weight: 600;
+                padding: 0.25rem 0.5rem;
+              }
+
+              .tool-price-input {
+                font-size: 0.875rem;
+                padding: 0.25rem 0.5rem;
+                text-align: right;
+                border: 2px solid #d7a887;
+                border-left: none;
+                background-color: rgba(230, 201, 183, 0.08);
+
+                &:focus {
+                  border-color: #e6c9b7;
+                  box-shadow: 0 0 0 0.15rem rgba(230, 201, 183, 0.25);
+                  background-color: #fff;
+                }
+
+                &:hover {
+                  background-color: rgba(230, 201, 183, 0.12);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .no-tools-message,
+    .loading-message {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: #6c757d;
+      font-size: 0.875rem;
+      background: #f8f9fa;
+      border-radius: 0.5rem;
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+
+    50% {
+      transform: scale(1.1);
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  // Payment Summary Section - styled identically to Company Admin edit page
+  .payment-summary-section {
+    position: sticky;
+    top: 2rem;
+
+    .payment-summary {
+      background: #ffffff;
+      border: 1px solid #e9ecef;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+      .summary-header {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+
+        .plan-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: #d7a887;
+          color: #09418B;
+          padding: 0.375rem 0.75rem;
+          border-radius: 10px;
+          font-size: 0.875rem;
+          font-weight: 500;
+          margin-bottom: 0.75rem;
+
+          .recurring-badge {
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+          }
+        }
+
+        .summary-title {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #495057;
+          margin: 0;
+        }
+      }
+
+      .summary-content {
+        .summary-section {
+          margin-bottom: 1.5rem;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+
+          .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #495057;
+            margin: 0 0 0.75rem 0;
+          }
+
+          .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+
+            &:last-child {
+              margin-bottom: 0;
+            }
+
+            .summary-label {
+              font-size: 1.1rem;
+              color: #6c757d;
+              display: flex;
+              align-items: center;
+              gap: 0.375rem;
+              font-weight: 600;
+
+              small {
+                color: #000 !important;
+              }
+            }
+
+            .summary-value {
+              font-size: 0.875rem;
+              font-weight: 500;
+              color: #495057;
+              text-align: right;
+            }
+
+            &.tool-row {
+              .tool-icon {
+                color: #28a745;
+                font-weight: bold;
+              }
+            }
+
+            &.discount-row {
+              .summary-label {
+                color: #28a745;
+                font-weight: 600;
+
+                .discount-icon {
+                  margin-right: 0.25rem;
+                }
+              }
+
+              .summary-value {
+                color: #28a745;
+                font-weight: 700;
+              }
+            }
+
+            &.tax-row {
+              .summary-label {
+                font-size: 0.8125rem;
+                color: #495057;
+              }
+
+              .summary-value {
+                font-weight: 600;
+              }
+            }
+
+            &.total-row {
+              padding: 0.75rem 0;
+              border-top: 2px solid #e6c9b7;
+              margin-top: 0.75rem;
+
+              .summary-label {
+                font-size: 1.125rem;
+                font-weight: 600;
+                color: #495057;
+              }
+
+              .total-amount {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: #e6c9b7;
+              }
+            }
+          }
+        }
+
+        .total-section {
+          background: #f8f9fa;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          border: 2px solid #e6c9b7;
+        }
+
+        .special-offer {
+          background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+          border: 1px solid #a5d6a7;
+          border-radius: 0.5rem;
+          padding: 0.75rem 1rem;
+          margin-bottom: 1rem;
+
+          .offer-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+
+            .offer-icon {
+              font-size: 1rem;
+            }
+
+            .offer-text {
+              font-size: 0.875rem;
+              font-weight: 600;
+              color: #2e7d32;
+            }
+          }
+
+          .savings-amount {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #1b5e20;
+          }
+        }
+
+        .summary-footer {
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e9ecef;
+
+          .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+
+            &:last-child {
+              margin-bottom: 0;
+            }
+
+            .info-icon {
+              color: #e6c9b7;
+              font-weight: bold;
+              min-width: 16px;
+            }
+
+            .info-text {
+              color: #6c757d;
+              line-height: 1.4;
+            }
+          }
+        }
+
+        .security-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          background: #e8f5e8;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          margin-top: 1.5rem;
+
+          .security-icon {
+            font-size: 1.25rem;
+            color: #28a745;
+            margin-top: 0.125rem;
+          }
+
+          .security-text {
+            font-size: 0.875rem;
+            color: #495057;
+            line-height: 1.4;
+
+            strong {
+              color: #28a745;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Action Buttons
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    margin-bottom: 3rem;
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 0.75rem;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    bottom: 1rem;
+    z-index: 100;
+
+    .btn {
+      min-width: 120px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.786rem 1.5rem;
+      border-radius: 0.5rem;
+    }
+
+    .btn-secondary {
+      background: white;
+      border: 2px solid #e9ecef;
+      color: #6c757d;
+
+      &:hover {
+        background: #f8f9fa;
+        border-color: #ced4da;
+      }
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #e6c9b7, #9e95f5);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 12px rgba(230, 201, 183, 0.3);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(230, 201, 183, 0.4);
+      }
+    }
+  }
+}
+
+// Responsive
+@media (max-width: 1200px) {
+  .admin-edit-subscription-page {
+    .tools-section {
+      .tools-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+    }
+  }
+}
+
+@media (max-width: 991.98px) {
+  .admin-edit-subscription-page {
+    .payment-summary-section {
+      position: static;
+      margin-top: 1.5rem;
+    }
+
+    .tools-section {
+      .tools-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 767.98px) {
+  .admin-edit-subscription-page {
+    .discount-section {
+      .discount-input-wrapper {
+        flex-direction: column;
+
+        .btn {
+          width: 100%;
+        }
+      }
+    }
+
+    .tools-section {
+      .tools-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
+
+    .company-info-card {
+      padding: 1rem;
+    }
+
+    .form-actions {
+      flex-direction: column-reverse;
+      position: sticky;
+      bottom: 0;
+      margin-bottom: 0;
+      border-radius: 0.75rem 0.75rem 0 0;
+
+      .btn {
+        width: 100%;
+      }
+    }
+  }
+}

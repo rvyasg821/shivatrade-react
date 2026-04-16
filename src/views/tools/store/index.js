@@ -1,0 +1,929 @@
+// ** Redux Imports
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit"
+
+// ** Api endpoints (for companies list only)
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints"
+
+// ** Axios Imports (for companies list only)
+import instance from "@src/utility/AxiosConfig"
+
+// ** Constant
+import { initUserItem } from "@constant/reduxConstant"
+
+// ** API Strategy Pattern
+import { ToolsAPIStrategyFactory } from "../strategies"
+
+// ** Authentication helpers
+import { getTenantId } from "@src/redux/authentication"
+// ** Response normalization
+import {
+    normalizeApiResponse,
+    validateNormalizedTool
+} from "../utils/responseNormalizer"
+
+// ** Performance optimizations
+import {
+    deduplicateRequest,
+    generateRequestKey,
+    getCachedCompanies,
+    cacheCompanies
+} from "../utils/performanceOptimizations"
+
+// ** Async function to get companies list for filter dropdown
+async function getCompaniesListRequest(params) {
+    return instance.get(`${API_ENDPOINTS.company.getList}`, { params })
+        .then((items) => items.data).catch((error) => error)
+}
+
+async function getToolsListRequest(params, tenantId) {
+    return instance.get(`/tenant/${tenantId}/tools`, { params })
+        .then((items) => items.data).catch((error) => error)
+}
+
+async function getTenantToolsListRequest(params) {
+    return instance.get(`${API_ENDPOINTS.tools.list}`, { params })
+        .then((items) => items.data).catch((error) => error)
+}
+
+export const getToolsList = createAsyncThunk(
+    "appTools/getToolsList",
+    async (params, { getState }) => {
+        try {
+            // Multi-tenant removed - all users use the same admin endpoint
+            const response = await getTenantToolsListRequest(params)
+
+            if (response?.statusCode && response.data) {
+                return {
+                    params,
+                    toolsItems: response.data,
+                    pagination: response?._metadata?.pagination || null,
+                    actionFlag: "TOOLS_LST_SCS",
+                    success: "",
+                    error: ""
+                }
+            } else {
+                return {
+                    params,
+                    toolsItems: [],
+                    pagination: null,
+                    actionFlag: "TOOLS_LST_ERR",
+                    success: "",
+                    error:
+                        response?.response?.data?.message ||
+                        response?.message ||
+                        "Failed to fetch tools list"
+                }
+            }
+        } catch (error) {
+            return {
+                params,
+                toolsItems: [],
+                pagination: null,
+                actionFlag: "TOOLS_LST_ERR",
+                success: "",
+                error: error.message || error
+            }
+        }
+    }
+)
+
+
+export const getCompaniesList = createAsyncThunk("appTools/getCompaniesList", async (params) => {
+    try {
+        // Check cache first
+        const cachedCompanies = getCachedCompanies()
+        if (cachedCompanies && !params.search) {
+            return {
+                params,
+                companiesItems: cachedCompanies,
+                actionFlag: "COMPANIES_LST_SCS",
+                success: "",
+                error: ""
+            }
+        }
+
+        // Generate request key for deduplication
+        const requestKey = generateRequestKey('getCompaniesList', params, 'admin')
+
+        // Deduplicate the request
+        const response = await deduplicateRequest(requestKey, () => getCompaniesListRequest(params))
+
+        if (response?.statusCode && response?.data) {
+            // Cache the companies list if no search filter
+            if (!params.search) {
+                cacheCompanies(response.data)
+            }
+
+            return {
+                params,
+                companiesItems: response.data,
+                actionFlag: "COMPANIES_LST_SCS",
+                success: "",
+                error: ""
+            }
+        } else {
+            return {
+                params,
+                companiesItems: [],
+                actionFlag: "COMPANIES_LST_ERR",
+                success: "",
+                error: response?.response?.data?.message || response.message,
+            }
+        }
+    } catch (error) {
+        return {
+            params,
+            companiesItems: [],
+            actionFlag: "COMPANIES_LST_ERR",
+            success: "",
+            error
+        }
+    }
+})
+
+async function getToolForSuperAdminRequest(id) {
+    return instance.get(`/admin/tools/${id}`).then((items) => items.data).catch((error) => error)
+}
+
+async function getToolRequest(id, tenantId) {
+    return instance.get(`/tenant/${tenantId}/tools/${id}`).then((items) => items.data).catch((error) => error)
+}
+
+export const getTool = createAsyncThunk(
+    "appTools/getTool",
+    async ({ id }, { getState }) => {
+        try {
+            // Multi-tenant removed - all users use the same admin endpoint
+            const response = await getToolForSuperAdminRequest(id)
+
+            if (response?.statusCode && response.data) {
+                return {
+                    id,
+                    toolItem: response.data,
+                    actionFlag: "TOOL_SCS",
+                    success: "",
+                    error: ""
+                }
+            } else {
+                return {
+                    id,
+                    toolItem: null,
+                    actionFlag: "TOOL_ERR",
+                    success: "",
+                    error:
+                        response?.response?.data?.message ||
+                        response?.message ||
+                        "Failed to fetch tool details"
+                }
+            }
+        } catch (error) {
+            return {
+                id,
+                toolItem: null,
+                actionFlag: "TOOL_ERR",
+                success: "",
+                error: error.message || error
+            }
+        }
+    }
+)
+
+// Multi-tenant removed - helper function for creating tools
+async function createToolRequest(data) {
+    return instance.post(`${API_ENDPOINTS.tools.create}`, data)
+        .then((response) => response.data).catch((error) => error)
+}
+
+export const createTool = createAsyncThunk("appTools/createTool", async ({ data, selectedCompany = null }, { getState }) => {
+    try {
+        // Multi-tenant removed - all users use the same admin endpoint
+        const response = await createToolRequest(data)
+
+        if (response?.statusCode && response?.data) {
+            return {
+                payload: { data, selectedCompany },
+                toolItem: response.data,
+                currentStrategy: null,
+                actionFlag: "TOOL_CRTD",
+                success: response?.message || "Tool created successfully",
+                error: ""
+            }
+        } else {
+            return {
+                payload: { data, selectedCompany },
+                toolItem: null,
+                currentStrategy: null,
+                actionFlag: "TOOL_CRTD_ERR",
+                success: "",
+                error: response?.response?.data?.message || response?.message || "Failed to create tool",
+            }
+        }
+    } catch (error) {
+        return {
+            payload: { data, selectedCompany },
+            toolItem: null,
+            currentStrategy: null,
+            actionFlag: "TOOL_CRTD_ERR",
+            success: "",
+            error: error.message || error
+        }
+    }
+})
+
+// Multi-tenant removed - helper function for updating tools
+async function updateToolRequest(id, data) {
+    const endpoint = `${API_ENDPOINTS.tools.update}/${id}/update`
+    return instance.put(endpoint, data)
+        .then((response) => response.data).catch((error) => error)
+}
+
+export const updateTool = createAsyncThunk("appTools/updateTool", async ({ id, data }) => {
+    try {
+        // Multi-tenant removed - all users use the same admin endpoint
+        const response = await updateToolRequest(id, data)
+
+        if (response?.statusCode && response?.data) {
+            return {
+                payload: { id, data },
+                toolItem: response.data,
+                actionFlag: "TOOL_UPDT",
+                success: response?.message || "Tool updated successfully",
+                error: ""
+            }
+        } else {
+            return {
+                payload: { id, data },
+                toolItem: null,
+                actionFlag: "TOOL_UPDT_ERR",
+                success: "",
+                error: response?.response?.data?.message || response?.message || "Failed to update tool",
+            }
+        }
+    } catch (error) {
+        return {
+            payload: { id, data },
+            toolItem: null,
+            actionFlag: "TOOL_UPDT_ERR",
+            success: "",
+            error: error.message || error
+        }
+    }
+})
+
+// Multi-tenant removed - helper function for deleting tools
+async function deleteToolRequest(id) {
+    const endpoint = `${API_ENDPOINTS.tools.delete}/${id}/delete`
+    return instance.delete(endpoint)
+        .then((response) => response.data).catch((error) => error)
+}
+
+export const deleteTool = createAsyncThunk("appTools/deleteTool", async ({ id, selectedCompany = null }, { getState }) => {
+    try {
+        // Multi-tenant removed - all users use the same admin endpoint
+        const response = await deleteToolRequest(id)
+
+        if (response?.statusCode === 200) {
+            return {
+                id,
+                selectedCompany,
+                currentStrategy: null,
+                actionFlag: "TOOL_DLT",
+                success: response?.message || "Tool deleted successfully",
+                error: ""
+            }
+        } else {
+            return {
+                id,
+                selectedCompany,
+                currentStrategy: null,
+                actionFlag: "",
+                success: "",
+                error: response?.response?.data?.message || response?.message || "Failed to delete tool",
+            }
+        }
+    } catch (error) {
+        return {
+            id,
+            selectedCompany,
+            currentStrategy: null,
+            actionFlag: "",
+            success: "",
+            error: error.message || error
+        }
+    }
+})
+
+// Multi-tenant removed - helper function for updating tool status
+async function updateToolStatusRequest(id, status) {
+    const endpoint = `${API_ENDPOINTS.tools.status}/${id}/status`
+    return instance.patch(endpoint, { status })
+        .then((response) => response.data).catch((error) => error)
+}
+
+export const updateToolStatus = createAsyncThunk("appTools/updateToolStatus", async ({ id, status, selectedCompany = null }, { getState }) => {
+    try {
+        // Multi-tenant removed - all users use the same admin endpoint
+        const response = await updateToolStatusRequest(id, status)
+
+        if (response?.statusCode && response?.data) {
+            return {
+                payload: { id, status, selectedCompany },
+                toolItem: response.data,
+                currentStrategy: null,
+                actionFlag: "TOOL_STATUS_UPDT",
+                success: response?.message || "Tool status updated successfully",
+                error: ""
+            }
+        } else {
+            return {
+                payload: { id, status, selectedCompany },
+                toolItem: null,
+                currentStrategy: null,
+                actionFlag: "TOOL_STATUS_UPDT_ERR",
+                success: "",
+                error: response?.response?.data?.message || response?.message || "Failed to update tool status",
+            }
+        }
+    } catch (error) {
+        return {
+            payload: { id, status, selectedCompany },
+            toolItem: null,
+            currentStrategy: null,
+            actionFlag: "TOOL_STATUS_UPDT_ERR",
+            success: "",
+            error: error.message || error
+        }
+    }
+})
+
+const getTenantToolSettingsRequest = async (tenantId, tenantToolId) => {
+    try {
+        const endpoint = API_ENDPOINTS.tenantToolSettings.getByTool
+            .replace('{tenantId}', tenantId)
+            .replace('{tenantToolId}', tenantToolId)
+
+        const response = await instance.get(endpoint)
+        return response.data
+    } catch (error) {
+        throw error
+    }
+}
+
+// ** Tenant Tool Settings Actions
+export const getTenantToolSettings = createAsyncThunk("appTools/getTenantToolSettings", async ({ tenantId, tenantToolId }) => {
+    try {
+        const response = await getTenantToolSettingsRequest(tenantId, tenantToolId)
+        if (response.data) {
+            return {
+                tenantId,
+                tenantToolId,
+                settings: response.data,
+                actionFlag: "TENANT_SETTINGS_FETCH_SUCCESS",
+                success: response.message || "Settings fetched successfully",
+                error: null
+            }
+        } else {
+            return {
+                tenantId,
+                tenantToolId,
+                settings: [],
+                actionFlag: "TENANT_SETTINGS_FETCH_ERROR",
+                success: "",
+                error: response.message || "Failed to fetch tenant tool settings"
+            }
+        }
+    } catch (error) {
+        return {
+            tenantId,
+            tenantToolId,
+            settings: [],
+            actionFlag: "TENANT_SETTINGS_FETCH_ERROR",
+            success: "",
+            error: error.response?.data?.message || error.message || "Failed to fetch tenant tool settings"
+        }
+    }
+})
+
+
+const updateTenantToolSettingRequest = async (tenantId, settingId, data) => {
+    try {
+        const endpoint = API_ENDPOINTS.tenantToolSettings.update
+            .replace('{tenantId}', tenantId)
+            .replace('{settingId}', settingId)
+
+        const response = await instance.put(endpoint, data)
+        return response.data
+    } catch (error) {
+        throw error
+    }
+}
+
+export const updateTenantToolSetting = createAsyncThunk("appTools/updateTenantToolSetting", async ({ tenantId, settingId, data }) => {
+    try {
+        const response = await updateTenantToolSettingRequest(tenantId, settingId, data)
+
+        if (response.data) {
+            return {
+                tenantId,
+                settingId,
+                updatedSetting: response.data,
+                actionFlag: "TENANT_SETTING_UPDATE_SUCCESS",
+                success: response.message || "Setting updated successfully",
+                error: null
+            }
+        } else {
+            return {
+                tenantId,
+                settingId,
+                updatedSetting: null,
+                actionFlag: "TENANT_SETTING_UPDATE_ERROR",
+                success: "",
+                error: response.message || "Failed to update tenant tool setting"
+            }
+        }
+    } catch (error) {
+        return {
+            tenantId,
+            settingId,
+            updatedSetting: null,
+            actionFlag: "TENANT_SETTING_UPDATE_ERROR",
+            success: "",
+            error: error.response?.data?.message || error.message || "Failed to update tenant tool setting"
+        }
+    }
+})
+
+// ** Tenant Tool Schedules Actions
+// export const getTenantToolSchedules = createAsyncThunk("appTools/getTenantToolSchedules", async ({ tenantId, tenantToolSettingId }) => {
+//     try {
+
+//         const response = await getTenantToolSchedulesApi(tenantId, tenantToolSettingId)
+//         const normalizedResponse = normalizeTenantToolSchedulesResponse(response)
+
+//         if (normalizedResponse.success) {
+//             return {
+//                 tenantId,
+//                 tenantToolSettingId,
+//                 schedules: normalizedResponse.data,
+//                 actionFlag: "TENANT_SCHEDULES_FETCH_SUCCESS",
+//                 success: normalizedResponse.message || "Schedules fetched successfully",
+//                 error: null
+//             }
+//         } else {
+//             return {
+//                 tenantId,
+//                 tenantToolSettingId,
+//                 schedules: [],
+//                 actionFlag: "TENANT_SCHEDULES_FETCH_ERROR",
+//                 success: "",
+//                 error: normalizedResponse.message || "Failed to fetch tenant tool schedules"
+//             }
+//         }
+//     } catch (error) {
+//         return {
+//             tenantId,
+//             tenantToolSettingId,
+//             schedules: [],
+//             actionFlag: "TENANT_SCHEDULES_FETCH_ERROR",
+//             success: "",
+//             error: error.response?.data?.message || error.message || "Failed to fetch tenant tool schedules"
+//         }
+//     }
+// })
+
+const getTenantToolSchedulesByToolRequest = async (tenantId, tenantToolId) => {
+    try {
+        const endpoint = API_ENDPOINTS.tenantToolCron.getByTool
+            .replace('{tenantId}', tenantId)
+            .replace('{tenantToolId}', tenantToolId)
+
+        const response = await instance.get(endpoint)
+        return response.data
+    } catch (error) {
+        throw error
+    }
+}
+
+export const getTenantToolSchedulesByTool = createAsyncThunk("appTools/getTenantToolSchedulesByTool", async ({ tenantId, tenantToolId }) => {
+    try {
+        const response = await getTenantToolSchedulesByToolRequest(tenantId, tenantToolId)
+        if (response.data) {
+            return {
+                tenantId,
+                tenantToolId,
+                schedules: response.data,
+                actionFlag: "TENANT_SCHEDULES_BY_TOOL_FETCH_SUCCESS",
+                success: response.message || "All schedules fetched successfully",
+                error: null
+            }
+        } else {
+            return {
+                tenantId,
+                tenantToolId,
+                schedules: [],
+                actionFlag: "TENANT_SCHEDULES_BY_TOOL_FETCH_ERROR",
+                success: "",
+                error: response.message || "Failed to fetch tenant tool schedules by tool"
+            }
+        }
+    } catch (error) {
+        return {
+            tenantId,
+            tenantToolId,
+            schedules: [],
+            actionFlag: "TENANT_SCHEDULES_BY_TOOL_FETCH_ERROR",
+            success: "",
+            error: error.response?.data?.message || error.message || "Failed to fetch tenant tool schedules by tool"
+        }
+    }
+})
+
+const updateTenantToolScheduleRequest = async (tenantId, cronId, data) => {
+    try {
+        const endpoint = API_ENDPOINTS.tenantToolCron.update
+            .replace('{tenantId}', tenantId)
+            .replace('{cronId}', cronId)
+        const response = await instance.put(endpoint, data)
+        return response.data
+    } catch (error) {
+        throw error
+    }
+}
+
+export const updateTenantToolSchedule = createAsyncThunk("appTools/updateTenantToolSchedule", async ({ tenantId, cronId, data }) => {
+    try {
+        const response = await updateTenantToolScheduleRequest(tenantId, cronId, data)
+        if (response.success) {
+            return {
+                tenantId,
+                cronId,
+                updatedSchedule: response.data,
+                actionFlag: "TENANT_SCHEDULE_UPDATE_SUCCESS",
+                success: response.message || "Schedule updated successfully",
+                error: null
+            }
+        } else {
+            return {
+                tenantId,
+                cronId,
+                updatedSchedule: null,
+                actionFlag: "TENANT_SCHEDULE_UPDATE_ERROR",
+                success: "",
+                error: response.message || "Failed to update tenant tool schedule"
+            }
+        }
+    } catch (error) {
+        return {
+            tenantId,
+            cronId,
+            updatedSchedule: null,
+            actionFlag: "TENANT_SCHEDULE_UPDATE_ERROR",
+            success: "",
+            error: error.response?.data?.message || error.message || "Failed to update tenant tool schedule"
+        }
+    }
+})
+
+export const appToolsSlice = createSlice({
+    name: "appTools",
+    initialState: {
+        toolsItems: [],
+        pagination: null,
+        toolItem: initUserItem,
+        companiesItems: [],
+        selectedCompany: null, // Persistent selected company across navigation
+        currentStrategy: null, // 'admin' | 'tenant'
+        contextInfo: {
+            userRole: null,
+            selectedCompany: null,
+            tenantId: null
+        },
+        // Tenant-specific state
+        tenantToolSettings: [],
+        tenantToolSchedules: [],
+        tenantSettingsLoading: false,
+        tenantSchedulesLoading: false,
+        tenantSettingsError: null,
+        tenantSchedulesError: null,
+        tenantToolId: null, // Store the tenant tool ID for API calls
+        actionFlag: "",
+        loading: true,
+        success: "",
+        error: ""
+    },
+    reducers: {
+        cleanToolsMessage: (state) => {
+            state.actionFlag = ""
+            state.success = ""
+            state.error = ""
+        },
+        cleanToolState: (state) => {
+            state.toolItem = null
+        },
+        updateContextInfo: (state, action) => {
+            state.contextInfo = action.payload
+            state.currentStrategy = action.payload.currentStrategy
+        },
+        setSelectedCompany: (state, action) => {
+            state.selectedCompany = action.payload
+            // Also update contextInfo for consistency
+            state.contextInfo.selectedCompany = action.payload
+        },
+        clearSelectedCompany: (state) => {
+            state.selectedCompany = null
+            state.contextInfo.selectedCompany = null
+        },
+        cleanTenantToolData: (state) => {
+            state.tenantToolSettings = []
+            state.tenantToolSchedules = []
+            state.tenantSettingsError = null
+            state.tenantSchedulesError = null
+            state.tenantToolId = null
+        },
+        setTenantToolId: (state, action) => {
+            state.tenantToolId = action.payload
+        }
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(getToolsList.pending, (state) => {
+                state.loading = false;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(getToolsList.fulfilled, (state, action) => {
+                state.toolsItems = action.payload?.toolsItems || [];
+                state.pagination = action.payload?.pagination || null;
+                state.currentStrategy = action.payload?.currentStrategy || null;
+                state.contextInfo = action.payload?.contextInfo || state.contextInfo;
+                state.loading = true;
+                state.actionFlag = action.payload.actionFlag;
+                state.success = action.payload.success;
+                state.error = action.payload.error;
+            })
+            .addCase(getCompaniesList.pending, (state) => {
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(getCompaniesList.fulfilled, (state, action) => {
+                state.companiesItems = action.payload?.companiesItems || [];
+                state.actionFlag = action.payload.actionFlag;
+                state.success = action.payload.success;
+                state.error = action.payload.error;
+            })
+            .addCase(getToolsList.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(getTool.pending, (state) => {
+                state.toolItem = initUserItem;
+                state.loading = false;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(getTool.fulfilled, (state, action) => {
+                state.toolItem = action.payload?.toolItem || initUserItem;
+                state.currentStrategy = action.payload?.currentStrategy || state.currentStrategy;
+                state.loading = true;
+                state.actionFlag = action.payload.actionFlag;
+                state.success = action.payload.success;
+                state.error = action.payload.error;
+            })
+            .addCase(getTool.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(createTool.pending, (state) => {
+                state.toolItem = initUserItem;
+                state.loading = false;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(createTool.fulfilled, (state, action) => {
+                state.toolItem = action.payload?.toolItem || initUserItem;
+                state.currentStrategy = action.payload?.currentStrategy || state.currentStrategy;
+                state.loading = true;
+                state.actionFlag = action.payload.actionFlag;
+                state.success = action.payload.success;
+                state.error = action.payload.error;
+            })
+            .addCase(createTool.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(updateTool.pending, (state) => {
+                state.loading = false;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(updateTool.fulfilled, (state, action) => {
+                state.toolItem = action.payload?.toolItem || initUserItem;
+                state.currentStrategy = action.payload?.currentStrategy || state.currentStrategy;
+                state.loading = true;
+                state.actionFlag = action.payload?.actionFlag;
+                state.success = action.payload?.success;
+                state.error = action.payload?.error;
+            })
+            .addCase(updateTool.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(deleteTool.pending, (state) => {
+                state.toolItem = initUserItem
+                state.loading = false
+                state.actionFlag = ""
+                state.success = ""
+                state.error = ""
+            })
+            .addCase(deleteTool.fulfilled, (state, action) => {
+                state.toolItem = action.payload?.toolItem || initUserItem;
+                state.currentStrategy = action.payload?.currentStrategy || state.currentStrategy;
+                state.loading = true;
+                state.actionFlag = action.payload.actionFlag;
+                state.success = action.payload.success;
+                state.error = action.payload.error;
+            })
+            .addCase(deleteTool.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(updateToolStatus.pending, (state) => {
+                state.loading = false;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            .addCase(updateToolStatus.fulfilled, (state, action) => {
+                state.toolItem = action.payload?.toolItem || initUserItem;
+                state.currentStrategy = action.payload?.currentStrategy || state.currentStrategy;
+                state.loading = true;
+                state.actionFlag = action.payload?.actionFlag;
+                state.success = action.payload?.success;
+                state.error = action.payload?.error;
+            })
+            .addCase(updateToolStatus.rejected, (state) => {
+                state.loading = true;
+                state.actionFlag = "";
+                state.success = "";
+                state.error = "";
+            })
+            // Tenant Tool Settings reducers
+            .addCase(getTenantToolSettings.pending, (state) => {
+                state.tenantSettingsLoading = true;
+                state.tenantSettingsError = null;
+                state.actionFlag = "";
+            })
+            .addCase(getTenantToolSettings.fulfilled, (state, action) => {
+                state.tenantToolSettings = action.payload?.settings || [];
+                state.tenantToolId = action.payload?.tenantToolId || state.tenantToolId;
+                state.tenantSettingsLoading = false;
+                state.tenantSettingsError = action.payload?.error;
+                state.actionFlag = action.payload?.actionFlag || "";
+                if (action.payload?.success) {
+                    state.success = action.payload.success;
+                }
+            })
+            .addCase(getTenantToolSettings.rejected, (state, action) => {
+                state.tenantSettingsLoading = false;
+                state.tenantSettingsError = action.payload?.error || "Failed to fetch settings";
+                state.actionFlag = "";
+            })
+            .addCase(updateTenantToolSetting.pending, (state) => {
+                state.tenantSettingsLoading = true;
+                state.tenantSettingsError = null;
+                state.actionFlag = "";
+            })
+            .addCase(updateTenantToolSetting.fulfilled, (state, action) => {
+                // Update the specific setting in the array
+                if (action.payload?.updatedSetting && action.payload?.settingId) {
+                    const settingIndex = state.tenantToolSettings.findIndex(
+                        setting => setting.id === action.payload.settingId
+                    );
+                    if (settingIndex !== -1) {
+                        state.tenantToolSettings[settingIndex] = {
+                            ...state.tenantToolSettings[settingIndex],
+                            ...action.payload.updatedSetting
+                        };
+                    }
+                }
+                state.tenantSettingsLoading = false;
+                state.tenantSettingsError = action.payload?.error;
+                state.actionFlag = action.payload?.actionFlag || "";
+                if (action.payload?.success) {
+                    state.success = action.payload.success;
+                }
+            })
+            .addCase(updateTenantToolSetting.rejected, (state, action) => {
+                state.tenantSettingsLoading = false;
+                state.tenantSettingsError = action.payload?.error || "Failed to update setting";
+                state.actionFlag = "";
+            })
+            // Tenant Tool Schedules reducers
+            // .addCase(getTenantToolSchedules.pending, (state) => {
+            //     state.tenantSchedulesLoading = true;
+            //     state.tenantSchedulesError = null;
+            //     state.actionFlag = "";
+            // })
+            // .addCase(getTenantToolSchedules.fulfilled, (state, action) => {
+            //     // Append schedules for the specific setting
+            //     const newSchedules = action.payload?.schedules || [];
+            //     const settingId = action.payload?.tenantToolSettingId;
+
+            //     // Remove existing schedules for this setting and add new ones
+            //     state.tenantToolSchedules = state.tenantToolSchedules.filter(
+            //         schedule => schedule.tenantToolSettingId !== settingId
+            //     );
+            //     state.tenantToolSchedules.push(...newSchedules);
+
+            //     state.tenantSchedulesLoading = false;
+            //     state.tenantSchedulesError = action.payload?.error;
+            //     state.actionFlag = action.payload?.actionFlag || "";
+            //     if (action.payload?.success) {
+            //         state.success = action.payload.success;
+            //     }
+            // })
+            // .addCase(getTenantToolSchedules.rejected, (state, action) => {
+            //     state.tenantSchedulesLoading = false;
+            //     state.tenantSchedulesError = action.payload?.error || "Failed to fetch schedules";
+            //     state.actionFlag = "";
+            // })
+            .addCase(updateTenantToolSchedule.pending, (state) => {
+                state.tenantSchedulesLoading = true;
+                state.tenantSchedulesError = null;
+                state.actionFlag = "";
+            })
+            .addCase(updateTenantToolSchedule.fulfilled, (state, action) => {
+                // Update the specific schedule in the array
+                if (action.payload?.updatedSchedule && action.payload?.cronId) {
+                    const scheduleIndex = state.tenantToolSchedules.findIndex(
+                        schedule => schedule.cronId === action.payload.cronId
+                    );
+                    if (scheduleIndex !== -1) {
+                        state.tenantToolSchedules[scheduleIndex] = {
+                            ...state.tenantToolSchedules[scheduleIndex],
+                            ...action.payload.updatedSchedule
+                        };
+                    }
+                }
+                state.tenantSchedulesLoading = false;
+                state.tenantSchedulesError = action.payload?.error;
+                state.actionFlag = action.payload?.actionFlag || "";
+                if (action.payload?.success) {
+                    state.success = action.payload.success;
+                }
+            })
+            .addCase(updateTenantToolSchedule.rejected, (state, action) => {
+                state.tenantSchedulesLoading = false;
+                state.tenantSchedulesError = action.payload?.error || "Failed to update schedule";
+                state.actionFlag = "";
+            })
+            // Tenant Tool Schedules by Tool reducers
+            .addCase(getTenantToolSchedulesByTool.pending, (state) => {
+                state.tenantSchedulesLoading = true;
+                state.tenantSchedulesError = null;
+                state.actionFlag = "";
+            })
+            .addCase(getTenantToolSchedulesByTool.fulfilled, (state, action) => {
+                // Replace all schedules with the new data from the tool endpoint
+                state.tenantToolSchedules = action.payload?.schedules || [];
+                state.tenantSchedulesLoading = false;
+                state.tenantSchedulesError = action.payload?.error;
+                state.actionFlag = action.payload?.actionFlag || "";
+                if (action.payload?.success) {
+                    state.success = action.payload.success;
+                }
+            })
+            .addCase(getTenantToolSchedulesByTool.rejected, (state, action) => {
+                state.tenantSchedulesLoading = false;
+                state.tenantSchedulesError = action.payload?.error || "Failed to fetch schedules by tool";
+                state.actionFlag = "";
+            })
+    }
+})
+
+export const {
+    cleanToolsMessage,
+    cleanToolState,
+    updateContextInfo,
+    setSelectedCompany,
+    clearSelectedCompany,
+    cleanTenantToolData,
+    setTenantToolId
+} = appToolsSlice.actions
+
+export default appToolsSlice.reducer

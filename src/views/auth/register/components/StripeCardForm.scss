@@ -1,0 +1,103 @@
+.stripe-payment-form {
+  .stripe-card-element {
+    padding: 12px 16px;
+    border: 1px solid #d8d6de;
+    border-radius: 0.357rem;
+    background-color: #fff;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+    &:focus-within {
+      border-color: #7367f0;
+      box-shadow: 0 3px 10px 0 rgba(34, 41, 47, 0.1);
+    }
+
+    &.is-invalid {
+      border-color: #ea5455;
+
+      &:focus-within {
+        border-color: #ea5455;
+        box-shadow: 0 3px 10px 0 rgba(234, 84, 85, 0.1);
+      }
+    }
+
+    .StripeElement {
+      width: 100%;
+    }
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+
+    .form-label {
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #5e5873;
+      font-size: 0.857rem;
+    }
+
+    .form-text {
+      margin-top: 0.5rem;
+      font-size: 0.857rem;
+    }
+  }
+
+  .security-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1rem;
+    background-color: #f8f8f8;
+    border-radius: 0.357rem;
+    margin-bottom: 1.5rem;
+
+    .security-icon {
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    small {
+      flex: 1;
+      line-height: 1.4;
+    }
+  }
+
+  .payment-submit-btn {
+    width: 100%;
+    padding: 0.786rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border-radius: 0.357rem;
+    transition: all 0.2s ease-in-out;
+
+    &.loading {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .spinner-border-sm {
+      width: 1rem;
+      height: 1rem;
+      border-width: 0.15em;
+    }
+  }
+
+  .invalid-feedback,
+  .valid-feedback {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.857rem;
+  }
+
+  .invalid-feedback {
+    color: #ea5455;
+  }
+
+  .valid-feedback {
+    color: #28c76f;
+  }
+}

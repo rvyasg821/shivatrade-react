@@ -1,0 +1,396 @@
+// Payment Error Display Styles
+.payment-error-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    min-height: 300px;
+
+    .error-content {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 2rem;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e9ecef;
+
+        .error-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+
+            .error-icon {
+                margin-bottom: 1rem;
+
+                svg {
+                    width: 32px;
+                    height: 32px;
+                }
+            }
+
+            h3 {
+                color: #495057;
+                margin: 0;
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
+        }
+
+        .error-body {
+            margin-bottom: 2rem;
+
+            .error-description {
+                color: #6c757d;
+                line-height: 1.6;
+                margin-bottom: 1.5rem;
+                text-align: center;
+            }
+
+            .error-details {
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 0.375rem;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+
+                strong {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                    color: #495057;
+                    font-size: 0.875rem;
+                }
+
+                code {
+                    display: block;
+                    background: #fff;
+                    border: 1px solid #dee2e6;
+                    border-radius: 0.25rem;
+                    padding: 0.75rem;
+                    font-size: 0.8125rem;
+                    color: #dc3545;
+                    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                }
+            }
+
+            .error-suggestions {
+                background: #e8f4fd;
+                border: 1px solid #b8daff;
+                border-radius: 0.375rem;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+
+                h4 {
+                    color: #004085;
+                    margin: 0 0 0.75rem 0;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                }
+
+                ul {
+                    margin: 0;
+                    padding-left: 1.25rem;
+                    color: #004085;
+
+                    li {
+                        margin-bottom: 0.25rem;
+                        font-size: 0.875rem;
+                        line-height: 1.4;
+
+                        &:last-child {
+                            margin-bottom: 0;
+                        }
+                    }
+                }
+            }
+
+            .retry-info {
+                text-align: center;
+                margin-bottom: 1rem;
+
+                small {
+                    color: #6c757d;
+                    font-size: 0.8125rem;
+                    background: #f8f9fa;
+                    padding: 0.375rem 0.75rem;
+                    border-radius: 1rem;
+                    border: 1px solid #e9ecef;
+                }
+            }
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+
+            .btn {
+                display: flex;
+                align-items: center;
+                gap: 0.375rem;
+                padding: 0.625rem 1.25rem;
+                border: none;
+                border-radius: 0.375rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+                text-decoration: none;
+                font-size: 0.875rem;
+                min-width: 100px;
+                justify-content: center;
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                &.btn-primary {
+                    background-color: #7367f0;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5e50ee;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                &.btn-secondary {
+                    background-color: #6c757d;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background-color: #5a6268;
+                        transform: translateY(-1px);
+                    }
+                }
+
+                &.btn-outline {
+                    background-color: transparent;
+                    color: #6c757d;
+                    border: 1px solid #6c757d;
+
+                    &:hover:not(:disabled) {
+                        background-color: #6c757d;
+                        color: white;
+                        transform: translateY(-1px);
+                    }
+                }
+            }
+        }
+
+        .error-help {
+            text-align: center;
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+
+            p {
+                margin: 0;
+                font-size: 0.8125rem;
+                color: #6c757d;
+
+                a {
+                    color: #7367f0;
+                    text-decoration: none;
+                    font-weight: 500;
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Error type specific styling
+.payment-error-display {
+    &.error-network {
+        .error-content {
+            border-left: 4px solid #ffc107;
+        }
+    }
+
+    &.error-server {
+        .error-content {
+            border-left: 4px solid #dc3545;
+        }
+    }
+
+    &.error-timeout {
+        .error-content {
+            border-left: 4px solid #fd7e14;
+        }
+    }
+
+    &.error-payment {
+        .error-content {
+            border-left: 4px solid #dc3545;
+        }
+    }
+
+    &.error-validation {
+        .error-content {
+            border-left: 4px solid #ffc107;
+        }
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .payment-error-display {
+        padding: 1rem;
+
+        .error-content {
+            padding: 1.5rem 1rem;
+
+            .error-header {
+                .error-icon {
+                    svg {
+                        width: 28px;
+                        height: 28px;
+                    }
+                }
+
+                h3 {
+                    font-size: 1.125rem;
+                }
+            }
+
+            .error-body {
+                .error-description {
+                    font-size: 0.875rem;
+                }
+
+                .error-suggestions {
+                    h4 {
+                        font-size: 0.8125rem;
+                    }
+
+                    ul li {
+                        font-size: 0.8125rem;
+                    }
+                }
+            }
+
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+
+                .btn {
+                    width: 100%;
+                    max-width: 200px;
+                }
+            }
+        }
+    }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+    .payment-error-display {
+        .error-content {
+            background: #2d3748;
+            border-color: #4a5568;
+            color: #e9ecef;
+
+            .error-header {
+                h3 {
+                    color: #e9ecef;
+                }
+            }
+
+            .error-body {
+                .error-description {
+                    color: #a0aec0;
+                }
+
+                .error-details {
+                    background: #4a5568;
+                    border-color: #718096;
+
+                    strong {
+                        color: #e9ecef;
+                    }
+
+                    code {
+                        background: #1a202c;
+                        border-color: #718096;
+                        color: #fc8181;
+                    }
+                }
+
+                .error-suggestions {
+                    background: #2c5aa0;
+                    border-color: #4299e1;
+
+                    h4 {
+                        color: #bee3f8;
+                    }
+
+                    ul {
+                        color: #bee3f8;
+                    }
+                }
+
+                .retry-info {
+                    small {
+                        background: #4a5568;
+                        color: #a0aec0;
+                        border-color: #718096;
+                    }
+                }
+            }
+
+            .error-help {
+                border-top-color: #4a5568;
+
+                p {
+                    color: #a0aec0;
+
+                    a {
+                        color: #9c88ff;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Animation for error display
+.payment-error-display {
+    animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// Pulse animation for retry button
+.payment-error-display .btn-primary {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(115, 103, 240, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(115, 103, 240, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(115, 103, 240, 0);
+    }
+}

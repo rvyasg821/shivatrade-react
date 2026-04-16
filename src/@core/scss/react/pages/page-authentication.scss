@@ -1,0 +1,230 @@
+@import '../../base/pages/authentication.scss';
+
+/* ---------- Logo Styles ---------- */
+.auth-wrapper .logo-login,
+.logo-login {
+  width: 100% !important;
+  max-width: 300px !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+}
+
+/* More specific targeting */
+.auth-wrapper .auth-inner .logo-login {
+  width: 100% !important;
+  max-width: 300px !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+}
+
+/* ---------- Navbar Header Fixes ---------- */
+.navbar-header {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.5rem 1rem !important;
+  min-height: 60px !important;
+}
+
+.navbar-header .nav {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.navbar-header .nav-item.me-auto {
+  flex: 1 !important;
+}
+
+.navbar-header .navbar-brand {
+  display: flex !important;
+  align-items: center !important;
+  text-decoration: none !important;
+}
+
+.navbar-header .brand-logo {
+  display: block !important;
+}
+
+.navbar-header .brand-logo img {
+  max-height: 40px !important;
+  width: auto !important;
+  display: block !important;
+}
+
+.navbar-header .small-logo {
+  display: none !important;
+}
+
+.navbar-header .nav-toggle {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.navbar-header .modern-nav-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.navbar-header .toggle-icon {
+  display: block !important;
+  cursor: pointer !important;
+}
+
+/* When menu is collapsed, show small logo */
+.menu-collapsed .navbar-header .brand-logo {
+  display: none !important;
+}
+
+.menu-collapsed .navbar-header .small-logo {
+  display: block !important;
+}
+
+.menu-collapsed .navbar-header .small-logo img {
+  max-height: 30px !important;
+  width: auto !important;
+}
+
+@media (max-width: 768px) {
+  .auth-wrapper .logo-login,
+  .logo-login {
+    max-width: 250px !important;
+  }
+  .auth-wrapper .auth-inner .logo-login {
+    max-width: 250px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-wrapper .logo-login,
+  .logo-login {
+    max-width: 200px !important;
+  }
+  .auth-wrapper .auth-inner .logo-login {
+    max-width: 200px !important;
+  }
+}
+
+/* ---------- Auth Page Buttons ---------- */
+.auth-wrapper .auth-footer-btn .btn {
+  padding: 0.555rem 0.6rem !important;
+}
+
+/* ---------- Auth Page Labels ---------- */
+.auth-wrapper .form-label {
+  color: #613228 !important;
+}
+
+/* ---------- Auth Page Inputs ---------- */
+.auth-wrapper .form-control {
+  background-color: #613228 !important;
+  color: #613228 !important;
+  border: 1px solid #613228 !important;
+  border-radius: 12px;
+}
+
+.auth-wrapper .form-control::placeholder {
+  color: #b0b3b8 !important;
+}
+
+.auth-wrapper .form-control:focus {
+  background-color: #613228 !important;
+  border-color: #613228 !important;
+  border-radius: 12px;
+  box-shadow: none !important; /* remove Bootstrap glow */
+}
+
+/* ---------- Auth Page Password Input ---------- */
+.auth-wrapper .form-password {
+  color: #05DEF5 !important;
+}
+
+/* ---------- Custom Global Inputs (default = white) ---------- */
+.form-control {
+  height: 38px;
+  border-radius: 0.357rem;
+  // border: 1px solid #c0c0c0;
+  border: 1px solid #cdaba4 !important;
+  background-color: #f6e8e5 !important;
+  color: #613228 !important;
+
+  &:focus {
+    border: 1px solid #cdaba4 !important;
+    background-color: #f6e8e5 !important;
+    -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
+  }
+
+  &:focus-within {
+    border: 1px solid #cdaba4 !important;
+    background-color: #f6e8e5 !important;
+    -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
+  }
+}
+
+
+/* ---------- Custom Input Override ---------- */
+#search-user,
+.form-control#search-user {
+  background-color: #613228 !important;
+  color: #000 !important;
+}
+
+/* ---------- Buttons ---------- */
+.btn-custom {
+  background-color: #613228 !important;
+  border-color: #613228 !important;
+  border-radius: 15px;
+}
+
+.btn-custom:hover,
+.btn-custom:focus,
+.btn-custom:active,
+.btn-custom:disabled {
+  background-color:#613228 !important;
+  border-color:#613228 !important;
+}
+
+@media only screen and (max-width: 320px) {
+  .auth-wrapper {
+    position: fixed; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0f172a;
+    
+  }
+
+  .auth-inner {
+    overflow-y: auto;
+    max-height: 90%;
+    padding: 1rem;       /* smaller padding for small screen */
+    border-radius: 12px;
+    background: #161d27;
+  }
+
+  .auth-inner .form-label {
+    font-size: 12px;     /* smaller text for labels */
+  }
+
+  .auth-inner input {
+    font-size: 12px;     /* smaller input text */
+    padding: 6px 8px;    /* smaller input padding */
+  }
+
+  .auth-inner .btn {
+    font-size: 12px;     /* smaller button text */
+    padding: 6px 10px;   /* smaller button padding */
+  }
+}
+
+  
