@@ -13,21 +13,21 @@ const PAY_TYPE = { HOURLY: 'hourly', SALARIED: 'salaried' };
 // Resolve the initial pay type for an employee. Defaults to 'hourly' for new
 // records and uses existing salary fields as a fallback for legacy rows.
 const resolveInitialPayType = (employeeData) => {
-  if (!employeeData) return PAY_TYPE.HOURLY;
+  if (!employeeData) return PAY_TYPE.SALARIED;
   if (employeeData.pay_type === PAY_TYPE.HOURLY || employeeData.pay_type === PAY_TYPE.SALARIED) {
     return employeeData.pay_type;
   }
-  // Legacy fallback: if only annual_salary is set and no hourly_rate, treat as salaried
+  // Legacy fallback: if only hourly_rate is set and no annual_salary, treat as hourly
   const hasRate = employeeData.hourly_rate != null && Number(employeeData.hourly_rate) > 0;
   const hasSalary = employeeData.annual_salary != null && Number(employeeData.annual_salary) > 0;
-  if (hasSalary && !hasRate) return PAY_TYPE.SALARIED;
-  return PAY_TYPE.HOURLY;
+  if (hasRate && !hasSalary) return PAY_TYPE.HOURLY;
+  return PAY_TYPE.SALARIED;
 };
 
 const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
   const { t } = useTranslation();
 
-  const [payType, setPayType] = useState(PAY_TYPE.HOURLY);
+  const [payType, setPayType] = useState(PAY_TYPE.SALARIED);
 
   const { control, handleSubmit, reset, watch, setValue } = useForm({
     shouldFocusError: false,
@@ -255,7 +255,7 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
             <Controller name="account_holder_name" control={control} render={({ field }) => <Input {...field} />} />
           </Col>
           <Col md="6" className="mb-2">
-            <Label>{t("Sort Code / Routing Number")}</Label>
+            <Label>{t("IFSC Code")}</Label>
             <Controller name="sort_code" control={control} render={({ field }) => (
               <Input {...field} placeholder="e.g. 12-34-56" />
             )} />
@@ -269,7 +269,7 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
         </Row>
 
         {/* ── Tax & NI ── */}
-        <h5 className="mt-3 mb-2 fw-bold">{t("Tax & National Insurance")}</h5>
+        {/* <h5 className="mt-3 mb-2 fw-bold">{t("Tax & National Insurance")}</h5>
         <Row>
           <Col md="6" className="mb-2">
             <Label>{t("Tax Code")}</Label>
@@ -291,10 +291,10 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
               </Input>
             )} />
           </Col>
-        </Row>
+        </Row> */}
 
         {/* ── Pension ── */}
-        <h5 className="mt-3 mb-2 fw-bold">{t("Pension")}</h5>
+        {/* <h5 className="mt-3 mb-2 fw-bold">{t("Pension")}</h5>
         <Row>
           <Col md="3" className="mb-2">
             <FormGroup check className="mt-2">
@@ -322,7 +322,7 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
               <Input {...field} type="number" step="0.1" min="0" max="100" placeholder="e.g. 3" />
             )} />
           </Col>
-        </Row>
+        </Row> */}
 
         <div className="mt-2">
           <Button type="submit" color="primary" disabled={loading}>

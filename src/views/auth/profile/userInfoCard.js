@@ -268,7 +268,7 @@ const imageUrl =
           })()}
 
           {/* edit */}
-          {profile?.role?.name?.toLowerCase() === "company admin" && (
+          {false && profile?.role?.name?.toLowerCase() === "company admin" && (
             <div className="d-flex align-items-center justify-content-center flex-wrap mt-2 profile-btn">
               <Button color="primary" onClick={handleEditClick}>
                 {t("Edit")}

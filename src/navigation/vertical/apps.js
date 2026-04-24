@@ -22,6 +22,16 @@ import {
   DollarSign,
   PlayCircle,
   Sliders,
+  Package,
+  Truck,
+  UserPlus,
+  TrendingUp,
+  ShoppingCart,
+  Archive,
+  Inbox,
+  AlertTriangle,
+  Box,
+  Gift,
 } from 'react-feather';
 import { IoBusinessOutline } from 'react-icons/io5';
 import { MdOutlineSupportAgent } from "react-icons/md";
@@ -43,6 +53,35 @@ import {
   plansModuleSlug,
   toolsModuleSlug,
   discountModuleSlug,
+  currenciesModuleSlug,
+  // Catalogue
+  catalogueGroupSlug,
+  categoriesModuleSlug,
+  productsModuleSlug,
+  priceListModuleSlug,
+  // Parties
+  vendorsModuleSlug,
+  customersModuleSlug,
+  leadsModuleSlug,
+  // Sales
+  salesGroupSlug,
+  quotationsModuleSlug,
+  pfiModuleSlug,
+  // Purchase
+  purchaseGroupSlug,
+  purchaseOrdersModuleSlug,
+  poVendorsModuleSlug,
+  trackingModuleSlug,
+  // Warehouse
+  warehouseGroupSlug,
+  grnModuleSlug,
+  nonComplianceModuleSlug,
+  containerStuffingModuleSlug,
+  // Finance
+  financeGroupSlug,
+  invoicesModuleSlug,
+  expensesModuleSlug,
+  rebatesModuleSlug,
   // HRM Modules (permission slugs)
   hrmGroupSlug,
   holidayCalendarModuleSlug,
@@ -82,6 +121,177 @@ const navigationItems = [
     title: 'Dashboard',
     icon: <Home size={20} />,
     navLink: `${appsRoot}/dashboard`,
+  },
+
+  // Sales
+  {
+    id: salesGroupSlug,
+    title: 'Sales',
+    icon: <TrendingUp size={20} />,
+    companyOnly: true,
+    children: [
+      {
+        id: leadsModuleSlug,
+        title: rolePermissionName[leadsModuleSlug],
+        icon: <UserPlus size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: quotationsModuleSlug,
+        title: rolePermissionName[quotationsModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: pfiModuleSlug,
+        title: rolePermissionName[pfiModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: purchaseOrdersModuleSlug,
+        title: rolePermissionName[purchaseOrdersModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+    ],
+  },
+
+  // Parties (standalone)
+  {
+    id: customersModuleSlug,
+    title: rolePermissionName[customersModuleSlug],
+    icon: <UserCheck size={20} />,
+    navLink: '',
+    companyOnly: true,
+  },
+
+  // Catalogue
+  {
+    id: catalogueGroupSlug,
+    title: 'Catalogue',
+    icon: <Book size={20} />,
+    companyOnly: true,
+    children: [
+      {
+        id: categoriesModuleSlug,
+        title: rolePermissionName[categoriesModuleSlug],
+        icon: <Layers size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: productsModuleSlug,
+        title: rolePermissionName[productsModuleSlug],
+        icon: <Package size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: vendorsModuleSlug,
+        title: rolePermissionName[vendorsModuleSlug],
+        icon: <Truck size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: priceListModuleSlug,
+        title: rolePermissionName[priceListModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+    ],
+  },
+
+  // Purchase
+  {
+    id: purchaseGroupSlug,
+    title: 'Purchase',
+    icon: <ShoppingCart size={20} />,
+    companyOnly: true,
+    children: [
+      {
+        id: poVendorsModuleSlug,
+        title: rolePermissionName[poVendorsModuleSlug],
+        icon: <CheckSquare size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: trackingModuleSlug,
+        title: rolePermissionName[trackingModuleSlug],
+        icon: <MapPin size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+    ],
+  },
+
+  // Warehouse
+  // {
+  //   id: warehouseGroupSlug,
+  //   title: 'Warehouse',
+  //   icon: <Archive size={20} />,
+  //   companyOnly: true,
+  //   children: [
+  //     {
+  //       id: grnModuleSlug,
+  //       title: rolePermissionName[grnModuleSlug],
+  //       icon: <Inbox size={20} />,
+  //       navLink: '',
+  //       companyOnly: true,
+  //     },
+  //     {
+  //       id: nonComplianceModuleSlug,
+  //       title: rolePermissionName[nonComplianceModuleSlug],
+  //       icon: <AlertTriangle size={20} />,
+  //       navLink: '',
+  //       companyOnly: true,
+  //     },
+  //     {
+  //       id: containerStuffingModuleSlug,
+  //       title: rolePermissionName[containerStuffingModuleSlug],
+  //       icon: <Box size={20} />,
+  //       navLink: '',
+  //       companyOnly: true,
+  //     },
+  //   ],
+  // },
+
+  // Finance
+  {
+    id: financeGroupSlug,
+    title: 'Invoices',
+    icon: <DollarSign size={20} />,
+    companyOnly: true,
+    children: [
+      {
+        id: invoicesModuleSlug,
+        title: rolePermissionName[invoicesModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: expensesModuleSlug,
+        title: rolePermissionName[expensesModuleSlug],
+        icon: <CreditCard size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: rebatesModuleSlug,
+        title: rolePermissionName[rebatesModuleSlug],
+        icon: <Gift size={20} />,
+        navLink: '',
+        companyOnly: true,
+      },
+    ],
   },
 
   // Employees (standalone, above Master)
@@ -212,6 +422,13 @@ const navigationItems = [
         title: rolePermissionName[locationsModuleSlug],
         icon: <MapPin size={20} />,
         navLink: `${appsRoot}/locations`,
+      },
+      {
+        id: currenciesModuleSlug,
+        title: rolePermissionName[currenciesModuleSlug],
+        icon: <DollarSign size={20} />,
+        navLink: '',
+        companyOnly: true,
       },
     ],
   },

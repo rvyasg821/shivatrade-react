@@ -394,7 +394,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
           </Col>
 
           {/* Row 5: Nationality, NI/Tax ID Number */}
-          <Col md="6" className="mb-2">
+          {/* <Col md="6" className="mb-2">
             <Label>{t("Nationality")}</Label>
             <Controller name="nationality" control={control} render={({ field }) => (
               <Input {...field} />
@@ -405,7 +405,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
             <Controller name="ni_number" control={control} render={({ field }) => (
               <Input {...field} />
             )} />
-          </Col>
+          </Col> */}
         </Row>
 
         <div className="mt-2">

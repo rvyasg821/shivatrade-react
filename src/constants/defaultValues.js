@@ -101,6 +101,41 @@ const subscriptionsModuleSlug = "subscriptions"
 
 const rolesModuleSlug = "roles";
 const usersModuleSlug = "users";
+const currenciesModuleSlug = "currencies";
+
+// ShivaTrades — Catalogue
+const catalogueGroupSlug = "catalogue";
+const categoriesModuleSlug = "categories";
+const productsModuleSlug = "products";
+const priceListModuleSlug = "price-list";
+
+// ShivaTrades — Parties
+const vendorsModuleSlug = "vendors";
+const customersModuleSlug = "customers";
+const leadsModuleSlug = "leads";
+
+// ShivaTrades — Sales
+const salesGroupSlug = "sales";
+const quotationsModuleSlug = "quotations";
+const pfiModuleSlug = "pfi";
+
+// ShivaTrades — Purchase
+const purchaseGroupSlug = "purchase";
+const purchaseOrdersModuleSlug = "purchase-orders";
+const poVendorsModuleSlug = "po-vendors";
+const trackingModuleSlug = "tracking";
+
+// ShivaTrades — Warehouse
+const warehouseGroupSlug = "warehouse";
+const grnModuleSlug = "grn";
+const nonComplianceModuleSlug = "non-compliance";
+const containerStuffingModuleSlug = "container-stuffing";
+
+// ShivaTrades — Finance
+const financeGroupSlug = "finance";
+const invoicesModuleSlug = "invoices";
+const expensesModuleSlug = "expenses";
+const rebatesModuleSlug = "rebates";
 const agentModuleSlug = "agents"; // System-level sales agents
 const locationsModuleSlug = "location"; // Company locations
 const employeesModuleSlug = "employee"; // Location employees
@@ -161,6 +196,37 @@ const rolePermissionName = {
 
   [rolesModuleSlug]: "Roles",
   [usersModuleSlug]: "Users",
+  [currenciesModuleSlug]: "Currencies & Exchange Rates",
+
+  // ShivaTrades — Catalogue
+  [categoriesModuleSlug]: "Categories",
+  [productsModuleSlug]: "Products",
+  [priceListModuleSlug]: "Price List",
+
+  // ShivaTrades — Parties
+  [vendorsModuleSlug]: "Vendors",
+  [customersModuleSlug]: "Customers",
+  [leadsModuleSlug]: "Leads",
+
+  // ShivaTrades — Sales
+  [quotationsModuleSlug]: "Quotations",
+  [pfiModuleSlug]: "PFI",
+
+  // ShivaTrades — Purchase
+  [purchaseOrdersModuleSlug]: "Purchase Orders",
+  [poVendorsModuleSlug]: "PO Vendors",
+  [trackingModuleSlug]: "Tracking",
+
+  // ShivaTrades — Warehouse
+  [grnModuleSlug]: "GRN",
+  [nonComplianceModuleSlug]: "Non-Compliance",
+  [containerStuffingModuleSlug]: "Container Stuffing",
+
+  // ShivaTrades — Finance
+  [invoicesModuleSlug]: "Invoices",
+  [expensesModuleSlug]: "Expenses",
+  [rebatesModuleSlug]: "Rebates",
+
   [agentModuleSlug]: "Agents",
   [locationsModuleSlug]: "Locations",
   [employeesModuleSlug]: "Employees",
@@ -426,6 +492,36 @@ export {
   companyModuleSlug,
   rolesModuleSlug,
   usersModuleSlug,
+  currenciesModuleSlug,
+  // ShivaTrades — Catalogue
+  catalogueGroupSlug,
+  categoriesModuleSlug,
+  productsModuleSlug,
+  priceListModuleSlug,
+  // ShivaTrades — Parties
+  vendorsModuleSlug,
+  customersModuleSlug,
+  leadsModuleSlug,
+  // ShivaTrades — Sales
+  salesGroupSlug,
+  quotationsModuleSlug,
+  pfiModuleSlug,
+  // ShivaTrades — Purchase
+  purchaseGroupSlug,
+  purchaseOrdersModuleSlug,
+  poVendorsModuleSlug,
+  trackingModuleSlug,
+  // ShivaTrades — Warehouse
+  warehouseGroupSlug,
+  grnModuleSlug,
+  nonComplianceModuleSlug,
+  containerStuffingModuleSlug,
+  // ShivaTrades — Finance
+  financeGroupSlug,
+  invoicesModuleSlug,
+  expensesModuleSlug,
+  rebatesModuleSlug,
+  
   agentModuleSlug,
   locationsModuleSlug,
   employeesModuleSlug,
