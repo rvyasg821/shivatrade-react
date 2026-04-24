@@ -1,5 +1,3 @@
-import { SubscriptIcon } from "lucide-react";
-
 const root = "/";
 const appsRoot = "/apps";
 
@@ -7,8 +5,6 @@ const appsRoot = "/apps";
 const storageUserKeyName = "userData";
 const storageTokenKeyName = "accessToken";
 const storageRefreshTokenKeyName = "refreshToken";
-const storageCustomerToken = "customerToken";
-const storageContractorToken = "contractorToken";
 /* /Local storage variables */
 
 const appBaseName = process.env?.REACT_APP_BASENAME || "";
@@ -21,10 +17,6 @@ const taxLabel = process.env?.REACT_APP_TAX_LABEL || "VAT";
 const taxValue = parseFloat(process.env?.REACT_APP_TAX_VALUE || "10");
 
 const ADMIN_ROLE_TYPE = "admin";
-const EMPLOYEE_ROLE_TYPE = "employee";
-const CLIENT_ROLE_TYPE = "client";
-const SALES_ROLE_TYPE = "sales";
-const PROJECT_ROLE_TYPE = "project";
 
 const ENUM_USER_STATUS = {
   ACTIVE: 'Active',
@@ -66,16 +58,6 @@ const ENUM_TOOLS_STATUS = {
   2: 'Inactive',
 }
 
-const ENUM_TENANT_TOOLS_STATUS = {
-  1: 'Active',
-  2: 'Inactive',
-}
-
-const ENUM_TENANT_TOOLS_STATUS_COLOR = {
-  1: 'light-success',
-  2: 'light-warning',
-}
-
 const ENUM_TOOL_SCHEDULE_STATUS = {
   1: 'Active',
   2: 'Inactive',
@@ -100,8 +82,6 @@ const loaderColor = "primary";
 /* Used for datatable display entries */
 const defaultPerPageRow = 10;
 const perPageRowItems = [
-  // { label: "1", value: 1 },
-  // { label: "2", value: 2 },
   { label: "10", value: 10 },
   { label: "25", value: 25 },
   { label: "50", value: 50 },
@@ -114,31 +94,10 @@ const defaultCountry = "in";
 const countryCodeEditable = false;
 const disableCountryDropdown = false;
 
-// const roleBypassType = ["super", "portal"];
 const roleBypassType = ["superadmin"];
-
-const customerManagementGroupSlug = "subscription management";
-const customersModuleSlug = "customers";
-const contractorsModuleSlug = "contractors";
-const companiesModuleSlug = "companies";
-
-const catalogGroupSlug = "catalog";
-const servicesModuleSlug = "services";
-const addOnServicesModuleSlug = "add-on-services";
-const priceListsModuleSlug = "price-list";
-const questionFormModuleSlug = "booking-forms";
-const AreasModuleSlug = "areas";
-const plansModuleSlug = "plan";
-const subscriptionModuleSlug = "subscription"
-const discountModuleSlug = "discounts"
-const paymentModuleSlug = "module"
-const systemGroupSlug = "system";
-const smsTemplatesModuleSlug = "sms-templates";
-const emailTemplatesModuleSlug = "email-templates";
 
 const masterGroupSlug = "master";
 const subscriptionsModuleSlug = "subscriptions"
-const assessmentFormsSlug = "assessment";
 
 const rolesModuleSlug = "roles";
 const usersModuleSlug = "users";
@@ -149,18 +108,15 @@ const employeesModuleSlug = "employee"; // Location employees
 const countriesModuleSlug = "countries";
 const statesModuleSlug = "counties/states";
 const citiesModuleSlug = "cities";
-const productsGroupSlug = "products";
-const productsModuleSlug = "products";
 const companyModuleSlug = "company"
 
 const toolsModuleSlug = "tools";
-const governanceSlug = "governance";
-const compliancebuilderSlug = "compliance-builder";
-const resilienceIndexSlug = "resilience-index";
-const helpdeskTicketSlug = "helpdesk-ticket";
-const riskAssessmentSlug = "risk-assessment";
-// const tenantToolsModuleSlug = "tenant_tools";
-// const toolScheduleModuleSlug = "tools_schedule";
+
+// Subscription slugs (used under subscriptionsModuleSlug group)
+const plansModuleSlug = "plan";
+const subscriptionModuleSlug = "subscription"
+const discountModuleSlug = "discounts"
+const paymentModuleSlug = "module"
 
 // HRM Module Slugs (used for role permissions)
 const hrmGroupSlug = "hrm";
@@ -195,29 +151,13 @@ const hrmDocumentsToolSlug = "hrm-documents";
 const hrmHolidayCalendarToolSlug = "hrm-holiday-calendar";
 const hrmComplianceToolSlug = "hrm-compliance";
 
-const customerBookingListingFrontSlug = "customer-booking-listing-front"
-const perticularcontractorbooking = "perticular-contractor-booking"
-
 const rolePermissionName = {
-  [customersModuleSlug]: "Customers",
-  [contractorsModuleSlug]: "Contractors",
-  [companiesModuleSlug]: "Companies",
   [companyModuleSlug]: "Company",
 
-
-  [servicesModuleSlug]: "Services",
-  [addOnServicesModuleSlug]: "Add On Services",
-  [priceListsModuleSlug]: "Price Lists",
-  [questionFormModuleSlug]: "Booking Forms",
   [plansModuleSlug]: "Plan",
   [subscriptionModuleSlug]: "Subscription",
   [discountModuleSlug]: "Discount",
   [paymentModuleSlug]: "Payment",
-
-  [AreasModuleSlug]: "Areas",
-
-  [smsTemplatesModuleSlug]: "Sms Templates",
-  [emailTemplatesModuleSlug]: "Email Templates",
 
   [rolesModuleSlug]: "Roles",
   [usersModuleSlug]: "Users",
@@ -228,17 +168,7 @@ const rolePermissionName = {
   [statesModuleSlug]: "Counties / States",
   [citiesModuleSlug]: "Cities",
 
-  [customerBookingListingFrontSlug]: "Customer Booking",
-  [perticularcontractorbooking]: "Contractor Booking",
-
-  [productsModuleSlug]: "Products",
   [toolsModuleSlug]: "Tools",
-  [assessmentFormsSlug]: "Assessment Forms",
-  [governanceSlug]: "Governance",
-  [compliancebuilderSlug]: "Compliance Builder",
-  [resilienceIndexSlug]: "Resilience Index",
-  [riskAssessmentSlug]: "Risk Assessment",
-  [helpdeskTicketSlug]: "Helpdesk Ticket",
 
   // HRM Modules
   [holidayCalendarModuleSlug]: "Holiday Calendar",
@@ -261,57 +191,9 @@ const rolePermissionName = {
   [payElementsModuleSlug]: "Pay Elements",
   [payRunsModuleSlug]: "Pay Runs",
   [myPayslipsModuleSlug]: "My Payslips",
-
-  // [tenantToolsModuleSlug]: "Tenant Tools",
-  // [toolScheduleModuleSlug]: "Tool Schedule"
 };
 
 const rolePermissionJson = [
-  {
-    group: customersModuleSlug,
-    module_slug: customersModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  // {
-  //   group: customerSubscriptionModuleSlug,
-  //   module_slug: customerSubscriptionModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-  // {
-  //   group: subscriptionModuleSlug,
-  //   module_slug: subscriptionModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-  {
-    group: contractorsModuleSlug,
-    module_slug: contractorsModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: companiesModuleSlug,
-    module_slug: companiesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
   {
     group: companyModuleSlug,
     module_slug: companyModuleSlug,
@@ -321,101 +203,6 @@ const rolePermissionJson = [
     can_update: false,
     can_delete: false,
   },
-
-
-  {
-    group: catalogGroupSlug,
-    module_slug: servicesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: catalogGroupSlug,
-    module_slug: addOnServicesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: catalogGroupSlug,
-    module_slug: priceListsModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: catalogGroupSlug,
-    module_slug: questionFormModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: catalogGroupSlug,
-    module_slug: AreasModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  // {
-  //   group: catalogGroupSlug,
-  //   module_slug: plansModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-  //  {
-  //   group: catalogGroupSlug,
-  //   module_slug: subscriptionModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-  //   {
-  //   group: catalogGroupSlug,
-  //   module_slug: paymentModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-
-  {
-    group: systemGroupSlug,
-    module_slug: smsTemplatesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: systemGroupSlug,
-    module_slug: emailTemplatesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-
-
   {
     group: subscriptionsModuleSlug,
     module_slug: plansModuleSlug,
@@ -461,7 +248,6 @@ const rolePermissionJson = [
     can_update: false,
     can_delete: false,
   },
-
   {
     group: masterGroupSlug,
     module_slug: usersModuleSlug,
@@ -519,15 +305,6 @@ const rolePermissionJson = [
   {
     group: masterGroupSlug,
     module_slug: citiesModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: assessmentFormsSlug,
-    module_slug: assessmentFormsSlug,
     can_all: false,
     can_read: false,
     can_create: false,
@@ -598,43 +375,6 @@ const rolePermissionJson = [
     can_update: false,
     can_delete: false,
   },
-  // {
-  //   group: masterGroupSlug,
-  //   module_slug: zipcodesModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-
-  {
-    group: customerBookingListingFrontSlug,
-    module_slug: customerBookingListingFrontSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: perticularcontractorbooking,
-    module_slug: perticularcontractorbooking,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
-  {
-    group: productsGroupSlug,
-    module_slug: productsModuleSlug,
-    can_all: false,
-    can_read: false,
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-  },
   {
     group: toolsModuleSlug,
     module_slug: toolsModuleSlug,
@@ -644,24 +384,6 @@ const rolePermissionJson = [
     can_update: false,
     can_delete: false,
   },
-  // {
-  //   group: toolsModuleSlug,
-  //   module_slug: tenantToolsModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // },
-  // {
-  //   group: toolsModuleSlug,
-  //   module_slug: toolScheduleModuleSlug,
-  //   can_all: false,
-  //   can_read: false,
-  //   can_create: false,
-  //   can_update: false,
-  //   can_delete: false,
-  // }
 ];
 
 export {
@@ -673,14 +395,11 @@ export {
   appBaseName,
   hostRestApiUrl,
   hostRestApiPrefix,
+  assessmentReportPdfUrl,
   taxLabel,
   taxValue,
 
   ADMIN_ROLE_TYPE,
-  EMPLOYEE_ROLE_TYPE,
-  CLIENT_ROLE_TYPE,
-  SALES_ROLE_TYPE,
-  PROJECT_ROLE_TYPE,
 
   ENUM_USER_STATUS,
   ENUM_USER_STATUS_COLOR,
@@ -688,8 +407,6 @@ export {
   ENUM_PLAN_STATUS_COLOR,
   ENUM_TOOLS_STATUS,
   ENUM_TOOLS_STATUS_COLOR,
-  ENUM_TENANT_TOOLS_STATUS,
-  ENUM_TENANT_TOOLS_STATUS_COLOR,
   ENUM_TOOL_SCHEDULE_STATUS,
   ENUM_TOOL_SCHEDULE_STATUS_COLOR,
   ENUM_DURATION_TYPE,
@@ -705,8 +422,6 @@ export {
   roleBypassType,
   masterGroupSlug,
   subscriptionsModuleSlug,
-  systemGroupSlug,
-  catalogGroupSlug,
   paymentModuleSlug,
   companyModuleSlug,
   rolesModuleSlug,
@@ -714,42 +429,16 @@ export {
   agentModuleSlug,
   locationsModuleSlug,
   employeesModuleSlug,
-  customersModuleSlug,
   countriesModuleSlug,
   statesModuleSlug,
   citiesModuleSlug,
-  companiesModuleSlug,
-  smsTemplatesModuleSlug,
-  emailTemplatesModuleSlug,
-  servicesModuleSlug,
-  addOnServicesModuleSlug,
-  priceListsModuleSlug,
   rolePermissionName,
   rolePermissionJson,
   plansModuleSlug,
   discountModuleSlug,
   subscriptionModuleSlug,
-  AreasModuleSlug,
-  customerManagementGroupSlug,
-  contractorsModuleSlug,
-  questionFormModuleSlug,
-  storageCustomerToken,
-  storageContractorToken,
-  customerBookingListingFrontSlug,
-  perticularcontractorbooking,
   storageRefreshTokenKeyName,
-  productsGroupSlug,
-  productsModuleSlug,
   toolsModuleSlug,
-  governanceSlug,
-  compliancebuilderSlug,
-  resilienceIndexSlug,
-  helpdeskTicketSlug,
-  riskAssessmentSlug,
-  // tenantToolsModuleSlug,
-  // toolScheduleModuleSlug
-  assessmentFormsSlug,
-  assessmentReportPdfUrl,
   // HRM Module Slugs
   hrmGroupSlug,
   holidayCalendarModuleSlug,

@@ -3,8 +3,6 @@ import {
   rolePermissionJson,
   storageUserKeyName,
   storageTokenKeyName,
-  storageCustomerToken,
-  storageContractorToken,
   storageRefreshTokenKeyName,
   appsRoot
 } from "@constant/defaultValues";
