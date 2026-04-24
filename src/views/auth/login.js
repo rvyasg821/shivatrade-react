@@ -37,7 +37,7 @@ import InputPasswordToggle from "@components/input-password-toggle";
 import { useTranslation } from "react-i18next";
 
 // ** Constant
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, appBaseName } from "@constant/defaultValues";
 
 // ** Styles
 import "@styles/react/pages/page-authentication.scss";
@@ -164,7 +164,7 @@ const Login = () => {
             </div>
 
             <CardTitle tag="h3" className="fw-bolder mb-1" style={{ textAlign: "center" }}>
-              {t("Welcome to PeopleGem")}
+              Welcome to {appBaseName}
             </CardTitle>
 
             <CardTitle tag="p" className="fw-bold mb-1" style={{ textAlign: "center" }}>
@@ -235,12 +235,12 @@ const Login = () => {
               </Button>
 
               {/* Sign up link */}
-              <div className="text-center mt-2">
+              {/* <div className="text-center mt-2">
                 <span>{t("Don’t have an account?")}&nbsp;</span>
                 <Link to="/register" className="text-warning fw-bold">
                   {t("Sign up")}
                 </Link>
-              </div>
+              </div> */}
             </Form>
           </Col>
         </div>

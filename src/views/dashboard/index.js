@@ -1,6 +1,6 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-const */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
     Row, Col, Card, CardBody, CardHeader, CardTitle, Spinner, Badge, Button, Progress,
@@ -390,7 +390,7 @@ const EmployeeDashboard = () => {
     leaveTypes.forEach((lt) => { leaveTypeMap[lt._id] = lt.name; });
 
     return (
-        <>
+        <Fragment>
             {/* Attendance — clock in/out, today status */}
             <AttendancePage hideRecords />
 
@@ -475,7 +475,7 @@ const EmployeeDashboard = () => {
                     </Card>
                 </Col>
             </Row>
-        </>
+        </Fragment>
     );
 };
 
@@ -537,7 +537,7 @@ const Dashboard = () => {
                     instance.get(API_ENDPOINTS.companySettings.setupStatus)
                         .then(setupRes => {
                             if (setupRes.data?.data && !setupRes.data.data.setup_completed) {
-                                navigate(`${appsRoot}/setup`, { replace: true });
+                                // navigate(`${appsRoot}/setup`, { replace: true });
                             }
                         })
                         .catch(() => {});
@@ -547,7 +547,7 @@ const Dashboard = () => {
                     instance.get(API_ENDPOINTS.companySettings.setupStatus)
                         .then(setupRes => {
                             if (setupRes.data?.data && !setupRes.data.data.setup_completed) {
-                                navigate(`${appsRoot}/setup`, { replace: true });
+                                // navigate(`${appsRoot}/setup`, { replace: true });
                             }
                         })
                         .catch(() => {});
@@ -606,7 +606,7 @@ const Dashboard = () => {
             <div className="d-flex align-items-center justify-content-between mb-2">
                 <h3 className='mb-0'>{t("Dashboard")}</h3>
             </div>
-            {renderContent()}
+            {/* {renderContent()} */}
         </div>
     );
 };

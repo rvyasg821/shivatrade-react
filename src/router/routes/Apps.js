@@ -9,9 +9,6 @@ import {
 
 // **
 const Dashboard = lazy(() => import('@src/views/dashboard'));
-const SeverityGraph = lazy(() => import('@src/views/dashboard/wazuhGraph/SeverityGraph'))
-const ConfigurationAssessmentChart = lazy(() => import('@src/views/dashboard/configurationAssessments/configurationAssessmentChart'))
-const NetswitchThreatIntelList = lazy(() => import('@src/views/dashboard/netswitchThreatIntels'))
 const Profile = lazy(() => import('@src/views/auth/profile'));
 const Settings = lazy(() => import('@src/views/settings'));
 const UserList = lazy(() => import('@src/views/users'));
@@ -431,30 +428,6 @@ const AppRoutes = [
       permissionId: 'tools',
       action: 'edit',
     },
-  },
-  {
-    path: `${appsRoot}/level-severity-graph`,
-    element: <SeverityGraph />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
-  },
-  {
-    path: `${appsRoot}/configuration-assessment-chart`,
-    element: <ConfigurationAssessmentChart />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
-  },
-  {
-    path: `${appsRoot}/netswitch-threat-intels`,
-    element: <NetswitchThreatIntelList />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
   },
   {
     path: `${appsRoot}/assessment-forms`,

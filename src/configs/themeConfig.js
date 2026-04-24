@@ -1,11 +1,11 @@
 // ** Constant
-// import { appBaseName } from "@constant/defaultValues"
+import { appBaseName } from "@constant/defaultValues";
 // You can customize the template with the help of this file
 
 //Template config options
 const themeConfig = {
   app: {
-    // appName: appBaseName,
+    appName: appBaseName,
     appLogoImage: require('@src/assets/images/ico/sidebar-logo.png').default
   },
   layout: {

@@ -2,9 +2,6 @@ import IntlDropdown from './IntlDropdown'
 import LocationSelector from './LocationSelector'
 import UserDropdown from './UserDropdown'
 
-// import NavbarSearch from './NavbarSearch'
-// import NotificationDropdown from './NotificationDropdown'
-import WidgetVisibilityDropdown from '../../../../views/dashboard/WidgetSettingsDropdown.js'
 // ** Third Party Components
 import { Sun, Moon } from 'react-feather'
 
@@ -36,17 +33,8 @@ const NavbarUser = props => {
           <ThemeToggler />
         </NavLink>
       </NavItem>
-      {/* <NavbarSearch /> */}
-      {/* <NotificationDropdown /> */}
+
       <UserDropdown />
-
-      {isDashboard &&
-        <WidgetVisibilityDropdown
-          title="Hidden Widgets"
-          caret
-          className="mx-2"
-        />}
-
     </ul>
   )
 }
