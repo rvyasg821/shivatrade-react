@@ -159,6 +159,64 @@ const initLocationItem = {
   is_default: false,
 };
 
+const initCategoryItem = {
+  _id: "",
+  name: "",
+  description: "",
+  parent_id: "",
+  is_active: true,
+  status: "active",
+};
+
+const initProductItem = {
+  _id: "",
+  code: "",
+  name: "",
+  category_id: "",
+  description: "",
+  specifications: "",
+  packaging_details: "",
+  quality_parameters: "",
+  hsn_code: "",
+  unit_of_measure: "",
+  is_active: true,
+  status: "active",
+};
+
+const initVendorContactItem = {
+  name: "",
+  designation: "",
+  email: "",
+  phone: "",
+  country_code: null,
+  is_primary: false,
+};
+
+const initVendorItem = {
+  _id: "",
+  company_name: "",
+  website: "",
+  social_media: {
+    linkedin: "",
+    facebook: "",
+    instagram: "",
+    twitter: "",
+    other: "",
+  },
+  category_ids: [],
+  payment_terms: "",
+  incoterms: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  postcode: "",
+  is_active: true,
+  status: "active",
+  contacts: [{ ...initVendorContactItem, is_primary: true }],
+};
+
 const initEmployeeItem = {
   _id: "",
   first_name: "",
@@ -231,23 +289,44 @@ const initEmployeeItem = {
   reporting_to: "",
 };
 
+const initCurrencyItem = {
+  _id: "",
+  code: "",
+  name: "",
+  symbol: "",
+  is_active: true,
+  status: "active",
+};
+
+const initCustomerContactItem = {
+  name: "",
+  designation: "",
+  email: "",
+  phone: "",
+  country_code: null,
+  is_primary: false,
+};
+
 const initCustomerItem = {
   _id: "",
-  firstName: "",
-  lastName: "",
-  name: "",
-  email: "",
-  password: "",
-  role: null,
-  mobile: "",
-  country_code: null,
-  gender: "",
-  dob: null,
-  timezone: "",
-  profile_picture: "",
+  company_name: "",
+  website: "",
+  social_media: {
+    linkedin: "",
+    facebook: "",
+    instagram: "",
+    twitter: "",
+    other: "",
+  },
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  postcode: "",
+  is_active: true,
   status: "active",
-  sms_notification: "active",
-  email_notification: "active",
+  contacts: [{ ...initCustomerContactItem, is_primary: true }],
 };
 
 const initSettingSchedulesItem = {
@@ -503,8 +582,14 @@ export {
   initCityItem,
   initAddOnServiceItem,
   initLocationItem,
+  initCategoryItem,
+  initProductItem,
+  initVendorItem,
+  initVendorContactItem,
   initEmployeeItem,
   initCustomerItem,
+  initCustomerContactItem,
+  initCurrencyItem,
   initCompanyItem,
   initCompanyDataUpdate,
   initPlanItem,

@@ -330,7 +330,7 @@ const LocationList = () => {
           {!isSystemAdmin && locationCapacity && (
             <Badge
               color={locationCapacity.remaining === 0 ? "light-danger" : "light-primary"}
-              className="fs-6 px-2 py-1"
+              className="fs-6 px-2 py-1 d-none"
             >
               {t("Locations")}: {locationCapacity.current} / {locationCapacity.allowed}
               {locationCapacity.remaining > 0
