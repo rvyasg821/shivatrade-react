@@ -5,6 +5,12 @@ import { lazy } from 'react';
 import {
   appsRoot,
   holidayCalendarModuleSlug,
+  categoriesModuleSlug,
+  productsModuleSlug,
+  vendorsModuleSlug,
+  customersModuleSlug,
+  currenciesModuleSlug,
+  priceListModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -17,6 +23,24 @@ const AddUser = lazy(() => import('@src/views/users/add'));
 const LocationList = lazy(() => import('@src/views/locations'));
 const AddLocation = lazy(() => import('@src/views/locations/add'));
 const EditLocation = lazy(() => import('@src/views/locations/add'));
+const CategoryList = lazy(() => import('@src/views/categories'));
+const AddCategory = lazy(() => import('@src/views/categories/add'));
+const EditCategory = lazy(() => import('@src/views/categories/add'));
+const ProductList = lazy(() => import('@src/views/products'));
+const AddProduct = lazy(() => import('@src/views/products/add'));
+const EditProduct = lazy(() => import('@src/views/products/add'));
+const VendorList = lazy(() => import('@src/views/vendors'));
+const AddVendor = lazy(() => import('@src/views/vendors/add'));
+const EditVendor = lazy(() => import('@src/views/vendors/add'));
+const CustomerList = lazy(() => import('@src/views/customers'));
+const AddCustomer = lazy(() => import('@src/views/customers/add'));
+const EditCustomer = lazy(() => import('@src/views/customers/add'));
+const CurrencyList = lazy(() => import('@src/views/currencies'));
+const AddCurrency = lazy(() => import('@src/views/currencies/add'));
+const EditCurrency = lazy(() => import('@src/views/currencies/add'));
+const PriceList = lazy(() => import('@src/views/price-list'));
+const AddPriceList = lazy(() => import('@src/views/price-list/add'));
+const EditPriceList = lazy(() => import('@src/views/price-list/add'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -305,6 +329,150 @@ const AppRoutes = [
     element: <EditLocation />,
     meta: {
       permissionId: 'location',
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/categories`,
+    element: <CategoryList />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/categories/add`,
+    element: <AddCategory />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/categories/edit/:id`,
+    element: <EditCategory />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/products`,
+    element: <ProductList />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/products/add`,
+    element: <AddProduct />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/products/edit/:id`,
+    element: <EditProduct />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors`,
+    element: <VendorList />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors/add`,
+    element: <AddVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors/edit/:id`,
+    element: <EditVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/customers`,
+    element: <CustomerList />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/add`,
+    element: <AddCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/edit/:id`,
+    element: <EditCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/currencies`,
+    element: <CurrencyList />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/currencies/add`,
+    element: <AddCurrency />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/currencies/edit/:id`,
+    element: <EditCurrency />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list`,
+    element: <PriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list/add`,
+    element: <AddPriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list/edit/:id`,
+    element: <EditPriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
       action: 'edit',
     },
   },

@@ -298,6 +298,20 @@ const initCurrencyItem = {
   status: "active",
 };
 
+const initPriceListItem = {
+  _id: "",
+  vendor_id: "",
+  product_id: "",
+  currency_id: "",
+  unit_price: "",
+  moq: 1,
+  tax_pct: "",
+  discount_pct: "",
+  lead_time_days: "",
+  effective_date: new Date().toISOString().slice(0, 10),
+  notes: "",
+};
+
 const initCustomerContactItem = {
   name: "",
   designation: "",
@@ -590,6 +604,7 @@ export {
   initCustomerItem,
   initCustomerContactItem,
   initCurrencyItem,
+  initPriceListItem,
   initCompanyItem,
   initCompanyDataUpdate,
   initPlanItem,
