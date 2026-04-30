@@ -254,7 +254,7 @@ const CustomerForm = () => {
                   )}
                 </Col>
 
-                <Col md="6" className="mb-2">
+                {/* <Col md="6" className="mb-2">
                   <Label className="form-label" for="website">
                     {t("Website URL")}
                   </Label>
@@ -270,7 +270,7 @@ const CustomerForm = () => {
                       />
                     )}
                   />
-                </Col>
+                </Col> */}
 
                 <Col md="6" className="mb-2">
                   <Label className="form-label d-block">
@@ -300,97 +300,6 @@ const CustomerForm = () => {
                           </div>
                         ))}
                       </div>
-                    )}
-                  />
-                </Col>
-              </Row>
-
-              {/* ── Social Media ── */}
-              <h4 className="mt-3 mb-2">{t("Social Media URLs")}</h4>
-              <Row>
-                {["linkedin", "facebook", "instagram", "twitter", "other"].map(
-                  (platform) => (
-                    <Col md="6" className="mb-2" key={platform}>
-                      <Label className="form-label text-capitalize" for={`sm_${platform}`}>
-                        {platform === "other" ? t("Other") : t(platform)}
-                      </Label>
-                      <Controller
-                        name={`social_media.${platform}`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            id={`sm_${platform}`}
-                            placeholder="https://"
-                            {...field}
-                            value={field.value || ""}
-                          />
-                        )}
-                      />
-                    </Col>
-                  )
-                )}
-              </Row>
-
-              {/* ── Address ── */}
-              <h4 className="mt-3 mb-2">{t("Address")}</h4>
-              <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="address_line1">{t("Address Line 1")}</Label>
-                  <Controller
-                    name="address_line1"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="address_line1" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="address_line2">{t("Address Line 2")}</Label>
-                  <Controller
-                    name="address_line2"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="address_line2" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="city">{t("City")}</Label>
-                  <Controller
-                    name="city"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="city" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="state">{t("State")}</Label>
-                  <Controller
-                    name="state"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="state" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="country">{t("Country")}</Label>
-                  <Controller
-                    name="country"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="country" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="postcode">{t("Zipcode / PIN Code")}</Label>
-                  <Controller
-                    name="postcode"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="postcode" {...field} value={field.value || ""} />
                     )}
                   />
                 </Col>
@@ -537,6 +446,97 @@ const CustomerForm = () => {
                     {errors.contacts.message}
                   </FormFeedback>
                 )}
+
+              {/* ── Address ── */}
+              <h4 className="mt-3 mb-2">{t("Address Information")}</h4>
+              <Row>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="address_line1">{t("Address Line 1")}</Label>
+                  <Controller
+                    name="address_line1"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="address_line1" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="address_line2">{t("Address Line 2")}</Label>
+                  <Controller
+                    name="address_line2"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="address_line2" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="city">{t("City")}</Label>
+                  <Controller
+                    name="city"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="city" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="state">{t("State")}</Label>
+                  <Controller
+                    name="state"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="state" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="country">{t("Country")}</Label>
+                  <Controller
+                    name="country"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="country" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="postcode">{t("Zipcode / PIN Code")}</Label>
+                  <Controller
+                    name="postcode"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="postcode" {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+              </Row>
+
+              {/* ── Social Media ── */}
+              <h4 className="mt-3 mb-2">{t("Social Media URLs")}</h4>
+              <Row>
+                {["linkedin", "facebook", "instagram", "twitter", "other"].map(
+                  (platform) => (
+                    <Col md="6" className="mb-2" key={platform}>
+                      <Label className="form-label text-capitalize" for={`sm_${platform}`}>
+                        {platform === "other" ? t("Other") : t(platform)}
+                      </Label>
+                      <Controller
+                        name={`social_media.${platform}`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            id={`sm_${platform}`}
+                            placeholder="https://"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                  )
+                )}
+              </Row>
 
               <div className="d-flex justify-content-end mt-3">
                 <Button

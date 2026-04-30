@@ -36,19 +36,22 @@ const VENDOR_PAYMENT_TERMS_OPTIONS = [
   "DP",
 ].map((v) => ({ value: v, label: v }));
 
+// International Commercial Terms (Incoterms 2020) - published by the ICC.
+// Each 3-letter code defines who pays freight/insurance and where risk transfers
+// from the vendor to the buyer. Full names shown so users can pick the right one.
 const VENDOR_INCOTERMS_OPTIONS = [
-  "EXW",
-  "FCA",
-  "FAS",
-  "FOB",
-  "CFR",
-  "CIF",
-  "CPT",
-  "CIP",
-  "DAP",
-  "DPU",
-  "DDP",
-].map((v) => ({ value: v, label: v }));
+  { value: "EXW", label: "EXW - Ex Works" },
+  { value: "FCA", label: "FCA - Free Carrier" },
+  { value: "FAS", label: "FAS - Free Alongside Ship (sea only)" },
+  { value: "FOB", label: "FOB - Free On Board (sea only)" },
+  { value: "CFR", label: "CFR - Cost and Freight (sea only)" },
+  { value: "CIF", label: "CIF - Cost, Insurance and Freight (sea only)" },
+  { value: "CPT", label: "CPT - Carriage Paid To" },
+  { value: "CIP", label: "CIP - Carriage and Insurance Paid To" },
+  { value: "DAP", label: "DAP - Delivered at Place" },
+  { value: "DPU", label: "DPU - Delivered at Place Unloaded" },
+  { value: "DDP", label: "DDP - Delivered Duty Paid" },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Product module
