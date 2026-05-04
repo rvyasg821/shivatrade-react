@@ -343,6 +343,31 @@ const initCustomerItem = {
   contacts: [{ ...initCustomerContactItem, is_primary: true }],
 };
 
+const initLeadItem = {
+  _id: "",
+  customer_id: "",
+  company_name: "",
+  contact_name: "",
+  contact_email: "",
+  contact_phone: "",
+  country_code: null,
+  source: "web",
+  interested_categories: [],
+  interested_products: [],
+  expected_value: "",
+  currency: "",
+  assigned_to: "",
+  notes: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  postcode: "",
+  status: "new",
+  is_active: true,
+};
+
 const initSettingSchedulesItem = {
   _id: "",
   name: "",
@@ -603,6 +628,7 @@ export {
   initEmployeeItem,
   initCustomerItem,
   initCustomerContactItem,
+  initLeadItem,
   initCurrencyItem,
   initPriceListItem,
   initCompanyItem,

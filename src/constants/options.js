@@ -73,9 +73,43 @@ const PRODUCT_UOM_OPTIONS = [
   "Container",
 ].map((u) => ({ value: u, label: u }));
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lead module
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LEAD_SOURCE_OPTIONS = [
+  { value: "web", label: "Web" },
+  { value: "referral", label: "Referral" },
+  { value: "trade_show", label: "Trade Show" },
+  { value: "cold_call", label: "Cold Call" },
+  { value: "existing_customer", label: "Existing Customer" },
+  { value: "other", label: "Other" },
+];
+
+const LEAD_STATUS_OPTIONS = [
+  { value: "new", label: "New" },
+  { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Qualified" },
+  { value: "proposal_sent", label: "Proposal Sent" },
+  { value: "won", label: "Won" },
+  { value: "lost", label: "Lost" },
+];
+
+const LEAD_STATUS_BADGE_COLOR = {
+  new: "light-info",
+  contacted: "light-primary",
+  qualified: "light-warning",
+  proposal_sent: "light-warning",
+  won: "light-success",
+  lost: "light-danger",
+};
+
 export {
   STATUS_OPTIONS,
   VENDOR_PAYMENT_TERMS_OPTIONS,
   VENDOR_INCOTERMS_OPTIONS,
   PRODUCT_UOM_OPTIONS,
+  LEAD_SOURCE_OPTIONS,
+  LEAD_STATUS_OPTIONS,
+  LEAD_STATUS_BADGE_COLOR,
 };

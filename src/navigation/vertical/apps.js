@@ -134,7 +134,9 @@ const navigationItems = [
         id: leadsModuleSlug,
         title: rolePermissionName[leadsModuleSlug],
         icon: <UserPlus size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/leads`,
+        permissionId: leadsModuleSlug,
+        resource: leadsModuleSlug,
         companyOnly: true,
       },
       {
