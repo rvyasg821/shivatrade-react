@@ -143,7 +143,9 @@ const navigationItems = [
         id: quotationsModuleSlug,
         title: rolePermissionName[quotationsModuleSlug],
         icon: <FileText size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/quotations`,
+        permissionId: quotationsModuleSlug,
+        resource: quotationsModuleSlug,
         companyOnly: true,
       },
       {

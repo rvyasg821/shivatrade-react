@@ -182,6 +182,13 @@ export const API_ENDPOINTS = {
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
   },
+  quotations: {
+    list: `/admin/quotation/list`,
+    get: `/admin/quotation/get`,
+    create: `/admin/quotation/create`,
+    update: `/admin/quotation/update`,
+    delete: `/admin/quotation/delete`,
+  },
   customers: {
     list: `/admin/customer/list`,
     get: `/admin/customer/get`,

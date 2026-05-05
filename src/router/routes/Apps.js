@@ -14,6 +14,7 @@ import {
   expensesModuleSlug,
   currenciesModuleSlug,
   priceListModuleSlug,
+  quotationsModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -53,6 +54,9 @@ const EditCurrency = lazy(() => import('@src/views/currencies/add'));
 const PriceList = lazy(() => import('@src/views/price-list'));
 const AddPriceList = lazy(() => import('@src/views/price-list/add'));
 const EditPriceList = lazy(() => import('@src/views/price-list/add'));
+const QuotationList = lazy(() => import('@src/views/quotations'));
+const AddQuotation = lazy(() => import('@src/views/quotations/add'));
+const EditQuotation = lazy(() => import('@src/views/quotations/add'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -539,6 +543,30 @@ const AppRoutes = [
     element: <EditPriceList />,
     meta: {
       permissionId: priceListModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations`,
+    element: <QuotationList />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/add`,
+    element: <AddQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/edit/:id`,
+    element: <EditQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
       action: 'edit',
     },
   },

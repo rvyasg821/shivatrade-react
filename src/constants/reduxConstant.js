@@ -356,6 +356,57 @@ const initPriceListItem = {
   notes: "",
 };
 
+const initQuotationLineItem = {
+  product_id: "",
+  description: "",
+  qty: "",
+  unit: "",
+  unit_price: "",
+  discount_pct: "0",
+  tax_pct: "0",
+};
+
+const initQuotationExpenseItem = {
+  expense_id: "",
+  name: "",
+  amount: "",
+};
+
+const initQuotationRebateItem = {
+  rebate_id: "",
+  name: "",
+  amount: "",
+};
+
+const initQuotationItem = {
+  _id: "",
+  voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  quotation_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_id: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  // Server-side recomputed
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
+};
+
 const initCustomerContactItem = {
   name: "",
   designation: "",
@@ -746,6 +797,10 @@ export {
   initExpenseItem,
   initCurrencyItem,
   initPriceListItem,
+  initQuotationItem,
+  initQuotationLineItem,
+  initQuotationExpenseItem,
+  initQuotationRebateItem,
   initCompanyItem,
   initCompanyAddressItem,
   initCompanyBankAccountItem,
