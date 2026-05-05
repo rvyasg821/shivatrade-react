@@ -25,6 +25,7 @@ import category from "@src/views/categories/store";
 import product from "@src/views/products/store";
 import vendor from "@src/views/vendors/store";
 import customer from "@src/views/customers/store";
+import lead from "@src/views/leads/store";
 import currency from "@src/views/currencies/store";
 import priceList from "@src/views/price-list/store";
 import employee from "@src/views/employees/store";
@@ -98,6 +99,7 @@ const rootReducer = {
   product,
   vendor,
   customer,
+  lead,
   currency,
   priceList,
   locationContext,

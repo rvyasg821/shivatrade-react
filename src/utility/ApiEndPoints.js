@@ -190,6 +190,14 @@ export const API_ENDPOINTS = {
     delete: `/admin/customer/delete`,
     dropdown: `/admin/customer/dropdown`,
   },
+  leads: {
+    list: `/admin/lead/list`,
+    get: `/admin/lead/get`,
+    create: `/admin/lead/create`,
+    update: `/admin/lead/update`,
+    delete: `/admin/lead/delete`,
+    convert: `/admin/lead/convert`,
+  },
   employees: {
     list: `/admin/employee/list`,
     get: `/admin/employee/get`,

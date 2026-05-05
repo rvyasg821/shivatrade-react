@@ -9,6 +9,7 @@ import {
   productsModuleSlug,
   vendorsModuleSlug,
   customersModuleSlug,
+  leadsModuleSlug,
   currenciesModuleSlug,
   priceListModuleSlug,
 } from '@constant/defaultValues';
@@ -35,6 +36,9 @@ const EditVendor = lazy(() => import('@src/views/vendors/add'));
 const CustomerList = lazy(() => import('@src/views/customers'));
 const AddCustomer = lazy(() => import('@src/views/customers/add'));
 const EditCustomer = lazy(() => import('@src/views/customers/add'));
+const LeadList = lazy(() => import('@src/views/leads'));
+const AddLead = lazy(() => import('@src/views/leads/add'));
+const EditLead = lazy(() => import('@src/views/leads/add'));
 const CurrencyList = lazy(() => import('@src/views/currencies'));
 const AddCurrency = lazy(() => import('@src/views/currencies/add'));
 const EditCurrency = lazy(() => import('@src/views/currencies/add'));
@@ -425,6 +429,30 @@ const AppRoutes = [
     element: <EditCustomer />,
     meta: {
       permissionId: customersModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/leads`,
+    element: <LeadList />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/add`,
+    element: <AddLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/edit/:id`,
+    element: <EditLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
       action: 'edit',
     },
   },
