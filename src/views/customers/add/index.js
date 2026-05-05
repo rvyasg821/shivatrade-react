@@ -35,13 +35,18 @@ import Notification from "@components/toast/notification";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
+import Select from "react-select";
 
 // ** Icons
 import { ArrowLeft, Plus, Trash2 } from "react-feather";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
-import { initCustomerItem, initCustomerContactItem } from "@constant/reduxConstant";
+import {
+  initCustomerItem,
+  initCustomerContactItem,
+  initCustomerAddressItem,
+} from "@constant/reduxConstant";
 import { STATUS_OPTIONS } from "@constant/options";
 
 const CustomerForm = () => {
@@ -114,6 +119,12 @@ const CustomerForm = () => {
     keyName: "_key",
   });
 
+  const addressesField = useFieldArray({
+    control,
+    name: "addresses",
+    keyName: "_key",
+  });
+
   useLayoutEffect(() => {
     if (isEditMode) {
       dispatch(getCustomer(id));
@@ -136,12 +147,9 @@ const CustomerForm = () => {
           twitter: c.social_media?.twitter || "",
           other: c.social_media?.other || "",
         },
-        address_line1: c.address_line1 || "",
-        address_line2: c.address_line2 || "",
-        city: c.city || "",
-        state: c.state || "",
-        country: c.country || "",
-        postcode: c.postcode || "",
+        gstin: c.gstin || "",
+        pan: c.pan || "",
+        iec: c.iec || "",
         status: c.status || (c.is_active ? "active" : "inactive"),
         is_active: c.is_active,
         contacts:
@@ -155,6 +163,22 @@ const CustomerForm = () => {
                 is_primary: !!co.is_primary,
               }))
             : [{ ...initCustomerContactItem, is_primary: true }],
+        addresses:
+          c.addresses && c.addresses.length > 0
+            ? c.addresses.map((a) => ({
+                type: a.type || "bill_to",
+                label: a.label || "",
+                address_line1: a.address_line1 || "",
+                address_line2: a.address_line2 || "",
+                city: a.city || "",
+                state: a.state || "",
+                country: a.country || "",
+                postcode: a.postcode || "",
+                gstin: a.gstin || "",
+                iec: a.iec || "",
+                is_default: !!a.is_default,
+              }))
+            : [{ ...initCustomerAddressItem, type: "bill_to", is_default: true }],
       });
     }
   }, [store?.customerItem?._id]);
@@ -186,12 +210,9 @@ const CustomerForm = () => {
         twitter: data.social_media?.twitter?.trim() || undefined,
         other: data.social_media?.other?.trim() || undefined,
       },
-      address_line1: data.address_line1?.trim() || undefined,
-      address_line2: data.address_line2?.trim() || undefined,
-      city: data.city?.trim() || undefined,
-      state: data.state?.trim() || undefined,
-      country: data.country?.trim() || undefined,
-      postcode: data.postcode?.trim() || undefined,
+      gstin: data.gstin?.trim() || undefined,
+      pan: data.pan?.trim() || undefined,
+      iec: data.iec?.trim() || undefined,
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
@@ -202,6 +223,28 @@ const CustomerForm = () => {
         country_code: c.country_code || undefined,
         is_primary: !!c.is_primary,
       })),
+      addresses: (data.addresses || [])
+        .filter(
+          (a) =>
+            a.address_line1?.trim() ||
+            a.city?.trim() ||
+            a.country?.trim() ||
+            a.postcode?.trim() ||
+            a.label?.trim()
+        )
+        .map((a) => ({
+          type: a.type || "bill_to",
+          label: a.label?.trim() || undefined,
+          address_line1: a.address_line1?.trim() || undefined,
+          address_line2: a.address_line2?.trim() || undefined,
+          city: a.city?.trim() || undefined,
+          state: a.state?.trim() || undefined,
+          country: a.country?.trim() || undefined,
+          postcode: a.postcode?.trim() || undefined,
+          gstin: a.gstin?.trim() || undefined,
+          iec: a.iec?.trim() || undefined,
+          is_default: !!a.is_default,
+        })),
     };
 
     if (isEditMode) {
@@ -447,70 +490,208 @@ const CustomerForm = () => {
                   </FormFeedback>
                 )}
 
-              {/* ── Address ── */}
-              <h4 className="mt-3 mb-2">{t("Address Information")}</h4>
+              {/* ── Tax & Compliance ── */}
+              <h4 className="mt-3 mb-2">{t("Tax & Compliance")}</h4>
               <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="address_line1">{t("Address Line 1")}</Label>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="gstin">{t("GSTIN")}</Label>
                   <Controller
-                    name="address_line1"
+                    name="gstin"
                     control={control}
                     render={({ field }) => (
-                      <Input id="address_line1" {...field} value={field.value || ""} />
+                      <Input id="gstin" maxLength={15} placeholder="22AAAAA0000A1Z5"
+                        {...field} value={field.value || ""} />
                     )}
                   />
                 </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="address_line2">{t("Address Line 2")}</Label>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="pan">{t("PAN")}</Label>
                   <Controller
-                    name="address_line2"
+                    name="pan"
                     control={control}
                     render={({ field }) => (
-                      <Input id="address_line2" {...field} value={field.value || ""} />
+                      <Input id="pan" maxLength={10} placeholder="AAAAA0000A"
+                        {...field} value={field.value || ""} />
                     )}
                   />
                 </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="city">{t("City")}</Label>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="iec">
+                    {t("IEC")} <small className="text-muted">({t("Importer Exporter Code")})</small>
+                  </Label>
                   <Controller
-                    name="city"
+                    name="iec"
                     control={control}
                     render={({ field }) => (
-                      <Input id="city" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="state">{t("State")}</Label>
-                  <Controller
-                    name="state"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="state" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="country">{t("Country")}</Label>
-                  <Controller
-                    name="country"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="country" {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="postcode">{t("Zipcode / PIN Code")}</Label>
-                  <Controller
-                    name="postcode"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="postcode" {...field} value={field.value || ""} />
+                      <Input id="iec" maxLength={20}
+                        {...field} value={field.value || ""} />
                     )}
                   />
                 </Col>
               </Row>
+
+              {/* ── Addresses (multi) ── */}
+              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <h4 className="mb-0">{t("Addresses")}</h4>
+                <Button
+                  type="button" size="sm" color="primary" outline
+                  onClick={() => addressesField.append({ ...initCustomerAddressItem })}
+                >
+                  + {t("Add Address")}
+                </Button>
+              </div>
+              {addressesField.fields.length === 0 && (
+                <small className="text-muted d-block mb-2">
+                  {t("No addresses. Add at least one Bill-To address.")}
+                </small>
+              )}
+              {addressesField.fields.map((row, idx) => {
+                const TYPE_OPTIONS = [
+                  { value: "bill_to", label: t("Bill To") },
+                  { value: "ship_to", label: t("Ship To") },
+                  { value: "notify", label: t("Notify Party") },
+                  { value: "other", label: t("Other") },
+                ];
+                return (
+                  <Row key={row._key} className="border rounded p-2 mb-2 mx-0">
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("Type")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.type`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            classNamePrefix="select"
+                            options={TYPE_OPTIONS}
+                            value={TYPE_OPTIONS.find((o) => o.value === field.value) || null}
+                            onChange={(opt) => field.onChange(opt ? opt.value : "bill_to")}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label">{t("Label")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.label`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input placeholder={t("e.g. HQ, Conakry warehouse")}
+                            {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2 d-flex align-items-end">
+                      <div className="form-check">
+                        <Controller
+                          name={`addresses.${idx}.is_default`}
+                          control={control}
+                          render={({ field }) => (
+                            <Input
+                              type="checkbox"
+                              id={`addr-default-${idx}`}
+                              checked={!!field.value}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                            />
+                          )}
+                        />
+                        <Label className="form-check-label" for={`addr-default-${idx}`}>
+                          {t("Default for this type")}
+                        </Label>
+                      </div>
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label">{t("Address Line 1")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.address_line1`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label">{t("Address Line 2")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.address_line2`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("City")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.city`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("State")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.state`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("Country")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.country`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("Postcode")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.postcode`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label">{t("GSTIN (this address)")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.gstin`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input maxLength={15} {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label">{t("IEC (this address)")}</Label>
+                      <Controller
+                        name={`addresses.${idx}.iec`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input maxLength={20} {...field} value={field.value || ""} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="12" className="text-end">
+                      <Button
+                        type="button" size="sm" color="danger" outline
+                        onClick={() => addressesField.remove(idx)}
+                      >
+                        {t("Remove address")}
+                      </Button>
+                    </Col>
+                  </Row>
+                );
+              })}
 
               {/* ── Social Media ── */}
               <h4 className="mt-3 mb-2">{t("Social Media URLs")}</h4>

@@ -10,6 +10,8 @@ import {
   vendorsModuleSlug,
   customersModuleSlug,
   leadsModuleSlug,
+  rebatesModuleSlug,
+  expensesModuleSlug,
   currenciesModuleSlug,
   priceListModuleSlug,
 } from '@constant/defaultValues';
@@ -39,6 +41,12 @@ const EditCustomer = lazy(() => import('@src/views/customers/add'));
 const LeadList = lazy(() => import('@src/views/leads'));
 const AddLead = lazy(() => import('@src/views/leads/add'));
 const EditLead = lazy(() => import('@src/views/leads/add'));
+const RebateList = lazy(() => import('@src/views/rebates'));
+const AddRebate = lazy(() => import('@src/views/rebates/add'));
+const EditRebate = lazy(() => import('@src/views/rebates/add'));
+const ExpenseList = lazy(() => import('@src/views/expenses'));
+const AddExpense = lazy(() => import('@src/views/expenses/add'));
+const EditExpense = lazy(() => import('@src/views/expenses/add'));
 const CurrencyList = lazy(() => import('@src/views/currencies'));
 const AddCurrency = lazy(() => import('@src/views/currencies/add'));
 const EditCurrency = lazy(() => import('@src/views/currencies/add'));
@@ -455,6 +463,36 @@ const AppRoutes = [
       permissionId: leadsModuleSlug,
       action: 'edit',
     },
+  },
+  {
+    path: `${appsRoot}/rebates`,
+    element: <RebateList />,
+    meta: { permissionId: rebatesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/rebates/add`,
+    element: <AddRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/rebates/edit/:id`,
+    element: <EditRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/expenses`,
+    element: <ExpenseList />,
+    meta: { permissionId: expensesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/expenses/add`,
+    element: <AddExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/expenses/edit/:id`,
+    element: <EditExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'edit' },
   },
   {
     path: `${appsRoot}/currencies`,

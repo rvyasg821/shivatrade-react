@@ -14,6 +14,7 @@ import {
   Col,
   Row,
   Card,
+  Badge,
   Input,
   Button,
   CardBody,
@@ -233,6 +234,33 @@ const PriceListView = () => {
       sortField: "effective_date",
       sortable: true,
       selector: (row) => (row?.effective_date || "").slice(0, 10),
+    },
+    {
+      name: t("Valid Until"),
+      sortable: false,
+      selector: (row) => {
+        const end = row?.effective_until;
+        if (!end) return <span className="text-muted">{t("Active")}</span>;
+        const endDate = String(end).slice(0, 10);
+        // Explicit valid_until → just the date.
+        // Derived (auto-end when next row takes effect) → italic, prefixed.
+        return row?.valid_until ? (
+          endDate
+        ) : (
+          <span className="text-muted fst-italic">until {endDate}</span>
+        );
+      },
+    },
+    {
+      name: t("Primary"),
+      center: true,
+      sortable: false,
+      selector: (row) =>
+        row?.is_primary ? (
+          <Badge color="light-success">{t("Primary")}</Badge>
+        ) : (
+          <span className="text-muted">—</span>
+        ),
     },
   ];
 

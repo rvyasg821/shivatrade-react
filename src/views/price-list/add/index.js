@@ -138,6 +138,8 @@ const PriceListForm = () => {
         discount_pct: r.discount_pct || "",
         lead_time_days: r.lead_time_days ?? "",
         effective_date: (r.effective_date || "").slice(0, 10),
+        valid_until: r.valid_until ? r.valid_until.slice(0, 10) : "",
+        is_primary: !!r.is_primary,
         notes: r.notes || "",
       });
     }
@@ -166,6 +168,8 @@ const PriceListForm = () => {
     if (data.discount_pct) payload.discount_pct = String(data.discount_pct);
     if (data.lead_time_days !== null && data.lead_time_days !== "")
       payload.lead_time_days = Number(data.lead_time_days);
+    if (data.valid_until) payload.valid_until = data.valid_until;
+    payload.is_primary = !!data.is_primary;
     if (data.notes) payload.notes = data.notes.trim();
 
     if (isEditMode) {
@@ -430,6 +434,50 @@ const PriceListForm = () => {
                       {errors.effective_date.message}
                     </FormFeedback>
                   )}
+                </Col>
+
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="valid_until">
+                    {t("Valid Until")}
+                  </Label>
+                  <Controller
+                    name="valid_until"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="valid_until"
+                        type="date"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t("Optional explicit expiry. If blank, ends when a newer entry takes effect.")}
+                  </small>
+                </Col>
+
+                <Col md="8" className="mb-2 d-flex align-items-end">
+                  <div className="form-check">
+                    <Controller
+                      name="is_primary"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          type="checkbox"
+                          id="is_primary"
+                          checked={!!field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      )}
+                    />
+                    <Label className="form-check-label" for="is_primary">
+                      {t("Primary vendor for this product")}
+                    </Label>
+                    <small className="text-muted d-block">
+                      {t("Default source used by Costing Sheet / fresh Purchase Order. Marking another vendor primary auto-unflags this one.")}
+                    </small>
+                  </div>
                 </Col>
 
                 <Col md="12" className="mb-2">

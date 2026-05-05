@@ -198,6 +198,22 @@ export const API_ENDPOINTS = {
     delete: `/admin/lead/delete`,
     convert: `/admin/lead/convert`,
   },
+  rebates: {
+    list: `/admin/rebate/list`,
+    get: `/admin/rebate/get`,
+    create: `/admin/rebate/create`,
+    update: `/admin/rebate/update`,
+    delete: `/admin/rebate/delete`,
+    dropdown: `/admin/rebate/dropdown`,
+  },
+  expenses: {
+    list: `/admin/expense/list`,
+    get: `/admin/expense/get`,
+    create: `/admin/expense/create`,
+    update: `/admin/expense/update`,
+    delete: `/admin/expense/delete`,
+    dropdown: `/admin/expense/dropdown`,
+  },
   employees: {
     list: `/admin/employee/list`,
     get: `/admin/employee/get`,
