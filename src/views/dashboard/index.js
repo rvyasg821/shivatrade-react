@@ -581,10 +581,10 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    <CompanyDashboard stats={companyStats} loading={companyStatsLoading} showSetupChecklist onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
+                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} showSetupChecklist onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
                     <div className="mt-1">
                         <SubscriptionCard />
-                    </div>
+                    </div> */}
                 </div>
             );
         }
@@ -592,7 +592,7 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    <CompanyDashboard stats={companyStats} loading={companyStatsLoading} onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
+                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} /> */}
                 </div>
             );
         }
@@ -606,7 +606,7 @@ const Dashboard = () => {
             <div className="d-flex align-items-center justify-content-between mb-2">
                 <h3 className='mb-0'>{t("Dashboard")}</h3>
             </div>
-            {/* {renderContent()} */}
+            {renderContent()}
         </div>
     );
 };
