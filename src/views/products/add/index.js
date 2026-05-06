@@ -9,6 +9,7 @@ import {
   createProduct,
   updateProduct,
   cleanProductMessage,
+  cleanProductState,
 } from "../store";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
@@ -51,7 +52,7 @@ import { ArrowLeft, Loader, Plus, Trash2 } from "react-feather";
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initProductItem } from "@constant/reduxConstant";
-import { STATUS_OPTIONS, PRODUCT_UOM_OPTIONS } from "@constant/options";
+import { STATUS_OPTIONS, PRODUCT_UOM_OPTIONS, COUNTRY_OPTIONS } from "@constant/options";
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -210,9 +211,12 @@ const ProductForm = () => {
     if (isEditMode) {
       dispatch(getProduct(id));
     } else {
+      // Clear stale productItem in redux so a previously edited product
+      // (with rebates/expenses arrays) doesn't bleed into the Add form.
+      dispatch(cleanProductState());
       reset(initProductItem);
     }
-  }, [id]);
+  }, [id, isEditMode]);
 
   useEffect(() => {
     if (isEditMode && store?.productItem && store.productItem._id) {
@@ -711,11 +715,20 @@ const ProductForm = () => {
                     name="country_of_origin"
                     control={control}
                     render={({ field }) => (
-                      <Input
-                        id="country_of_origin"
-                        placeholder="INDIA"
-                        {...field}
-                        value={field.value || ""}
+                      <Select
+                        inputId="country_of_origin"
+                        classNamePrefix="select"
+                        isClearable
+                        options={COUNTRY_OPTIONS}
+                        value={
+                          COUNTRY_OPTIONS.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        placeholder={t("Select country")}
                       />
                     )}
                   />

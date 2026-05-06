@@ -188,7 +188,7 @@ const initProductItem = {
   pack_size: "",
   net_weight_per_unit: "",
   gross_weight_per_unit: "",
-  country_of_origin: "",
+  country_of_origin: "India",
   // Links
   rebates: [], // [{ rebate_id, pct? }]
   expenses: [], // [{ expense_id, value? }]
@@ -337,6 +337,7 @@ const initCurrencyItem = {
   name: "",
   symbol: "",
   is_active: true,
+  is_default: false,
   status: "active",
 };
 

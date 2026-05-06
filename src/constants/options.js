@@ -11,6 +11,8 @@
  * react-select / mapped for native <select> / used in radios.
  */
 
+import { Country } from "country-state-city";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Common (cross-module)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,6 +21,17 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
 ];
+
+// All ISO countries from `country-state-city`, alphabetised, with India
+// pinned to the top so the export-business default is the first option.
+// Stored value is the full country name (back-compat with free-text data).
+const COUNTRY_OPTIONS = (() => {
+  const all = Country.getAllCountries()
+    .map((c) => ({ value: c.name, label: c.name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const india = all.find((o) => o.value === "India");
+  return india ? [india, ...all.filter((o) => o.value !== "India")] : all;
+})();
 
 // International Commercial Terms (Incoterms 2020) — published by the ICC.
 // Each 3-letter code defines who pays freight/insurance and where risk transfers
@@ -92,6 +105,7 @@ const PRODUCT_UOM_OPTIONS = [
   "KG",
   "MT",
   "Tonne",
+  "Nos",
   "Piece",
   "Pack",
   "Box",
@@ -155,6 +169,7 @@ const QUOTATION_STATUS_BADGE_COLOR = {
 
 export {
   STATUS_OPTIONS,
+  COUNTRY_OPTIONS,
   INCOTERMS_OPTIONS,
   PAYMENT_TERMS_OPTIONS,
   VENDOR_PAYMENT_TERMS_OPTIONS,
