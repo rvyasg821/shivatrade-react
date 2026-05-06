@@ -22,7 +22,6 @@ import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { initQuotationLineItem } from "@constant/reduxConstant";
 import { PRODUCT_UOM_OPTIONS } from "@constant/options";
 import { num, fmt, formatVendorOption } from "./_helpers";
 
@@ -31,8 +30,18 @@ import { num, fmt, formatVendorOption } from "./_helpers";
  * Editing happens in a Modal that hosts the full input layout (Product, Vendor,
  * Qty, Unit, Price, Disc%, Tax%, Description). Modal edits go live to the
  * underlying field-array row; closing a freshly-added empty row auto-removes it.
+ *
+ * Shared across Quotation / PFI / PO. Pass:
+ *   - control, setValue from parent useForm
+ *   - productOptions (with raw product data for auto-fill)
+ *   - initLineItem (module-specific empty row shape)
  */
-const QuotationLineItems = ({ control, setValue, productOptions }) => {
+const SalesDocLineItems = ({
+  control,
+  setValue,
+  productOptions,
+  initLineItem,
+}) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
 
@@ -120,7 +129,7 @@ const QuotationLineItems = ({ control, setValue, productOptions }) => {
   };
 
   const openAdd = () => {
-    lineFA.append({ ...initQuotationLineItem });
+    lineFA.append({ ...initLineItem });
     const newIdx = lineFA.fields.length;
     setModal({ open: true, idx: newIdx, isNew: true });
   };
@@ -446,4 +455,4 @@ const QuotationLineItems = ({ control, setValue, productOptions }) => {
   );
 };
 
-export default QuotationLineItems;
+export default SalesDocLineItems;

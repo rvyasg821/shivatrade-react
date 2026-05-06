@@ -20,21 +20,31 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { initQuotationRebateItem } from "@constant/reduxConstant";
-import { num, round2, fmt, deriveRebateAmount } from "./_helpers";
+import { num, round2, fmt, deriveExpenseAmount } from "./_helpers";
 
-const QuotationRebates = ({
+/**
+ * Expenses section — three-mode model per row:
+ *   1. Master-linked, default        → derived amount displayed read-only
+ *   2. Master-linked, overridden     → editable amount + reset-to-rule icon
+ *   3. Ad-hoc (no master)            → name + amount both manual
+ *
+ * Compact summary table; "Add" / "Edit" open a Modal with the input form.
+ * Shared across Quotation / PFI / PO. Pass `initExpenseItem` for the
+ * module-specific empty-row shape.
+ */
+const SalesDocExpenses = ({
   control,
   setValue,
-  rebateOptions,
-  rebateMasterMap,
+  expenseOptions,
+  expenseMasterMap,
   subtotal,
+  initExpenseItem,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
 
-  const rebateFA = useFieldArray({ control, name: "rebates" });
-  const liveRebates = useWatch({ control, name: "rebates" }) || [];
+  const expenseFA = useFieldArray({ control, name: "expenses" });
+  const liveExpenses = useWatch({ control, name: "expenses" }) || [];
 
   const confirmAndRemove = (idx) =>
     mySwal
@@ -51,51 +61,51 @@ const QuotationRebates = ({
         buttonsStyling: false,
       })
       .then((r) => {
-        if (r.isConfirmed) rebateFA.remove(idx);
+        if (r.isConfirmed) expenseFA.remove(idx);
       });
 
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
 
-  const onPickRebate = (idx, opt) => {
-    setValue(`rebates.${idx}.rebate_id`, opt?.value || "");
-    setValue(`rebates.${idx}.is_overridden`, false);
-    if (opt?.raw) setValue(`rebates.${idx}.name`, opt.raw.name || "");
+  const onPickExpense = (idx, opt) => {
+    setValue(`expenses.${idx}.expense_id`, opt?.value || "");
+    setValue(`expenses.${idx}.is_overridden`, false);
+    if (opt?.raw) setValue(`expenses.${idx}.name`, opt.raw.name || "");
   };
 
   const toggleOverride = (idx, currentDerived) => {
-    setValue(`rebates.${idx}.amount`, String(round2(currentDerived)));
-    setValue(`rebates.${idx}.is_overridden`, true);
+    setValue(`expenses.${idx}.amount`, String(round2(currentDerived)));
+    setValue(`expenses.${idx}.is_overridden`, true);
   };
   const resetOverride = (idx) => {
-    setValue(`rebates.${idx}.is_overridden`, false);
+    setValue(`expenses.${idx}.is_overridden`, false);
   };
 
   const openAdd = () => {
-    rebateFA.append({ ...initQuotationRebateItem });
-    setModal({ open: true, idx: rebateFA.fields.length, isNew: true });
+    expenseFA.append({ ...initExpenseItem });
+    setModal({ open: true, idx: expenseFA.fields.length, isNew: true });
   };
   const openEdit = (idx) => setModal({ open: true, idx, isNew: false });
   const closeModal = () => {
     const { idx, isNew } = modal;
     if (isNew && idx !== null) {
-      const row = liveRebates[idx];
-      if (!row?.name && !row?.rebate_id) {
-        rebateFA.remove(idx);
+      const row = liveExpenses[idx];
+      if (!row?.name && !row?.expense_id) {
+        expenseFA.remove(idx);
       }
     }
     setModal({ open: false, idx: null, isNew: false });
   };
 
   const editingIdx = modal.idx;
-  const editingRow = editingIdx != null ? liveRebates[editingIdx] || {} : {};
+  const editingRow = editingIdx != null ? liveExpenses[editingIdx] || {} : {};
   const editingMaster =
-    editingRow?.rebate_id && rebateMasterMap.get(editingRow.rebate_id);
-  const editingDerived = deriveRebateAmount(
+    editingRow?.expense_id && expenseMasterMap.get(editingRow.expense_id);
+  const editingDerived = deriveExpenseAmount(
     editingRow,
     subtotal,
-    rebateMasterMap
+    expenseMasterMap
   );
-  const editingIsMaster = !!editingRow?.rebate_id;
+  const editingIsMaster = !!editingRow?.expense_id;
   const editingOverridden = !!editingRow?.is_overridden;
 
   return (
@@ -103,16 +113,16 @@ const QuotationRebates = ({
       <CardBody>
         <div className="d-flex justify-content-between align-items-center mb-2">
           <h5 className="mb-0 fw-bold text-uppercase text-muted">
-            {t("Rebates")}
+            {t("Expenses")}
           </h5>
           <Button size="sm" color="primary" type="button" onClick={openAdd}>
-            <Plus size={14} /> {t("Add Rebate")}
+            <Plus size={14} /> {t("Add Expense")}
           </Button>
         </div>
 
-        {rebateFA.fields.length === 0 ? (
+        {expenseFA.fields.length === 0 ? (
           <div className="border rounded p-3 text-center text-muted">
-            {t("No rebates (e.g. drawback, RoDTEP).")}
+            {t("No expenses (e.g. transport, CHA, freight).")}
           </div>
         ) : (
           <Table responsive bordered className="mb-0 align-middle">
@@ -126,22 +136,26 @@ const QuotationRebates = ({
               </tr>
             </thead>
             <tbody>
-              {rebateFA.fields.map((field, idx) => {
-                const row = liveRebates[idx] || {};
-                const master = row.rebate_id
-                  ? rebateMasterMap.get(row.rebate_id)
+              {expenseFA.fields.map((field, idx) => {
+                const row = liveExpenses[idx] || {};
+                const master = row.expense_id
+                  ? expenseMasterMap.get(row.expense_id)
                   : null;
-                const derived = deriveRebateAmount(
+                const derived = deriveExpenseAmount(
                   row,
                   subtotal,
-                  rebateMasterMap
+                  expenseMasterMap
                 );
                 return (
                   <tr key={field.id}>
                     <td className="text-muted">{idx + 1}</td>
                     <td>{row.name || t("(not set)")}</td>
                     <td className="text-muted small">
-                      {master ? `${num(master.pct)}% of subtotal` : t("Ad-hoc")}
+                      {master
+                        ? master.type === "percent"
+                          ? `${num(master.value)}% of subtotal`
+                          : `Flat ${fmt(num(master.value))}`
+                        : t("Ad-hoc")}
                       {row.is_overridden && (
                         <span className="ms-1 badge bg-warning text-dark">
                           {t("Override")}
@@ -174,8 +188,8 @@ const QuotationRebates = ({
       <Modal isOpen={modal.open} toggle={closeModal} backdrop="static">
         <ModalHeader toggle={closeModal}>
           {modal.isNew
-            ? t("Add Rebate")
-            : `${t("Edit Rebate")} #${(editingIdx ?? 0) + 1}`}
+            ? t("Add Expense")
+            : `${t("Edit Expense")} #${(editingIdx ?? 0) + 1}`}
         </ModalHeader>
         <ModalBody>
           {editingIdx != null && (
@@ -183,17 +197,17 @@ const QuotationRebates = ({
               <Col md="12" className="mb-2">
                 <Label className="form-label">{t("Pick from Master")}</Label>
                 <Controller
-                  name={`rebates.${editingIdx}.rebate_id`}
+                  name={`expenses.${editingIdx}.expense_id`}
                   control={control}
                   render={({ field: f }) => (
                     <Select
                       classNamePrefix="select"
                       isClearable
-                      options={rebateOptions}
+                      options={expenseOptions}
                       value={
-                        rebateOptions.find((o) => o.value === f.value) || null
+                        expenseOptions.find((o) => o.value === f.value) || null
                       }
-                      onChange={(opt) => onPickRebate(editingIdx, opt)}
+                      onChange={(opt) => onPickExpense(editingIdx, opt)}
                     />
                   )}
                 />
@@ -201,7 +215,7 @@ const QuotationRebates = ({
               <Col md="12" className="mb-2">
                 <Label className="form-label">{t("Name")}</Label>
                 <Controller
-                  name={`rebates.${editingIdx}.name`}
+                  name={`expenses.${editingIdx}.name`}
                   control={control}
                   render={({ field: f }) => (
                     <Input
@@ -216,7 +230,9 @@ const QuotationRebates = ({
                 <Label className="form-label">{t("Rule")}</Label>
                 <div className="form-control bg-light">
                   {editingMaster
-                    ? `${num(editingMaster.pct)}% of subtotal`
+                    ? editingMaster.type === "percent"
+                      ? `${num(editingMaster.value)}% of subtotal`
+                      : `Flat ${fmt(num(editingMaster.value))}`
                     : t("Ad-hoc — type the amount below")}
                 </div>
               </Col>
@@ -242,7 +258,7 @@ const QuotationRebates = ({
                 ) : (
                   <div className="d-flex align-items-center gap-1">
                     <Controller
-                      name={`rebates.${editingIdx}.amount`}
+                      name={`expenses.${editingIdx}.amount`}
                       control={control}
                       render={({ field: f }) => (
                         <Input
@@ -278,4 +294,4 @@ const QuotationRebates = ({
   );
 };
 
-export default QuotationRebates;
+export default SalesDocExpenses;

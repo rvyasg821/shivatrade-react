@@ -39,6 +39,10 @@ import { getRebateDropdown } from "../../rebates/store";
 import { getLead } from "../../leads/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
+// ** Axios (direct call for currency rate lookup — per-pick transient data)
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+
 // ** Utils
 import Notification from "@components/toast/notification";
 import { useTranslation } from "react-i18next";
@@ -61,17 +65,17 @@ import {
 // ** Icons
 import { ArrowLeft } from "react-feather";
 
-// ** Sections (split for readability — each owns its section + edit modal)
-import QuotationLineItems from "./QuotationLineItems";
-import QuotationExpenses from "./QuotationExpenses";
-import QuotationRebates from "./QuotationRebates";
-import QuotationCostingCard from "./QuotationCostingCard";
+// ** Shared sales-doc sections (used by Quotation / PFI / PO)
+import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
+import SalesDocExpenses from "@src/views/_shared/sales-doc/SalesDocExpenses";
+import SalesDocRebates from "@src/views/_shared/sales-doc/SalesDocRebates";
+import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import {
   num,
   round2,
   deriveExpenseAmount,
   deriveRebateAmount,
-} from "./_helpers";
+} from "@src/views/_shared/sales-doc/_helpers";
 
 const AddQuotation = () => {
   const { t } = useTranslation();
@@ -92,6 +96,8 @@ const AddQuotation = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  // Last fetched rate metadata for the helper text (effective_date + inverse).
+  const [rateMeta, setRateMeta] = useState(null);
 
   const schema = useMemo(
     () =>
@@ -177,6 +183,45 @@ const AddQuotation = () => {
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
   const liveCurrencyId = useWatch({ control, name: "currency_id" });
+
+  // ─── Exchange rate auto-fetch on currency pick ─────────────────────
+  // When the user picks a currency, look up the latest rate from the
+  // company's default currency to the picked currency. Skip if the picked
+  // currency IS the default (rate = 1).
+  useEffect(() => {
+    if (!liveCurrencyId) {
+      setRateMeta(null);
+      return;
+    }
+    const dropdown = currencyStore?.currencyDropdown || [];
+    const defaultCurrency = dropdown.find((c) => c.is_default);
+    if (!defaultCurrency) return;
+    // Don't overwrite a user-typed rate when editing an existing quote.
+    if (isEdit && store?.quotationItem?.currency_id === liveCurrencyId) return;
+    const fromId = defaultCurrency._id;
+    const toId = liveCurrencyId;
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, {
+        params: { from: fromId, to: toId },
+      })
+      .then((resp) => {
+        const data = resp?.data?.data;
+        if (!data) {
+          setRateMeta({ missing: true });
+          return;
+        }
+        setValue("exchange_rate", String(data.rate));
+        setRateMeta({
+          rate: Number(data.rate),
+          effective_date: data.effective_date,
+          same: !!data.same,
+          fromCode: defaultCurrency.code,
+          toCode: dropdown.find((c) => c._id === toId)?.code,
+        });
+      })
+      .catch(() => setRateMeta({ missing: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveCurrencyId, currencyStore?.currencyDropdown]);
 
   // ─── Initial loads ──────────────────────────────────────────────────
   useEffect(() => {
@@ -627,8 +672,42 @@ const AddQuotation = () => {
                       />
                     )}
                   />
-                  <small className="text-muted">
-                    {t("INR × rate = customer-currency amount.")}
+                  <small className="text-muted d-block">
+                    {rateMeta?.same ? (
+                      t(
+                        "Same currency — rate fixed at 1."
+                      )
+                    ) : rateMeta?.rate ? (
+                      <>
+                        {t("Auto-filled from Currency master")}
+                        {rateMeta.effective_date
+                          ? ` (${t("as of")} ${rateMeta.effective_date})`
+                          : ""}
+                        .{" "}
+                        <span>
+                          1 {rateMeta.fromCode} ={" "}
+                          {Number(rateMeta.rate).toLocaleString(undefined, {
+                            maximumFractionDigits: 6,
+                          })}{" "}
+                          {rateMeta.toCode}
+                          {rateMeta.rate > 0
+                            ? ` · 1 ${rateMeta.toCode} = ${(
+                                1 / rateMeta.rate
+                              ).toLocaleString(undefined, {
+                                maximumFractionDigits: 4,
+                              })} ${rateMeta.fromCode}`
+                            : ""}
+                        </span>
+                      </>
+                    ) : rateMeta?.missing ? (
+                      <span className="text-warning">
+                        {t(
+                          "No rate set in Currency master — enter manually."
+                        )}
+                      </span>
+                    ) : (
+                      t("INR × rate = customer-currency amount.")
+                    )}
                   </small>
                 </Col>
 
@@ -818,28 +897,31 @@ const AddQuotation = () => {
           {/* ── Lines / Expenses / Rebates / Costing ── */}
           <Row>
             <Col lg="9">
-              <QuotationLineItems
+              <SalesDocLineItems
                 control={control}
                 setValue={setValue}
                 productOptions={productOptions}
+                initLineItem={initQuotationLineItem}
               />
-              <QuotationExpenses
+              <SalesDocExpenses
                 control={control}
                 setValue={setValue}
                 expenseOptions={expenseOptions}
                 expenseMasterMap={expenseMasterMap}
                 subtotal={totals.subtotal}
+                initExpenseItem={initQuotationExpenseItem}
               />
-              <QuotationRebates
+              <SalesDocRebates
                 control={control}
                 setValue={setValue}
                 rebateOptions={rebateOptions}
                 rebateMasterMap={rebateMasterMap}
                 subtotal={totals.subtotal}
+                initRebateItem={initQuotationRebateItem}
               />
             </Col>
             <Col lg="3">
-              <QuotationCostingCard
+              <SalesDocCostingCard
                 totals={totals}
                 marginPct={liveMargin}
                 currencyCode={selectedCurrencyCode}

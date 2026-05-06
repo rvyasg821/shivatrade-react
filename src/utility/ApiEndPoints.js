@@ -174,6 +174,7 @@ export const API_ENDPOINTS = {
     delete: `/admin/currency/delete`,
     dropdown: `/admin/currency/dropdown`,
     rates: `/admin/currency`, // append `/${id}/rates`
+    currentRate: `/admin/currency/exchange-rate/current`, // ?from=&to=
   },
   priceList: {
     list: `/admin/price-list/list`,

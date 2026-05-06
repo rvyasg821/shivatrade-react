@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { fmt, num } from "./_helpers";
 
 /**
- * Sticky right-column card showing live totals computed from the form's
- * current state. Pure display — all math happens in the parent.
+ * Sticky right-column costing card — shared by Quotation / PFI / PO forms.
+ * Pure display: all math happens in the parent. Pass `totals` from the
+ * parent's costing engine (mirrors backend recompute).
  */
-const QuotationCostingCard = ({ totals, marginPct, currencyCode }) => {
+const SalesDocCostingCard = ({ totals, marginPct, currencyCode }) => {
   const { t } = useTranslation();
 
   return (
@@ -68,4 +69,4 @@ const QuotationCostingCard = ({ totals, marginPct, currencyCode }) => {
   );
 };
 
-export default QuotationCostingCard;
+export default SalesDocCostingCard;
