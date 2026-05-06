@@ -1,5 +1,5 @@
 // ** React Imports
-import { Fragment, useEffect, useMemo, useLayoutEffect } from "react";
+import { Fragment, useEffect, useMemo, useLayoutEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 // ** Store
@@ -106,12 +106,17 @@ const PriceListForm = () => {
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
     defaultValues: initPriceListItem,
   });
+
+  // When true, override the vendor-category filter and show all products.
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
@@ -183,19 +188,66 @@ const PriceListForm = () => {
     () =>
       (vendorStore?.vendorDropdown || []).map((v) => ({
         value: v._id,
-        label: v.company_name,
+        label: v.vendor_code
+          ? `${v.company_name} [${v.vendor_code}]`
+          : v.company_name,
       })),
     [vendorStore?.vendorDropdown]
   );
 
-  const productOptions = useMemo(
+  // Resolve the selected vendor's categories from the dropdown payload.
+  const watchedVendorId = watch("vendor_id");
+  const selectedVendor = useMemo(
+    () =>
+      (vendorStore?.vendorDropdown || []).find(
+        (v) => v._id === watchedVendorId
+      ),
+    [vendorStore?.vendorDropdown, watchedVendorId]
+  );
+  const vendorCategoryIds = selectedVendor?.category_ids || [];
+  const vendorHasCategories = vendorCategoryIds.length > 0;
+
+  const allProductOptions = useMemo(
     () =>
       (productStore?.productDropdown || []).map((p) => ({
         value: p._id,
         label: `${p.code} — ${p.name}`,
+        category_id: p.category_id,
       })),
     [productStore?.productDropdown]
   );
+
+  // Default = filter by vendor's categories.
+  //   no vendor       → empty list (Select is disabled below)
+  //   show-all toggle → full list
+  //   vendor w/o cats → full list with a warning
+  //   normal          → only products in vendor's categories
+  const productOptions = useMemo(() => {
+    if (!watchedVendorId) return [];
+    if (showAllProducts || !vendorHasCategories) return allProductOptions;
+    const set = new Set(vendorCategoryIds);
+    return allProductOptions.filter((o) => set.has(o.category_id));
+  }, [
+    allProductOptions,
+    watchedVendorId,
+    showAllProducts,
+    vendorHasCategories,
+    vendorCategoryIds,
+  ]);
+
+  // If the currently selected product no longer matches the filtered list
+  // after a vendor change, clear it so users don't carry stale picks.
+  useEffect(() => {
+    const pid = watch("product_id");
+    if (
+      pid &&
+      productOptions.length &&
+      !productOptions.find((o) => o.value === pid)
+    ) {
+      setValue("product_id", "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productOptions]);
 
   const currencyOptions = useMemo(
     () =>
@@ -245,6 +297,10 @@ const PriceListForm = () => {
                         value={vendorOptions.find((o) => o.value === field.value) || null}
                         placeholder={t("Select vendor")}
                         onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
                       />
                     )}
                   />
@@ -256,8 +312,26 @@ const PriceListForm = () => {
                 </Col>
 
                 <Col md="4" className="mb-2">
-                  <Label className="form-label">
-                    {t("Product")} <span className="text-danger">*</span>
+                  <Label className="form-label d-flex justify-content-between align-items-center">
+                    <span>
+                      {t("Product")} <span className="text-danger">*</span>
+                    </span>
+                    {watchedVendorId && vendorHasCategories && (
+                      <small>
+                        <a
+                          href="#"
+                          className="text-decoration-none"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowAllProducts((s) => !s);
+                          }}
+                        >
+                          {showAllProducts
+                            ? t("Filter by vendor categories")
+                            : t("Show all products")}
+                        </a>
+                      </small>
+                    )}
                   </Label>
                   <Controller
                     name="product_id"
@@ -267,11 +341,34 @@ const PriceListForm = () => {
                         classNamePrefix="select"
                         options={productOptions}
                         value={productOptions.find((o) => o.value === field.value) || null}
-                        placeholder={t("Select product")}
+                        placeholder={
+                          watchedVendorId
+                            ? t("Select product")
+                            : t("Pick a vendor first")
+                        }
+                        isDisabled={!watchedVendorId}
                         onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
                       />
                     )}
                   />
+                  {watchedVendorId && !vendorHasCategories && (
+                    <small className="text-warning d-block mt-1">
+                      {t(
+                        "This vendor has no categories set — showing all products."
+                      )}
+                    </small>
+                  )}
+                  {watchedVendorId &&
+                    vendorHasCategories &&
+                    !showAllProducts && (
+                      <small className="text-muted d-block mt-1">
+                        {t("Showing products matching this vendor's categories.")}
+                      </small>
+                    )}
                   {errors.product_id && (
                     <FormFeedback className="d-block">
                       {errors.product_id.message}
@@ -293,6 +390,10 @@ const PriceListForm = () => {
                         value={currencyOptions.find((o) => o.value === field.value) || null}
                         placeholder={t("Select currency")}
                         onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
                       />
                     )}
                   />

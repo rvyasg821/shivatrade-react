@@ -161,7 +161,9 @@ const PriceListView = () => {
     () =>
       (vendorStore?.vendorDropdown || []).map((v) => ({
         value: v._id,
-        label: v.company_name,
+        label: v.vendor_code
+          ? `${v.company_name} [${v.vendor_code}]`
+          : v.company_name,
       })),
     [vendorStore?.vendorDropdown]
   );
@@ -184,17 +186,20 @@ const PriceListView = () => {
       sortField: "vendor_id",
       sortable: false,
       selector: (row) => {
+        const label = row?.vendor_code
+          ? `${row.vendor_name || "—"} [${row.vendor_code}]`
+          : row?.vendor_name || "—";
         if (canEdit) {
           return (
             <Link
               to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
               className="text-wrap"
             >
-              {row?.vendor_name || "—"}
+              {label}
             </Link>
           );
         }
-        return <span className="text-wrap">{row?.vendor_name || "—"}</span>;
+        return <span className="text-wrap">{label}</span>;
       },
     },
     {
@@ -337,6 +342,10 @@ const PriceListView = () => {
                         vendorOptions.find((o) => o.value === vendorFilter) || null
                       }
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
                     />
                   </Col>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
@@ -349,6 +358,10 @@ const PriceListView = () => {
                         productOptions.find((o) => o.value === productFilter) || null
                       }
                       onChange={(opt) => setProductFilter(opt ? opt.value : "")}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
                     />
                   </Col>
                 </Row>

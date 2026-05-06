@@ -729,6 +729,10 @@ const ProductForm = () => {
                           field.onChange(opt ? opt.value : "")
                         }
                         placeholder={t("Select country")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
                       />
                     )}
                   />

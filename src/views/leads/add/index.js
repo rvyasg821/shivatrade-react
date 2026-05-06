@@ -53,6 +53,7 @@ import { initLeadItem } from "@constant/reduxConstant";
 import {
   LEAD_SOURCE_OPTIONS,
   LEAD_STATUS_OPTIONS,
+  COUNTRY_OPTIONS,
 } from "@constant/options";
 
 const LeadForm = () => {
@@ -660,7 +661,27 @@ const LeadForm = () => {
                   <Controller
                     name="country"
                     control={control}
-                    render={({ field }) => <Input id="country" {...field} />}
+                    render={({ field }) => (
+                      <Select
+                        inputId="country"
+                        classNamePrefix="select"
+                        isClearable
+                        options={COUNTRY_OPTIONS}
+                        value={
+                          COUNTRY_OPTIONS.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        placeholder={t("Select country")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
+                      />
+                    )}
                   />
                 </Col>
                 <Col md="3" className="mb-2">

@@ -54,6 +54,7 @@ import {
   STATUS_OPTIONS,
   VENDOR_PAYMENT_TERMS_OPTIONS,
   VENDOR_INCOTERMS_OPTIONS,
+  COUNTRY_OPTIONS,
 } from "@constant/options";
 
 const VendorForm = () => {
@@ -802,7 +803,24 @@ const VendorForm = () => {
                         name={`addresses.${idx}.country`}
                         control={control}
                         render={({ field }) => (
-                          <Input {...field} value={field.value || ""} />
+                          <Select
+                            classNamePrefix="select"
+                            isClearable
+                            options={COUNTRY_OPTIONS}
+                            value={
+                              COUNTRY_OPTIONS.find(
+                                (o) => o.value === field.value
+                              ) || null
+                            }
+                            onChange={(opt) =>
+                              field.onChange(opt ? opt.value : "")
+                            }
+                            placeholder={t("Select country")}
+                            menuPortalTarget={document.body}
+                            styles={{
+                              menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                            }}
+                          />
                         )}
                       />
                     </Col>
