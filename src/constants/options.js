@@ -41,18 +41,24 @@ const INCOTERMS_OPTIONS = [
 // Vendor module
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VENDOR_PAYMENT_TERMS_OPTIONS = [
-  "Advance",
-  "Net 30",
-  "Net 45",
-  "Net 60",
-  "Net 90",
-  "LC",
-  "TT",
-  "CAD",
-  "DA",
-  "DP",
-].map((v) => ({ value: v, label: v }));
+// Trade-finance payment terms used across Vendor, Quotation, PFI, PO, etc.
+// `value` is the short code that's stored in the DB; `label` includes the
+// full form so users picking from the dropdown understand the abbreviation.
+const PAYMENT_TERMS_OPTIONS = [
+  { value: "Advance", label: "Advance - 100% advance before shipment" },
+  { value: "Net 30", label: "Net 30 - Payment 30 days from invoice date" },
+  { value: "Net 45", label: "Net 45 - Payment 45 days from invoice date" },
+  { value: "Net 60", label: "Net 60 - Payment 60 days from invoice date" },
+  { value: "Net 90", label: "Net 90 - Payment 90 days from invoice date" },
+  { value: "LC", label: "LC - Letter of Credit" },
+  { value: "TT", label: "TT - Telegraphic Transfer (Wire)" },
+  { value: "CAD", label: "CAD - Cash Against Documents" },
+  { value: "DA", label: "DA - Documents Against Acceptance" },
+  { value: "DP", label: "DP - Documents Against Payment" },
+];
+
+// Backwards-compat alias — vendor module still imports the old name.
+const VENDOR_PAYMENT_TERMS_OPTIONS = PAYMENT_TERMS_OPTIONS;
 
 // Backwards-compat alias — keep until vendor module is migrated to the
 // universal `INCOTERMS_OPTIONS` symbol.
@@ -150,6 +156,7 @@ const QUOTATION_STATUS_BADGE_COLOR = {
 export {
   STATUS_OPTIONS,
   INCOTERMS_OPTIONS,
+  PAYMENT_TERMS_OPTIONS,
   VENDOR_PAYMENT_TERMS_OPTIONS,
   VENDOR_INCOTERMS_OPTIONS,
   CUSTOMER_ADDRESS_TYPES,

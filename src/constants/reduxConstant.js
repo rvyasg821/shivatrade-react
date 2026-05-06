@@ -358,6 +358,7 @@ const initPriceListItem = {
 
 const initQuotationLineItem = {
   product_id: "",
+  vendor_id: "",
   description: "",
   qty: "",
   unit: "",
@@ -370,12 +371,14 @@ const initQuotationExpenseItem = {
   expense_id: "",
   name: "",
   amount: "",
+  is_overridden: false,
 };
 
 const initQuotationRebateItem = {
   rebate_id: "",
   name: "",
   amount: "",
+  is_overridden: false,
 };
 
 const initQuotationItem = {
