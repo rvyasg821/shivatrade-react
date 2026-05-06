@@ -191,6 +191,14 @@ export const API_ENDPOINTS = {
     update: `/admin/quotation/update`,
     delete: `/admin/quotation/delete`,
   },
+  pfis: {
+    list: `/admin/pfi/list`,
+    get: `/admin/pfi/get`,
+    create: `/admin/pfi/create`,
+    update: `/admin/pfi/update`,
+    delete: `/admin/pfi/delete`,
+    fromQuotation: `/admin/pfi/from-quotation`, // append /:quotationId
+  },
   customers: {
     list: `/admin/customer/list`,
     get: `/admin/customer/get`,

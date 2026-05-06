@@ -15,6 +15,7 @@ import {
   currenciesModuleSlug,
   priceListModuleSlug,
   quotationsModuleSlug,
+  pfiModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -57,6 +58,9 @@ const EditPriceList = lazy(() => import('@src/views/price-list/add'));
 const QuotationList = lazy(() => import('@src/views/quotations'));
 const AddQuotation = lazy(() => import('@src/views/quotations/add'));
 const EditQuotation = lazy(() => import('@src/views/quotations/add'));
+const PfiList = lazy(() => import('@src/views/pfi'));
+const AddPfi = lazy(() => import('@src/views/pfi/add'));
+const EditPfi = lazy(() => import('@src/views/pfi/add'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -567,6 +571,30 @@ const AppRoutes = [
     element: <EditQuotation />,
     meta: {
       permissionId: quotationsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi`,
+    element: <PfiList />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/add`,
+    element: <AddPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/edit/:id`,
+    element: <EditPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
       action: 'edit',
     },
   },

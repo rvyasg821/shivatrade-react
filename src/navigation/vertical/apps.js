@@ -152,7 +152,9 @@ const navigationItems = [
         id: pfiModuleSlug,
         title: rolePermissionName[pfiModuleSlug],
         icon: <FileText size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/pfi`,
+        permissionId: pfiModuleSlug,
+        resource: pfiModuleSlug,
         companyOnly: true,
       },
       {

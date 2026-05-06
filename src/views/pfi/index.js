@@ -4,11 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import {
-  deleteQuotation,
-  getQuotationList,
-  cleanQuotationMessage,
-} from "./store";
+import { deletePfi, getPfiList, cleanPfiMessage } from "./store";
 import { getCustomerDropdown } from "../customers/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
@@ -35,10 +31,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, FileText } from "react-feather";
-
-// ** PFI conversion
-import { createPfiFromQuotation } from "../pfi/store";
+import { Edit, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -47,13 +40,13 @@ import {
   QUOTATION_STATUS_BADGE_COLOR,
 } from "@constant/options";
 
-const QuotationView = () => {
+const PfiView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const mySwal = withReactContent(Swal);
 
   const dispatch = useDispatch();
-  const store = useSelector((state) => state.quotation);
+  const store = useSelector((state) => state.pfi);
   const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
@@ -91,7 +84,7 @@ const QuotationView = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
-      dispatch(getQuotationList(params));
+      dispatch(getPfiList(params));
     },
     [
       sort,
@@ -168,9 +161,9 @@ const QuotationView = () => {
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
-      dispatch(cleanQuotationMessage(null));
+      dispatch(cleanPfiMessage(null));
     }
-    if (store?.actionFlag === "QT_DLT") handleList();
+    if (store?.actionFlag === "PFI_DLT") handleList();
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
   }, [store.actionFlag, store.success, store.error]);
@@ -190,7 +183,7 @@ const QuotationView = () => {
         buttonsStyling: false,
       })
       .then((result) => {
-        if (result.isConfirmed) dispatch(deleteQuotation(id));
+        if (result.isConfirmed) dispatch(deletePfi(id));
       });
   };
 
@@ -198,7 +191,7 @@ const QuotationView = () => {
     authUserItem?.role?.name === "Super Admin" ||
     authUserItem?.role?.name === "Admin";
   const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
-  const perms = authUserItem?.role?.permissions?.["quotations"];
+  const perms = authUserItem?.role?.permissions?.["pfi"];
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
@@ -221,14 +214,14 @@ const QuotationView = () => {
 
   const columns = [
     {
-      name: t("Quotation #"),
+      name: t("PFI #"),
       sortField: "voucher_no",
       sortable: false,
       selector: (row) => {
         if (canEdit) {
           return (
             <Link
-              to={`${appsRoot}/quotations/edit/${row?._id || ""}`}
+              to={`${appsRoot}/pfi/edit/${row?._id || ""}`}
               className="text-wrap"
             >
               {row?.voucher_no || "—"}
@@ -239,15 +232,20 @@ const QuotationView = () => {
       },
     },
     {
+      name: t("Quotation #"),
+      sortable: false,
+      selector: (row) => row?.quotation_voucher_no || "—",
+    },
+    {
       name: t("Customer"),
       sortable: false,
       selector: (row) => row?.customer_name || "—",
     },
     {
       name: t("Date"),
-      sortField: "quotation_date",
+      sortField: "pfi_date",
       sortable: true,
-      selector: (row) => (row?.quotation_date || "").slice(0, 10),
+      selector: (row) => (row?.pfi_date || "").slice(0, 10),
     },
     {
       name: t("Total"),
@@ -259,7 +257,8 @@ const QuotationView = () => {
       center: true,
       sortable: false,
       selector: (row) => {
-        const color = QUOTATION_STATUS_BADGE_COLOR[row?.status] || "light-secondary";
+        const color =
+          QUOTATION_STATUS_BADGE_COLOR[row?.status] || "light-secondary";
         return (
           <Badge color={color} className="text-capitalize">
             {row?.status || "—"}
@@ -268,116 +267,53 @@ const QuotationView = () => {
       },
     },
     {
-      name: t("Version"),
-      center: true,
-      sortable: false,
-      selector: (row) => row?.version || 1,
-    },
-    {
       name: t("Created"),
       sortField: "createdAt",
       sortable: true,
       selector: (row) =>
-        row?.createdAt
-          ? new Date(row.createdAt).toLocaleDateString()
-          : "—",
+        row?.createdAt ? new Date(row.createdAt).toLocaleDateString() : "—",
     },
   ];
-
-  // Convert to PFI flow — only available on approved quotations.
-  const handleConvertToPfi = (id) => {
-    mySwal
-      .fire({
-        title: t("Convert to PFI?"),
-        text: t(
-          "A new PFI will be created from this quotation with all line items, expenses and rebates copied over."
-        ),
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, convert"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-secondary ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then((result) => {
-        if (!result.isConfirmed) return;
-        dispatch(createPfiFromQuotation(id))
-          .unwrap()
-          .then((res) => {
-            const newId = res?.pfiItem?._id;
-            Notification(
-              "Success",
-              res?.success || t("PFI created"),
-              "success"
-            );
-            if (newId) navigate(`${appsRoot}/pfi/edit/${newId}`);
-          })
-          .catch((err) =>
-            Notification("Error", err || t("Conversion failed"), "warning")
-          );
-      });
-  };
 
   if (canEdit || canDelete) {
     columns.push({
       name: t("Action"),
       center: true,
-      cell: (row) => {
-        const isApproved = row?.status === "approved";
-        return (
-          <div className="d-flex column-action align-items-center table-icon">
-            {canEdit && (
-              <Link
-                className="me-50"
-                id={`qt-edit-${row?._id || ""}`}
-                to={`${appsRoot}/quotations/edit/${row?._id || ""}`}
+      cell: (row) => (
+        <div className="d-flex column-action align-items-center table-icon">
+          {canEdit && (
+            <Link
+              className="me-50"
+              id={`pfi-edit-${row?._id || ""}`}
+              to={`${appsRoot}/pfi/edit/${row?._id || ""}`}
+            >
+              <UncontrolledTooltip
+                placement="top"
+                target={`pfi-edit-${row?._id || ""}`}
               >
-                <UncontrolledTooltip
-                  placement="top"
-                  target={`qt-edit-${row?._id || ""}`}
-                >
-                  {t("Edit")}
-                </UncontrolledTooltip>
-                <Edit size={20} />
-              </Link>
-            )}
-            {isApproved && (
-              <>
-                <FileText
-                  size={20}
-                  className="cursor-pointer text-success me-50"
-                  id={`qt-pfi-${row?._id || ""}`}
-                  onClick={() => handleConvertToPfi(row?._id)}
-                />
-                <UncontrolledTooltip
-                  placement="top"
-                  target={`qt-pfi-${row?._id || ""}`}
-                >
-                  {t("Convert to PFI")}
-                </UncontrolledTooltip>
-              </>
-            )}
-            {canDelete && (
-              <>
-                <Trash2
-                  size={20}
-                  className="cursor-pointer"
-                  id={`qt-delete-${row?._id || ""}`}
-                  onClick={() => handleDelete(row?._id)}
-                />
-                <UncontrolledTooltip
-                  placement="top"
-                  target={`qt-delete-${row?._id || ""}`}
-                >
-                  {t("Delete")}
-                </UncontrolledTooltip>
-              </>
-            )}
-          </div>
-        );
-      },
+                {t("Edit")}
+              </UncontrolledTooltip>
+              <Edit size={20} />
+            </Link>
+          )}
+          {canDelete && (
+            <>
+              <Trash2
+                size={20}
+                className="cursor-pointer"
+                id={`pfi-delete-${row?._id || ""}`}
+                onClick={() => handleDelete(row?._id)}
+              />
+              <UncontrolledTooltip
+                placement="top"
+                target={`pfi-delete-${row?._id || ""}`}
+              >
+                {t("Delete")}
+              </UncontrolledTooltip>
+            </>
+          )}
+        </div>
+      ),
     });
   }
 
@@ -388,9 +324,9 @@ const QuotationView = () => {
 
   return (
     <Fragment>
-      <div className="main-content quotation">
+      <div className="main-content pfi">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <h3 className="mb-0">{t("Quotations")}</h3>
+          <h3 className="mb-0">{t("PFI")}</h3>
         </div>
 
         <Card className="overflow-hidden">
@@ -401,7 +337,7 @@ const QuotationView = () => {
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
                       type="text"
-                      id="search-qt"
+                      id="search-pfi"
                       value={searchInput}
                       className="w-100"
                       placeholder={t("Search voucher / notes")}
@@ -415,8 +351,9 @@ const QuotationView = () => {
                       placeholder={t("Filter by Customer")}
                       options={customerOptions}
                       value={
-                        customerOptions.find((o) => o.value === customerFilter) ||
-                        null
+                        customerOptions.find(
+                          (o) => o.value === customerFilter
+                        ) || null
                       }
                       onChange={(opt) =>
                         setCustomerFilter(opt ? opt.value : "")
@@ -430,8 +367,9 @@ const QuotationView = () => {
                       placeholder={t("Status")}
                       options={QUOTATION_STATUS_OPTIONS}
                       value={
-                        QUOTATION_STATUS_OPTIONS.find((o) => o.value === statusFilter) ||
-                        null
+                        QUOTATION_STATUS_OPTIONS.find(
+                          (o) => o.value === statusFilter
+                        ) || null
                       }
                       onChange={(opt) => setStatusFilter(opt ? opt.value : "")}
                     />
@@ -458,19 +396,19 @@ const QuotationView = () => {
                 {canAdd && (
                   <Button
                     color="primary"
-                    onClick={() => navigate(`${appsRoot}/quotations/add`)}
+                    onClick={() => navigate(`${appsRoot}/pfi/add`)}
                   >
-                    {t("Add Quotation")} <PlusCircle size={16} />
+                    {t("Add PFI")} <PlusCircle size={16} />
                   </Button>
                 )}
               </Col>
             </Row>
 
             <Row className="mt-2">
-              <Col md="12" className="quotation-tables">
+              <Col md="12" className="pfi-tables">
                 <DatatablePagination
                   columns={columns}
-                  data={store?.quotationItems || []}
+                  data={store?.pfiItems || []}
                   currentPage={currentPage}
                   rowsPerPage={rowsPerPage}
                   pagination={store?.pagination}
@@ -487,4 +425,4 @@ const QuotationView = () => {
   );
 };
 
-export default QuotationView;
+export default PfiView;

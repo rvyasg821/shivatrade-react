@@ -410,6 +410,42 @@ const initQuotationItem = {
   rebates: [],
 };
 
+// PFI shares the same line/expense/rebate row shapes as Quotation — the
+// shared SalesDoc components accept these as props.
+const initPfiLineItem = { ...initQuotationLineItem };
+const initPfiExpenseItem = { ...initQuotationExpenseItem };
+const initPfiRebateItem = { ...initQuotationRebateItem };
+
+const initPfiItem = {
+  _id: "",
+  voucher_no: "",
+  quotation_id: "",
+  quotation_voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  pfi_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_id: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
+};
+
 const initCustomerContactItem = {
   name: "",
   designation: "",
@@ -804,6 +840,10 @@ export {
   initQuotationLineItem,
   initQuotationExpenseItem,
   initQuotationRebateItem,
+  initPfiItem,
+  initPfiLineItem,
+  initPfiExpenseItem,
+  initPfiRebateItem,
   initCompanyItem,
   initCompanyAddressItem,
   initCompanyBankAccountItem,
