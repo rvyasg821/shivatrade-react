@@ -214,14 +214,14 @@ const ProductList = () => {
       sortField: "category_id",
       sortable: false,
       selector: (row) => (
-        <span className="text-wrap text-capitalize">{row?.category_name || "—"}</span>
+        <span className="text-wrap text-capitalize">{row?.category_name || "-"}</span>
       ),
     },
     {
       name: t("Unit of Measure"),
       sortField: "unit_of_measure",
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "—"}</span>,
+      selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "-"}</span>,
     },
     {
       name: t("Status"),

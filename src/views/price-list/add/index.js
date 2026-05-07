@@ -211,7 +211,7 @@ const PriceListForm = () => {
     () =>
       (productStore?.productDropdown || []).map((p) => ({
         value: p._id,
-        label: `${p.code} — ${p.name}`,
+        label: `${p.code} - ${p.name}`,
         category_id: p.category_id,
       })),
     [productStore?.productDropdown]
@@ -253,7 +253,7 @@ const PriceListForm = () => {
     () =>
       (currencyStore?.currencyDropdown || []).map((c) => ({
         value: c._id,
-        label: `${c.code} — ${c.name}`,
+        label: `${c.code} - ${c.name}`,
       })),
     [currencyStore?.currencyDropdown]
   );
@@ -358,7 +358,7 @@ const PriceListForm = () => {
                   {watchedVendorId && !vendorHasCategories && (
                     <small className="text-warning d-block mt-1">
                       {t(
-                        "This vendor has no categories set — showing all products."
+                        "This vendor has no categories set - showing all products."
                       )}
                     </small>
                   )}

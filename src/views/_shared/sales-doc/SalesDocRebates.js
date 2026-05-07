@@ -34,6 +34,8 @@ const SalesDocRebates = ({
   rebateMasterMap,
   subtotal,
   initRebateItem,
+  readOnly = false,
+  productAppliedIds,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -106,14 +108,42 @@ const SalesDocRebates = ({
   return (
     <Card>
       <CardBody>
-        <div className="d-flex justify-content-between align-items-center mb-2">
+        <div className="d-flex justify-content-between align-items-center mb-1">
           <h5 className="mb-0 fw-bold text-uppercase text-muted">
             {t("Rebates")}
           </h5>
-          <Button size="sm" color="primary" type="button" onClick={openAdd}>
-            <Plus size={14} /> {t("Add Rebate")}
-          </Button>
+          {!readOnly && (
+            <Button size="sm" color="primary" type="button" onClick={openAdd}>
+              <Plus size={14} /> {t("Add Rebate")}
+            </Button>
+          )}
         </div>
+        <small className="text-muted d-block mb-2">
+          {t(
+            "Tip: per-product HSN rebates (DBK, RoDTEP) are auto-applied from each product's master. Add rebates here only for shipment-wide adjustments."
+          )}
+        </small>
+        {(() => {
+          if (!productAppliedIds || productAppliedIds.size === 0) return null;
+          const overlapping = (liveRebates || [])
+            .filter((r) => r.rebate_id && productAppliedIds.has(r.rebate_id))
+            .map(
+              (r) =>
+                rebateMasterMap.get(r.rebate_id)?.code ||
+                rebateMasterMap.get(r.rebate_id)?.name ||
+                r.name
+            );
+          if (!overlapping.length) return null;
+          return (
+            <div className="alert alert-warning py-1 px-2 small mb-2">
+              ⚠ {t("Already auto-applied from product master:")}{" "}
+              <strong>{overlapping.join(", ")}</strong> —{" "}
+              {t(
+                "adding the same rebate here will double-count. Either remove from this list, or check the 'Skip per-product' option in the header."
+              )}
+            </div>
+          );
+        })()}
 
         {rebateFA.fields.length === 0 ? (
           <div className="border rounded p-3 text-center text-muted">
@@ -158,13 +188,21 @@ const SalesDocRebates = ({
                       <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
                         <Edit
                           size={16}
-                          className="cursor-pointer text-primary"
-                          onClick={() => openEdit(idx)}
+                          className={
+                            readOnly
+                              ? "text-muted opacity-50"
+                              : "cursor-pointer text-primary"
+                          }
+                          onClick={() => !readOnly && openEdit(idx)}
                         />
                         <Trash2
                           size={16}
-                          className="cursor-pointer text-danger"
-                          onClick={() => confirmAndRemove(idx)}
+                          className={
+                            readOnly
+                              ? "text-muted opacity-50"
+                              : "cursor-pointer text-danger"
+                          }
+                          onClick={() => !readOnly && confirmAndRemove(idx)}
                         />
                       </div>
                     </td>

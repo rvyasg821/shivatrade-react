@@ -1,6 +1,11 @@
 // ** React Imports
 import { Fragment, useState, useEffect, useCallback, useLayoutEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
@@ -68,6 +73,20 @@ const QuotationView = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // Optional URL filter — `?lead_id=<uuid>` scopes the listing to a lead.
+  // The lead's display name is passed via router state from the source page
+  // (Lead edit "View Quotations" button) so we don't need an extra fetch.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const leadFilter = searchParams.get("lead_id") || "";
+  const leadFilterName = location?.state?.leadName || "";
+
+  const clearLeadFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("lead_id");
+    setSearchParams(next);
+  };
+
   const handleList = useCallback(
     (
       sorting = sort,
@@ -91,6 +110,7 @@ const QuotationView = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
+      if (leadFilter) params.lead_id = leadFilter;
       dispatch(getQuotationList(params));
     },
     [
@@ -103,6 +123,7 @@ const QuotationView = () => {
       statusFilter,
       dateFrom,
       dateTo,
+      leadFilter,
       dispatch,
     ]
   );
@@ -164,7 +185,7 @@ const QuotationView = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo]);
+  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo, leadFilter]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -214,7 +235,7 @@ const QuotationView = () => {
 
   const formatTotal = (row) => {
     const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "—";
+    if (v === null || v === undefined || v === "") return "-";
     const code = row?.currency_code ? ` ${row.currency_code}` : "";
     return `${Number(v).toLocaleString()}${code}`;
   };
@@ -231,17 +252,17 @@ const QuotationView = () => {
               to={`${appsRoot}/quotations/edit/${row?._id || ""}`}
               className="text-wrap"
             >
-              {row?.voucher_no || "—"}
+              {row?.voucher_no || "-"}
             </Link>
           );
         }
-        return <span className="text-wrap">{row?.voucher_no || "—"}</span>;
+        return <span className="text-wrap">{row?.voucher_no || "-"}</span>;
       },
     },
     {
       name: t("Customer"),
       sortable: false,
-      selector: (row) => row?.customer_name || "—",
+      selector: (row) => row?.customer_name || "-",
     },
     {
       name: t("Date"),
@@ -259,10 +280,10 @@ const QuotationView = () => {
       center: true,
       sortable: false,
       selector: (row) => {
-        const color = QUOTATION_STATUS_BADGE_COLOR[row?.status] || "light-secondary";
+        const color = QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary";
         return (
           <Badge color={color} className="text-capitalize">
-            {row?.status || "—"}
+            {row?.status || "-"}
           </Badge>
         );
       },
@@ -280,11 +301,11 @@ const QuotationView = () => {
       selector: (row) =>
         row?.createdAt
           ? new Date(row.createdAt).toLocaleDateString()
-          : "—",
+          : "-",
     },
   ];
 
-  // Convert to PFI flow — only available on approved quotations.
+  // Convert to PFI flow - only available on approved quotations.
   const handleConvertToPfi = (id) => {
     mySwal
       .fire({
@@ -392,6 +413,30 @@ const QuotationView = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Quotations")}</h3>
         </div>
+
+        {leadFilter && (
+          <div className="alert alert-info d-flex justify-content-between align-items-center mb-2">
+            <div>
+              {t("Filtered to lead")}
+              {leadFilterName ? (
+                <>
+                  : <strong>{leadFilterName}</strong>
+                </>
+              ) : (
+                ""
+              )}
+            </div>
+            <Button
+              size="sm"
+              color="info"
+              outline
+              type="button"
+              onClick={clearLeadFilter}
+            >
+              {t("Clear filter")}
+            </Button>
+          </div>
+        )}
 
         <Card className="overflow-hidden">
           <CardBody>

@@ -26,10 +26,40 @@ const SalesDocCostingCard = ({ totals, marginPct, currencyCode }) => {
           <span>+ {t("Expenses")}</span>
           <strong>{fmt(totals.expenses_total)}</strong>
         </div>
+        {num(totals.product_expenses_total) > 0 && (
+          <div className="d-flex justify-content-between mb-1 text-muted small">
+            <span>
+              <em>+ {t("Product Expenses")}</em>
+            </span>
+            <span>{fmt(totals.product_expenses_total)}</span>
+          </div>
+        )}
         <div className="d-flex justify-content-between mb-1">
           <span>− {t("Rebates")}</span>
           <strong>{fmt(totals.rebates_total)}</strong>
         </div>
+        {num(totals.product_rebates_total) > 0 && (
+          <div className="d-flex justify-content-between mb-1 text-muted small">
+            <span>
+              <em>− {t("Product Rebates")}</em>
+            </span>
+            <span>{fmt(totals.product_rebates_total)}</span>
+          </div>
+        )}
+        {totals.skipped &&
+          (num(totals.product_rebates_total_raw) > 0 ||
+            num(totals.product_expenses_total_raw) > 0) && (
+            <div className="text-warning small mb-1">
+              <em>
+                {t("Skipping")}{" "}
+                {fmt(
+                  num(totals.product_rebates_total_raw) +
+                    num(totals.product_expenses_total_raw)
+                )}{" "}
+                {t("of product-level costing (opted out).")}
+              </em>
+            </div>
+          )}
         <div className="d-flex justify-content-between mb-1 text-muted">
           <span>= {t("Net")}</span>
           <span>{fmt(totals.net)}</span>

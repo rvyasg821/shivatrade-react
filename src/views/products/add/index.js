@@ -812,7 +812,7 @@ const ProductForm = () => {
               {rebatesField.fields.map((row, idx) => {
                 const opts = (rebateStore?.rebateDropdown || []).map((r) => ({
                   value: r._id,
-                  label: `${r.code} — ${r.name} (${r.pct}%)`,
+                  label: `${r.code} - ${r.name} (${r.pct}%)`,
                   pct: r.pct,
                 }));
                 const selectedRebate = opts.find(
@@ -905,7 +905,7 @@ const ProductForm = () => {
               {expensesField.fields.map((row, idx) => {
                 const opts = (expenseStore?.expenseDropdown || []).map((e) => ({
                   value: e._id,
-                  label: `${e.code} — ${e.name} (${e.value}${
+                  label: `${e.code} - ${e.name} (${e.value}${
                     e.type === "percent" ? "%" : ""
                   })`,
                   type: e.type,

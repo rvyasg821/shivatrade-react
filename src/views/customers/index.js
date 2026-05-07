@@ -177,25 +177,25 @@ const CustomerList = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap text-capitalize">
-          {row?.primary_contact_name || "—"}
+          {row?.primary_contact_name || "-"}
         </span>
       ),
     },
     {
       name: t("Email"),
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "—"}</span>,
+      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "-"}</span>,
     },
     {
       name: t("Phone"),
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_phone || "—"}</span>,
+      selector: (row) => <span className="text-wrap">{row?.primary_contact_phone || "-"}</span>,
     },
     {
       name: t("Country"),
       sortable: false,
       selector: (row) => (
-        <span className="text-wrap text-capitalize">{row?.country || "—"}</span>
+        <span className="text-wrap text-capitalize">{row?.country || "-"}</span>
       ),
     },
     {

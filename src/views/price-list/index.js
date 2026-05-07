@@ -172,13 +172,13 @@ const PriceListView = () => {
     () =>
       (productStore?.productDropdown || []).map((p) => ({
         value: p._id,
-        label: `${p.code} — ${p.name}`,
+        label: `${p.code} - ${p.name}`,
       })),
     [productStore?.productDropdown]
   );
 
   const formatNumber = (v) =>
-    v !== null && v !== undefined && v !== "" ? Number(v).toString() : "—";
+    v !== null && v !== undefined && v !== "" ? Number(v).toString() : "-";
 
   const columns = [
     {
@@ -187,8 +187,8 @@ const PriceListView = () => {
       sortable: false,
       selector: (row) => {
         const label = row?.vendor_code
-          ? `${row.vendor_name || "—"} [${row.vendor_code}]`
-          : row?.vendor_name || "—";
+          ? `${row.vendor_name || "-"} [${row.vendor_code}]`
+          : row?.vendor_name || "-";
         if (canEdit) {
           return (
             <Link
@@ -207,7 +207,7 @@ const PriceListView = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap">
-          {row?.product_code ? `${row.product_code} — ${row.product_name}` : row?.product_name || "—"}
+          {row?.product_code ? `${row.product_code} - ${row.product_name}` : row?.product_name || "-"}
         </span>
       ),
     },
@@ -215,7 +215,7 @@ const PriceListView = () => {
       name: t("Currency"),
       sortable: false,
       selector: (row) => (
-        <span className="text-uppercase">{row?.currency_code || "—"}</span>
+        <span className="text-uppercase">{row?.currency_code || "-"}</span>
       ),
     },
     {
@@ -226,13 +226,13 @@ const PriceListView = () => {
     {
       name: t("MOQ"),
       sortable: false,
-      selector: (row) => row?.moq ?? "—",
+      selector: (row) => row?.moq ?? "-",
     },
     {
       name: t("Lead Time"),
       sortable: false,
       selector: (row) =>
-        row?.lead_time_days ? `${row.lead_time_days} ${t("days")}` : "—",
+        row?.lead_time_days ? `${row.lead_time_days} ${t("days")}` : "-",
     },
     {
       name: t("Effective Date"),
@@ -264,7 +264,7 @@ const PriceListView = () => {
         row?.is_primary ? (
           <Badge color="light-success">{t("Primary")}</Badge>
         ) : (
-          <span className="text-muted">—</span>
+          <span className="text-muted">-</span>
         ),
     },
   ];

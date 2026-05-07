@@ -150,6 +150,8 @@ const AddPfi = () => {
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
   const liveCurrencyId = useWatch({ control, name: "currency_id" });
+  const liveStatus = useWatch({ control, name: "status" });
+  const isLocked = isEdit && liveStatus && liveStatus !== "draft";
 
   // ─── Initial loads ──────────────────────────────────────────────────
   useEffect(() => {
@@ -265,7 +267,7 @@ const AddPfi = () => {
     () =>
       (currencyStore?.currencyDropdown || []).map((c) => ({
         value: c._id,
-        label: `${c.code} — ${c.name}`,
+        label: `${c.code} - ${c.name}`,
       })),
     [currencyStore?.currencyDropdown]
   );
@@ -274,7 +276,7 @@ const AddPfi = () => {
     () =>
       (productStore?.productDropdown || []).map((p) => ({
         value: p._id,
-        label: `${p.code ? p.code + " — " : ""}${p.name}`,
+        label: `${p.code ? p.code + " - " : ""}${p.name}`,
         raw: p,
       })),
     [productStore?.productDropdown]
@@ -355,9 +357,17 @@ const AddPfi = () => {
   }, [liveCurrencyId, currencyStore?.currencyDropdown]);
 
   // ─── Costing engine ────────────────────────────────────────────────
+  const productById = useMemo(() => {
+    const m = new Map();
+    (productStore?.productDropdown || []).forEach((p) => m.set(p._id, p));
+    return m;
+  }, [productStore?.productDropdown]);
+
   const totals = useMemo(() => {
     let subtotal = 0;
     let tax_total = 0;
+    let product_rebates_total = 0;
+    let product_expenses_total = 0;
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -366,6 +376,18 @@ const AddPfi = () => {
       const lineNet = qty * price * (1 - disc / 100);
       subtotal += lineNet;
       tax_total += lineNet * (taxPct / 100);
+      const product = productById.get(l?.product_id);
+      if (product) {
+        for (const r of product.product_rebates || []) {
+          product_rebates_total += (lineNet * num(r.pct)) / 100;
+        }
+        for (const e of product.product_expenses || []) {
+          product_expenses_total +=
+            e.type === "percent"
+              ? (lineNet * num(e.value)) / 100
+              : num(e.value);
+        }
+      }
     });
     const expenses_total = (liveExpenses || []).reduce(
       (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
@@ -375,7 +397,12 @@ const AddPfi = () => {
       (s, r) => s + deriveRebateAmount(r, subtotal, rebateMasterMap),
       0
     );
-    const net = subtotal + expenses_total - rebates_total;
+    const net =
+      subtotal +
+      expenses_total +
+      product_expenses_total -
+      rebates_total -
+      product_rebates_total;
     const margin_amount = net * (num(liveMargin) / 100);
     const grand_inr = net + margin_amount + tax_total;
     const rate = num(liveRate) || 1;
@@ -383,7 +410,9 @@ const AddPfi = () => {
     return {
       subtotal,
       expenses_total,
+      product_expenses_total,
       rebates_total,
+      product_rebates_total,
       net,
       margin_amount,
       tax_total,
@@ -399,10 +428,22 @@ const AddPfi = () => {
     liveRate,
     expenseMasterMap,
     rebateMasterMap,
+    productById,
   ]);
 
   // ─── Submit ─────────────────────────────────────────────────────────
   const onSubmit = (values) => {
+    if (isLocked) {
+      const slim = {
+        status: values.status || "draft",
+        internal_notes: values.internal_notes?.trim() || undefined,
+      };
+      setSubmitting(true);
+      const action = dispatch(updatePfi({ id, data: slim }));
+      action.unwrap?.().finally(() => setSubmitting(false)) ||
+        action.finally?.(() => setSubmitting(false));
+      return;
+    }
     const payload = {
       quotation_id: values.quotation_id || undefined,
       lead_id: values.lead_id || undefined,
@@ -472,7 +513,7 @@ const AddPfi = () => {
           <h3 className="mb-0">
             {isEdit ? t("Edit PFI") : t("Add PFI")}
             {isEdit && store?.pfiItem?.voucher_no
-              ? ` — ${store.pfiItem.voucher_no}`
+              ? ` - ${store.pfiItem.voucher_no}`
               : ""}
           </h3>
           <Button
@@ -485,13 +526,26 @@ const AddPfi = () => {
         </div>
 
         <Form onSubmit={handleSubmit(onSubmit)}>
+          {isLocked && (
+            <div className="alert alert-warning d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <strong>{t("This PFI is")} {liveStatus}.</strong>{" "}
+                {t(
+                  "Fields are locked. Revert to draft to make changes - Status field below stays editable for transitions."
+                )}
+              </div>
+              <Button
+                size="sm"
+                color="warning"
+                type="button"
+                onClick={() => setValue("status", "draft", { shouldDirty: true })}
+              >
+                {t("Revert to Draft")}
+              </Button>
+            </div>
+          )}
           <Card>
             <CardBody>
-              <h5 className="mb-2 mt-1 fw-bold text-uppercase text-muted">
-                {t("Header")}
-              </h5>
-              <hr className="mt-0 mb-2" />
-
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label">
@@ -633,7 +687,7 @@ const AddPfi = () => {
                   />
                   <small className="text-muted d-block">
                     {rateMeta?.same ? (
-                      t("Same currency — rate fixed at 1.")
+                      t("Same currency - rate fixed at 1.")
                     ) : rateMeta?.rate ? (
                       <>
                         {t("Auto-filled from Currency master")}
@@ -649,7 +703,7 @@ const AddPfi = () => {
                     ) : rateMeta?.missing ? (
                       <span className="text-warning">
                         {t(
-                          "No rate set in Currency master — enter manually."
+                          "No rate set in Currency master - enter manually."
                         )}
                       </span>
                     ) : (
@@ -772,7 +826,7 @@ const AddPfi = () => {
                     ) : (
                       <small className="text-muted">
                         {t(
-                          "No source quotation. Created standalone — usually you'd convert from an approved Quotation."
+                          "No source quotation. Created standalone - usually you'd convert from an approved Quotation."
                         )}
                       </small>
                     )}
@@ -821,6 +875,7 @@ const AddPfi = () => {
                 setValue={setValue}
                 productOptions={productOptions}
                 initLineItem={initPfiLineItem}
+                readOnly={isLocked}
               />
               <SalesDocExpenses
                 control={control}
@@ -828,6 +883,7 @@ const AddPfi = () => {
                 expenseOptions={expenseOptions}
                 expenseMasterMap={expenseMasterMap}
                 subtotal={totals.subtotal}
+                readOnly={isLocked}
                 initExpenseItem={initPfiExpenseItem}
               />
               <SalesDocRebates
@@ -837,6 +893,7 @@ const AddPfi = () => {
                 rebateMasterMap={rebateMasterMap}
                 subtotal={totals.subtotal}
                 initRebateItem={initPfiRebateItem}
+                readOnly={isLocked}
               />
             </Col>
             <Col lg="3">

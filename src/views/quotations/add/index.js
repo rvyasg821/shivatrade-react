@@ -36,10 +36,11 @@ import { getCurrencyDropdown } from "../../currencies/store";
 import { getProductDropdown } from "../../products/store";
 import { getExpenseDropdown } from "../../expenses/store";
 import { getRebateDropdown } from "../../rebates/store";
+import { getCategoryDropdown } from "../../categories/store";
 import { getLead } from "../../leads/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
-// ** Axios (direct call for currency rate lookup — per-pick transient data)
+// ** Axios (direct call for currency rate lookup - per-pick transient data)
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
@@ -63,7 +64,7 @@ import {
 } from "@constant/options";
 
 // ** Icons
-import { ArrowLeft } from "react-feather";
+import { ArrowLeft, ExternalLink } from "react-feather";
 
 // ** Shared sales-doc sections (used by Quotation / PFI / PO)
 import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
@@ -92,17 +93,32 @@ const AddQuotation = () => {
   const productStore = useSelector((state) => state.product);
   const expenseStore = useSelector((state) => state.expense);
   const rebateStore = useSelector((state) => state.rebate);
+  const categoryStore = useSelector((state) => state.category);
   const leadStore = useSelector((state) => state.lead);
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  // UI-only filter - narrows the Product dropdown in line items modal.
+  // Defaulted from lead.interested_categories when arriving from a lead.
+  // Empty array = no filter (show all).
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   // Last fetched rate metadata for the helper text (effective_date + inverse).
   const [rateMeta, setRateMeta] = useState(null);
 
   const schema = useMemo(
     () =>
       yup.object().shape({
-        customer_id: yup.string().trim().required(t("Customer is required")),
+        // Customer is optional when a lead_id is set - backend auto-creates
+        // (or links) a customer from the lead's fields on save.
+        customer_id: yup
+          .string()
+          .trim()
+          .when("lead_id", {
+            is: (v) => !!v,
+            then: (s) => s.notRequired(),
+            otherwise: (s) => s.required(t("Customer is required")),
+          }),
         currency_id: yup.string().trim().required(t("Currency is required")),
         quotation_date: yup
           .string()
@@ -166,15 +182,33 @@ const AddQuotation = () => {
     }
   }, [watchedLeadId, dispatch]);
 
-  // Rule B: when lead loads, only auto-fill customer_id if currently empty.
+  // Rule B: when lead loads, auto-fill empty fields only - never overwrite
+  // user input. Lead stores currency as code (e.g. "USD"); Quotation needs
+  // currency_id (UUID), so translate via the Currency dropdown.
   useEffect(() => {
     const lead = leadStore?.leadItem;
     if (!lead || lead._id !== watchedLeadId) return;
     if (lead.customer_id && !watch("customer_id")) {
       setValue("customer_id", lead.customer_id);
     }
+    if (lead.currency && !watch("currency_id")) {
+      const match = (currencyStore?.currencyDropdown || []).find(
+        (c) => c.code === lead.currency
+      );
+      if (match) setValue("currency_id", match._id);
+    }
+    // Seed category filter from lead's interested_categories (one-time;
+    // empty filter remains untouched after user starts editing).
+    if (
+      Array.isArray(lead.interested_categories) &&
+      lead.interested_categories.length &&
+      categoryFilter.length === 0 &&
+      !showAllCategories
+    ) {
+      setCategoryFilter(lead.interested_categories);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadStore?.leadItem, watchedLeadId]);
+  }, [leadStore?.leadItem, watchedLeadId, currencyStore?.currencyDropdown]);
 
   // Live form arrays for the costing engine.
   const liveLines = useWatch({ control, name: "lines" }) || [];
@@ -183,6 +217,12 @@ const AddQuotation = () => {
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
   const liveCurrencyId = useWatch({ control, name: "currency_id" });
+  const liveStatus = useWatch({ control, name: "status" });
+  const liveSkipProduct = useWatch({ control, name: "skip_product_costing" });
+
+  // When the quotation is past draft, fields lock down - only the status
+  // select and internal_notes remain editable. UI mirrors backend guard.
+  const isLocked = isEdit && liveStatus && liveStatus !== "draft";
 
   // ─── Exchange rate auto-fetch on currency pick ─────────────────────
   // When the user picks a currency, look up the latest rate from the
@@ -230,11 +270,14 @@ const AddQuotation = () => {
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
+    dispatch(getCategoryDropdown());
     if (isEdit) {
       dispatch(getQuotation(id));
     } else {
       dispatch(cleanQuotationState());
-      reset(initQuotationItem);
+      // Preserve URL-provided lead_id across the reset so the Lead Reference
+      // card hydrates correctly when arriving from a Lead row.
+      reset({ ...initQuotationItem, lead_id: urlLeadId || "" });
     }
     return () => {
       dispatch(cleanQuotationMessage());
@@ -249,6 +292,7 @@ const AddQuotation = () => {
         ...initQuotationItem,
         ...q,
         margin_pct: String(q.margin_pct ?? "0"),
+        skip_product_costing: !!q.skip_product_costing,
         exchange_rate: String(q.exchange_rate ?? "1"),
         quotation_date:
           (q.quotation_date || "").slice(0, 10) ||
@@ -337,20 +381,58 @@ const AddQuotation = () => {
     () =>
       (currencyStore?.currencyDropdown || []).map((c) => ({
         value: c._id,
-        label: `${c.code} — ${c.name}`,
+        label: `${c.code} - ${c.name}`,
       })),
     [currencyStore?.currencyDropdown]
   );
 
-  const productOptions = useMemo(
+  const allProductOptions = useMemo(
     () =>
       (productStore?.productDropdown || []).map((p) => ({
         value: p._id,
-        label: `${p.code ? p.code + " — " : ""}${p.name}`,
+        label: `${p.code ? p.code + " - " : ""}${p.name}`,
         raw: p,
       })),
     [productStore?.productDropdown]
   );
+
+  // Apply category filter unless "show all" toggle is on. When the filter
+  // is empty (no lead seed, or user cleared it) → show all products.
+  const productOptions = useMemo(() => {
+    if (showAllCategories || !categoryFilter.length) return allProductOptions;
+    const set = new Set(categoryFilter);
+    return allProductOptions.filter((o) => set.has(o.raw?.category_id));
+  }, [allProductOptions, categoryFilter, showAllCategories]);
+
+  // Full list - used when "Show all categories" toggle is on, and as the
+  // source for line-modal Category select.
+  const allCategoryOptions = useMemo(
+    () =>
+      (categoryStore?.categoryDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.name,
+      })),
+    [categoryStore?.categoryDropdown]
+  );
+
+  // Lead's interested_categories - narrows the dropdown options to what the
+  // lead said they're interested in. Empty when not coming from a lead.
+  const leadCategoryIds = useMemo(() => {
+    const lead = leadStore?.leadItem;
+    if (!lead || lead._id !== watchedLeadId) return [];
+    return Array.isArray(lead.interested_categories)
+      ? lead.interested_categories
+      : [];
+  }, [leadStore?.leadItem, watchedLeadId]);
+
+  // Default-narrowed list shown in header + line modal when not in show-all
+  // mode AND we have a lead with categories. Otherwise full list.
+  const categoryOptions = useMemo(() => {
+    if (showAllCategories || leadCategoryIds.length === 0)
+      return allCategoryOptions;
+    const set = new Set(leadCategoryIds);
+    return allCategoryOptions.filter((o) => set.has(o.value));
+  }, [allCategoryOptions, leadCategoryIds, showAllCategories]);
 
   const expenseOptions = useMemo(
     () =>
@@ -392,9 +474,41 @@ const AddQuotation = () => {
   }, [currencyStore?.currencyDropdown, liveCurrencyId]);
 
   // ─── Costing engine (mirrors backend recompute) ─────────────────────
+  // Lookup map: product._id → raw product (with product_rebates / product_expenses).
+  const productById = useMemo(() => {
+    const m = new Map();
+    (productStore?.productDropdown || []).forEach((p) => m.set(p._id, p));
+    return m;
+  }, [productStore?.productDropdown]);
+
+  // Sets of master IDs that are already auto-applied via products on the
+  // current lines. Used to soft-warn when the user adds the SAME rebate or
+  // expense at quotation level - would double-count silently.
+  const productAppliedRebateIds = useMemo(() => {
+    if (liveSkipProduct) return new Set();
+    const s = new Set();
+    (liveLines || []).forEach((l) => {
+      const product = productById.get(l?.product_id);
+      (product?.product_rebates || []).forEach((r) => s.add(r.rebate_id));
+    });
+    return s;
+  }, [liveLines, productById, liveSkipProduct]);
+
+  const productAppliedExpenseIds = useMemo(() => {
+    if (liveSkipProduct) return new Set();
+    const s = new Set();
+    (liveLines || []).forEach((l) => {
+      const product = productById.get(l?.product_id);
+      (product?.product_expenses || []).forEach((e) => s.add(e.expense_id));
+    });
+    return s;
+  }, [liveLines, productById, liveSkipProduct]);
+
   const totals = useMemo(() => {
     let subtotal = 0;
     let tax_total = 0;
+    let product_rebates_total = 0;
+    let product_expenses_total = 0;
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -403,6 +517,21 @@ const AddQuotation = () => {
       const lineNet = qty * price * (1 - disc / 100);
       subtotal += lineNet;
       tax_total += lineNet * (taxPct / 100);
+
+      // Per-line product-master rebates/expenses, derived from the dropdown
+      // payload (mirrors backend snapshot behavior at save time).
+      const product = productById.get(l?.product_id);
+      if (product) {
+        for (const r of product.product_rebates || []) {
+          product_rebates_total += (lineNet * num(r.pct)) / 100;
+        }
+        for (const e of product.product_expenses || []) {
+          product_expenses_total +=
+            e.type === "percent"
+              ? (lineNet * num(e.value)) / 100
+              : num(e.value);
+        }
+      }
     });
     const expenses_total = (liveExpenses || []).reduce(
       (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
@@ -412,7 +541,16 @@ const AddQuotation = () => {
       (s, r) => s + deriveRebateAmount(r, subtotal, rebateMasterMap),
       0
     );
-    const net = subtotal + expenses_total - rebates_total;
+    // When user opts to skip product-level costing, zero out the product
+    // buckets - only manual quotation-level rebates/expenses contribute.
+    const eff_product_rebates = liveSkipProduct ? 0 : product_rebates_total;
+    const eff_product_expenses = liveSkipProduct ? 0 : product_expenses_total;
+    const net =
+      subtotal +
+      expenses_total +
+      eff_product_expenses -
+      rebates_total -
+      eff_product_rebates;
     const margin_amount = net * (num(liveMargin) / 100);
     const grand_inr = net + margin_amount + tax_total;
     const rate = num(liveRate) || 1;
@@ -420,7 +558,12 @@ const AddQuotation = () => {
     return {
       subtotal,
       expenses_total,
+      product_expenses_total: eff_product_expenses,
+      product_expenses_total_raw: product_expenses_total,
       rebates_total,
+      product_rebates_total: eff_product_rebates,
+      product_rebates_total_raw: product_rebates_total,
+      skipped: !!liveSkipProduct,
       net,
       margin_amount,
       tax_total,
@@ -434,15 +577,31 @@ const AddQuotation = () => {
     liveRebates,
     liveMargin,
     liveRate,
+    liveSkipProduct,
     expenseMasterMap,
     rebateMasterMap,
+    productById,
   ]);
 
   // ─── Submit ─────────────────────────────────────────────────────────
   const onSubmit = (values) => {
+    // When locked, only status + internal_notes can change. Sending full
+    // payload would trip the backend's status-lock check.
+    if (isLocked) {
+      const slim = {
+        status: values.status || "draft",
+        internal_notes: values.internal_notes?.trim() || undefined,
+      };
+      setSubmitting(true);
+      const action = dispatch(updateQuotation({ id, data: slim }));
+      action.unwrap?.().finally(() => setSubmitting(false)) ||
+        action.finally?.(() => setSubmitting(false));
+      return;
+    }
+
     const payload = {
       lead_id: values.lead_id || undefined,
-      customer_id: values.customer_id,
+      customer_id: values.customer_id || undefined,
       customer_address_id: values.customer_address_id || undefined,
       quotation_date: values.quotation_date,
       valid_until: values.valid_until || undefined,
@@ -454,6 +613,7 @@ const AddQuotation = () => {
       notes_to_client: values.notes_to_client?.trim() || undefined,
       internal_notes: values.internal_notes?.trim() || undefined,
       margin_pct: values.margin_pct || "0",
+      skip_product_costing: !!values.skip_product_costing,
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
         product_id: l.product_id,
@@ -507,7 +667,7 @@ const AddQuotation = () => {
           <h3 className="mb-0">
             {isEdit ? t("Edit Quotation") : t("Add Quotation")}
             {isEdit && store?.quotationItem?.voucher_no
-              ? ` — ${store.quotationItem.voucher_no}`
+              ? ` - ${store.quotationItem.voucher_no}`
               : ""}
           </h3>
           <Button
@@ -520,18 +680,38 @@ const AddQuotation = () => {
         </div>
 
         <Form onSubmit={handleSubmit(onSubmit)}>
+          {isLocked && (
+            <div className="alert alert-warning d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <strong>{t("This quotation is")} {liveStatus}.</strong>{" "}
+                {t(
+                  "Fields are locked. Revert to draft to make changes - Status field below stays editable for transitions."
+                )}
+              </div>
+              <Button
+                size="sm"
+                color="warning"
+                type="button"
+                onClick={() => {
+                  setValue("status", "draft", { shouldDirty: true });
+                }}
+              >
+                {t("Revert to Draft")}
+              </Button>
+            </div>
+          )}
           {/* ── Header ─────────────────────────────── */}
           <Card>
             <CardBody>
-              <h5 className="mb-2 mt-1 fw-bold text-uppercase text-muted">
-                {t("Header")}
-              </h5>
-              <hr className="mt-0 mb-2" />
-
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label">
-                    {t("Customer")} {required}
+                    {t("Customer")}{" "}
+                    {watchedLeadId ? (
+                      <small className="text-muted">({t("optional")})</small>
+                    ) : (
+                      required
+                    )}
                   </Label>
                   <Controller
                     name="customer_id"
@@ -539,6 +719,8 @@ const AddQuotation = () => {
                     render={({ field }) => (
                       <Select
                         classNamePrefix="select"
+                        isClearable
+                        isDisabled={isLocked}
                         options={customerOptions}
                         value={
                           customerOptions.find(
@@ -552,6 +734,21 @@ const AddQuotation = () => {
                       />
                     )}
                   />
+                  {watchedLeadId &&
+                    !watch("customer_id") &&
+                    leadStore?.leadItem?._id === watchedLeadId && (
+                      <small className="text-info d-block mt-1">
+                        {t(
+                          "Customer will be auto-created from lead "
+                        )}
+                        <strong>
+                          {leadStore.leadItem.company_name ||
+                            leadStore.leadItem.contact_name ||
+                            "-"}
+                        </strong>
+                        {t(" on save (or matched by email if exists).")}
+                      </small>
+                    )}
                   {errors.customer_id && (
                     <FormFeedback className="d-block">
                       {errors.customer_id.message}
@@ -582,7 +779,7 @@ const AddQuotation = () => {
                             ? t("Select address")
                             : t("Pick a customer first")
                         }
-                        isDisabled={!watchedCustomer}
+                        isDisabled={!watchedCustomer || isLocked}
                       />
                     )}
                   />
@@ -602,6 +799,7 @@ const AddQuotation = () => {
                       <Input
                         type="date"
                         invalid={!!errors.quotation_date}
+                        disabled={isLocked}
                         {...field}
                       />
                     )}
@@ -621,6 +819,7 @@ const AddQuotation = () => {
                     render={({ field }) => (
                       <Input
                         type="date"
+                        disabled={isLocked}
                         {...field}
                         value={field.value || ""}
                       />
@@ -638,6 +837,7 @@ const AddQuotation = () => {
                     render={({ field }) => (
                       <Select
                         classNamePrefix="select"
+                        isDisabled={isLocked}
                         options={currencyOptions}
                         value={
                           currencyOptions.find(
@@ -667,6 +867,7 @@ const AddQuotation = () => {
                         type="number"
                         step="0.000001"
                         min="0"
+                        disabled={isLocked}
                         {...field}
                         value={field.value ?? ""}
                       />
@@ -675,7 +876,7 @@ const AddQuotation = () => {
                   <small className="text-muted d-block">
                     {rateMeta?.same ? (
                       t(
-                        "Same currency — rate fixed at 1."
+                        "Same currency - rate fixed at 1."
                       )
                     ) : rateMeta?.rate ? (
                       <>
@@ -702,7 +903,7 @@ const AddQuotation = () => {
                     ) : rateMeta?.missing ? (
                       <span className="text-warning">
                         {t(
-                          "No rate set in Currency master — enter manually."
+                          "No rate set in Currency master - enter manually."
                         )}
                       </span>
                     ) : (
@@ -720,6 +921,7 @@ const AddQuotation = () => {
                       <Select
                         classNamePrefix="select"
                         isClearable
+                        isDisabled={isLocked}
                         options={PAYMENT_TERMS_OPTIONS}
                         value={
                           PAYMENT_TERMS_OPTIONS.find(
@@ -745,6 +947,7 @@ const AddQuotation = () => {
                       <Select
                         classNamePrefix="select"
                         isClearable
+                        isDisabled={isLocked}
                         options={INCOTERMS_OPTIONS}
                         value={
                           INCOTERMS_OPTIONS.find(
@@ -769,6 +972,7 @@ const AddQuotation = () => {
                     render={({ field }) => (
                       <Input
                         placeholder="e.g. Mumbai Port, Dubai (Jebel Ali)"
+                        disabled={isLocked}
                         {...field}
                         value={field.value || ""}
                       />
@@ -786,6 +990,7 @@ const AddQuotation = () => {
                         type="number"
                         step="0.01"
                         min="0"
+                        disabled={isLocked}
                         {...field}
                         value={field.value ?? ""}
                       />
@@ -822,24 +1027,35 @@ const AddQuotation = () => {
                       const lead = leadStore?.leadItem;
                       const linked = lead && lead._id === watchedLeadId;
                       return (
-                        <div className="form-control bg-light">
+                        <div className="form-control bg-light d-flex justify-content-between align-items-center">
                           {linked ? (
-                            <span>
-                              🔗{" "}
-                              <strong>
-                                {lead.company_name ||
-                                  lead.contact_name ||
-                                  "—"}
-                              </strong>
-                              {lead.contact_name && lead.company_name
-                                ? ` · ${lead.contact_name}`
-                                : ""}
-                              {lead.status ? (
-                                <span className="ms-2 badge bg-info text-dark text-capitalize">
-                                  {lead.status}
-                                </span>
-                              ) : null}
-                            </span>
+                            <>
+                              <span>
+                                🔗{" "}
+                                <strong>
+                                  {lead.company_name ||
+                                    lead.contact_name ||
+                                    "-"}
+                                </strong>
+                                {lead.contact_name && lead.company_name
+                                  ? ` · ${lead.contact_name}`
+                                  : ""}
+                                {lead.status ? (
+                                  <span className="ms-2 badge bg-info text-dark text-capitalize">
+                                    {lead.status}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <a
+                                href={`${appsRoot}/leads/edit/${watchedLeadId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={t("Open Lead in new tab")}
+                                className="text-decoration-none ms-2"
+                              >
+                                <ExternalLink size={16} />
+                              </a>
+                            </>
                           ) : (
                             <span className="text-muted">
                               {t("Loading lead…")}
@@ -859,6 +1075,96 @@ const AddQuotation = () => {
                   )}
                 </Col>
 
+                <Col md="12" className="mb-2">
+                  <Label className="form-label d-flex justify-content-between align-items-center">
+                    <span>{t("Interested Categories")}</span>
+                    {categoryFilter.length > 0 && (
+                      <small>
+                        <a
+                          href="#"
+                          className="text-decoration-none"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowAllCategories((s) => !s);
+                          }}
+                        >
+                          {showAllCategories
+                            ? t("Re-apply category filter")
+                            : t("Show all categories")}
+                        </a>
+                      </small>
+                    )}
+                  </Label>
+                  <Select
+                    classNamePrefix="select"
+                    isMulti
+                    isClearable
+                    isDisabled={isLocked}
+                    options={categoryOptions}
+                    value={categoryOptions.filter((o) =>
+                      categoryFilter.includes(o.value)
+                    )}
+                    onChange={(opts) => {
+                      setCategoryFilter((opts || []).map((o) => o.value));
+                      setShowAllCategories(false);
+                    }}
+                    placeholder={t(
+                      "All categories (pick to narrow Product dropdown in line items)"
+                    )}
+                    menuPortalTarget={document.body}
+                    styles={{
+                      menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                    }}
+                  />
+                  {watchedLeadId &&
+                    categoryFilter.length > 0 &&
+                    !showAllCategories && (
+                      <small className="text-muted d-block mt-1">
+                        {t(
+                          "Pre-filled from lead's interested categories."
+                        )}
+                      </small>
+                    )}
+                  {showAllCategories && (
+                    <small className="text-warning d-block mt-1">
+                      {t(
+                        "Showing all products - category filter is bypassed."
+                      )}
+                    </small>
+                  )}
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Controller
+                    name="skip_product_costing"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="form-check">
+                        <Input
+                          type="checkbox"
+                          id="skip_product_costing"
+                          disabled={isLocked}
+                          checked={!!field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                        <Label
+                          className="form-check-label"
+                          for="skip_product_costing"
+                        >
+                          {t(
+                            "Skip per-product rebates & expenses for this quote"
+                          )}
+                        </Label>
+                        <small className="d-block text-muted mt-1">
+                          {t(
+                            "When checked, only the rebates/expenses you add below will apply. Useful for one-off custom-rate quotes where the per-product master config doesn't fit."
+                          )}
+                        </small>
+                      </div>
+                    )}
+                  />
+                </Col>
+
                 <Col md="6" className="mb-2">
                   <Label className="form-label">{t("Notes to Client")}</Label>
                   <Controller
@@ -868,6 +1174,7 @@ const AddQuotation = () => {
                       <Input
                         type="textarea"
                         rows="2"
+                        disabled={isLocked}
                         {...field}
                         value={field.value || ""}
                       />
@@ -901,7 +1208,14 @@ const AddQuotation = () => {
                 control={control}
                 setValue={setValue}
                 productOptions={productOptions}
+                allProductOptions={allProductOptions}
+                categoryOptions={categoryOptions}
+                allCategoryOptions={allCategoryOptions}
+                defaultCategoryIds={
+                  showAllCategories ? [] : categoryFilter
+                }
                 initLineItem={initQuotationLineItem}
+                readOnly={isLocked}
               />
               <SalesDocExpenses
                 control={control}
@@ -910,6 +1224,8 @@ const AddQuotation = () => {
                 expenseMasterMap={expenseMasterMap}
                 subtotal={totals.subtotal}
                 initExpenseItem={initQuotationExpenseItem}
+                readOnly={isLocked}
+                productAppliedIds={productAppliedExpenseIds}
               />
               <SalesDocRebates
                 control={control}
@@ -918,6 +1234,8 @@ const AddQuotation = () => {
                 rebateMasterMap={rebateMasterMap}
                 subtotal={totals.subtotal}
                 initRebateItem={initQuotationRebateItem}
+                readOnly={isLocked}
+                productAppliedIds={productAppliedRebateIds}
               />
             </Col>
             <Col lg="3">

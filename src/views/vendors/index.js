@@ -197,26 +197,26 @@ const VendorList = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap text-capitalize">
-          {row?.primary_contact_name || "—"}
+          {row?.primary_contact_name || "-"}
         </span>
       ),
     },
     {
       name: t("Email"),
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "—"}</span>,
+      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "-"}</span>,
     },
     {
       name: t("Phone"),
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_phone || "—"}</span>,
+      selector: (row) => <span className="text-wrap">{row?.primary_contact_phone || "-"}</span>,
     },
     {
       name: t("Categories"),
       sortable: false,
       selector: (row) => {
         const cats = row?.categories || [];
-        if (cats.length === 0) return <span>—</span>;
+        if (cats.length === 0) return <span>-</span>;
         return (
           <span className="text-wrap text-capitalize">
             {cats.map((c) => c.name).join(", ")}

@@ -35,7 +35,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, UserCheck } from "react-feather";
+import { Edit, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -215,7 +215,7 @@ const LeadList = () => {
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
   const statusLabel = (val) =>
-    LEAD_STATUS_OPTIONS.find((s) => s.value === val)?.label || val || "—";
+    LEAD_STATUS_OPTIONS.find((s) => s.value === val)?.label || val || "-";
 
   const columns = [
     {
@@ -237,11 +237,28 @@ const LeadList = () => {
             ) : (
               linkContent
             )}
-            {row?.customer_id && (
-              <Badge color="light-info" className="ms-1">
-                {t("Repeat")}
+            {row?.quotations_count > 0 && (
+              <Badge
+                color="info"
+                className="ms-1"
+                title={t("This lead has quotations already created")}
+              >
+                <FileText size={10} className="me-1" />
+                {row.quotations_count}{" "}
+                {row.quotations_count === 1
+                  ? t("quote")
+                  : t("quotes")}
               </Badge>
             )}
+            {/* "Repeat" badge — currently broken because customer_id is also
+                stamped by the quotation auto-link flow and the conversion
+                flow, not just at lead creation. Revisit after adding a
+                dedicated `is_existing_customer` snapshot field on Lead.
+            {row?.customer_id && (
+              <Badge color="info" className="ms-1">
+                {t("Repeat")}
+              </Badge>
+            )} */}
           </div>
         );
       },
@@ -251,7 +268,7 @@ const LeadList = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap text-capitalize">
-          {row?.contact_name || "—"}
+          {row?.contact_name || "-"}
         </span>
       ),
     },
@@ -259,7 +276,7 @@ const LeadList = () => {
       name: t("Email"),
       sortable: false,
       selector: (row) => (
-        <span className="text-wrap">{row?.contact_email || "—"}</span>
+        <span className="text-wrap">{row?.contact_email || "-"}</span>
       ),
     },
     {
@@ -268,7 +285,7 @@ const LeadList = () => {
       selector: (row) => (
         <span className="text-capitalize">
           {LEAD_SOURCE_OPTIONS.find((s) => s.value === row?.source)?.label ||
-            "—"}
+            "-"}
         </span>
       ),
     },
@@ -276,7 +293,10 @@ const LeadList = () => {
       name: t("Status"),
       sortable: false,
       selector: (row) => (
-        <Badge color={LEAD_STATUS_BADGE_COLOR[row?.status] || "light-secondary"}>
+        <Badge
+          color={LEAD_STATUS_BADGE_COLOR[row?.status] || "secondary"}
+          className="text-capitalize"
+        >
           {statusLabel(row?.status)}
         </Badge>
       ),
@@ -286,7 +306,7 @@ const LeadList = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap text-capitalize">
-          {row?.assigned_to_name || "—"}
+          {row?.assigned_to_name || "-"}
         </span>
       ),
     },
@@ -296,7 +316,7 @@ const LeadList = () => {
       selector: (row) =>
         row?.expected_value
           ? `${row?.currency || ""} ${Number(row.expected_value).toLocaleString()}`.trim()
-          : "—",
+          : "-",
     },
   ];
 
@@ -321,22 +341,29 @@ const LeadList = () => {
               <Edit size={20} />
             </Link>
           )}
-          {canEdit && row?.status !== "won" && row?.status !== "lost" && (
-            <>
-              <UserCheck
-                size={20}
-                className="cursor-pointer me-50 text-success"
-                id={`lead-convert-tooltip-${row?._id || ""}`}
-                onClick={() => handleConvert(row)}
-              />
-              <UncontrolledTooltip
-                placement="top"
-                target={`lead-convert-tooltip-${row?._id || ""}`}
-              >
-                {t("Convert to Customer")}
-              </UncontrolledTooltip>
-            </>
-          )}
+          {canEdit &&
+            row?.status !== "won" &&
+            row?.status !== "lost" &&
+            !row?.converted_customer_id &&
+            !row?.customer_id && (
+              <>
+                <UserCheck
+                  size={20}
+                  className="cursor-pointer me-50 text-success"
+                  id={`lead-convert-tooltip-${row?._id || ""}`}
+                  onClick={() => handleConvert(row)}
+                />
+                <UncontrolledTooltip
+                  placement="top"
+                  target={`lead-convert-tooltip-${row?._id || ""}`}
+                >
+                  {t("Convert to Customer")}
+                </UncontrolledTooltip>
+              </>
+            )}
+          {/* "Create Quotation" action moved to lead edit page only — keeps
+              the listing focused on lead-level actions and avoids accidental
+              recreation when a quotation already exists. */}
           {canDelete && (
             <>
               <Trash2

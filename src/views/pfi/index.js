@@ -207,7 +207,7 @@ const PfiView = () => {
 
   const formatTotal = (row) => {
     const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "—";
+    if (v === null || v === undefined || v === "") return "-";
     const code = row?.currency_code ? ` ${row.currency_code}` : "";
     return `${Number(v).toLocaleString()}${code}`;
   };
@@ -224,22 +224,22 @@ const PfiView = () => {
               to={`${appsRoot}/pfi/edit/${row?._id || ""}`}
               className="text-wrap"
             >
-              {row?.voucher_no || "—"}
+              {row?.voucher_no || "-"}
             </Link>
           );
         }
-        return <span className="text-wrap">{row?.voucher_no || "—"}</span>;
+        return <span className="text-wrap">{row?.voucher_no || "-"}</span>;
       },
     },
     {
       name: t("Quotation #"),
       sortable: false,
-      selector: (row) => row?.quotation_voucher_no || "—",
+      selector: (row) => row?.quotation_voucher_no || "-",
     },
     {
       name: t("Customer"),
       sortable: false,
-      selector: (row) => row?.customer_name || "—",
+      selector: (row) => row?.customer_name || "-",
     },
     {
       name: t("Date"),
@@ -258,10 +258,10 @@ const PfiView = () => {
       sortable: false,
       selector: (row) => {
         const color =
-          QUOTATION_STATUS_BADGE_COLOR[row?.status] || "light-secondary";
+          QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary";
         return (
           <Badge color={color} className="text-capitalize">
-            {row?.status || "—"}
+            {row?.status || "-"}
           </Badge>
         );
       },
@@ -271,7 +271,7 @@ const PfiView = () => {
       sortField: "createdAt",
       sortable: true,
       selector: (row) =>
-        row?.createdAt ? new Date(row.createdAt).toLocaleDateString() : "—",
+        row?.createdAt ? new Date(row.createdAt).toLocaleDateString() : "-",
     },
   ];
 

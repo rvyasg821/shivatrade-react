@@ -101,22 +101,29 @@ const CUSTOMER_ADDRESS_TYPE_OPTIONS = [
 // Product module
 // ─────────────────────────────────────────────────────────────────────────────
 
+// `integer: true` means quantities sold in this UOM must be whole numbers
+// (you can't have half a bearing). Weight/volume/length UOMs allow decimals.
 const PRODUCT_UOM_OPTIONS = [
-  "KG",
-  "MT",
-  "Tonne",
-  "Nos",
-  "Piece",
-  "Pack",
-  "Box",
-  "Litre",
-  "ML",
-  "Meter",
-  "CM",
-  "Bag",
-  "Pallet",
-  "Container",
-].map((u) => ({ value: u, label: u }));
+  { value: "KG",        label: "KG",        integer: false },
+  { value: "MT",        label: "MT",        integer: false },
+  { value: "Tonne",     label: "Tonne",     integer: false },
+  { value: "Nos",       label: "Nos",       integer: true  },
+  { value: "Piece",     label: "Piece",     integer: true  },
+  { value: "Pack",      label: "Pack",      integer: true  },
+  { value: "Box",       label: "Box",       integer: true  },
+  { value: "Litre",     label: "Litre",     integer: false },
+  { value: "ML",        label: "ML",        integer: false },
+  { value: "Meter",     label: "Meter",     integer: false },
+  { value: "CM",        label: "CM",        integer: false },
+  { value: "Bag",       label: "Bag",       integer: true  },
+  { value: "Pallet",    label: "Pallet",    integer: true  },
+  { value: "Container", label: "Container", integer: true  },
+];
+
+// Helper for forms — UOMs that disallow decimals.
+const UOM_INTEGER_ONLY = new Set(
+  PRODUCT_UOM_OPTIONS.filter((u) => u.integer).map((u) => u.value)
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lead module
@@ -140,13 +147,15 @@ const LEAD_STATUS_OPTIONS = [
   { value: "lost", label: "Lost" },
 ];
 
+// Solid Bootstrap colors — Reactstrap handles text contrast via .badge defaults
+// (white text on dark backgrounds, dark text on warning).
 const LEAD_STATUS_BADGE_COLOR = {
-  new: "light-info",
-  contacted: "light-primary",
-  qualified: "light-warning",
-  proposal_sent: "light-warning",
-  won: "light-success",
-  lost: "light-danger",
+  new: "secondary",
+  contacted: "info",
+  qualified: "warning",
+  proposal_sent: "primary",
+  won: "success",
+  lost: "danger",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,10 +170,10 @@ const QUOTATION_STATUS_OPTIONS = [
 ];
 
 const QUOTATION_STATUS_BADGE_COLOR = {
-  draft: "light-secondary",
-  sent: "light-info",
-  approved: "light-success",
-  rejected: "light-danger",
+  draft: "secondary",
+  sent: "info",
+  approved: "success",
+  rejected: "danger",
 };
 
 export {
@@ -177,6 +186,7 @@ export {
   CUSTOMER_ADDRESS_TYPES,
   CUSTOMER_ADDRESS_TYPE_OPTIONS,
   PRODUCT_UOM_OPTIONS,
+  UOM_INTEGER_ONLY,
   LEAD_SOURCE_OPTIONS,
   LEAD_STATUS_OPTIONS,
   LEAD_STATUS_BADGE_COLOR,

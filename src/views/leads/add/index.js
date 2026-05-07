@@ -45,7 +45,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { ArrowLeft, UserCheck } from "react-feather";
+import { ArrowLeft, UserCheck, FileText } from "react-feather";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
@@ -178,8 +178,18 @@ const LeadForm = () => {
   }, [store.actionFlag, store.success, store.error]);
 
   const currentStatus = watch("status");
+  // Hide "Convert to Customer" when:
+  //   - status already won or lost (terminal states)
+  //   - lead is already linked to a customer (converted_customer_id from a
+  //     prior Won, OR customer_id auto-stamped when creating a quotation)
   const isAlreadyConvertedOrLost =
-    currentStatus === "won" || currentStatus === "lost";
+    currentStatus === "won" ||
+    currentStatus === "lost" ||
+    !!watch("converted_customer_id") ||
+    !!watch("customer_id");
+  const canCreateQuotation = ["contacted", "qualified", "proposal_sent"].includes(
+    currentStatus
+  );
 
   const handleConvert = () => {
     const linkedCustomerId = watch("customer_id");
@@ -211,10 +221,15 @@ const LeadForm = () => {
   }, [store?.loading]);
 
   const onSubmit = (data) => {
+    // Strip empty _id (init value "") so TypeORM doesn't treat it as
+    // "save existing entity" and query LeadEntity._id IN ('') (invalid UUID).
+    const { _id, ...rest } = data;
     const payload = {
-      ...data,
+      ...rest,
       customer_id: data.customer_id || undefined,
       assigned_to: data.assigned_to || undefined,
+      currency: data.currency || undefined,
+      country_code: data.country_code || undefined,
       expected_value:
         data.expected_value === "" || data.expected_value === null
           ? undefined
@@ -279,6 +294,18 @@ const LeadForm = () => {
             {isEditMode ? t("Edit Lead") : t("Add Lead")}
           </h3>
           <div>
+            {isEditMode && canCreateQuotation && (
+              <Button
+                color="primary"
+                outline
+                className="me-1"
+                onClick={() =>
+                  navigate(`${appsRoot}/quotations/add?lead_id=${id}`)
+                }
+              >
+                <FileText size={14} /> {t("Create Quotation")}
+              </Button>
+            )}
             {isEditMode && !isAlreadyConvertedOrLost && (
               <Button
                 color="success"
@@ -297,6 +324,41 @@ const LeadForm = () => {
             </Button>
           </div>
         </div>
+
+        {isEditMode && store?.leadItem?.quotations_count > 0 && (
+          <div className="alert alert-info d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <FileText size={16} className="me-1" />
+              <strong>
+                {store.leadItem.quotations_count}{" "}
+                {store.leadItem.quotations_count === 1
+                  ? t("quotation")
+                  : t("quotations")}
+              </strong>{" "}
+              {t(
+                "already created from this lead. Avoid duplicates — review existing quotations before creating a new one."
+              )}
+            </div>
+            <Button
+              size="sm"
+              color="info"
+              outline
+              type="button"
+              onClick={() =>
+                navigate(`${appsRoot}/quotations?lead_id=${id}`, {
+                  state: {
+                    leadName:
+                      store?.leadItem?.company_name ||
+                      store?.leadItem?.contact_name ||
+                      "",
+                  },
+                })
+              }
+            >
+              {t("View Quotations")}
+            </Button>
+          </div>
+        )}
 
         <Card>
           <CardBody>

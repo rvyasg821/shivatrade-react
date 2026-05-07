@@ -39,6 +39,8 @@ const SalesDocExpenses = ({
   expenseMasterMap,
   subtotal,
   initExpenseItem,
+  readOnly = false,
+  productAppliedIds,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -111,14 +113,42 @@ const SalesDocExpenses = ({
   return (
     <Card>
       <CardBody>
-        <div className="d-flex justify-content-between align-items-center mb-2">
+        <div className="d-flex justify-content-between align-items-center mb-1">
           <h5 className="mb-0 fw-bold text-uppercase text-muted">
             {t("Expenses")}
           </h5>
-          <Button size="sm" color="primary" type="button" onClick={openAdd}>
-            <Plus size={14} /> {t("Add Expense")}
-          </Button>
+          {!readOnly && (
+            <Button size="sm" color="primary" type="button" onClick={openAdd}>
+              <Plus size={14} /> {t("Add Expense")}
+            </Button>
+          )}
         </div>
+        <small className="text-muted d-block mb-2">
+          {t(
+            "Tip: per-product HSN expenses (Insurance, etc.) are auto-applied from each product's master. Add expenses here only for shipment-wide charges (Transport, CHA, Documentation)."
+          )}
+        </small>
+        {(() => {
+          if (!productAppliedIds || productAppliedIds.size === 0) return null;
+          const overlapping = (liveExpenses || [])
+            .filter((e) => e.expense_id && productAppliedIds.has(e.expense_id))
+            .map(
+              (e) =>
+                expenseMasterMap.get(e.expense_id)?.code ||
+                expenseMasterMap.get(e.expense_id)?.name ||
+                e.name
+            );
+          if (!overlapping.length) return null;
+          return (
+            <div className="alert alert-warning py-1 px-2 small mb-2">
+              ⚠ {t("Already auto-applied from product master:")}{" "}
+              <strong>{overlapping.join(", ")}</strong> —{" "}
+              {t(
+                "adding the same expense here will double-count. Either remove from this list, or check the 'Skip per-product' option in the header."
+              )}
+            </div>
+          );
+        })()}
 
         {expenseFA.fields.length === 0 ? (
           <div className="border rounded p-3 text-center text-muted">
@@ -167,13 +197,21 @@ const SalesDocExpenses = ({
                       <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
                         <Edit
                           size={16}
-                          className="cursor-pointer text-primary"
-                          onClick={() => openEdit(idx)}
+                          className={
+                            readOnly
+                              ? "text-muted opacity-50"
+                              : "cursor-pointer text-primary"
+                          }
+                          onClick={() => !readOnly && openEdit(idx)}
                         />
                         <Trash2
                           size={16}
-                          className="cursor-pointer text-danger"
-                          onClick={() => confirmAndRemove(idx)}
+                          className={
+                            readOnly
+                              ? "text-muted opacity-50"
+                              : "cursor-pointer text-danger"
+                          }
+                          onClick={() => !readOnly && confirmAndRemove(idx)}
                         />
                       </div>
                     </td>
