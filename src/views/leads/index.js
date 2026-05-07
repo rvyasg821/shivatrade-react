@@ -295,7 +295,7 @@ const LeadList = () => {
       selector: (row) => (
         <Badge
           color={LEAD_STATUS_BADGE_COLOR[row?.status] || "secondary"}
-          className="text-capitalize"
+          className="text-capitalize text-nowrap text-white"
         >
           {statusLabel(row?.status)}
         </Badge>
