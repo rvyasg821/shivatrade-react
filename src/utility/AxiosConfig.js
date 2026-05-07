@@ -4,13 +4,22 @@
 import axios from "axios";
 
 // ** Utils
-import { getAccessToken, clearLocalStorage } from "@utils";
+import {
+    getAccessToken,
+    getRefreshToken,
+    setAccessToken,
+    setRefreshToken,
+    clearLocalStorage,
+} from "@utils";
 
 // ** Toast
 import toast from 'react-hot-toast';
 
 // ** Constants
 import { hostRestApiUrl, hostRestApiPrefix } from "@constant/defaultValues";
+
+// ** Endpoints
+import { API_ENDPOINTS } from "./ApiEndPoints";
 
 // ** Helper function for retryable errors (was in tenantErrorHandling - multi-tenant removed)
 const isRetryableError = (error) => {
@@ -29,6 +38,76 @@ const instance = axios.create({
 const handleClearAndReload = () => {
     clearLocalStorage();
     window.location.reload();
+};
+
+// ---------------------
+// Refresh-token machinery (single-flight)
+// ---------------------
+// When the access token expires, the FIRST 401 triggers a refresh and the
+// other concurrent 401s wait for the same refresh to finish — this avoids
+// firing N parallel /auth/refresh calls when 5 widgets all 401 at once.
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const onRefreshed = (newToken) => {
+    refreshSubscribers.forEach((cb) => cb(newToken));
+    refreshSubscribers = [];
+};
+
+const subscribeTokenRefresh = (cb) => {
+    refreshSubscribers.push(cb);
+};
+
+// Bare axios instance with NO interceptors — used only for the refresh
+// call so that no other interceptor (e.g. the legacy jwtService one
+// registered on the global `axios` object) can rewrite our Authorization
+// header. Without this, the global jwtService request interceptor stamps
+// the access token over our refresh token and the backend rejects it
+// with "invalid token".
+const refreshAxios = axios.create();
+
+/**
+ * Calls the backend /shared/auth/refresh endpoint with the stored refresh
+ * token. Uses an isolated axios instance (no interceptors) so the global
+ * jwtService request interceptor cannot overwrite our Authorization
+ * header with the (expired) access token.
+ */
+const refreshAccessToken = async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) throw new Error("no refresh token");
+
+    const url = `${apiBaseUrl}${API_ENDPOINTS.auth.refreshToken}`;
+    const resp = await refreshAxios.post(
+        url,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${refreshToken}`,
+                "x-custom-lang": localStorage.getItem("i18nextLng") || "en",
+            },
+        }
+    );
+
+    // Backend wraps payload as { data: { accessToken, refreshToken, ... } }.
+    const payload = resp?.data?.data || resp?.data || {};
+    const newAccess = payload.accessToken;
+    const newRefresh = payload.refreshToken;
+    if (!newAccess) throw new Error("no accessToken in refresh response");
+
+    setAccessToken(newAccess);
+    if (newRefresh) setRefreshToken(newRefresh);
+    return newAccess;
+};
+
+/** Public-auth endpoints whose own 401s should NOT trigger a refresh
+ *  (e.g. wrong-password login, expired reset OTP). */
+const isAuthExemptUrl = (url = "") => {
+    return (
+        url.includes("/public/auth/") ||
+        url.includes("/auth/forgot-password") ||
+        url.includes("/public/reset-password/") ||
+        url.includes(API_ENDPOINTS.auth.refreshToken)
+    );
 };
 
 const getTenantId = () => {
@@ -183,12 +262,59 @@ instance.interceptors.response.use((res) => {
         status = error.response.status;
     }
 
+    const originalRequest = error.config || {};
+
     if (status === 401) {
-        handleClearAndReload();
+        // Skip refresh for auth-public endpoints (login etc.) and for the
+        // refresh call itself. Also skip if we have no refresh token to
+        // try with — clean logout.
+        const url = originalRequest?.url || "";
+        const hasRefreshToken = !!getRefreshToken();
+        const alreadyRetried = originalRequest._retry === true;
+
+        if (!hasRefreshToken || isAuthExemptUrl(url) || alreadyRetried) {
+            handleClearAndReload();
+            return Promise.reject(error);
+        }
+
+        // Single-flight: if a refresh is already in progress, queue this
+        // request to be replayed once the refresh resolves.
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                subscribeTokenRefresh((newToken) => {
+                    if (!newToken) {
+                        reject(error);
+                        return;
+                    }
+                    originalRequest.headers = originalRequest.headers || {};
+                    originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+                    originalRequest._retry = true;
+                    resolve(instance(originalRequest));
+                });
+            });
+        }
+
+        // Otherwise WE drive the refresh; everyone else queues behind us.
+        isRefreshing = true;
+        originalRequest._retry = true;
+
+        try {
+            const newToken = await refreshAccessToken();
+            isRefreshing = false;
+            onRefreshed(newToken);
+
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+            return instance(originalRequest);
+        } catch (refreshErr) {
+            isRefreshing = false;
+            onRefreshed(null); // unblock queued callers so they reject
+            handleClearAndReload();
+            return Promise.reject(refreshErr);
+        }
     }
 
     // ** Retry logic for retryable errors (5xx, 429)
-    const originalRequest = error.config;
 
     // Check if this is a retryable error and hasn't been retried yet
     if (isRetryableError(error) && !originalRequest._retry) {

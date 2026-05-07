@@ -76,6 +76,7 @@ const CurrencyForm = () => {
           .string()
           .oneOf(["active", "inactive"])
           .required(t("Status is required")),
+        is_default: yup.boolean().nullable(),
       }),
     [t]
   );
@@ -119,6 +120,7 @@ const CurrencyForm = () => {
         symbol: c.symbol || "",
         status: c.status || (c.is_active ? "active" : "inactive"),
         is_active: c.is_active,
+        is_default: !!c.is_default,
       });
     }
   }, [store?.currencyItem?._id]);
@@ -149,6 +151,7 @@ const CurrencyForm = () => {
       symbol: data.symbol?.trim() || undefined,
       status: data.status,
       is_active: data.status === "active",
+      is_default: !!data.is_default,
     };
 
     if (isEditMode) {
@@ -285,6 +288,34 @@ const CurrencyForm = () => {
                         {...field}
                         value={field.value || ""}
                       />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Controller
+                    name="is_default"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="form-check">
+                        <Input
+                          type="checkbox"
+                          id="currency-is-default"
+                          checked={!!field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                        <Label
+                          className="form-check-label"
+                          for="currency-is-default"
+                        >
+                          {t("Set as default currency (company's home currency)")}
+                        </Label>
+                        <small className="d-block text-muted mt-1">
+                          {t(
+                            "Used as the 'from' side of exchange-rate lookups on Quotation / PFI / PO. Exactly one currency per company should be marked default."
+                          )}
+                        </small>
+                      </div>
                     )}
                   />
                 </Col>

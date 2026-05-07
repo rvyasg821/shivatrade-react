@@ -9,8 +9,12 @@ import {
   createProduct,
   updateProduct,
   cleanProductMessage,
+  cleanProductState,
 } from "../store";
 import { getCategoryDropdown } from "@src/views/categories/store";
+import { getCurrencyDropdown } from "@src/views/currencies/store";
+import { getRebateDropdown } from "@src/views/rebates/store";
+import { getExpenseDropdown } from "@src/views/expenses/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Axios + Endpoints
@@ -31,7 +35,7 @@ import {
 } from "reactstrap";
 
 // ** Form
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -43,12 +47,12 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, Loader } from "react-feather";
+import { ArrowLeft, Loader, Plus, Trash2 } from "react-feather";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initProductItem } from "@constant/reduxConstant";
-import { STATUS_OPTIONS, PRODUCT_UOM_OPTIONS } from "@constant/options";
+import { STATUS_OPTIONS, PRODUCT_UOM_OPTIONS, COUNTRY_OPTIONS } from "@constant/options";
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -58,7 +62,11 @@ const ProductForm = () => {
 
   const store = useSelector((state) => state.product);
   const categoryStore = useSelector((state) => state.category);
+  const currencyStore = useSelector((state) => state.currency);
+  const rebateStore = useSelector((state) => state.rebate);
+  const expenseStore = useSelector((state) => state.expense);
   const isEditMode = !!id;
+  const required = <span className="text-danger">*</span>;
 
   const schema = useMemo(
     () =>
@@ -86,6 +94,57 @@ const ProductForm = () => {
           .notRequired()
           .max(50, t("HSN code must be at most 50 characters")),
         unit_of_measure: yup.string().nullable().notRequired(),
+        // Pricing
+        selling_price: yup
+          .number()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be a number"))
+          .min(0, t("Must be ≥ 0"))
+          .nullable()
+          .notRequired(),
+        currency_id: yup
+          .string()
+          .nullable()
+          .when("selling_price", {
+            is: (v) => v !== undefined && v !== null && Number(v) > 0,
+            then: (s) => s.required(t("Currency is required when price is set")),
+            otherwise: (s) => s.notRequired(),
+          }),
+        // Identification
+        part_no: yup.string().trim().nullable().notRequired().max(100),
+        // Logistics
+        pack_size: yup
+          .number()
+          .integer()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be an integer"))
+          .min(1)
+          .nullable()
+          .notRequired(),
+        net_weight_per_unit: yup
+          .number()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be a number"))
+          .min(0)
+          .nullable()
+          .notRequired(),
+        gross_weight_per_unit: yup
+          .number()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be a number"))
+          .min(0)
+          .nullable()
+          .notRequired()
+          .test(
+            "gross-ge-net",
+            t("Gross weight must be ≥ net weight"),
+            function (v) {
+              const net = this.parent.net_weight_per_unit;
+              if (v == null || net == null) return true;
+              return Number(v) >= Number(net);
+            }
+          ),
+        country_of_origin: yup.string().trim().nullable().notRequired().max(100),
         status: yup
           .string()
           .oneOf(["active", "inactive"])
@@ -99,12 +158,16 @@ const ProductForm = () => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
     defaultValues: initProductItem,
   });
+
+  const rebatesField = useFieldArray({ control, name: "rebates", keyName: "_key" });
+  const expensesField = useFieldArray({ control, name: "expenses", keyName: "_key" });
 
   // ── Live SKU uniqueness check (onBlur) ──
   const [codeExists, setCodeExists] = useState(false);
@@ -142,12 +205,18 @@ const ProductForm = () => {
 
   useLayoutEffect(() => {
     dispatch(getCategoryDropdown());
+    dispatch(getCurrencyDropdown());
+    dispatch(getRebateDropdown());
+    dispatch(getExpenseDropdown());
     if (isEditMode) {
       dispatch(getProduct(id));
     } else {
+      // Clear stale productItem in redux so a previously edited product
+      // (with rebates/expenses arrays) doesn't bleed into the Add form.
+      dispatch(cleanProductState());
       reset(initProductItem);
     }
-  }, [id]);
+  }, [id, isEditMode]);
 
   useEffect(() => {
     if (isEditMode && store?.productItem && store.productItem._id) {
@@ -163,6 +232,22 @@ const ProductForm = () => {
         quality_parameters: p.quality_parameters || "",
         hsn_code: p.hsn_code || "",
         unit_of_measure: p.unit_of_measure || "",
+        selling_price: p.selling_price ?? "",
+        currency_id: p.currency_id || "",
+        part_no: p.part_no || "",
+        pack_size: p.pack_size ?? "",
+        net_weight_per_unit: p.net_weight_per_unit ?? "",
+        gross_weight_per_unit: p.gross_weight_per_unit ?? "",
+        country_of_origin: p.country_of_origin || "",
+        rebates: (p.rebates || []).map((r) => ({
+          rebate_id: r.rebate_id,
+          // Backend returns the effective pct (override or master); show it.
+          pct: r.pct ?? "",
+        })),
+        expenses: (p.expenses || []).map((e) => ({
+          expense_id: e.expense_id,
+          value: e.value ?? "",
+        })),
         status: p.status || (p.is_active ? "active" : "inactive"),
         is_active: p.is_active,
       });
@@ -198,6 +283,10 @@ const ProductForm = () => {
   );
 
   const onSubmit = (data) => {
+    const numOrUndef = (v) =>
+      v === "" || v === null || v === undefined ? undefined : Number(v);
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = (v) => typeof v === "string" && UUID_RE.test(v);
     const payload = {
       code: data.code.trim().toUpperCase(),
       name: data.name.trim(),
@@ -208,6 +297,25 @@ const ProductForm = () => {
       quality_parameters: data.quality_parameters?.trim() || undefined,
       hsn_code: data.hsn_code?.trim() || undefined,
       unit_of_measure: data.unit_of_measure || undefined,
+      selling_price: numOrUndef(data.selling_price),
+      currency_id: data.currency_id || undefined,
+      part_no: data.part_no?.trim() || undefined,
+      pack_size: numOrUndef(data.pack_size),
+      net_weight_per_unit: numOrUndef(data.net_weight_per_unit),
+      gross_weight_per_unit: numOrUndef(data.gross_weight_per_unit),
+      country_of_origin: data.country_of_origin?.trim() || undefined,
+      rebates: (data.rebates || [])
+        .filter((r) => isUuid(r.rebate_id))
+        .map((r) => ({
+          rebate_id: r.rebate_id,
+          pct: numOrUndef(r.pct),
+        })),
+      expenses: (data.expenses || [])
+        .filter((e) => isUuid(e.expense_id))
+        .map((e) => ({
+          expense_id: e.expense_id,
+          value: numOrUndef(e.value),
+        })),
       status: data.status,
       is_active: data.status === "active",
     };
@@ -494,7 +602,385 @@ const ProductForm = () => {
                 </Col>
               </Row>
 
-              <div className="d-flex justify-content-end mt-2">
+              {/* ── Pricing ── */}
+              <h4 className="mt-3 mb-2">{t("Pricing")}</h4>
+              <Row>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="selling_price">
+                    {t("Selling Price")}
+                  </Label>
+                  <Controller
+                    name="selling_price"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="selling_price"
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        invalid={!!errors.selling_price}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.selling_price && (
+                    <FormFeedback className="d-block">
+                      {errors.selling_price.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="currency_id">
+                    {t("Currency")}
+                    {Number(watch("selling_price")) > 0 ? <> {required}</> : null}
+                  </Label>
+                  <Controller
+                    name="currency_id"
+                    control={control}
+                    render={({ field }) => {
+                      const opts = (currencyStore?.currencyDropdown || []).map(
+                        (c) => ({ value: c._id, label: `${c.code} - ${c.name}` })
+                      );
+                      return (
+                        <Select
+                          inputId="currency_id"
+                          isClearable
+                          classNamePrefix="select"
+                          options={opts}
+                          value={opts.find((o) => o.value === field.value) || null}
+                          placeholder={t("Select currency")}
+                          onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        />
+                      );
+                    }}
+                  />
+                  {errors.currency_id && (
+                    <FormFeedback className="d-block">
+                      {errors.currency_id.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+              </Row>
+
+              {/* ── Identification (extra) + Logistics ── */}
+              <h4 className="mt-3 mb-2">{t("Logistics")}</h4>
+              <Row>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="part_no">
+                    {t("Part No / OEM No")}
+                  </Label>
+                  <Controller
+                    name="part_no"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="part_no"
+                        placeholder={t("e.g. F002A0Z234")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="pack_size">
+                    {t("Pack Size")}
+                  </Label>
+                  <Controller
+                    name="pack_size"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="pack_size"
+                        type="number"
+                        min="1"
+                        invalid={!!errors.pack_size}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.pack_size && (
+                    <FormFeedback className="d-block">
+                      {errors.pack_size.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="country_of_origin">
+                    {t("Country of Origin")}
+                  </Label>
+                  <Controller
+                    name="country_of_origin"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        inputId="country_of_origin"
+                        classNamePrefix="select"
+                        isClearable
+                        options={COUNTRY_OPTIONS}
+                        value={
+                          COUNTRY_OPTIONS.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        placeholder={t("Select country")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="net_weight_per_unit">
+                    {t("Net Weight per Unit (Kg)")}
+                  </Label>
+                  <Controller
+                    name="net_weight_per_unit"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="net_weight_per_unit"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        invalid={!!errors.net_weight_per_unit}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.net_weight_per_unit && (
+                    <FormFeedback className="d-block">
+                      {errors.net_weight_per_unit.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="gross_weight_per_unit">
+                    {t("Gross Weight per Unit (Kg)")}
+                  </Label>
+                  <Controller
+                    name="gross_weight_per_unit"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="gross_weight_per_unit"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        invalid={!!errors.gross_weight_per_unit}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.gross_weight_per_unit && (
+                    <FormFeedback className="d-block">
+                      {errors.gross_weight_per_unit.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+              </Row>
+
+              {/* ── Applicable Rebates ── */}
+              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <h4 className="mb-0">{t("Applicable Rebates")}</h4>
+                <Button
+                  type="button"
+                  size="sm"
+                  color="primary"
+                  outline
+                  onClick={() =>
+                    rebatesField.append({ rebate_id: "", pct: "" })
+                  }
+                >
+                  <Plus size={14} /> {t("Add Rebate")}
+                </Button>
+              </div>
+              {rebatesField.fields.length === 0 && (
+                <small className="text-muted d-block mb-2">
+                  {t("No rebates linked. Add DBK / RODTEP if this product is export-eligible.")}
+                </small>
+              )}
+              {rebatesField.fields.map((row, idx) => {
+                const opts = (rebateStore?.rebateDropdown || []).map((r) => ({
+                  value: r._id,
+                  label: `${r.code} - ${r.name} (${r.pct}%)`,
+                  pct: r.pct,
+                }));
+                const selectedRebate = opts.find(
+                  (o) => o.value === watch(`rebates.${idx}.rebate_id`)
+                );
+                return (
+                  <Row key={row._key} className="align-items-end">
+                    <Col md="7" className="mb-2">
+                      <Label className="form-label">{t("Rebate")}</Label>
+                      <Controller
+                        name={`rebates.${idx}.rebate_id`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            isClearable
+                            classNamePrefix="select"
+                            options={opts}
+                            value={opts.find((o) => o.value === field.value) || null}
+                            onChange={(opt) => {
+                              field.onChange(opt ? opt.value : "");
+                              setValue(
+                                `rebates.${idx}.pct`,
+                                opt ? opt.pct : "",
+                                { shouldValidate: true }
+                              );
+                            }}
+                            placeholder={t("Select rebate")}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="4" className="mb-2">
+                      <Label className="form-label">
+                        {t("Percentage (editable)")}
+                      </Label>
+                      <Controller
+                        name={`rebates.${idx}.pct`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            placeholder={
+                              selectedRebate
+                                ? `Default ${selectedRebate.pct}%`
+                                : ""
+                            }
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="1" className="mb-2 text-end">
+                      <Button
+                        type="button"
+                        color="danger"
+                        size="sm"
+                        outline
+                        onClick={() => rebatesField.remove(idx)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </Col>
+                  </Row>
+                );
+              })}
+
+              {/* ── Default Expenses ── */}
+              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <h4 className="mb-0">{t("Default Expenses")}</h4>
+                <Button
+                  type="button"
+                  size="sm"
+                  color="primary"
+                  outline
+                  onClick={() =>
+                    expensesField.append({ expense_id: "", value: "" })
+                  }
+                >
+                  <Plus size={14} /> {t("Add Expense")}
+                </Button>
+              </div>
+              {expensesField.fields.length === 0 && (
+                <small className="text-muted d-block mb-2">
+                  {t("No default expenses. Add Packing / Transport / CHA if they always apply to this product.")}
+                </small>
+              )}
+              {expensesField.fields.map((row, idx) => {
+                const opts = (expenseStore?.expenseDropdown || []).map((e) => ({
+                  value: e._id,
+                  label: `${e.code} - ${e.name} (${e.value}${
+                    e.type === "percent" ? "%" : ""
+                  })`,
+                  type: e.type,
+                  master_value: e.value,
+                }));
+                const selectedExpense = opts.find(
+                  (o) => o.value === watch(`expenses.${idx}.expense_id`)
+                );
+                return (
+                  <Row key={row._key} className="align-items-end">
+                    <Col md="7" className="mb-2">
+                      <Label className="form-label">{t("Expense")}</Label>
+                      <Controller
+                        name={`expenses.${idx}.expense_id`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            isClearable
+                            classNamePrefix="select"
+                            options={opts}
+                            value={opts.find((o) => o.value === field.value) || null}
+                            onChange={(opt) => {
+                              field.onChange(opt ? opt.value : "");
+                              setValue(
+                                `expenses.${idx}.value`,
+                                opt ? opt.master_value : "",
+                                { shouldValidate: true }
+                              );
+                            }}
+                            placeholder={t("Select expense")}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="4" className="mb-2">
+                      <Label className="form-label">
+                        {t("Value (editable)")}
+                      </Label>
+                      <Controller
+                        name={`expenses.${idx}.value`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            placeholder={
+                              selectedExpense
+                                ? `Default ${selectedExpense.master_value}${
+                                    selectedExpense.type === "percent" ? "%" : ""
+                                  }`
+                                : ""
+                            }
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="1" className="mb-2 text-end">
+                      <Button
+                        type="button"
+                        color="danger"
+                        size="sm"
+                        outline
+                        onClick={() => expensesField.remove(idx)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </Col>
+                  </Row>
+                );
+              })}
+
+              <div className="d-flex justify-content-end mt-3">
                 <Button
                   type="button"
                   color="secondary"

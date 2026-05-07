@@ -8,9 +8,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { getCompany, updateCompanyDetails, createCompany, resetCompanyLoading } from "@src/views/auth/profile/editCompany/store";
 
 // ** Reactstrap Imports
-import { Row, Form, Label, Input, CardBody, Card, Button, Spinner, FormFeedback } from "reactstrap";
+import { Row, Col, Form, Label, Input, CardBody, Card, Button, Spinner, FormFeedback } from "reactstrap";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -21,6 +21,11 @@ import { useTranslation } from "react-i18next";
 
 // ** Constant
 import { countryCodeEditable, disableCountryDropdown } from "@constant/defaultValues";
+import {
+  initCompanyAddressItem,
+  initCompanyBankAccountItem,
+} from "@constant/reduxConstant";
+import { getCurrencyDropdown } from "@src/views/currencies/store";
 
 // ** Utilities
 import {
@@ -128,9 +133,22 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
       state: "",
       city: "",
       zipcode: "",
+      iec: "",
+      lut_no: "",
+      lut_date: "",
+      cin: "",
+      addresses: [],
+      bank_accounts: [],
     },
     resolver: yupResolver(CompanySchema),
   });
+
+  const addressesField = useFieldArray({ control, name: "addresses", keyName: "_key" });
+  const banksField = useFieldArray({ control, name: "bank_accounts", keyName: "_key" });
+  const currencyStore = useSelector((state) => state.currency);
+  useEffect(() => {
+    dispatch(getCurrencyDropdown());
+  }, [dispatch]);
   useEffect(() => {
     // In create mode (no id), don't show global loading and reset store loading
     if (!id?.id) {
@@ -244,6 +262,38 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
         state: company.state || "",
         city: company.city || "",
         zipcode: company.zipcode || "",
+        iec: company.iec || "",
+        lut_no: company.lut_no || "",
+        lut_date: company.lut_date ? String(company.lut_date).slice(0, 10) : "",
+        cin: company.cin || "",
+        addresses: (company.addresses || []).map((a) => ({
+          type: a.type || "corporate",
+          label: a.label || "",
+          address_line1: a.address_line1 || "",
+          address_line2: a.address_line2 || "",
+          city: a.city || "",
+          state: a.state || "",
+          country: a.country || "",
+          postcode: a.postcode || "",
+          gstin: a.gstin || "",
+          is_default: !!a.is_default,
+        })),
+        bank_accounts: (company.bank_accounts || []).map((b) => ({
+          bank_name: b.bank_name || "",
+          account_holder_name: b.account_holder_name || "",
+          account_number: b.account_number || "",
+          ifsc: b.ifsc || "",
+          swift_code: b.swift_code || "",
+          iban: b.iban || "",
+          ad_code: b.ad_code || "",
+          currency_id: b.currency_id || "",
+          branch_name: b.branch_name || "",
+          branch_address: b.branch_address || "",
+          account_type: b.account_type || "current",
+          is_default: !!b.is_default,
+          notes: b.notes || "",
+          is_active: b.is_active !== false,
+        })),
       });
     }
   }, [store?.companyItem, reset, countryList, timezoneList, setValue]);
@@ -294,6 +344,47 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
         state: values.state,
         city: values.city,
         zipcode: values.zipcode,
+        iec: values.iec || undefined,
+        lut_no: values.lut_no || undefined,
+        lut_date: values.lut_date || undefined,
+        cin: values.cin || undefined,
+        addresses: (values.addresses || [])
+          .filter((a) =>
+            a.address_line1?.trim() ||
+            a.city?.trim() ||
+            a.country?.trim() ||
+            a.label?.trim()
+          )
+          .map((a) => ({
+            type: a.type || "corporate",
+            label: a.label?.trim() || undefined,
+            address_line1: a.address_line1?.trim() || undefined,
+            address_line2: a.address_line2?.trim() || undefined,
+            city: a.city?.trim() || undefined,
+            state: a.state?.trim() || undefined,
+            country: a.country?.trim() || undefined,
+            postcode: a.postcode?.trim() || undefined,
+            gstin: a.gstin?.trim() || undefined,
+            is_default: !!a.is_default,
+          })),
+        bank_accounts: (values.bank_accounts || [])
+          .filter((b) => b.bank_name?.trim() && b.account_number?.trim() && b.currency_id)
+          .map((b) => ({
+            bank_name: b.bank_name.trim(),
+            account_holder_name: b.account_holder_name?.trim() || undefined,
+            account_number: b.account_number.trim(),
+            ifsc: b.ifsc?.trim() || undefined,
+            swift_code: b.swift_code?.trim() || undefined,
+            iban: b.iban?.trim() || undefined,
+            ad_code: b.ad_code?.trim() || undefined,
+            currency_id: b.currency_id,
+            branch_name: b.branch_name?.trim() || undefined,
+            branch_address: b.branch_address?.trim() || undefined,
+            account_type: b.account_type || "current",
+            is_default: !!b.is_default,
+            notes: b.notes?.trim() || undefined,
+            is_active: b.is_active !== false,
+          })),
       };
 
       const companyId = store.companyItem?._id || id?.id;
@@ -493,40 +584,8 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                 </div>
               </Row>
 
-              {/* ── Address ── */}
-              <h6 className="fw-bold text-uppercase text-muted mb-1 mt-2">{t("Address")}</h6>
-              <hr className="mt-0 mb-2" />
+              {/* ── Country (drives timezone + currency cascading) ── */}
               <Row>
-                <div className="mb-2 col-lg-6 col-md-6">
-                  <Label for="address_1">{t("Address Line 1")}</Label>
-                  <Controller name="address_1" control={control}
-                    render={({ field }) => <Input {...field} />}
-                  />
-                </div>
-                <div className="mb-2 col-lg-6 col-md-6">
-                  <Label for="address_2">{t("Address Line 2")}</Label>
-                  <Controller name="address_2" control={control}
-                    render={({ field }) => <Input {...field} />}
-                  />
-                </div>
-                <div className="mb-2 col-lg-6 col-md-6">
-                  <Label for="state">{t("State")}</Label>
-                  <Controller name="state" control={control}
-                    render={({ field }) => <Input {...field} />}
-                  />
-                </div>
-                <div className="mb-2 col-lg-6 col-md-6">
-                  <Label for="city">{t("City")}</Label>
-                  <Controller name="city" control={control}
-                    render={({ field }) => <Input {...field} />}
-                  />
-                </div>
-                <div className="mb-2 col-lg-6 col-md-6">
-                  <Label for="zipcode">{t("Post Code")}</Label>
-                  <Controller name="zipcode" control={control}
-                    render={({ field }) => <Input {...field} />}
-                  />
-                </div>
                 <div className="mb-2 col-lg-6 col-md-6">
                   <Label for="selected_country">{t("Country")}</Label>
                   <Controller name="selected_country" control={control}
@@ -554,6 +613,268 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                   />
                 </div>
               </Row>
+
+              {/* ── Tax & Compliance (India export) ── */}
+              <h4 className="mt-4 mb-2">{t("Tax & Compliance")}</h4>
+              <Row>
+                <Col md="6" className="mb-2">
+                  <Label for="cin">
+                    {t("CIN")} <small className="text-muted">({t("Corporate Identification Number")})</small>
+                  </Label>
+                  <Controller name="cin" control={control}
+                    render={({ field }) => (
+                      <Input id="cin" maxLength={21} placeholder="L17110MH1973PLC019786"
+                        {...field} value={field.value || ""} />
+                    )} />
+                  <small className="text-muted">
+                    {t("21-character ID issued by MCA on company registration. Appears on every PO / Invoice header.")}
+                  </small>
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label for="iec">
+                    {t("IEC")} <small className="text-muted">({t("Importer Exporter Code")})</small>
+                  </Label>
+                  <Controller name="iec" control={control}
+                    render={({ field }) => (
+                      <Input id="iec" maxLength={20} {...field} value={field.value || ""} />
+                    )} />
+                  <small className="text-muted">
+                    {t("DGFT-issued code mandatory for cross-border shipments. Required on Commercial / Export Invoices.")}
+                  </small>
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label for="lut_no">
+                    {t("LUT Number")} <small className="text-muted">({t("Letter of Undertaking")})</small>
+                  </Label>
+                  <Controller name="lut_no" control={control}
+                    render={({ field }) => (
+                      <Input id="lut_no" maxLength={50} {...field} value={field.value || ""} />
+                    )} />
+                  <small className="text-muted">
+                    {t("Lets you export without paying IGST upfront. Filed annually with GST portal; valid for one financial year.")}
+                  </small>
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label for="lut_date">{t("LUT Date")}</Label>
+                  <Controller name="lut_date" control={control}
+                    render={({ field }) => (
+                      <Input id="lut_date" type="date" {...field} value={field.value || ""} />
+                    )} />
+                  <small className="text-muted">
+                    {t("Issue date of the LUT. Re-file every 1 April for the new financial year.")}
+                  </small>
+                </Col>
+              </Row>
+
+              {/* ── Addresses (multi) ── */}
+              <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
+                <h4 className="mb-0">{t("Addresses")}</h4>
+                <Button type="button" size="sm" color="primary" outline
+                  onClick={() => addressesField.append({ ...initCompanyAddressItem })}>
+                  + {t("Add Address")}
+                </Button>
+              </div>
+              {addressesField.fields.length === 0 && (
+                <small className="text-muted d-block mb-2">
+                  {t("No addresses. Add Corporate Office and any Warehouse / Branch with their own GSTINs.")}
+                </small>
+              )}
+              {addressesField.fields.map((row, idx) => {
+                const TYPE_OPTIONS = [
+                  { value: "corporate", label: t("Corporate Office") },
+                  { value: "warehouse", label: t("Warehouse") },
+                  { value: "branch", label: t("Branch") },
+                  { value: "other", label: t("Other") },
+                ];
+                return (
+                  <Row key={row._key} className="border rounded p-2 mb-2 mx-0">
+                    <Col md="3" className="mb-2">
+                      <Label>{t("Type")}</Label>
+                      <Controller name={`addresses.${idx}.type`} control={control}
+                        render={({ field }) => (
+                          <Select classNamePrefix="select" options={TYPE_OPTIONS}
+                            value={TYPE_OPTIONS.find((o) => o.value === field.value) || null}
+                            onChange={(opt) => field.onChange(opt ? opt.value : "corporate")}
+                            styles={selectStyles} />
+                        )} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Label")}</Label>
+                      <Controller name={`addresses.${idx}.label`} control={control}
+                        render={({ field }) => (
+                          <Input placeholder={t("e.g. HQ Vadodara")} {...field} value={field.value || ""} />
+                        )} />
+                    </Col>
+                    <Col md="3" className="mb-2 d-flex align-items-end">
+                      <div className="form-check">
+                        <Controller name={`addresses.${idx}.is_default`} control={control}
+                          render={({ field }) => (
+                            <Input type="checkbox" id={`scaddr-default-${idx}`}
+                              checked={!!field.value}
+                              onChange={(e) => field.onChange(e.target.checked)} />
+                          )} />
+                        <Label className="form-check-label" for={`scaddr-default-${idx}`}>{t("Default for this type")}</Label>
+                      </div>
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Address Line 1")}</Label>
+                      <Controller name={`addresses.${idx}.address_line1`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Address Line 2")}</Label>
+                      <Controller name={`addresses.${idx}.address_line2`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("City")}</Label>
+                      <Controller name={`addresses.${idx}.city`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("State")}</Label>
+                      <Controller name={`addresses.${idx}.state`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("Country")}</Label>
+                      <Controller name={`addresses.${idx}.country`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("Postcode")}</Label>
+                      <Controller name={`addresses.${idx}.postcode`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="12" className="mb-2">
+                      <Label>{t("GSTIN (this address)")}</Label>
+                      <Controller name={`addresses.${idx}.gstin`} control={control}
+                        render={({ field }) => <Input maxLength={15} {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="12" className="text-end">
+                      <Button type="button" size="sm" color="danger" outline
+                        onClick={() => addressesField.remove(idx)}>{t("Remove address")}</Button>
+                    </Col>
+                  </Row>
+                );
+              })}
+
+              {/* ── Bank Accounts (multi) ── */}
+              <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
+                <h4 className="mb-0">{t("Bank Accounts")}</h4>
+                <Button type="button" size="sm" color="primary" outline
+                  onClick={() => {
+                    const inr = (currencyStore?.currencyDropdown || []).find(c => c.code === "INR")
+                      || (currencyStore?.currencyDropdown || [])[0];
+                    banksField.append({ ...initCompanyBankAccountItem, currency_id: inr?._id || "" });
+                  }}>
+                  + {t("Add Bank Account")}
+                </Button>
+              </div>
+              {banksField.fields.length === 0 && (
+                <small className="text-muted d-block mb-2">
+                  {t("No bank accounts. Add INR account for domestic and USD/EUR for export proceeds.")}
+                </small>
+              )}
+              {banksField.fields.map((row, idx) => {
+                const ACC_TYPE_OPTIONS = [
+                  { value: "current", label: t("Current") },
+                  { value: "savings", label: t("Savings") },
+                  { value: "other", label: t("Other") },
+                ];
+                const currencyOptions = (currencyStore?.currencyDropdown || []).map(c => ({
+                  value: c._id, label: `${c.code} - ${c.name}`,
+                }));
+                return (
+                  <Row key={row._key} className="border rounded p-2 mb-2 mx-0">
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Bank Name")} <span className="text-danger">*</span></Label>
+                      <Controller name={`bank_accounts.${idx}.bank_name`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Account Holder Name")}</Label>
+                      <Controller name={`bank_accounts.${idx}.account_holder_name`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Account Number")} <span className="text-danger">*</span></Label>
+                      <Controller name={`bank_accounts.${idx}.account_number`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("Currency")} <span className="text-danger">*</span></Label>
+                      <Controller name={`bank_accounts.${idx}.currency_id`} control={control}
+                        render={({ field }) => (
+                          <Select classNamePrefix="select" options={currencyOptions}
+                            value={currencyOptions.find(o => o.value === field.value) || null}
+                            onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                            styles={selectStyles} />
+                        )} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("Account Type")}</Label>
+                      <Controller name={`bank_accounts.${idx}.account_type`} control={control}
+                        render={({ field }) => (
+                          <Select classNamePrefix="select" options={ACC_TYPE_OPTIONS}
+                            value={ACC_TYPE_OPTIONS.find(o => o.value === field.value) || null}
+                            onChange={(opt) => field.onChange(opt ? opt.value : "current")}
+                            styles={selectStyles} />
+                        )} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("AD Code")} <small className="text-muted">({t("for forex")})</small></Label>
+                      <Controller name={`bank_accounts.${idx}.ad_code`} control={control}
+                        render={({ field }) => <Input maxLength={30} {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("IFSC")} <small className="text-muted">({t("India")})</small></Label>
+                      <Controller name={`bank_accounts.${idx}.ifsc`} control={control}
+                        render={({ field }) => <Input maxLength={11} {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("SWIFT Code")} <small className="text-muted">({t("International")})</small></Label>
+                      <Controller name={`bank_accounts.${idx}.swift_code`} control={control}
+                        render={({ field }) => <Input maxLength={11} {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2">
+                      <Label>{t("IBAN")} <small className="text-muted">({t("EU/Middle-East")})</small></Label>
+                      <Controller name={`bank_accounts.${idx}.iban`} control={control}
+                        render={({ field }) => <Input maxLength={34} {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Branch Name")}</Label>
+                      <Controller name={`bank_accounts.${idx}.branch_name`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="6" className="mb-2">
+                      <Label>{t("Branch Address")}</Label>
+                      <Controller name={`bank_accounts.${idx}.branch_address`} control={control}
+                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="9" className="mb-2">
+                      <Label>{t("Notes")}</Label>
+                      <Controller name={`bank_accounts.${idx}.notes`} control={control}
+                        render={({ field }) => <Input type="textarea" rows="1" {...field} value={field.value || ""} />} />
+                    </Col>
+                    <Col md="3" className="mb-2 d-flex align-items-end">
+                      <div className="form-check">
+                        <Controller name={`bank_accounts.${idx}.is_default`} control={control}
+                          render={({ field }) => (
+                            <Input type="checkbox" id={`scbank-default-${idx}`}
+                              checked={!!field.value}
+                              onChange={(e) => field.onChange(e.target.checked)} />
+                          )} />
+                        <Label className="form-check-label" for={`scbank-default-${idx}`}>{t("Default for currency")}</Label>
+                      </div>
+                    </Col>
+                    <Col md="12" className="text-end">
+                      <Button type="button" size="sm" color="danger" outline
+                        onClick={() => banksField.remove(idx)}>{t("Remove bank account")}</Button>
+                    </Col>
+                  </Row>
+                );
+              })}
 
               <div className="d-flex justify-content-end gap-2 mt-3">
                 <Button type="submit" color="primary" disabled={store.loading}>

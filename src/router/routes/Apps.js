@@ -10,8 +10,12 @@ import {
   vendorsModuleSlug,
   customersModuleSlug,
   leadsModuleSlug,
+  rebatesModuleSlug,
+  expensesModuleSlug,
   currenciesModuleSlug,
   priceListModuleSlug,
+  quotationsModuleSlug,
+  pfiModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -39,12 +43,24 @@ const EditCustomer = lazy(() => import('@src/views/customers/add'));
 const LeadList = lazy(() => import('@src/views/leads'));
 const AddLead = lazy(() => import('@src/views/leads/add'));
 const EditLead = lazy(() => import('@src/views/leads/add'));
+const RebateList = lazy(() => import('@src/views/rebates'));
+const AddRebate = lazy(() => import('@src/views/rebates/add'));
+const EditRebate = lazy(() => import('@src/views/rebates/add'));
+const ExpenseList = lazy(() => import('@src/views/expenses'));
+const AddExpense = lazy(() => import('@src/views/expenses/add'));
+const EditExpense = lazy(() => import('@src/views/expenses/add'));
 const CurrencyList = lazy(() => import('@src/views/currencies'));
 const AddCurrency = lazy(() => import('@src/views/currencies/add'));
 const EditCurrency = lazy(() => import('@src/views/currencies/add'));
 const PriceList = lazy(() => import('@src/views/price-list'));
 const AddPriceList = lazy(() => import('@src/views/price-list/add'));
 const EditPriceList = lazy(() => import('@src/views/price-list/add'));
+const QuotationList = lazy(() => import('@src/views/quotations'));
+const AddQuotation = lazy(() => import('@src/views/quotations/add'));
+const EditQuotation = lazy(() => import('@src/views/quotations/add'));
+const PfiList = lazy(() => import('@src/views/pfi'));
+const AddPfi = lazy(() => import('@src/views/pfi/add'));
+const EditPfi = lazy(() => import('@src/views/pfi/add'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -457,6 +473,36 @@ const AppRoutes = [
     },
   },
   {
+    path: `${appsRoot}/rebates`,
+    element: <RebateList />,
+    meta: { permissionId: rebatesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/rebates/add`,
+    element: <AddRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/rebates/edit/:id`,
+    element: <EditRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/expenses`,
+    element: <ExpenseList />,
+    meta: { permissionId: expensesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/expenses/add`,
+    element: <AddExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/expenses/edit/:id`,
+    element: <EditExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'edit' },
+  },
+  {
     path: `${appsRoot}/currencies`,
     element: <CurrencyList />,
     meta: {
@@ -501,6 +547,54 @@ const AppRoutes = [
     element: <EditPriceList />,
     meta: {
       permissionId: priceListModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations`,
+    element: <QuotationList />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/add`,
+    element: <AddQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/edit/:id`,
+    element: <EditQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi`,
+    element: <PfiList />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/add`,
+    element: <AddPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/edit/:id`,
+    element: <EditPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
       action: 'edit',
     },
   },

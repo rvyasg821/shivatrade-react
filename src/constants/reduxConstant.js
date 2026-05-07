@@ -179,6 +179,19 @@ const initProductItem = {
   quality_parameters: "",
   hsn_code: "",
   unit_of_measure: "",
+  // Pricing
+  selling_price: "",
+  currency_id: "",
+  // Identification (extra)
+  part_no: "",
+  // Logistics
+  pack_size: "",
+  net_weight_per_unit: "",
+  gross_weight_per_unit: "",
+  country_of_origin: "India",
+  // Links
+  rebates: [], // [{ rebate_id, pct? }]
+  expenses: [], // [{ expense_id, value? }]
   is_active: true,
   status: "active",
 };
@@ -190,6 +203,35 @@ const initVendorContactItem = {
   phone: "",
   country_code: null,
   is_primary: false,
+};
+
+const initVendorAddressItem = {
+  type: "bill_from",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postcode: "",
+  gstin: "",
+  is_default: false,
+};
+
+const initVendorBankAccountItem = {
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  ifsc: "",
+  swift_code: "",
+  iban: "",
+  currency_id: "",
+  branch_name: "",
+  branch_address: "",
+  account_type: "current",
+  is_default: false,
+  notes: "",
+  is_active: true,
 };
 
 const initVendorItem = {
@@ -204,17 +246,17 @@ const initVendorItem = {
     other: "",
   },
   category_ids: [],
+  // Tax & Compliance
+  gstin: "",
+  pan: "",
+  vendor_code: "",
   payment_terms: "",
   incoterms: "",
-  address_line1: "",
-  address_line2: "",
-  city: "",
-  state: "",
-  country: "",
-  postcode: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initVendorContactItem, is_primary: true }],
+  addresses: [{ ...initVendorAddressItem, type: "bill_from", is_default: true }],
+  bank_accounts: [],
 };
 
 const initEmployeeItem = {
@@ -295,6 +337,7 @@ const initCurrencyItem = {
   name: "",
   symbol: "",
   is_active: true,
+  is_default: false,
   status: "active",
 };
 
@@ -309,7 +352,100 @@ const initPriceListItem = {
   discount_pct: "",
   lead_time_days: "",
   effective_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  is_primary: false,
   notes: "",
+};
+
+const initQuotationLineItem = {
+  product_id: "",
+  vendor_id: "",
+  description: "",
+  qty: "",
+  unit: "",
+  unit_price: "",
+  discount_pct: "0",
+  tax_pct: "0",
+};
+
+const initQuotationExpenseItem = {
+  expense_id: "",
+  name: "",
+  amount: "",
+  is_overridden: false,
+};
+
+const initQuotationRebateItem = {
+  rebate_id: "",
+  name: "",
+  amount: "",
+  is_overridden: false,
+};
+
+const initQuotationItem = {
+  _id: "",
+  voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  quotation_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_id: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  skip_product_costing: false,
+  // Server-side recomputed
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
+};
+
+// PFI shares the same line/expense/rebate row shapes as Quotation — the
+// shared SalesDoc components accept these as props.
+const initPfiLineItem = { ...initQuotationLineItem };
+const initPfiExpenseItem = { ...initQuotationExpenseItem };
+const initPfiRebateItem = { ...initQuotationRebateItem };
+
+const initPfiItem = {
+  _id: "",
+  voucher_no: "",
+  quotation_id: "",
+  quotation_voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  pfi_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_id: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
 };
 
 const initCustomerContactItem = {
@@ -319,6 +455,20 @@ const initCustomerContactItem = {
   phone: "",
   country_code: null,
   is_primary: false,
+};
+
+const initCustomerAddressItem = {
+  type: "bill_to",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postcode: "",
+  gstin: "",
+  iec: "",
+  is_default: false,
 };
 
 const initCustomerItem = {
@@ -332,15 +482,37 @@ const initCustomerItem = {
     twitter: "",
     other: "",
   },
-  address_line1: "",
-  address_line2: "",
-  city: "",
-  state: "",
-  country: "",
-  postcode: "",
+  // Tax & Compliance
+  gstin: "",
+  pan: "",
+  iec: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initCustomerContactItem, is_primary: true }],
+  addresses: [{ ...initCustomerAddressItem, type: "bill_to", is_default: true }],
+};
+
+const initRebateItem = {
+  _id: "",
+  name: "",
+  code: "",
+  pct: "",
+  applies_on: "total_after_expenses",
+  description: "",
+  is_active: true,
+  status: "active",
+};
+
+const initExpenseItem = {
+  _id: "",
+  name: "",
+  code: "",
+  type: "percent",
+  value: "",
+  base: "value",
+  description: "",
+  is_active: true,
+  status: "active",
 };
 
 const initLeadItem = {
@@ -362,7 +534,7 @@ const initLeadItem = {
   address_line2: "",
   city: "",
   state: "",
-  country: "",
+  country: "India",
   postcode: "",
   status: "new",
   is_active: true,
@@ -405,6 +577,36 @@ const initCompanyItem = {
     description: "",
     address: "",
   },
+};
+
+const initCompanyAddressItem = {
+  type: "corporate",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  postcode: "",
+  gstin: "",
+  is_default: false,
+};
+
+const initCompanyBankAccountItem = {
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  ifsc: "",
+  swift_code: "",
+  iban: "",
+  ad_code: "",
+  currency_id: "",
+  branch_name: "",
+  branch_address: "",
+  account_type: "current",
+  is_default: false,
+  notes: "",
+  is_active: true,
 };
 const initCompanyDataUpdate = {
   name: "",
@@ -625,13 +827,28 @@ export {
   initProductItem,
   initVendorItem,
   initVendorContactItem,
+  initVendorAddressItem,
+  initVendorBankAccountItem,
   initEmployeeItem,
   initCustomerItem,
   initCustomerContactItem,
+  initCustomerAddressItem,
   initLeadItem,
+  initRebateItem,
+  initExpenseItem,
   initCurrencyItem,
   initPriceListItem,
+  initQuotationItem,
+  initQuotationLineItem,
+  initQuotationExpenseItem,
+  initQuotationRebateItem,
+  initPfiItem,
+  initPfiLineItem,
+  initPfiExpenseItem,
+  initPfiRebateItem,
   initCompanyItem,
+  initCompanyAddressItem,
+  initCompanyBankAccountItem,
   initCompanyDataUpdate,
   initPlanItem,
   initSettingSchedulesItem,

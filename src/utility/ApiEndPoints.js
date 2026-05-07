@@ -174,6 +174,7 @@ export const API_ENDPOINTS = {
     delete: `/admin/currency/delete`,
     dropdown: `/admin/currency/dropdown`,
     rates: `/admin/currency`, // append `/${id}/rates`
+    currentRate: `/admin/currency/exchange-rate/current`, // ?from=&to=
   },
   priceList: {
     list: `/admin/price-list/list`,
@@ -181,6 +182,22 @@ export const API_ENDPOINTS = {
     create: `/admin/price-list/create`,
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
+    byProduct: `/admin/price-list/by-product`,
+  },
+  quotations: {
+    list: `/admin/quotation/list`,
+    get: `/admin/quotation/get`,
+    create: `/admin/quotation/create`,
+    update: `/admin/quotation/update`,
+    delete: `/admin/quotation/delete`,
+  },
+  pfis: {
+    list: `/admin/pfi/list`,
+    get: `/admin/pfi/get`,
+    create: `/admin/pfi/create`,
+    update: `/admin/pfi/update`,
+    delete: `/admin/pfi/delete`,
+    fromQuotation: `/admin/pfi/from-quotation`, // append /:quotationId
   },
   customers: {
     list: `/admin/customer/list`,
@@ -197,6 +214,22 @@ export const API_ENDPOINTS = {
     update: `/admin/lead/update`,
     delete: `/admin/lead/delete`,
     convert: `/admin/lead/convert`,
+  },
+  rebates: {
+    list: `/admin/rebate/list`,
+    get: `/admin/rebate/get`,
+    create: `/admin/rebate/create`,
+    update: `/admin/rebate/update`,
+    delete: `/admin/rebate/delete`,
+    dropdown: `/admin/rebate/dropdown`,
+  },
+  expenses: {
+    list: `/admin/expense/list`,
+    get: `/admin/expense/get`,
+    create: `/admin/expense/create`,
+    update: `/admin/expense/update`,
+    delete: `/admin/expense/delete`,
+    dropdown: `/admin/expense/dropdown`,
   },
   employees: {
     list: `/admin/employee/list`,
