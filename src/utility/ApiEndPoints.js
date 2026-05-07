@@ -165,6 +165,7 @@ export const API_ENDPOINTS = {
     update: `/admin/vendor/update`,
     delete: `/admin/vendor/delete`,
     dropdown: `/admin/vendor/dropdown`,
+    checkCode: `/admin/vendor/check-code`,
   },
   currencies: {
     list: `/admin/currency/list`,

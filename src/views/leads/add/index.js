@@ -38,6 +38,7 @@ import Select from "react-select";
 
 // ** Custom
 import Notification from "@components/toast/notification";
+import PhoneInputField from "@src/components/phone-input/PhoneInputField";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -491,14 +492,19 @@ const LeadForm = () => {
                   )}
                 </Col>
                 <Col md="6" className="mb-2">
-                  <Label className="form-label" for="contact_phone">
-                    {t("Phone")}
-                  </Label>
+                  <Label className="form-label">{t("Phone")}</Label>
                   <Controller
-                    name="contact_phone"
+                    name="country_code"
                     control={control}
-                    render={({ field }) => (
-                      <Input id="contact_phone" {...field} />
+                    render={({ field: ccField }) => (
+                      <PhoneInputField
+                        value={ccField.value}
+                        phone={watch("contact_phone")}
+                        onChange={(next) => {
+                          ccField.onChange(next);
+                          setValue("contact_phone", next.phone || "");
+                        }}
+                      />
                     )}
                   />
                 </Col>

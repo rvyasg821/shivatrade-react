@@ -189,7 +189,13 @@ const CustomerList = () => {
     {
       name: t("Phone"),
       sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_phone || "-"}</span>,
+      selector: (row) => (
+        <span className="text-wrap">
+          {row?.primary_contact_country_code?.formatted ||
+            row?.primary_contact_phone ||
+            "-"}
+        </span>
+      ),
     },
     {
       name: t("Country"),

@@ -1,5 +1,5 @@
 // ** React Imports
-import { Fragment, useEffect, useMemo, useLayoutEffect } from "react";
+import { Fragment, useEffect, useMemo, useState, useLayoutEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 // ** Store
@@ -13,6 +13,10 @@ import {
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
 import { startLoading, stopLoading } from "../../loadingstore";
+
+// ** Axios + Endpoints (live vendor_code uniqueness check)
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 // ** Reactstrap
 import {
@@ -34,6 +38,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 // ** Custom
 import Notification from "@components/toast/notification";
+import PhoneInputField from "@src/components/phone-input/PhoneInputField";
 
 // ** Third Party
 import Select from "react-select";
@@ -67,6 +72,42 @@ const VendorForm = () => {
   const categoryStore = useSelector((state) => state.category);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
+
+  // Live vendor_code uniqueness check on blur. `codeExists=true` blocks
+  // submit via the schema test below.
+  const [codeExists, setCodeExists] = useState(false);
+  const [codeChecking, setCodeChecking] = useState(false);
+
+  const handleVendorCodeBlur = async (e) => {
+    const code = (e.target.value || "").trim();
+    if (!code) {
+      setCodeExists(false);
+      return;
+    }
+    // In edit mode, skip if unchanged
+    if (
+      isEditMode &&
+      store?.vendorItem?.vendor_code &&
+      code.toLowerCase() ===
+        store.vendorItem.vendor_code.trim().toLowerCase()
+    ) {
+      setCodeExists(false);
+      return;
+    }
+    setCodeChecking(true);
+    setCodeExists(false);
+    try {
+      const res = await instance.post(API_ENDPOINTS.vendors.checkCode, {
+        code,
+        vendorId: isEditMode ? id : undefined,
+      });
+      setCodeExists(!!res?.data?.data?.exists);
+    } catch (_e) {
+      setCodeExists(false);
+    } finally {
+      setCodeChecking(false);
+    }
+  };
 
   const schema = useMemo(
     () =>
@@ -583,17 +624,21 @@ const VendorForm = () => {
                       )}
                     </Col>
                     <Col md="6" className="mb-2">
-                      <Label className="form-label" for={`contacts.${idx}.phone`}>
-                        {t("Phone")}
-                      </Label>
+                      <Label className="form-label">{t("Phone")}</Label>
                       <Controller
-                        name={`contacts.${idx}.phone`}
+                        name={`contacts.${idx}.country_code`}
                         control={control}
-                        render={({ field }) => (
-                          <Input
-                            id={`contacts.${idx}.phone`}
-                            {...field}
-                            value={field.value || ""}
+                        render={({ field: ccField }) => (
+                          <PhoneInputField
+                            value={ccField.value}
+                            phone={watch(`contacts.${idx}.phone`)}
+                            onChange={(next) => {
+                              ccField.onChange(next);
+                              setValue(
+                                `contacts.${idx}.phone`,
+                                next.phone || ""
+                              );
+                            }}
                           />
                         )}
                       />
@@ -659,10 +704,30 @@ const VendorForm = () => {
                     name="vendor_code"
                     control={control}
                     render={({ field }) => (
-                      <Input id="vendor_code" maxLength={50} placeholder={t("Internal short code")}
-                        {...field} value={field.value || ""} />
+                      <Input
+                        id="vendor_code"
+                        maxLength={50}
+                        placeholder={t("Internal short code")}
+                        invalid={codeExists}
+                        {...field}
+                        value={field.value || ""}
+                        onBlur={(e) => {
+                          field.onBlur(e);
+                          handleVendorCodeBlur(e);
+                        }}
+                      />
                     )}
                   />
+                  {codeChecking && (
+                    <small className="text-muted d-block">
+                      {t("Checking…")}
+                    </small>
+                  )}
+                  {codeExists && (
+                    <FormFeedback className="d-block">
+                      {t("Vendor code already exists for this company")}
+                    </FormFeedback>
+                  )}
                 </Col>
                 <Col md="4" className="mb-2">
                   <Label className="form-label" for="gstin">{t("GSTIN")}</Label>
@@ -1083,7 +1148,11 @@ const VendorForm = () => {
                 >
                   {t("Cancel")}
                 </Button>
-                <Button type="submit" color="primary" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  color="primary"
+                  disabled={isSubmitting || codeExists || codeChecking}
+                >
                   {isEditMode ? t("Update") : t("Create")}
                 </Button>
               </div>

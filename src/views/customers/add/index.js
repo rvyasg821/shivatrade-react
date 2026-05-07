@@ -32,6 +32,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 // ** Custom
 import Notification from "@components/toast/notification";
+import PhoneInputField from "@src/components/phone-input/PhoneInputField";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -424,17 +425,21 @@ const CustomerForm = () => {
                       )}
                     </Col>
                     <Col md="6" className="mb-2">
-                      <Label className="form-label" for={`contacts.${idx}.phone`}>
-                        {t("Phone")}
-                      </Label>
+                      <Label className="form-label">{t("Phone")}</Label>
                       <Controller
-                        name={`contacts.${idx}.phone`}
+                        name={`contacts.${idx}.country_code`}
                         control={control}
-                        render={({ field }) => (
-                          <Input
-                            id={`contacts.${idx}.phone`}
-                            {...field}
-                            value={field.value || ""}
+                        render={({ field: ccField }) => (
+                          <PhoneInputField
+                            value={ccField.value}
+                            phone={watch(`contacts.${idx}.phone`)}
+                            onChange={(next) => {
+                              ccField.onChange(next);
+                              setValue(
+                                `contacts.${idx}.phone`,
+                                next.phone || ""
+                              );
+                            }}
                           />
                         )}
                       />
