@@ -11,10 +11,11 @@ import {
   convertLead,
   cleanLeadMessage,
 } from "../store";
-import { getCustomerDropdown } from "../../customers/store";
+import { getCustomerDropdown, getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
 import { getCategoryDropdown } from "../../categories/store";
 import { getCurrencyDropdown } from "../../currencies/store";
+import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Reactstrap
@@ -68,6 +69,7 @@ const LeadForm = () => {
   const customerStore = useSelector((state) => state.customer);
   const productStore = useSelector((state) => state.product);
   const categoryStore = useSelector((state) => state.category);
+  const vendorStore = useSelector((state) => state.vendor);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
 
@@ -130,6 +132,7 @@ const LeadForm = () => {
     dispatch(getProductDropdown());
     dispatch(getCategoryDropdown());
     dispatch(getCurrencyDropdown());
+    dispatch(getVendorDropdown());
     if (isEditMode) {
       dispatch(getLead(id));
     } else {
@@ -146,22 +149,53 @@ const LeadForm = () => {
         expected_value: store.leadItem.expected_value ?? "",
         interested_categories: store.leadItem.interested_categories || [],
         interested_products: store.leadItem.interested_products || [],
+        social_media_urls: store.leadItem.social_media_urls || {},
+        preferred_vendors: store.leadItem.preferred_vendors || [],
+        follow_up_date: (store.leadItem.follow_up_date || "").slice(0, 10),
       });
     }
   }, [store?.leadItem?._id]);
 
-  // Auto-fill from existing customer when selected
+  // Auto-fill from existing customer when selected. Dropdown only carries
+  // _id + company_name, so fetch the full customer record and copy the
+  // primary contact + default address into the lead form.
   useEffect(() => {
     if (!autoFillFromCustomer || !watchCustomerId) return;
-    const c = customerStore?.customerDropdown?.find(
-      (x) => x._id === watchCustomerId
-    );
-    if (c) {
-      setValue("company_name", c.company_name || "", { shouldValidate: true });
-      setValue("source", "existing_customer", { shouldValidate: true });
-    }
-    setAutoFillFromCustomer(false);
+    dispatch(getCustomer(watchCustomerId));
   }, [watchCustomerId, autoFillFromCustomer]);
+
+  useEffect(() => {
+    if (!autoFillFromCustomer) return;
+    const c = customerStore?.customerItem;
+    if (!c || c._id !== watchCustomerId) return;
+
+    const opts = { shouldValidate: true };
+    setValue("company_name", c.company_name || "", opts);
+    setValue("source", "existing_customer", opts);
+    if (c.primary_contact_name)
+      setValue("contact_name", c.primary_contact_name, opts);
+    if (c.primary_contact_email)
+      setValue("contact_email", c.primary_contact_email, opts);
+    if (c.primary_contact_phone)
+      setValue("contact_phone", c.primary_contact_phone);
+    if (c.primary_contact_country_code)
+      setValue("country_code", c.primary_contact_country_code);
+
+    // Pull a default-or-first address from the customer's address book.
+    const addr =
+      (c.addresses || []).find((a) => a.is_default) ||
+      (c.addresses || [])[0];
+    if (addr) {
+      if (addr.address_line1) setValue("address_line1", addr.address_line1);
+      if (addr.address_line2) setValue("address_line2", addr.address_line2);
+      if (addr.city) setValue("city", addr.city);
+      if (addr.state) setValue("state", addr.state);
+      if (addr.country) setValue("country", addr.country);
+      if (addr.postcode) setValue("postcode", addr.postcode);
+    }
+
+    setAutoFillFromCustomer(false);
+  }, [customerStore?.customerItem, watchCustomerId, autoFillFromCustomer]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -237,6 +271,22 @@ const LeadForm = () => {
           : Number(data.expected_value),
       interested_categories: data.interested_categories || [],
       interested_products: data.interested_products || [],
+      website_url: data.website_url?.trim() || undefined,
+      social_media_urls:
+        data.social_media_urls &&
+        Object.values(data.social_media_urls).some((v) => v?.trim())
+          ? Object.fromEntries(
+              Object.entries(data.social_media_urls).filter(
+                ([, v]) => v?.trim()
+              )
+            )
+          : undefined,
+      quantity: data.quantity?.trim() || undefined,
+      delivery_expectation: data.delivery_expectation?.trim() || undefined,
+      preferred_vendors: data.preferred_vendors?.length
+        ? data.preferred_vendors
+        : undefined,
+      follow_up_date: data.follow_up_date || undefined,
     };
     if (isEditMode) {
       dispatch(updateLead({ id, data: payload }));
@@ -283,6 +333,13 @@ const LeadForm = () => {
   const currencyOptions = (currencyStore?.currencyDropdown || []).map((c) => ({
     value: c.code,
     label: `${c.code} - ${c.name}`,
+  }));
+
+  const vendorOptions = (vendorStore?.vendorDropdown || []).map((v) => ({
+    value: v._id,
+    label: v.vendor_code
+      ? `${v.company_name} [${v.vendor_code}]`
+      : v.company_name,
   }));
 
   const requiredMark = <span className="text-danger">*</span>;
@@ -386,7 +443,26 @@ const LeadForm = () => {
                         }
                         onChange={(opt) => {
                           field.onChange(opt ? opt.value : "");
-                          if (opt) setAutoFillFromCustomer(true);
+                          if (opt) {
+                            setAutoFillFromCustomer(true);
+                          } else {
+                            // Cleared the customer — wipe the fields we
+                            // auto-filled so the form returns to a blank slate.
+                            const blankOpts = { shouldValidate: true };
+                            setValue("company_name", "", blankOpts);
+                            setValue("contact_name", "", blankOpts);
+                            setValue("contact_email", "", blankOpts);
+                            setValue("contact_phone", "");
+                            setValue("country_code", null);
+                            setValue("address_line1", "");
+                            setValue("address_line2", "");
+                            setValue("city", "");
+                            setValue("state", "");
+                            setValue("country", "India");
+                            setValue("postcode", "");
+                            setValue("source", "web", blankOpts);
+                            setAutoFillFromCustomer(false);
+                          }
                         }}
                         placeholder={t("Link to repeat customer")}
                         classNamePrefix="select"
@@ -627,6 +703,105 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="quantity">
+                    {t("Required Quantity")}
+                  </Label>
+                  <Controller
+                    name="quantity"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="quantity"
+                        type="text"
+                        placeholder={t("e.g. 500 PCS")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="delivery_expectation">
+                    {t("Delivery Expectation")}
+                  </Label>
+                  <Controller
+                    name="delivery_expectation"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="delivery_expectation"
+                        type="text"
+                        placeholder={t("e.g. within 30 days")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="follow_up_date">
+                    {t("Follow-up Date")}
+                  </Label>
+                  <Controller
+                    name="follow_up_date"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="follow_up_date"
+                        type="date"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="9" className="mb-2">
+                  <Label className="form-label" for="website_url">
+                    {t("Website")}
+                  </Label>
+                  <Controller
+                    name="website_url"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="website_url"
+                        type="text"
+                        placeholder="https://"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="preferred_vendors">
+                    {t("Preferred Vendors")}
+                  </Label>
+                  <Controller
+                    name="preferred_vendors"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        inputId="preferred_vendors"
+                        isMulti
+                        isClearable
+                        options={vendorOptions}
+                        value={vendorOptions.filter((o) =>
+                          (field.value || []).includes(o.value)
+                        )}
+                        onChange={(opts) =>
+                          field.onChange((opts || []).map((o) => o.value))
+                        }
+                        placeholder={t("Select preferred vendors")}
+                        classNamePrefix="select"
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t("Vendors the customer named as preferred suppliers.")}
+                  </small>
+                </Col>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="status">
                     {t("Status")} {requiredMark}
@@ -762,6 +937,35 @@ const LeadForm = () => {
                     render={({ field }) => <Input id="postcode" {...field} />}
                   />
                 </Col>
+
+                <Col md="12" className="mb-1 mt-2">
+                  <h6 className="fw-bold mb-0">{t("Social Profiles")}</h6>
+                </Col>
+                {["linkedin", "facebook", "instagram", "twitter"].map(
+                  (platform) => (
+                    <Col md="6" className="mb-2" key={platform}>
+                      <Label
+                        className="form-label"
+                        for={`social_${platform}`}
+                      >
+                        {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                      </Label>
+                      <Controller
+                        name={`social_media_urls.${platform}`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            id={`social_${platform}`}
+                            type="text"
+                            placeholder="https://"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                  )
+                )}
               </Row>
 
               <div className="d-flex justify-content-end mt-3">

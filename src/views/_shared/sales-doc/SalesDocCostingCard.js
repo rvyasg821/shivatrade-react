@@ -24,28 +24,12 @@ const SalesDocCostingCard = ({ totals, currencyCode }) => {
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>+ {t("Expenses")}</span>
-          <strong>{fmt(totals.expenses_total)}</strong>
+          <strong>{fmt(totals.product_expenses_total)}</strong>
         </div>
-        {num(totals.product_expenses_total) > 0 && (
-          <div className="d-flex justify-content-between mb-1 text-muted small">
-            <span>
-              <em>+ {t("Product Expenses")}</em>
-            </span>
-            <span>{fmt(totals.product_expenses_total)}</span>
-          </div>
-        )}
         <div className="d-flex justify-content-between mb-1">
           <span>− {t("Rebates")}</span>
-          <strong>{fmt(totals.rebates_total)}</strong>
+          <strong>{fmt(totals.product_rebates_total)}</strong>
         </div>
-        {num(totals.product_rebates_total) > 0 && (
-          <div className="d-flex justify-content-between mb-1 text-muted small">
-            <span>
-              <em>− {t("Product Rebates")}</em>
-            </span>
-            <span>{fmt(totals.product_rebates_total)}</span>
-          </div>
-        )}
         {totals.skipped &&
           (num(totals.product_rebates_total_raw) > 0 ||
             num(totals.product_expenses_total_raw) > 0) && (

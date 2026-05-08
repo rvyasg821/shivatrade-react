@@ -48,6 +48,8 @@ const SalesDocLineItems = ({
   allCategoryOptions,
   defaultCategoryIds,
   initLineItem,
+  rebateOptions = [],
+  expenseOptions = [],
   readOnly = false,
 }) => {
   const { t } = useTranslation();
@@ -122,6 +124,25 @@ const SalesDocLineItems = ({
     }
     setValue(`lines.${idx}.vendor_id`, "");
 
+    // Replace per-line rebate/expense snapshots with the new product's
+    // master defaults. Any prior customizations on the previous product
+    // are dropped (silent reset — matches user direction).
+    const masterRebates = (opt?.raw?.product_rebates || []).map((r) => ({
+      rebate_id: r.rebate_id,
+      code: r.code,
+      name: r.name,
+      pct: String(r.pct ?? "0"),
+    }));
+    const masterExpenses = (opt?.raw?.product_expenses || []).map((e) => ({
+      expense_id: e.expense_id,
+      code: e.code,
+      name: e.name,
+      type: e.type,
+      value: String(e.value ?? "0"),
+    }));
+    setValue(`lines.${idx}.product_rebates_snapshot`, masterRebates);
+    setValue(`lines.${idx}.product_expenses_snapshot`, masterExpenses);
+
     const rows = await fetchVendorPrices(idx, opt?.value);
     if (rows.length) {
       const first = rows[0];
@@ -185,8 +206,12 @@ const SalesDocLineItems = ({
     const { idx, isNew } = modal;
     if (isNew && idx !== null) {
       const row = liveLines[idx];
-      if (!row?.product_id) {
-        // Empty add — drop the row.
+      // Drop the row if the user backed out without entering enough to make
+      // a valid line (no product, OR missing qty / price). Prevents zero-
+      // value placeholder rows from sticking around in the line items table.
+      const hasValidData =
+        !!row?.product_id && num(row?.qty) > 0 && num(row?.unit_price) > 0;
+      if (!hasValidData) {
         lineFA.remove(idx);
         setVendorOptionsByLine((m) => {
           const next = { ...m };
@@ -264,7 +289,13 @@ const SalesDocLineItems = ({
           )}
         </div>
 
-        {lineFA.fields.length === 0 ? (
+        {(() => {
+          // Treat the in-progress Add row as "not yet there" when deciding
+          // whether to show the empty-state hint.
+          const visibleCount =
+            lineFA.fields.length - (modal.isNew && modal.idx !== null ? 1 : 0);
+          return visibleCount === 0;
+        })() ? (
           <div className="border rounded p-3 text-center text-muted">
             {t('No line items yet — click "Add Line".')}
           </div>
@@ -287,6 +318,10 @@ const SalesDocLineItems = ({
             </thead>
             <tbody>
               {lineFA.fields.map((field, idx) => {
+                // While a brand-new line is being entered in the modal,
+                // hide it from the visible list so the user doesn't see
+                // an empty placeholder row in the table behind the modal.
+                if (modal.isNew && modal.idx === idx) return null;
                 const l = liveLines[idx] || {};
                 const lineNet =
                   num(l.qty) *
@@ -300,13 +335,10 @@ const SalesDocLineItems = ({
                 const vendorLabel =
                   vendorOpts.find((o) => o.value === l.vendor_id)?.label
                     ?.split(" — ")[0] || "—";
-                // Pull product-master rebates/expenses for this line so we
-                // can render chips with computed amounts under the row.
-                const pickedProduct = (allProductOptions || productOptions).find(
-                  (o) => o.value === l.product_id
-                )?.raw;
-                const lineRebates = pickedProduct?.product_rebates || [];
-                const lineExpenses = pickedProduct?.product_expenses || [];
+                // Pull rebates/expenses from the line snapshot (which may
+                // be edited per-line), not from the product master.
+                const lineRebates = l?.product_rebates_snapshot || [];
+                const lineExpenses = l?.product_expenses_snapshot || [];
                 const hasChips = lineRebates.length || lineExpenses.length;
                 return (
                   <Fragment key={field.id}>
@@ -502,38 +534,6 @@ const SalesDocLineItems = ({
                       />
                     )}
                   />
-                  {(() => {
-                    const picked = (allProductOptions || productOptions).find(
-                      (o) => o.value === editingLine.product_id
-                    );
-                    const rebates = picked?.raw?.product_rebates || [];
-                    const expenses = picked?.raw?.product_expenses || [];
-                    if (!rebates.length && !expenses.length) return null;
-                    return (
-                      <small className="text-muted d-block mt-1">
-                        {t("Auto-applied from product:")}{" "}
-                        {rebates.map((r) => (
-                          <span
-                            key={`r-${r.rebate_id}`}
-                            className="badge bg-success text-white me-1"
-                          >
-                            {r.code || r.name} {num(r.pct)}%
-                          </span>
-                        ))}
-                        {expenses.map((e) => (
-                          <span
-                            key={`e-${e.expense_id}`}
-                            className="badge bg-warning text-dark me-1"
-                          >
-                            {e.code || e.name}{" "}
-                            {e.type === "percent"
-                              ? `${num(e.value)}%`
-                              : fmt(num(e.value))}
-                          </span>
-                        ))}
-                      </small>
-                    );
-                  })()}
                 </Col>
                 <Col md="6" className="mb-2">
                   <Label className="form-label">{t("Vendor")}</Label>
@@ -735,6 +735,320 @@ const SalesDocLineItems = ({
                       />
                     )}
                   />
+                </Col>
+              </Row>
+
+              <hr className="my-2" />
+
+              {/* Rebates editor — pre-filled from product master, fully editable.
+                  Edits are scoped to THIS quotation only; product master untouched. */}
+              <Row>
+                <Col md="12" className="mb-1">
+                  <div className="d-flex align-items-center justify-content-between mb-1">
+                    <Label className="form-label mb-0 fw-bold">
+                      {t("Rebates")}
+                    </Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      color="info"
+                      outline
+                      onClick={() => {
+                        const cur =
+                          (liveLines?.[editingIdx]?.product_rebates_snapshot ||
+                            []).slice();
+                        cur.push({
+                          rebate_id: null,
+                          code: "",
+                          name: "",
+                          pct: "0",
+                        });
+                        setValue(
+                          `lines.${editingIdx}.product_rebates_snapshot`,
+                          cur
+                        );
+                      }}
+                    >
+                      + {t("Add Rebate")}
+                    </Button>
+                  </div>
+                  {(
+                    liveLines?.[editingIdx]?.product_rebates_snapshot || []
+                  ).map((row, ri) => (
+                    <Row
+                      key={`reb-${ri}`}
+                      className="align-items-center g-1 mb-1"
+                    >
+                      <Col md="6">
+                        <Controller
+                          name={`lines.${editingIdx}.product_rebates_snapshot.${ri}.name`}
+                          control={control}
+                          defaultValue={row.name || ""}
+                          render={({ field: f }) => (
+                            <Select
+                              classNamePrefix="select"
+                              isClearable
+                              options={rebateOptions}
+                              value={
+                                rebateOptions.find(
+                                  (o) =>
+                                    o.value ===
+                                    liveLines?.[editingIdx]
+                                      ?.product_rebates_snapshot?.[ri]
+                                      ?.rebate_id
+                                ) ||
+                                (f.value
+                                  ? { value: null, label: f.value }
+                                  : null)
+                              }
+                              onChange={(opt) => {
+                                const cur = (
+                                  liveLines?.[editingIdx]
+                                    ?.product_rebates_snapshot || []
+                                ).slice();
+                                cur[ri] = {
+                                  ...cur[ri],
+                                  rebate_id: opt?.value || null,
+                                  code: opt?.raw?.code || cur[ri]?.code || "",
+                                  name: opt?.raw?.name || opt?.label || "",
+                                  pct:
+                                    opt?.raw?.pct != null
+                                      ? String(opt.raw.pct)
+                                      : cur[ri]?.pct || "0",
+                                };
+                                setValue(
+                                  `lines.${editingIdx}.product_rebates_snapshot`,
+                                  cur
+                                );
+                              }}
+                              placeholder={t("Pick or type a rebate name")}
+                            />
+                          )}
+                        />
+                      </Col>
+                      <Col md="3">
+                        <Input
+                          type="text"
+                          placeholder={t("Custom name")}
+                          value={row.name || ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_rebates_snapshot || []
+                            ).slice();
+                            cur[ri] = { ...cur[ri], name: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_rebates_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                      <Col md="2">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          placeholder="%"
+                          value={row.pct ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_rebates_snapshot || []
+                            ).slice();
+                            cur[ri] = { ...cur[ri], pct: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_rebates_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                      <Col md="1" className="text-end">
+                        <Trash2
+                          size={16}
+                          className="cursor-pointer text-danger"
+                          onClick={() => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_rebates_snapshot || []
+                            ).slice();
+                            cur.splice(ri, 1);
+                            setValue(
+                              `lines.${editingIdx}.product_rebates_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                    </Row>
+                  ))}
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md="12" className="mb-1 mt-2">
+                  <div className="d-flex align-items-center justify-content-between mb-1">
+                    <Label className="form-label mb-0 fw-bold">
+                      {t("Expenses")}
+                    </Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      color="info"
+                      outline
+                      onClick={() => {
+                        const cur =
+                          (liveLines?.[editingIdx]?.product_expenses_snapshot ||
+                            []).slice();
+                        cur.push({
+                          expense_id: null,
+                          code: "",
+                          name: "",
+                          type: "amount",
+                          value: "0",
+                        });
+                        setValue(
+                          `lines.${editingIdx}.product_expenses_snapshot`,
+                          cur
+                        );
+                      }}
+                    >
+                      + {t("Add Expense")}
+                    </Button>
+                  </div>
+                  {(
+                    liveLines?.[editingIdx]?.product_expenses_snapshot || []
+                  ).map((row, ei) => (
+                    <Row
+                      key={`exp-${ei}`}
+                      className="align-items-center g-1 mb-1"
+                    >
+                      <Col md="4">
+                        <Controller
+                          name={`lines.${editingIdx}.product_expenses_snapshot.${ei}.name`}
+                          control={control}
+                          defaultValue={row.name || ""}
+                          render={() => (
+                            <Select
+                              classNamePrefix="select"
+                              isClearable
+                              options={expenseOptions}
+                              value={
+                                expenseOptions.find(
+                                  (o) =>
+                                    o.value ===
+                                    liveLines?.[editingIdx]
+                                      ?.product_expenses_snapshot?.[ei]
+                                      ?.expense_id
+                                ) ||
+                                (row.name
+                                  ? { value: null, label: row.name }
+                                  : null)
+                              }
+                              onChange={(opt) => {
+                                const cur = (
+                                  liveLines?.[editingIdx]
+                                    ?.product_expenses_snapshot || []
+                                ).slice();
+                                cur[ei] = {
+                                  ...cur[ei],
+                                  expense_id: opt?.value || null,
+                                  code: opt?.raw?.code || cur[ei]?.code || "",
+                                  name: opt?.raw?.name || opt?.label || "",
+                                  type:
+                                    opt?.raw?.type || cur[ei]?.type || "amount",
+                                  value:
+                                    opt?.raw?.value != null
+                                      ? String(opt.raw.value)
+                                      : cur[ei]?.value || "0",
+                                };
+                                setValue(
+                                  `lines.${editingIdx}.product_expenses_snapshot`,
+                                  cur
+                                );
+                              }}
+                              placeholder={t("Pick or type an expense name")}
+                            />
+                          )}
+                        />
+                      </Col>
+                      <Col md="3">
+                        <Input
+                          type="text"
+                          placeholder={t("Custom name")}
+                          value={row.name || ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur[ei] = { ...cur[ei], name: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                      <Col md="2">
+                        <Input
+                          type="select"
+                          value={row.type || "amount"}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur[ei] = { ...cur[ei], type: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur
+                            );
+                          }}
+                        >
+                          <option value="amount">{t("Amount")}</option>
+                          <option value="percent">{t("Percent")}</option>
+                        </Input>
+                      </Col>
+                      <Col md="2">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          value={row.value ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur[ei] = { ...cur[ei], value: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                      <Col md="1" className="text-end">
+                        <Trash2
+                          size={16}
+                          className="cursor-pointer text-danger"
+                          onClick={() => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur.splice(ei, 1);
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur
+                            );
+                          }}
+                        />
+                      </Col>
+                    </Row>
+                  ))}
                 </Col>
               </Row>
             </>

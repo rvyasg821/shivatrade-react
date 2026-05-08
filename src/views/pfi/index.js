@@ -257,12 +257,22 @@ const PfiView = () => {
       center: true,
       sortable: false,
       selector: (row) => {
-        const color =
-          QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary";
+        const colorMap = {
+          draft: "#6c757d",
+          sent: "#0dcaf0",
+          approved: "#198754",
+          rejected: "#dc3545",
+        };
+        const c = colorMap[row?.status] || "#6c757d";
         return (
-          <Badge color={color} className="text-capitalize">
+          <span
+            className="text-capitalize text-nowrap fw-bold"
+            ref={(el) => {
+              if (el) el.style.setProperty("color", c, "important");
+            }}
+          >
             {row?.status || "-"}
-          </Badge>
+          </span>
         );
       },
     },
