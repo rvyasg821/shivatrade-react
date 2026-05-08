@@ -69,6 +69,9 @@ const SalesDocLineItems = ({
 
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
+  // Header margin_pct seeds new line rows so users get a sensible default
+  // and can override per line. Existing line edits are not touched.
+  const headerMarginPct = useWatch({ control, name: "margin_pct" });
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
@@ -130,6 +133,15 @@ const SalesDocLineItems = ({
       if (first.tax_pct !== undefined && first.tax_pct !== null) {
         setValue(`lines.${idx}.tax_pct`, String(first.tax_pct));
       }
+      // Pre-fill margin from price list, but don't clobber a user-set value.
+      const curMargin = liveLines?.[idx]?.margin_pct;
+      if (
+        first.margin_pct !== undefined &&
+        first.margin_pct !== null &&
+        (curMargin === "" || curMargin == null)
+      ) {
+        setValue(`lines.${idx}.margin_pct`, String(first.margin_pct));
+      }
     }
   };
 
@@ -140,11 +152,22 @@ const SalesDocLineItems = ({
       if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
         setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
       }
+      // Same auto-fill rule as on product pick — only fill if line is empty.
+      const curMargin = liveLines?.[idx]?.margin_pct;
+      if (
+        opt.raw.margin_pct !== undefined &&
+        opt.raw.margin_pct !== null &&
+        (curMargin === "" || curMargin == null)
+      ) {
+        setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
+      }
     }
   };
 
   const openAdd = () => {
-    lineFA.append({ ...initLineItem });
+    // Leave margin_pct empty so the line inherits header.margin_pct at
+    // recompute. User can type a value to override per line.
+    lineFA.append({ ...initLineItem, margin_pct: "" });
     const newIdx = lineFA.fields.length;
     // Seed the per-line category override from the header default.
     setLineCategoryByIdx((m) => ({
@@ -262,6 +285,7 @@ const SalesDocLineItems = ({
                 <th className="text-end">{t("Unit Price")}</th>
                 <th className="text-end">{t("Disc %")}</th>
                 <th className="text-end">{t("Tax %")}</th>
+                <th className="text-end">{t("Margin %")}</th>
                 <th className="text-end">{t("Line Total")}</th>
                 <th style={{ width: 80 }}></th>
               </tr>
@@ -302,6 +326,11 @@ const SalesDocLineItems = ({
                     </td>
                     <td className="text-end">{num(l.discount_pct) || 0}</td>
                     <td className="text-end">{num(l.tax_pct) || 0}</td>
+                    <td className="text-end">
+                      {l.margin_pct !== "" && l.margin_pct != null
+                        ? num(l.margin_pct)
+                        : num(headerMarginPct) || 0}
+                    </td>
                     <td className="text-end fw-bold">{fmt(lineTotal)}</td>
                     <td>
                       <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
@@ -329,7 +358,7 @@ const SalesDocLineItems = ({
                   {hasChips && (
                     <tr className="bg-light">
                       <td></td>
-                      <td colSpan={9} className="py-1">
+                      <td colSpan={10} className="py-1">
                         <small className="text-muted me-2">
                           {t("Auto-applied:")}
                         </small>
@@ -635,7 +664,7 @@ const SalesDocLineItems = ({
                 </Col>
               </Row>
               <Row>
-                <Col md="4" sm="6" className="mb-2">
+                <Col md="3" sm="6" className="mb-2">
                   <Label className="form-label">{t("Disc %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.discount_pct`}
@@ -651,7 +680,7 @@ const SalesDocLineItems = ({
                     )}
                   />
                 </Col>
-                <Col md="4" sm="6" className="mb-2">
+                <Col md="3" sm="6" className="mb-2">
                   <Label className="form-label">{t("Tax %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.tax_pct`}
@@ -667,7 +696,31 @@ const SalesDocLineItems = ({
                     )}
                   />
                 </Col>
-                <Col md="4" sm="6" className="mb-2">
+                <Col md="3" sm="6" className="mb-2">
+                  <Label className="form-label">{t("Margin %")}</Label>
+                  <Controller
+                    name={`lines.${editingIdx}.margin_pct`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder={
+                          headerMarginPct
+                            ? `${t("Header")} ${num(headerMarginPct)}%`
+                            : "0"
+                        }
+                        {...f}
+                        value={f.value ?? ""}
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t("Empty = inherit header margin")}
+                  </small>
+                </Col>
+                <Col md="3" sm="6" className="mb-2">
                   <Label className="form-label">{t("Line Total")}</Label>
                   <div
                     className="form-control bg-light fw-bold text-end"

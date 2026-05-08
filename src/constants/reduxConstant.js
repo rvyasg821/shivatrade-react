@@ -350,6 +350,7 @@ const initPriceListItem = {
   moq: 1,
   tax_pct: "0",
   discount_pct: "0",
+  margin_pct: "0",
   lead_time_days: "",
   effective_date: new Date().toISOString().slice(0, 10),
   valid_until: "",
@@ -366,6 +367,7 @@ const initQuotationLineItem = {
   unit_price: "",
   discount_pct: "0",
   tax_pct: "0",
+  margin_pct: "0",
 };
 
 const initQuotationExpenseItem = {
