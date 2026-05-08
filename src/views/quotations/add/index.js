@@ -38,6 +38,7 @@ import { getExpenseDropdown } from "../../expenses/store";
 import { getRebateDropdown } from "../../rebates/store";
 import { getCategoryDropdown } from "../../categories/store";
 import { getLead } from "../../leads/store";
+import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Axios (direct call for currency rate lookup - per-pick transient data)
@@ -95,6 +96,7 @@ const AddQuotation = () => {
   const rebateStore = useSelector((state) => state.rebate);
   const categoryStore = useSelector((state) => state.category);
   const leadStore = useSelector((state) => state.lead);
+  const vendorStore = useSelector((state) => state.vendor);
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
@@ -271,6 +273,7 @@ const AddQuotation = () => {
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
     dispatch(getCategoryDropdown());
+    dispatch(getVendorDropdown());
     if (isEdit) {
       dispatch(getQuotation(id));
     } else {
@@ -305,16 +308,8 @@ const AddQuotation = () => {
           unit_price: String(l.unit_price ?? ""),
           discount_pct: String(l.discount_pct ?? "0"),
           tax_pct: String(l.tax_pct ?? "0"),
-        })),
-        expenses: (q.expenses || []).map((e) => ({
-          ...initQuotationExpenseItem,
-          ...e,
-          amount: String(e.amount ?? ""),
-        })),
-        rebates: (q.rebates || []).map((r) => ({
-          ...initQuotationRebateItem,
-          ...r,
-          amount: String(r.amount ?? ""),
+          product_rebates_snapshot: l.product_rebates_snapshot || [],
+          product_expenses_snapshot: l.product_expenses_snapshot || [],
         })),
       });
     }
@@ -524,21 +519,18 @@ const AddQuotation = () => {
       subtotal += lineNet;
       tax_total += lineNet * (taxPct / 100);
 
-      // Per-line product-master rebates/expenses, derived from the dropdown
-      // payload (mirrors backend snapshot behavior at save time).
+      // Per-line rebates/expenses come from the line's snapshot (which is
+      // seeded from product master and may be edited per-line).
       let lineProdReb = 0;
       let lineProdExp = 0;
-      const product = productById.get(l?.product_id);
-      if (product) {
-        for (const r of product.product_rebates || []) {
-          lineProdReb += (lineNet * num(r.pct)) / 100;
-        }
-        for (const e of product.product_expenses || []) {
-          lineProdExp +=
-            e.type === "percent"
-              ? (lineNet * num(e.value)) / 100
-              : num(e.value);
-        }
+      for (const r of l?.product_rebates_snapshot || []) {
+        lineProdReb += (lineNet * num(r.pct)) / 100;
+      }
+      for (const e of l?.product_expenses_snapshot || []) {
+        lineProdExp +=
+          e.type === "percent"
+            ? (lineNet * num(e.value)) / 100
+            : num(e.value);
       }
       product_rebates_total += lineProdReb;
       product_expenses_total += lineProdExp;
@@ -552,23 +544,12 @@ const AddQuotation = () => {
       line_margin_total +=
         (lineNet + effLineExp - effLineReb) * (lineMarginPct / 100);
     });
-    const expenses_total = (liveExpenses || []).reduce(
-      (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
-      0
-    );
-    const rebates_total = (liveRebates || []).reduce(
-      (s, r) => s + deriveRebateAmount(r, subtotal, rebateMasterMap),
-      0
-    );
-    // When user opts to skip product-level costing, zero out the product
-    // buckets - only manual quotation-level rebates/expenses contribute.
+    // Header expenses/rebates removed — all rebates/expenses are per-line now.
     const eff_product_rebates = liveSkipProduct ? 0 : product_rebates_total;
     const eff_product_expenses = liveSkipProduct ? 0 : product_expenses_total;
     const net =
       subtotal +
-      expenses_total +
       eff_product_expenses -
-      rebates_total -
       eff_product_rebates;
     // Margin is now per-line (sum of line.margin_amount). Header margin_pct
     // is used only as the seed default for new lines.
@@ -578,10 +559,8 @@ const AddQuotation = () => {
     const grand_currency = grand_inr * rate;
     return {
       subtotal,
-      expenses_total,
       product_expenses_total: eff_product_expenses,
       product_expenses_total_raw: product_expenses_total,
-      rebates_total,
       product_rebates_total: eff_product_rebates,
       product_rebates_total_raw: product_rebates_total,
       skipped: !!liveSkipProduct,
@@ -594,13 +573,9 @@ const AddQuotation = () => {
     };
   }, [
     liveLines,
-    liveExpenses,
-    liveRebates,
     liveMargin,
     liveRate,
     liveSkipProduct,
-    expenseMasterMap,
-    rebateMasterMap,
     productById,
   ]);
 
@@ -647,29 +622,27 @@ const AddQuotation = () => {
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
         margin_pct: String(l.margin_pct || "0"),
+        // Per-line rebate/expense snapshots (edited or auto-applied from
+        // product master). These are scoped to this quotation only and
+        // never write back to product/rebate/expense masters.
+        product_rebates_snapshot: (l.product_rebates_snapshot || []).map(
+          (r) => ({
+            rebate_id: r.rebate_id || null,
+            code: r.code || "",
+            name: r.name || "",
+            pct: String(r.pct ?? "0"),
+          })
+        ),
+        product_expenses_snapshot: (l.product_expenses_snapshot || []).map(
+          (e) => ({
+            expense_id: e.expense_id || null,
+            code: e.code || "",
+            name: e.name || "",
+            type: e.type || "amount",
+            value: String(e.value ?? "0"),
+          })
+        ),
       })),
-      expenses: (values.expenses || [])
-        .filter((e) => e.name || e.expense_id || e.amount)
-        .map((e) => ({
-          expense_id: e.expense_id || undefined,
-          name: e.name || "",
-          amount: String(
-            round2(deriveExpenseAmount(e, totals.subtotal, expenseMasterMap)) ||
-              0
-          ),
-          is_overridden: !!e.is_overridden,
-        })),
-      rebates: (values.rebates || [])
-        .filter((r) => r.name || r.rebate_id || r.amount)
-        .map((r) => ({
-          rebate_id: r.rebate_id || undefined,
-          name: r.name || "",
-          amount: String(
-            round2(deriveRebateAmount(r, totals.subtotal, rebateMasterMap)) ||
-              0
-          ),
-          is_overridden: !!r.is_overridden,
-        })),
     };
 
     setSubmitting(true);
@@ -1031,42 +1004,65 @@ const AddQuotation = () => {
                     (() => {
                       const lead = leadStore?.leadItem;
                       const linked = lead && lead._id === watchedLeadId;
+                      const prefIds = linked
+                        ? lead.preferred_vendors || []
+                        : [];
+                      const prefNames = prefIds
+                        .map((vid) => {
+                          const v = (vendorStore?.vendorDropdown || []).find(
+                            (x) => x._id === vid
+                          );
+                          return v
+                            ? v.vendor_code
+                              ? `${v.company_name} [${v.vendor_code}]`
+                              : v.company_name
+                            : null;
+                        })
+                        .filter(Boolean);
                       return (
-                        <div className="form-control bg-light d-flex justify-content-between align-items-center">
-                          {linked ? (
-                            <>
-                              <span>
-                                🔗{" "}
-                                <strong>
-                                  {lead.company_name ||
-                                    lead.contact_name ||
-                                    "-"}
-                                </strong>
-                                {lead.contact_name && lead.company_name
-                                  ? ` · ${lead.contact_name}`
-                                  : ""}
-                                {lead.status ? (
-                                  <span className="ms-2 badge bg-info text-dark text-capitalize">
-                                    {lead.status}
-                                  </span>
-                                ) : null}
+                        <>
+                          <div className="form-control bg-light d-flex justify-content-between align-items-center">
+                            {linked ? (
+                              <>
+                                <span>
+                                  🔗{" "}
+                                  <strong>
+                                    {lead.company_name ||
+                                      lead.contact_name ||
+                                      "-"}
+                                  </strong>
+                                  {lead.contact_name && lead.company_name
+                                    ? ` · ${lead.contact_name}`
+                                    : ""}
+                                  {lead.status ? (
+                                    <span className="ms-2 badge bg-info text-dark text-capitalize">
+                                      {lead.status}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <a
+                                  href={`${appsRoot}/leads/edit/${watchedLeadId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={t("Open Lead in new tab")}
+                                  className="text-decoration-none ms-2"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-muted">
+                                {t("Loading lead…")}
                               </span>
-                              <a
-                                href={`${appsRoot}/leads/edit/${watchedLeadId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={t("Open Lead in new tab")}
-                                className="text-decoration-none ms-2"
-                              >
-                                <ExternalLink size={16} />
-                              </a>
-                            </>
-                          ) : (
-                            <span className="text-muted">
-                              {t("Loading lead…")}
-                            </span>
+                            )}
+                          </div>
+                          {prefNames.length > 0 && (
+                            <div className="alert alert-info py-1 px-2 mt-1 mb-0 small">
+                              ⭐ {t("Customer prefers")}:{" "}
+                              <strong>{prefNames.join(", ")}</strong>
+                            </div>
                           )}
-                        </div>
+                        </>
                       );
                     })()
                   ) : (
@@ -1220,27 +1216,9 @@ const AddQuotation = () => {
                   showAllCategories ? [] : categoryFilter
                 }
                 initLineItem={initQuotationLineItem}
-                readOnly={isLocked}
-              />
-              <SalesDocExpenses
-                control={control}
-                setValue={setValue}
-                expenseOptions={expenseOptions}
-                expenseMasterMap={expenseMasterMap}
-                subtotal={totals.subtotal}
-                initExpenseItem={initQuotationExpenseItem}
-                readOnly={isLocked}
-                productAppliedIds={productAppliedExpenseIds}
-              />
-              <SalesDocRebates
-                control={control}
-                setValue={setValue}
                 rebateOptions={rebateOptions}
-                rebateMasterMap={rebateMasterMap}
-                subtotal={totals.subtotal}
-                initRebateItem={initQuotationRebateItem}
+                expenseOptions={expenseOptions}
                 readOnly={isLocked}
-                productAppliedIds={productAppliedRebateIds}
               />
             </Col>
             <Col lg="3">

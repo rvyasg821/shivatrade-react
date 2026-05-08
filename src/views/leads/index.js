@@ -219,65 +219,50 @@ const LeadList = () => {
 
   const columns = [
     {
-      name: t("Company Name"),
+      name: t("Company"),
       sortField: "company_name",
       sortable: true,
+      grow: 2,
       selector: (row) => {
-        const linkContent = (
-          <span className="text-wrap text-capitalize">
-            {row?.company_name || ""}
+        const phone =
+          row?.country_code?.formatted ||
+          (row?.country_code?.dial_code && row?.contact_phone
+            ? `${row.country_code.dial_code} ${row.contact_phone}`
+            : row?.contact_phone) ||
+          "";
+        const nameNode = (
+          <span
+            className="fw-bold text-capitalize"
+            ref={(el) => {
+              if (el && canEdit)
+                el.style.setProperty("color", "#0d6efd", "important");
+            }}
+          >
+            {row?.company_name || "-"}
           </span>
         );
         return (
-          <div>
+          <div className="py-1">
             {canEdit ? (
-              <Link to={`${appsRoot}/leads/edit/${row?._id || ""}`}>
-                {linkContent}
+              <Link
+                to={`${appsRoot}/leads/edit/${row?._id || ""}`}
+                style={{ textDecoration: "none" }}
+              >
+                {nameNode}
               </Link>
             ) : (
-              linkContent
+              nameNode
             )}
-            {row?.quotations_count > 0 && (
-              <Badge
-                color="info"
-                className="ms-1"
-                title={t("This lead has quotations already created")}
-              >
-                <FileText size={10} className="me-1" />
-                {row.quotations_count}{" "}
-                {row.quotations_count === 1
-                  ? t("quote")
-                  : t("quotes")}
-              </Badge>
+            {row?.contact_name && (
+              <div className="text-capitalize small">{row.contact_name}</div>
             )}
-            {/* "Repeat" badge — currently broken because customer_id is also
-                stamped by the quotation auto-link flow and the conversion
-                flow, not just at lead creation. Revisit after adding a
-                dedicated `is_existing_customer` snapshot field on Lead.
-            {row?.customer_id && (
-              <Badge color="info" className="ms-1">
-                {t("Repeat")}
-              </Badge>
-            )} */}
+            {row?.contact_email && (
+              <div className="small text-muted">{row.contact_email}</div>
+            )}
+            {phone && <div className="small text-muted">{phone}</div>}
           </div>
         );
       },
-    },
-    {
-      name: t("Contact"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap text-capitalize">
-          {row?.contact_name || "-"}
-        </span>
-      ),
-    },
-    {
-      name: t("Email"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap">{row?.contact_email || "-"}</span>
-      ),
     },
     {
       name: t("Source"),
@@ -292,31 +277,63 @@ const LeadList = () => {
     {
       name: t("Status"),
       sortable: false,
-      selector: (row) => (
-        <Badge
-          color={LEAD_STATUS_BADGE_COLOR[row?.status] || "secondary"}
-          className="text-capitalize text-nowrap text-white"
-        >
-          {statusLabel(row?.status)}
-        </Badge>
-      ),
+      selector: (row) => {
+        const colorMap = {
+          new: "#6c757d",
+          contacted: "#0dcaf0",
+          qualified: "#d39e00",
+          proposal_sent: "#0d6efd",
+          won: "#198754",
+          lost: "#dc3545",
+        };
+        const c = colorMap[row?.status] || "#6c757d";
+        // Table CSS uses !important on cell color, so React's style prop
+        // alone gets overridden. Apply with priority via ref.
+        return (
+          <span
+            className="text-capitalize text-nowrap fw-bold"
+            ref={(el) => {
+              if (el) el.style.setProperty("color", c, "important");
+            }}
+          >
+            {statusLabel(row?.status)}
+          </span>
+        );
+      },
     },
     {
-      name: t("Assigned To"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap text-capitalize">
-          {row?.assigned_to_name || "-"}
-        </span>
-      ),
-    },
-    {
-      name: t("Value"),
+      name: t("Budget"),
       sortable: false,
       selector: (row) =>
         row?.expected_value
           ? `${row?.currency || ""} ${Number(row.expected_value).toLocaleString()}`.trim()
           : "-",
+    },
+    {
+      name: t("Follow-up"),
+      sortField: "follow_up_date",
+      sortable: true,
+      selector: (row) => {
+        const raw = (row?.follow_up_date || "").slice(0, 10);
+        if (!raw) return <span className="text-muted">—</span>;
+        const today = new Date().toISOString().slice(0, 10);
+        const open = row?.status !== "won" && row?.status !== "lost";
+        const overdue = open && raw < today;
+        return (
+          <span
+            className={overdue ? "fw-bold" : ""}
+            ref={(el) => {
+              if (el && overdue)
+                el.style.setProperty("color", "#dc3545", "important");
+            }}
+          >
+            {raw}
+            {overdue && (
+              <small className="ms-1">({t("overdue")})</small>
+            )}
+          </span>
+        );
+      },
     },
   ];
 
@@ -361,6 +378,32 @@ const LeadList = () => {
                 </UncontrolledTooltip>
               </>
             )}
+          {row?.quotations_count > 0 && (
+            <>
+              <FileText
+                size={20}
+                className="cursor-pointer me-50 text-info"
+                id={`lead-quotations-tooltip-${row?._id || ""}`}
+                onClick={() =>
+                  navigate(
+                    `${appsRoot}/quotations?lead_id=${row?._id || ""}`,
+                    {
+                      state: {
+                        leadName:
+                          row?.company_name || row?.contact_name || "",
+                      },
+                    }
+                  )
+                }
+              />
+              <UncontrolledTooltip
+                placement="top"
+                target={`lead-quotations-tooltip-${row?._id || ""}`}
+              >
+                {t("View Quotations")} ({row.quotations_count})
+              </UncontrolledTooltip>
+            </>
+          )}
           {/* "Create Quotation" action moved to lead edit page only — keeps
               the listing focused on lead-level actions and avoids accidental
               recreation when a quotation already exists. */}

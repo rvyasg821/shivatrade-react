@@ -36,6 +36,8 @@ import { getCurrencyDropdown } from "../../currencies/store";
 import { getProductDropdown } from "../../products/store";
 import { getExpenseDropdown } from "../../expenses/store";
 import { getRebateDropdown } from "../../rebates/store";
+import { getLead } from "../../leads/store";
+import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Axios (currency rate lookup)
@@ -89,6 +91,8 @@ const AddPfi = () => {
   const productStore = useSelector((state) => state.product);
   const expenseStore = useSelector((state) => state.expense);
   const rebateStore = useSelector((state) => state.rebate);
+  const leadStore = useSelector((state) => state.lead);
+  const vendorStore = useSelector((state) => state.vendor);
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
@@ -152,6 +156,14 @@ const AddPfi = () => {
   const liveCurrencyId = useWatch({ control, name: "currency_id" });
   const liveStatus = useWatch({ control, name: "status" });
   const isLocked = isEdit && liveStatus && liveStatus !== "draft";
+  const watchedLeadId = useWatch({ control, name: "lead_id" });
+  const liveSkipProduct = useWatch({ control, name: "skip_product_costing" });
+
+  // PFI inherits lead_id from the source quotation. Pull the lead so we
+  // can show the customer's preferred-vendors banner during PFI editing.
+  useEffect(() => {
+    if (watchedLeadId) dispatch(getLead(watchedLeadId));
+  }, [watchedLeadId]);
 
   // ─── Initial loads ──────────────────────────────────────────────────
   useEffect(() => {
@@ -160,6 +172,7 @@ const AddPfi = () => {
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
+    dispatch(getVendorDropdown());
     if (isEdit) {
       dispatch(getPfi(id));
     } else {
@@ -179,6 +192,7 @@ const AddPfi = () => {
         ...initPfiItem,
         ...p,
         margin_pct: String(p.margin_pct ?? "0"),
+        skip_product_costing: !!p.skip_product_costing,
         exchange_rate: String(p.exchange_rate ?? "1"),
         pfi_date:
           (p.pfi_date || "").slice(0, 10) ||
@@ -191,16 +205,8 @@ const AddPfi = () => {
           unit_price: String(l.unit_price ?? ""),
           discount_pct: String(l.discount_pct ?? "0"),
           tax_pct: String(l.tax_pct ?? "0"),
-        })),
-        expenses: (p.expenses || []).map((e) => ({
-          ...initPfiExpenseItem,
-          ...e,
-          amount: String(e.amount ?? ""),
-        })),
-        rebates: (p.rebates || []).map((r) => ({
-          ...initPfiRebateItem,
-          ...r,
-          amount: String(r.amount ?? ""),
+          product_rebates_snapshot: l.product_rebates_snapshot || [],
+          product_expenses_snapshot: l.product_expenses_snapshot || [],
         })),
       });
     }
@@ -379,20 +385,29 @@ const AddPfi = () => {
       const lineNet = qty * price * (1 - disc / 100);
       subtotal += lineNet;
       tax_total += lineNet * (taxPct / 100);
+      let lineProdReb = 0;
+      let lineProdExp = 0;
       const product = productById.get(l?.product_id);
       if (product) {
         for (const r of product.product_rebates || []) {
-          product_rebates_total += (lineNet * num(r.pct)) / 100;
+          lineProdReb += (lineNet * num(r.pct)) / 100;
         }
         for (const e of product.product_expenses || []) {
-          product_expenses_total +=
+          lineProdExp +=
             e.type === "percent"
               ? (lineNet * num(e.value)) / 100
               : num(e.value);
         }
       }
+      product_rebates_total += lineProdReb;
+      product_expenses_total += lineProdExp;
+      // Mirror backend: per-line margin on (taxable + line product expenses
+      // − line product rebates), zeroing those buckets if skip flag.
+      const effLineExp = liveSkipProduct ? 0 : lineProdExp;
+      const effLineReb = liveSkipProduct ? 0 : lineProdReb;
       const lineMarginPct = num(l?.margin_pct);
-      line_margin_total += lineNet * (lineMarginPct / 100);
+      line_margin_total +=
+        (lineNet + effLineExp - effLineReb) * (lineMarginPct / 100);
     });
     const expenses_total = (liveExpenses || []).reduce(
       (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
@@ -402,14 +417,14 @@ const AddPfi = () => {
       (s, r) => s + deriveRebateAmount(r, subtotal, rebateMasterMap),
       0
     );
+    const eff_product_rebates = liveSkipProduct ? 0 : product_rebates_total;
+    const eff_product_expenses = liveSkipProduct ? 0 : product_expenses_total;
     const net =
       subtotal +
       expenses_total +
-      product_expenses_total -
+      eff_product_expenses -
       rebates_total -
-      product_rebates_total;
-    // Margin is now per-line (sum of line.margin_amount). Header margin_pct
-    // is used only as the seed default for new lines.
+      eff_product_rebates;
     const margin_amount = line_margin_total;
     const grand_inr = net + margin_amount + tax_total;
     const rate = num(liveRate) || 1;
@@ -417,9 +432,12 @@ const AddPfi = () => {
     return {
       subtotal,
       expenses_total,
-      product_expenses_total,
+      product_expenses_total: eff_product_expenses,
+      product_expenses_total_raw: product_expenses_total,
       rebates_total,
-      product_rebates_total,
+      product_rebates_total: eff_product_rebates,
+      product_rebates_total_raw: product_rebates_total,
+      skipped: !!liveSkipProduct,
       net,
       margin_amount,
       tax_total,
@@ -432,6 +450,7 @@ const AddPfi = () => {
     liveExpenses,
     liveRebates,
     liveMargin,
+    liveSkipProduct,
     liveRate,
     expenseMasterMap,
     rebateMasterMap,
@@ -466,6 +485,7 @@ const AddPfi = () => {
       notes_to_client: values.notes_to_client?.trim() || undefined,
       internal_notes: values.internal_notes?.trim() || undefined,
       margin_pct: values.margin_pct || "0",
+      skip_product_costing: !!values.skip_product_costing,
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
         product_id: l.product_id,
@@ -477,29 +497,24 @@ const AddPfi = () => {
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
         margin_pct: String(l.margin_pct || "0"),
+        product_rebates_snapshot: (l.product_rebates_snapshot || []).map(
+          (r) => ({
+            rebate_id: r.rebate_id || null,
+            code: r.code || "",
+            name: r.name || "",
+            pct: String(r.pct ?? "0"),
+          })
+        ),
+        product_expenses_snapshot: (l.product_expenses_snapshot || []).map(
+          (e) => ({
+            expense_id: e.expense_id || null,
+            code: e.code || "",
+            name: e.name || "",
+            type: e.type || "amount",
+            value: String(e.value ?? "0"),
+          })
+        ),
       })),
-      expenses: (values.expenses || [])
-        .filter((e) => e.name || e.expense_id || e.amount)
-        .map((e) => ({
-          expense_id: e.expense_id || undefined,
-          name: e.name || "",
-          amount: String(
-            round2(deriveExpenseAmount(e, totals.subtotal, expenseMasterMap)) ||
-              0
-          ),
-          is_overridden: !!e.is_overridden,
-        })),
-      rebates: (values.rebates || [])
-        .filter((r) => r.name || r.rebate_id || r.amount)
-        .map((r) => ({
-          rebate_id: r.rebate_id || undefined,
-          name: r.name || "",
-          amount: String(
-            round2(deriveRebateAmount(r, totals.subtotal, rebateMasterMap)) ||
-              0
-          ),
-          is_overridden: !!r.is_overridden,
-        })),
     };
 
     setSubmitting(true);
@@ -554,6 +569,30 @@ const AddPfi = () => {
           )}
           <Card>
             <CardBody>
+              {(() => {
+                const lead = leadStore?.leadItem;
+                const linked = lead && lead._id === watchedLeadId;
+                const prefIds = linked ? lead.preferred_vendors || [] : [];
+                const prefNames = prefIds
+                  .map((vid) => {
+                    const v = (vendorStore?.vendorDropdown || []).find(
+                      (x) => x._id === vid
+                    );
+                    return v
+                      ? v.vendor_code
+                        ? `${v.company_name} [${v.vendor_code}]`
+                        : v.company_name
+                      : null;
+                  })
+                  .filter(Boolean);
+                if (!prefNames.length) return null;
+                return (
+                  <div className="alert alert-info py-1 px-2 mb-2 small">
+                    ⭐ {t("Customer prefers")}:{" "}
+                    <strong>{prefNames.join(", ")}</strong>
+                  </div>
+                );
+              })()}
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label">
@@ -824,6 +863,37 @@ const AddPfi = () => {
                   </div>
                 </Col>
 
+                <Col md="12" className="mb-2">
+                  <Controller
+                    name="skip_product_costing"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="form-check">
+                        <Input
+                          type="checkbox"
+                          id="skip_product_costing"
+                          disabled={isLocked}
+                          checked={!!field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                        <Label
+                          className="form-check-label"
+                          for="skip_product_costing"
+                        >
+                          {t(
+                            "Skip per-product rebates & expenses for this PFI"
+                          )}
+                        </Label>
+                        <small className="d-block text-muted mt-1">
+                          {t(
+                            "When checked, only the rebates/expenses you add below will apply."
+                          )}
+                        </small>
+                      </div>
+                    )}
+                  />
+                </Col>
+
                 <Col md="6" className="mb-2">
                   <Label className="form-label">{t("Notes to Client")}</Label>
                   <Controller
@@ -866,24 +936,8 @@ const AddPfi = () => {
                 setValue={setValue}
                 productOptions={productOptions}
                 initLineItem={initPfiLineItem}
-                readOnly={isLocked}
-              />
-              <SalesDocExpenses
-                control={control}
-                setValue={setValue}
-                expenseOptions={expenseOptions}
-                expenseMasterMap={expenseMasterMap}
-                subtotal={totals.subtotal}
-                readOnly={isLocked}
-                initExpenseItem={initPfiExpenseItem}
-              />
-              <SalesDocRebates
-                control={control}
-                setValue={setValue}
                 rebateOptions={rebateOptions}
-                rebateMasterMap={rebateMasterMap}
-                subtotal={totals.subtotal}
-                initRebateItem={initPfiRebateItem}
+                expenseOptions={expenseOptions}
                 readOnly={isLocked}
               />
             </Col>

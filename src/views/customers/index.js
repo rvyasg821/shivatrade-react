@@ -153,49 +153,55 @@ const CustomerList = () => {
 
   const columns = [
     {
-      name: t("Company Name"),
+      name: t("Company"),
       sortField: "company_name",
       sortable: true,
+      grow: 2,
       selector: (row) => {
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/customers/edit/${row?._id || ""}`}
-              className="text-capitalize text-wrap"
-            >
-              {row?.company_name || ""}
-            </Link>
-          );
-        }
+        const phone =
+          row?.primary_contact_country_code?.formatted ||
+          (row?.primary_contact_country_code?.dial_code &&
+          row?.primary_contact_phone
+            ? `${row.primary_contact_country_code.dial_code} ${row.primary_contact_phone}`
+            : row?.primary_contact_phone) ||
+          "";
+        const nameNode = (
+          <span
+            className="fw-bold text-capitalize"
+            ref={(el) => {
+              if (el && canEdit)
+                el.style.setProperty("color", "#0d6efd", "important");
+            }}
+          >
+            {row?.company_name || "-"}
+          </span>
+        );
         return (
-          <span className="text-wrap text-capitalize">{row?.company_name || ""}</span>
+          <div className="py-1">
+            {canEdit ? (
+              <Link
+                to={`${appsRoot}/customers/edit/${row?._id || ""}`}
+                style={{ textDecoration: "none" }}
+              >
+                {nameNode}
+              </Link>
+            ) : (
+              nameNode
+            )}
+            {row?.primary_contact_name && (
+              <div className="text-capitalize small">
+                {row.primary_contact_name}
+              </div>
+            )}
+            {row?.primary_contact_email && (
+              <div className="small text-muted">
+                {row.primary_contact_email}
+              </div>
+            )}
+            {phone && <div className="small text-muted">{phone}</div>}
+          </div>
         );
       },
-    },
-    {
-      name: t("Contact Person"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap text-capitalize">
-          {row?.primary_contact_name || "-"}
-        </span>
-      ),
-    },
-    {
-      name: t("Email"),
-      sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "-"}</span>,
-    },
-    {
-      name: t("Phone"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap">
-          {row?.primary_contact_country_code?.formatted ||
-            row?.primary_contact_phone ||
-            "-"}
-        </span>
-      ),
     },
     {
       name: t("Country"),

@@ -260,9 +260,36 @@ const QuotationView = () => {
       },
     },
     {
-      name: t("Customer"),
+      name: t("Company"),
       sortable: false,
-      selector: (row) => row?.customer_name || "-",
+      grow: 2,
+      selector: (row) => {
+        const phone =
+          row?.customer_contact_country_code?.formatted ||
+          (row?.customer_contact_country_code?.dial_code &&
+          row?.customer_contact_phone
+            ? `${row.customer_contact_country_code.dial_code} ${row.customer_contact_phone}`
+            : row?.customer_contact_phone) ||
+          "";
+        return (
+          <div className="py-1">
+            <span className="fw-bold text-capitalize">
+              {row?.customer_name || "-"}
+            </span>
+            {row?.customer_contact_name && (
+              <div className="text-capitalize small">
+                {row.customer_contact_name}
+              </div>
+            )}
+            {row?.customer_contact_email && (
+              <div className="small text-muted">
+                {row.customer_contact_email}
+              </div>
+            )}
+            {phone && <div className="small text-muted">{phone}</div>}
+          </div>
+        );
+      },
     },
     {
       name: t("Date"),
@@ -280,28 +307,24 @@ const QuotationView = () => {
       center: true,
       sortable: false,
       selector: (row) => {
-        const color = QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary";
+        const colorMap = {
+          draft: "#6c757d",
+          sent: "#0dcaf0",
+          approved: "#198754",
+          rejected: "#dc3545",
+        };
+        const c = colorMap[row?.status] || "#6c757d";
         return (
-          <Badge color={color} className="text-capitalize">
+          <span
+            className="text-capitalize text-nowrap fw-bold"
+            ref={(el) => {
+              if (el) el.style.setProperty("color", c, "important");
+            }}
+          >
             {row?.status || "-"}
-          </Badge>
+          </span>
         );
       },
-    },
-    {
-      name: t("Version"),
-      center: true,
-      sortable: false,
-      selector: (row) => row?.version || 1,
-    },
-    {
-      name: t("Created"),
-      sortField: "createdAt",
-      sortable: true,
-      selector: (row) =>
-        row?.createdAt
-          ? new Date(row.createdAt).toLocaleDateString()
-          : "-",
     },
   ];
 
