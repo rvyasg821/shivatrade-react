@@ -343,6 +343,32 @@ const LeadList = () => {
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          {row?.quotations_count > 0 && (
+            <>
+              <FileText
+                size={20}
+                className="cursor-pointer me-50 text-info"
+                id={`lead-quotations-tooltip-${row?._id || ""}`}
+                onClick={() =>
+                  navigate(
+                    `${appsRoot}/quotations?lead_id=${row?._id || ""}`,
+                    {
+                      state: {
+                        leadName:
+                          row?.company_name || row?.contact_name || "",
+                      },
+                    }
+                  )
+                }
+              />
+              <UncontrolledTooltip
+                placement="top"
+                target={`lead-quotations-tooltip-${row?._id || ""}`}
+              >
+                {t("View Quotations")} ({row.quotations_count})
+              </UncontrolledTooltip>
+            </>
+          )}
           {canEdit && (
             <Link
               className="me-50"
@@ -378,32 +404,6 @@ const LeadList = () => {
                 </UncontrolledTooltip>
               </>
             )}
-          {row?.quotations_count > 0 && (
-            <>
-              <FileText
-                size={20}
-                className="cursor-pointer me-50 text-info"
-                id={`lead-quotations-tooltip-${row?._id || ""}`}
-                onClick={() =>
-                  navigate(
-                    `${appsRoot}/quotations?lead_id=${row?._id || ""}`,
-                    {
-                      state: {
-                        leadName:
-                          row?.company_name || row?.contact_name || "",
-                      },
-                    }
-                  )
-                }
-              />
-              <UncontrolledTooltip
-                placement="top"
-                target={`lead-quotations-tooltip-${row?._id || ""}`}
-              >
-                {t("View Quotations")} ({row.quotations_count})
-              </UncontrolledTooltip>
-            </>
-          )}
           {/* "Create Quotation" action moved to lead edit page only — keeps
               the listing focused on lead-level actions and avoids accidental
               recreation when a quotation already exists. */}
