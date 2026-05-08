@@ -391,12 +391,7 @@ const AddPfi = () => {
               : num(e.value);
         }
       }
-      // Empty/null line margin inherits the header margin (mirrors backend).
-      const rawLineMargin = l?.margin_pct;
-      const lineMarginPct =
-        rawLineMargin === "" || rawLineMargin == null
-          ? num(liveMargin)
-          : num(rawLineMargin);
+      const lineMarginPct = num(l?.margin_pct);
       line_margin_total += lineNet * (lineMarginPct / 100);
     });
     const expenses_total = (liveExpenses || []).reduce(
@@ -481,10 +476,7 @@ const AddPfi = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
-        margin_pct:
-          l.margin_pct === "" || l.margin_pct == null
-            ? undefined
-            : String(l.margin_pct),
+        margin_pct: String(l.margin_pct || "0"),
       })),
       expenses: (values.expenses || [])
         .filter((e) => e.name || e.expense_id || e.amount)
@@ -794,23 +786,6 @@ const AddPfi = () => {
                 </Col>
 
                 <Col md="3" className="mb-2">
-                  <Label className="form-label">{t("Margin %")}</Label>
-                  <Controller
-                    name="margin_pct"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="3" className="mb-2">
                   <Label className="form-label">{t("Status")}</Label>
                   <Controller
                     name="status"
@@ -915,7 +890,6 @@ const AddPfi = () => {
             <Col lg="3">
               <SalesDocCostingCard
                 totals={totals}
-                marginPct={liveMargin}
                 currencyCode={selectedCurrencyCode}
               />
             </Col>

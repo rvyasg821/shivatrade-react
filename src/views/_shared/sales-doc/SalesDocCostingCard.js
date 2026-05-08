@@ -7,7 +7,7 @@ import { fmt, num } from "./_helpers";
  * Pure display: all math happens in the parent. Pass `totals` from the
  * parent's costing engine (mirrors backend recompute).
  */
-const SalesDocCostingCard = ({ totals, marginPct, currencyCode }) => {
+const SalesDocCostingCard = ({ totals, currencyCode }) => {
   const { t } = useTranslation();
 
   return (
@@ -69,9 +69,7 @@ const SalesDocCostingCard = ({ totals, marginPct, currencyCode }) => {
           <strong>{fmt(totals.margin_amount)}</strong>
         </div>
         <div className="d-flex justify-content-between mb-1 text-muted small">
-          <em>
-            ({t("per-line")} — {t("header default")} {num(marginPct)}%)
-          </em>
+          <em>({t("sum of per-line margins")})</em>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>+ {t("Tax")}</span>

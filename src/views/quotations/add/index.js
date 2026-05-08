@@ -547,12 +547,8 @@ const AddQuotation = () => {
       // − line product rebates), zeroing the product buckets if skip flag.
       const effLineExp = liveSkipProduct ? 0 : lineProdExp;
       const effLineReb = liveSkipProduct ? 0 : lineProdReb;
-      // Empty/null line margin inherits the header margin (mirrors backend).
-      const rawLineMargin = l?.margin_pct;
-      const lineMarginPct =
-        rawLineMargin === "" || rawLineMargin == null
-          ? num(liveMargin)
-          : num(rawLineMargin);
+      // No header margin anymore — empty line margin = 0.
+      const lineMarginPct = num(l?.margin_pct);
       line_margin_total +=
         (lineNet + effLineExp - effLineReb) * (lineMarginPct / 100);
     });
@@ -637,7 +633,8 @@ const AddQuotation = () => {
       delivery_location: values.delivery_location?.trim() || undefined,
       notes_to_client: values.notes_to_client?.trim() || undefined,
       internal_notes: values.internal_notes?.trim() || undefined,
-      margin_pct: values.margin_pct || "0",
+      // Header margin removed — kept as "0" for back-compat with the column.
+      margin_pct: "0",
       skip_product_costing: !!values.skip_product_costing,
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
@@ -649,11 +646,7 @@ const AddQuotation = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
-        // Empty string => inherit header.margin_pct on the backend.
-        margin_pct:
-          l.margin_pct === "" || l.margin_pct == null
-            ? undefined
-            : String(l.margin_pct),
+        margin_pct: String(l.margin_pct || "0"),
       })),
       expenses: (values.expenses || [])
         .filter((e) => e.name || e.expense_id || e.amount)
@@ -1011,24 +1004,6 @@ const AddQuotation = () => {
                 </Col>
 
                 <Col md="3" className="mb-2">
-                  <Label className="form-label">{t("Margin %")}</Label>
-                  <Controller
-                    name="margin_pct"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        disabled={isLocked}
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="3" className="mb-2">
                   <Label className="form-label">{t("Status")}</Label>
                   <Controller
                     name="status"
@@ -1271,7 +1246,6 @@ const AddQuotation = () => {
             <Col lg="3">
               <SalesDocCostingCard
                 totals={totals}
-                marginPct={liveMargin}
                 currencyCode={selectedCurrencyCode}
               />
             </Col>
