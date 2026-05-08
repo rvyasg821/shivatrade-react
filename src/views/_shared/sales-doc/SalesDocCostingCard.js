@@ -65,10 +65,13 @@ const SalesDocCostingCard = ({ totals, marginPct, currencyCode }) => {
           <span>{fmt(totals.net)}</span>
         </div>
         <div className="d-flex justify-content-between mb-1">
-          <span>
-            + {t("Margin")} ({num(marginPct)}%)
-          </span>
+          <span>+ {t("Margin")}</span>
           <strong>{fmt(totals.margin_amount)}</strong>
+        </div>
+        <div className="d-flex justify-content-between mb-1 text-muted small">
+          <em>
+            ({t("per-line")} — {t("header default")} {num(marginPct)}%)
+          </em>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>+ {t("Tax")}</span>

@@ -90,6 +90,12 @@ const PriceListForm = () => {
           .test("is-number", t("Discount % must be a number"), (v) =>
             !v ? true : !isNaN(Number(v))
           ),
+        margin_pct: yup
+          .string()
+          .nullable()
+          .test("is-number", t("Margin % must be a number"), (v) =>
+            !v ? true : !isNaN(Number(v))
+          ),
         lead_time_days: yup
           .number()
           .typeError(t("Lead time must be a number"))
@@ -141,6 +147,7 @@ const PriceListForm = () => {
         moq: r.moq ?? 1,
         tax_pct: r.tax_pct ?? "0",
         discount_pct: r.discount_pct ?? "0",
+        margin_pct: r.margin_pct ?? "0",
         lead_time_days: r.lead_time_days ?? "",
         effective_date: (r.effective_date || "").slice(0, 10),
         valid_until: r.valid_until ? r.valid_until.slice(0, 10) : "",
@@ -171,6 +178,7 @@ const PriceListForm = () => {
       payload.moq = Number(data.moq);
     if (data.tax_pct) payload.tax_pct = String(data.tax_pct);
     if (data.discount_pct) payload.discount_pct = String(data.discount_pct);
+    if (data.margin_pct) payload.margin_pct = String(data.margin_pct);
     if (data.lead_time_days !== null && data.lead_time_days !== "")
       payload.lead_time_days = Number(data.lead_time_days);
     if (data.valid_until) payload.valid_until = data.valid_until;
@@ -482,6 +490,28 @@ const PriceListForm = () => {
                     render={({ field }) => (
                       <Input
                         id="discount_pct"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="2" className="mb-2">
+                  <Label className="form-label" for="margin_pct">
+                    {t("Margin %")}
+                  </Label>
+                  <Controller
+                    name="margin_pct"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="margin_pct"
                         type="number"
                         step="0.01"
                         min="0"

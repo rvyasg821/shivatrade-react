@@ -332,12 +332,17 @@ const AddQuotation = () => {
   useEffect(() => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
+      // Default filter: BILL_TO + default + untyped. But always include the
+      // currently bound address even if it falls outside that filter, so the
+      // saved value still renders (otherwise it'd silently disappear).
+      const boundId = watch("customer_address_id");
       const opts = (cust.addresses || [])
         .filter(
           (a) =>
             !a.type ||
             a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
-            a.is_default
+            a.is_default ||
+            a._id === boundId
         )
         .map((a) => ({
           value: a._id,
@@ -347,7 +352,7 @@ const AddQuotation = () => {
         }));
       setCustomerAddressOptions(opts);
     }
-  }, [customerStore?.customerItem, watchedCustomer]);
+  }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
   // ─── Toast on success/error ─────────────────────────────────────────
   useEffect(() => {
@@ -509,6 +514,7 @@ const AddQuotation = () => {
     let tax_total = 0;
     let product_rebates_total = 0;
     let product_expenses_total = 0;
+    let line_margin_total = 0;
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -520,18 +526,35 @@ const AddQuotation = () => {
 
       // Per-line product-master rebates/expenses, derived from the dropdown
       // payload (mirrors backend snapshot behavior at save time).
+      let lineProdReb = 0;
+      let lineProdExp = 0;
       const product = productById.get(l?.product_id);
       if (product) {
         for (const r of product.product_rebates || []) {
-          product_rebates_total += (lineNet * num(r.pct)) / 100;
+          lineProdReb += (lineNet * num(r.pct)) / 100;
         }
         for (const e of product.product_expenses || []) {
-          product_expenses_total +=
+          lineProdExp +=
             e.type === "percent"
               ? (lineNet * num(e.value)) / 100
               : num(e.value);
         }
       }
+      product_rebates_total += lineProdReb;
+      product_expenses_total += lineProdExp;
+
+      // Mirror backend: per-line margin on (taxable + line product expenses
+      // − line product rebates), zeroing the product buckets if skip flag.
+      const effLineExp = liveSkipProduct ? 0 : lineProdExp;
+      const effLineReb = liveSkipProduct ? 0 : lineProdReb;
+      // Empty/null line margin inherits the header margin (mirrors backend).
+      const rawLineMargin = l?.margin_pct;
+      const lineMarginPct =
+        rawLineMargin === "" || rawLineMargin == null
+          ? num(liveMargin)
+          : num(rawLineMargin);
+      line_margin_total +=
+        (lineNet + effLineExp - effLineReb) * (lineMarginPct / 100);
     });
     const expenses_total = (liveExpenses || []).reduce(
       (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
@@ -551,7 +574,9 @@ const AddQuotation = () => {
       eff_product_expenses -
       rebates_total -
       eff_product_rebates;
-    const margin_amount = net * (num(liveMargin) / 100);
+    // Margin is now per-line (sum of line.margin_amount). Header margin_pct
+    // is used only as the seed default for new lines.
+    const margin_amount = line_margin_total;
     const grand_inr = net + margin_amount + tax_total;
     const rate = num(liveRate) || 1;
     const grand_currency = grand_inr * rate;
@@ -624,6 +649,11 @@ const AddQuotation = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
+        // Empty string => inherit header.margin_pct on the backend.
+        margin_pct:
+          l.margin_pct === "" || l.margin_pct == null
+            ? undefined
+            : String(l.margin_pct),
       })),
       expenses: (values.expenses || [])
         .filter((e) => e.name || e.expense_id || e.amount)

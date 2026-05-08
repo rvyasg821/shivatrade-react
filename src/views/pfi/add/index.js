@@ -218,12 +218,14 @@ const AddPfi = () => {
   useEffect(() => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
+      const boundId = watch("customer_address_id");
       const opts = (cust.addresses || [])
         .filter(
           (a) =>
             !a.type ||
             a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
-            a.is_default
+            a.is_default ||
+            a._id === boundId
         )
         .map((a) => ({
           value: a._id,
@@ -233,7 +235,7 @@ const AddPfi = () => {
         }));
       setCustomerAddressOptions(opts);
     }
-  }, [customerStore?.customerItem, watchedCustomer]);
+  }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
   // ─── Toast on success/error ─────────────────────────────────────────
   useEffect(() => {
@@ -368,6 +370,7 @@ const AddPfi = () => {
     let tax_total = 0;
     let product_rebates_total = 0;
     let product_expenses_total = 0;
+    let line_margin_total = 0;
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -388,6 +391,13 @@ const AddPfi = () => {
               : num(e.value);
         }
       }
+      // Empty/null line margin inherits the header margin (mirrors backend).
+      const rawLineMargin = l?.margin_pct;
+      const lineMarginPct =
+        rawLineMargin === "" || rawLineMargin == null
+          ? num(liveMargin)
+          : num(rawLineMargin);
+      line_margin_total += lineNet * (lineMarginPct / 100);
     });
     const expenses_total = (liveExpenses || []).reduce(
       (s, e) => s + deriveExpenseAmount(e, subtotal, expenseMasterMap),
@@ -403,7 +413,9 @@ const AddPfi = () => {
       product_expenses_total -
       rebates_total -
       product_rebates_total;
-    const margin_amount = net * (num(liveMargin) / 100);
+    // Margin is now per-line (sum of line.margin_amount). Header margin_pct
+    // is used only as the seed default for new lines.
+    const margin_amount = line_margin_total;
     const grand_inr = net + margin_amount + tax_total;
     const rate = num(liveRate) || 1;
     const grand_currency = grand_inr * rate;
@@ -469,6 +481,10 @@ const AddPfi = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
+        margin_pct:
+          l.margin_pct === "" || l.margin_pct == null
+            ? undefined
+            : String(l.margin_pct),
       })),
       expenses: (values.expenses || [])
         .filter((e) => e.name || e.expense_id || e.amount)
