@@ -69,9 +69,6 @@ const SalesDocLineItems = ({
 
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
-  // Header margin_pct seeds new line rows so users get a sensible default
-  // and can override per line. Existing line edits are not touched.
-  const headerMarginPct = useWatch({ control, name: "margin_pct" });
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
@@ -165,9 +162,7 @@ const SalesDocLineItems = ({
   };
 
   const openAdd = () => {
-    // Leave margin_pct empty so the line inherits header.margin_pct at
-    // recompute. User can type a value to override per line.
-    lineFA.append({ ...initLineItem, margin_pct: "" });
+    lineFA.append({ ...initLineItem });
     const newIdx = lineFA.fields.length;
     // Seed the per-line category override from the header default.
     setLineCategoryByIdx((m) => ({
@@ -326,11 +321,7 @@ const SalesDocLineItems = ({
                     </td>
                     <td className="text-end">{num(l.discount_pct) || 0}</td>
                     <td className="text-end">{num(l.tax_pct) || 0}</td>
-                    <td className="text-end">
-                      {l.margin_pct !== "" && l.margin_pct != null
-                        ? num(l.margin_pct)
-                        : num(headerMarginPct) || 0}
-                    </td>
+                    <td className="text-end">{num(l.margin_pct) || 0}</td>
                     <td className="text-end fw-bold">{fmt(lineTotal)}</td>
                     <td>
                       <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
@@ -706,18 +697,14 @@ const SalesDocLineItems = ({
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder={
-                          headerMarginPct
-                            ? `${t("Header")} ${num(headerMarginPct)}%`
-                            : "0"
-                        }
+                        placeholder="0"
                         {...f}
                         value={f.value ?? ""}
                       />
                     )}
                   />
                   <small className="text-muted">
-                    {t("Empty = inherit header margin")}
+                    {t("Auto-fills from vendor price list")}
                   </small>
                 </Col>
                 <Col md="3" sm="6" className="mb-2">
