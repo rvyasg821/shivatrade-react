@@ -278,12 +278,16 @@ const PfiWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
-  // Toast.
+  // Save keeps you on the current step. After fresh create, silently swap
+  // URL to /edit/:newId so subsequent saves are PUTs (component preserved).
   useEffect(() => {
     if (store?.actionFlag === "PFI_CRTD" || store?.actionFlag === "PFI_UPDT") {
       Notification("Success", store?.success || t("Saved"), "success");
+      const newId = store?.pfiItem?._id;
+      if (store.actionFlag === "PFI_CRTD" && newId && !id) {
+        navigate(`${appsRoot}/pfi/edit/${newId}`, { replace: true });
+      }
       dispatch(cleanPfiMessage());
-      navigate(`${appsRoot}/pfi`);
     }
     if (store?.error && !submitting) {
       Notification("Error", store.error, "warning");
@@ -472,27 +476,37 @@ const PfiWizard = () => {
       action.finally?.(() => setSubmitting(false));
   };
 
-  const onSave = handleSubmit(
-    async (values) => {
-      const ok = await trigger();
-      if (!ok) {
-        Notification(
-          "Validation",
-          t("Please fix the highlighted fields."),
-          "warning"
-        );
-        return;
+  const findFirstErrorStep = () => {
+    const errs = form.formState.errors || {};
+    const hasErr = (path) => !!errs[path.split(".")[0]];
+    for (let i = 0; i < visibleSteps.length; i++) {
+      if ((visibleSteps[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-      dispatchSave(buildPayload(values));
-    },
-    () => {
       Notification(
         "Validation",
         t("Please fix the highlighted fields."),
         "warning"
       );
+      return;
     }
-  );
+    handleSubmit((values) => dispatchSave(buildPayload(values)))();
+  };
 
   const sourceQuotationVoucher = store?.pfiItem?.quotation_voucher_no;
 
@@ -583,6 +597,7 @@ const PfiWizard = () => {
                 <WizardFooter
                   isFirst={activeStep === 0}
                   isLast={activeStep === visibleSteps.length - 1}
+                  isEdit={isEdit}
                   onBack={back}
                   onNext={next}
                   onSubmit={onSave}
