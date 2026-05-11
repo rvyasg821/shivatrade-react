@@ -339,11 +339,17 @@ const QuotationWizard = () => {
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
   // ── Toast on success / error ────────────────────────────────────────
+  // Save keeps you on the current step. After a fresh create we silently
+  // switch the URL to /edit/:newId so the next Save is a PUT, not another
+  // POST (the wizard component instance is preserved across the URL change).
   useEffect(() => {
     if (store?.actionFlag === "QT_CRTD" || store?.actionFlag === "QT_UPDT") {
       Notification("Success", store?.success || t("Saved"), "success");
+      const newId = store?.quotationItem?._id;
+      if (store.actionFlag === "QT_CRTD" && newId && !id) {
+        navigate(`${appsRoot}/quotations/edit/${newId}`, { replace: true });
+      }
       dispatch(cleanQuotationMessage());
-      navigate(`${appsRoot}/quotations`);
     }
     if (store?.error && !submitting) {
       Notification("Error", store.error, "warning");
@@ -563,29 +569,45 @@ const QuotationWizard = () => {
       action.finally?.(() => setSubmitting(false));
   };
 
-  // Single Save action — uses whatever status is currently in the form.
-  // Defaults to "draft" for new quotations; user can change via Step 3 status select.
-  const onSave = handleSubmit(
-    async (values) => {
-      const ok = await trigger();
-      if (!ok) {
-        Notification(
-          "Validation",
-          t("Please fix the highlighted fields."),
-          "warning"
-        );
-        return;
+  // Walk steps in order; return the first index whose declared `fields`
+  // contain a current validation error. Falls back to the active step.
+  const findFirstErrorStep = () => {
+    const errs = form.formState.errors || {};
+    const hasErr = (path) => {
+      // top-level key like "lines" or "customer_id"
+      const root = path.split(".")[0];
+      return !!errs[root];
+    };
+    for (let i = 0; i < visibleSteps.length; i++) {
+      if ((visibleSteps[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  // Single Save action — validates whole form, saves on pass, otherwise
+  // jumps to the first step with errors so the user can see them.
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-      dispatchSave(buildPayload(values));
-    },
-    () => {
       Notification(
         "Validation",
         t("Please fix the highlighted fields."),
         "warning"
       );
+      return;
     }
-  );
+    handleSubmit((values) => dispatchSave(buildPayload(values)))();
+  };
 
   // ── Step body context (props passed to all steps) ───────────────────
   const stepCtx = {
@@ -681,6 +703,7 @@ const QuotationWizard = () => {
                 <WizardFooter
                   isFirst={activeStep === 0}
                   isLast={activeStep === visibleSteps.length - 1}
+                  isEdit={isEdit}
                   onBack={back}
                   onNext={next}
                   onSubmit={onSave}

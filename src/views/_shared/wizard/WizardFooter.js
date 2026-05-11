@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 const WizardFooter = ({
   isFirst,
   isLast,
+  isEdit,
   onBack,
   onNext,
   onSubmit,
@@ -12,6 +13,9 @@ const WizardFooter = ({
   submitting,
 }) => {
   const { t } = useTranslation();
+  // Add mode: hide Save until the last step (force the user through the
+  // wizard). Edit mode: Save is always available — data is already complete.
+  const showSave = isEdit || isLast;
   return (
     <div className="wizard-footer">
       <div className="footer-left">
@@ -39,22 +43,24 @@ const WizardFooter = ({
       </div>
 
       <div className="footer-right">
-        <Button
-          type="button"
-          color="primary"
-          outline
-          onClick={onSubmit}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <Spinner size="sm" />
-          ) : (
-            <>
-              <Save size={15} className="me-25" />
-              {t("Save")}
-            </>
-          )}
-        </Button>
+        {showSave && (
+          <Button
+            type="button"
+            color="primary"
+            outline={!isLast}
+            onClick={onSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <Spinner size="sm" />
+            ) : (
+              <>
+                <Save size={15} className="me-25" />
+                {t("Save")}
+              </>
+            )}
+          </Button>
+        )}
         {!isLast && (
           <Button
             type="button"
