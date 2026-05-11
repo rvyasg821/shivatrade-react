@@ -1,0 +1,699 @@
+// ── Quotation Wizard Orchestrator ─────────────────────────────────────
+// Single source of form state. Steps are dumb views over this state.
+// All side effects (fetches, hydration, toast, navigation) live here.
+
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+
+import { Card, CardBody, Form, Spinner, Button } from "reactstrap";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useDispatch, useSelector } from "react-redux";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft } from "react-feather";
+
+// ── Redux thunks ──────────────────────────────────────────────────────
+import {
+  createQuotation,
+  updateQuotation,
+  getQuotation,
+  cleanQuotationMessage,
+  cleanQuotationState,
+} from "../../store";
+import { getCustomerDropdown, getCustomer } from "../../../customers/store";
+import { getCurrencyDropdown } from "../../../currencies/store";
+import { getProductDropdown } from "../../../products/store";
+import { getExpenseDropdown } from "../../../expenses/store";
+import { getRebateDropdown } from "../../../rebates/store";
+import { getCategoryDropdown } from "../../../categories/store";
+import { getLead } from "../../../leads/store";
+import { getVendorDropdown } from "../../../vendors/store";
+import { startLoading, stopLoading } from "../../../loadingstore";
+
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import Notification from "@components/toast/notification";
+
+import { appsRoot } from "@constant/defaultValues";
+import {
+  initQuotationItem,
+  initQuotationLineItem,
+} from "@constant/reduxConstant";
+import { CUSTOMER_ADDRESS_TYPES } from "@constant/options";
+
+import { num } from "@src/views/_shared/sales-doc/_helpers";
+
+// ── Wizard pieces ─────────────────────────────────────────────────────
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import { STEPS } from "./steps";
+import "@src/views/_shared/wizard/wizard.scss";
+
+const QuotationWizard = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const urlLeadId = searchParams.get("lead_id") || "";
+  const isEdit = !!id;
+
+  const store = useSelector((s) => s.quotation);
+  const customerStore = useSelector((s) => s.customer);
+  const currencyStore = useSelector((s) => s.currency);
+  const productStore = useSelector((s) => s.product);
+  const expenseStore = useSelector((s) => s.expense);
+  const rebateStore = useSelector((s) => s.rebate);
+  const categoryStore = useSelector((s) => s.category);
+  const leadStore = useSelector((s) => s.lead);
+  const vendorStore = useSelector((s) => s.vendor);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [rateMeta, setRateMeta] = useState(null);
+
+  // ── Yup schema ──────────────────────────────────────────────────────
+  const schema = useMemo(
+    () =>
+      yup.object().shape({
+        customer_id: yup
+          .string()
+          .trim()
+          .when("lead_id", {
+            is: (v) => !!v,
+            then: (s) => s.notRequired(),
+            otherwise: (s) => s.required(t("Customer is required")),
+          }),
+        currency_id: yup.string().trim().required(t("Currency is required")),
+        quotation_date: yup
+          .string()
+          .trim()
+          .required(t("Quotation date is required")),
+        valid_until: yup.string().nullable(),
+        customer_address_id: yup.string().nullable(),
+        exchange_rate: yup.string().nullable(),
+        payment_terms: yup.string().nullable().max(100),
+        delivery_terms: yup.string().nullable().max(100),
+        delivery_location: yup.string().nullable().max(200),
+        notes_to_client: yup.string().nullable().max(2000),
+        internal_notes: yup.string().nullable().max(2000),
+        margin_pct: yup.string().nullable(),
+        status: yup.string().nullable(),
+        lead_id: yup.string().nullable(),
+        lines: yup
+          .array()
+          .of(
+            yup.object().shape({
+              product_id: yup.string().required(t("Product is required")),
+              qty: yup.string().required(t("Qty is required")),
+              unit_price: yup.string().required(t("Unit price is required")),
+            })
+          )
+          .min(1, t("Add at least one line item")),
+      }),
+    [t]
+  );
+
+  const form = useForm({
+    mode: "all",
+    resolver: yupResolver(schema),
+    defaultValues: initQuotationItem,
+  });
+  const { control, handleSubmit, reset, setValue, watch, trigger } = form;
+
+  // ── Wizard navigation state ─────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+
+  // Filter steps that should be shown given current form state.
+  const visibleSteps = useMemo(
+    () => STEPS.filter((s) => !s.isVisible || s.isVisible(form)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [STEPS, form]
+  );
+
+  const goTo = async (idx, { validate = true } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= visibleSteps.length) return;
+
+    // Forward nav: validate current step's fields first.
+    if (idx > activeStep && validate) {
+      const fields = visibleSteps[activeStep].fields || [];
+      if (fields.length > 0) {
+        const ok = await trigger(fields);
+        if (!ok) {
+          Notification(
+            "Validation",
+            t("Please complete the highlighted fields first."),
+            "warning"
+          );
+          return;
+        }
+      }
+    }
+
+    // Guard: target step's canEnter check.
+    const target = visibleSteps[idx];
+    if (target.canEnter && !target.canEnter(form)) {
+      Notification(
+        "Step locked",
+        t("Complete the previous step first."),
+        "warning"
+      );
+      return;
+    }
+
+    setVisited((prev) => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const next = () => goTo(activeStep + 1);
+  const back = () => goTo(activeStep - 1, { validate: false });
+
+  // ── Watch for live calc / locking ───────────────────────────────────
+  const watchedCustomer = watch("customer_id");
+  const watchedLeadId = watch("lead_id");
+  const liveLines = useWatch({ control, name: "lines" }) || [];
+  const liveMargin = useWatch({ control, name: "margin_pct" });
+  const liveRate = useWatch({ control, name: "exchange_rate" });
+  const liveCurrencyId = useWatch({ control, name: "currency_id" });
+  const liveStatus = useWatch({ control, name: "status" });
+
+  const isLocked = isEdit && liveStatus && liveStatus !== "draft";
+
+  // ── URL lead_id seeding (one-time) ──────────────────────────────────
+  useEffect(() => {
+    if (urlLeadId && !isEdit) setValue("lead_id", urlLeadId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLeadId]);
+
+  // Load lead detail whenever a lead_id is set.
+  useEffect(() => {
+    if (watchedLeadId) dispatch(getLead(watchedLeadId));
+  }, [watchedLeadId, dispatch]);
+
+  // Auto-fill empty fields from loaded lead.
+  useEffect(() => {
+    const lead = leadStore?.leadItem;
+    if (!lead || lead._id !== watchedLeadId) return;
+    if (lead.customer_id && !watch("customer_id")) {
+      setValue("customer_id", lead.customer_id);
+    }
+    if (lead.currency && !watch("currency_id")) {
+      const match = (currencyStore?.currencyDropdown || []).find(
+        (c) => c.code === lead.currency
+      );
+      if (match) setValue("currency_id", match._id);
+    }
+    if (
+      Array.isArray(lead.interested_categories) &&
+      lead.interested_categories.length &&
+      categoryFilter.length === 0 &&
+      !showAllCategories
+    ) {
+      setCategoryFilter(lead.interested_categories);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadStore?.leadItem, watchedLeadId, currencyStore?.currencyDropdown]);
+
+  // Exchange rate fetch on currency pick.
+  useEffect(() => {
+    if (!liveCurrencyId) {
+      setRateMeta(null);
+      return;
+    }
+    const dropdown = currencyStore?.currencyDropdown || [];
+    const defaultCurrency = dropdown.find((c) => c.is_default);
+    if (!defaultCurrency) return;
+    if (isEdit && store?.quotationItem?.currency_id === liveCurrencyId) return;
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, {
+        params: { from: defaultCurrency._id, to: liveCurrencyId },
+      })
+      .then((resp) => {
+        const data = resp?.data?.data;
+        if (!data) return setRateMeta({ missing: true });
+        setValue("exchange_rate", String(data.rate));
+        setRateMeta({
+          rate: Number(data.rate),
+          effective_date: data.effective_date,
+          same: !!data.same,
+          fromCode: defaultCurrency.code,
+          toCode: dropdown.find((c) => c._id === liveCurrencyId)?.code,
+        });
+      })
+      .catch(() => setRateMeta({ missing: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveCurrencyId, currencyStore?.currencyDropdown]);
+
+  // ── Initial loads ───────────────────────────────────────────────────
+  useEffect(() => {
+    dispatch(getCustomerDropdown());
+    dispatch(getCurrencyDropdown());
+    dispatch(getProductDropdown());
+    dispatch(getExpenseDropdown());
+    dispatch(getRebateDropdown());
+    dispatch(getCategoryDropdown());
+    dispatch(getVendorDropdown());
+    if (isEdit) {
+      dispatch(getQuotation(id));
+    } else {
+      dispatch(cleanQuotationState());
+      reset({ ...initQuotationItem, lead_id: urlLeadId || "" });
+    }
+    return () => {
+      dispatch(cleanQuotationMessage());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, id]);
+
+  // Hydrate form when edit data lands. Mark all steps visited so
+  // the user can jump anywhere immediately.
+  useEffect(() => {
+    if (isEdit && store?.quotationItem?._id) {
+      const q = store.quotationItem;
+      reset({
+        ...initQuotationItem,
+        ...q,
+        margin_pct: String(q.margin_pct ?? "0"),
+        exchange_rate: String(q.exchange_rate ?? "1"),
+        quotation_date:
+          (q.quotation_date || "").slice(0, 10) ||
+          new Date().toISOString().slice(0, 10),
+        valid_until: (q.valid_until || "").slice(0, 10) || "",
+        lines: (q.lines || []).map((l) => ({
+          ...initQuotationLineItem,
+          ...l,
+          qty: String(l.qty ?? ""),
+          unit_price: String(l.unit_price ?? ""),
+          discount_pct: String(l.discount_pct ?? "0"),
+          tax_pct: String(l.tax_pct ?? "0"),
+          product_rebates_snapshot: l.product_rebates_snapshot || [],
+          product_expenses_snapshot: l.product_expenses_snapshot || [],
+        })),
+      });
+      // Edit mode → all steps visited so user can jump freely.
+      setVisited(new Set(STEPS.map((_, i) => i)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store?.quotationItem?._id]);
+
+  // Customer address dropdown.
+  useEffect(() => {
+    if (!watchedCustomer) {
+      setCustomerAddressOptions([]);
+      return;
+    }
+    dispatch(getCustomer(watchedCustomer));
+  }, [watchedCustomer, dispatch]);
+
+  useEffect(() => {
+    const cust = customerStore?.customerItem;
+    if (cust && cust._id === watchedCustomer) {
+      const boundId = watch("customer_address_id");
+      const opts = (cust.addresses || [])
+        .filter(
+          (a) =>
+            !a.type ||
+            a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
+            a.is_default ||
+            a._id === boundId
+        )
+        .map((a) => ({
+          value: a._id,
+          label: [a.label, a.address_line1, a.city, a.country]
+            .filter(Boolean)
+            .join(", "),
+        }));
+      setCustomerAddressOptions(opts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
+
+  // ── Toast on success / error ────────────────────────────────────────
+  useEffect(() => {
+    if (store?.actionFlag === "QT_CRTD" || store?.actionFlag === "QT_UPDT") {
+      Notification("Success", store?.success || t("Saved"), "success");
+      dispatch(cleanQuotationMessage());
+      navigate(`${appsRoot}/quotations`);
+    }
+    if (store?.error && !submitting) {
+      Notification("Error", store.error, "warning");
+      dispatch(cleanQuotationMessage());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store?.actionFlag, store?.error]);
+
+  useEffect(() => {
+    if (!store?.loading) dispatch(startLoading());
+    else dispatch(stopLoading());
+  }, [store?.loading, dispatch]);
+
+  // ── Master maps + dropdown options ──────────────────────────────────
+  const customerOptions = useMemo(
+    () =>
+      (customerStore?.customerDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.company_name,
+      })),
+    [customerStore?.customerDropdown]
+  );
+
+  const currencyOptions = useMemo(
+    () =>
+      (currencyStore?.currencyDropdown || []).map((c) => ({
+        value: c._id,
+        label: `${c.code} - ${c.name}`,
+      })),
+    [currencyStore?.currencyDropdown]
+  );
+
+  const allProductOptions = useMemo(
+    () =>
+      (productStore?.productDropdown || []).map((p) => ({
+        value: p._id,
+        label: `${p.code ? p.code + " - " : ""}${p.name}`,
+        raw: p,
+      })),
+    [productStore?.productDropdown]
+  );
+
+  const productOptions = useMemo(() => {
+    if (showAllCategories || !categoryFilter.length) return allProductOptions;
+    const set = new Set(categoryFilter);
+    return allProductOptions.filter((o) => set.has(o.raw?.category_id));
+  }, [allProductOptions, categoryFilter, showAllCategories]);
+
+  const allCategoryOptions = useMemo(
+    () =>
+      (categoryStore?.categoryDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.name,
+      })),
+    [categoryStore?.categoryDropdown]
+  );
+
+  const leadCategoryIds = useMemo(() => {
+    const lead = leadStore?.leadItem;
+    if (!lead || lead._id !== watchedLeadId) return [];
+    return Array.isArray(lead.interested_categories)
+      ? lead.interested_categories
+      : [];
+  }, [leadStore?.leadItem, watchedLeadId]);
+
+  const categoryOptions = useMemo(() => {
+    if (showAllCategories || leadCategoryIds.length === 0)
+      return allCategoryOptions;
+    const set = new Set(leadCategoryIds);
+    return allCategoryOptions.filter((o) => set.has(o.value));
+  }, [allCategoryOptions, leadCategoryIds, showAllCategories]);
+
+  const expenseOptions = useMemo(
+    () =>
+      (expenseStore?.expenseDropdown || []).map((e) => ({
+        value: e._id,
+        label: e.name,
+        raw: e,
+      })),
+    [expenseStore?.expenseDropdown]
+  );
+
+  const rebateOptions = useMemo(
+    () =>
+      (rebateStore?.rebateDropdown || []).map((r) => ({
+        value: r._id,
+        label: r.name,
+        raw: r,
+      })),
+    [rebateStore?.rebateDropdown]
+  );
+
+  const selectedCurrencyCode = useMemo(() => {
+    const c = (currencyStore?.currencyDropdown || []).find(
+      (x) => x._id === liveCurrencyId
+    );
+    return c?.code || "";
+  }, [currencyStore?.currencyDropdown, liveCurrencyId]);
+
+  const productById = useMemo(() => {
+    const m = new Map();
+    (productStore?.productDropdown || []).forEach((p) => m.set(p._id, p));
+    return m;
+  }, [productStore?.productDropdown]);
+
+  // ── Costing engine (mirrors backend recompute) ──────────────────────
+  const totals = useMemo(() => {
+    let subtotal = 0;
+    let tax_total = 0;
+    let product_rebates_total = 0;
+    let product_expenses_total = 0;
+    let line_margin_total = 0;
+    (liveLines || []).forEach((l) => {
+      const qty = num(l?.qty);
+      const price = num(l?.unit_price);
+      const disc = num(l?.discount_pct);
+      const taxPct = num(l?.tax_pct);
+      const lineNet = qty * price * (1 - disc / 100);
+      subtotal += lineNet;
+      tax_total += lineNet * (taxPct / 100);
+
+      let lineProdReb = 0;
+      let lineProdExp = 0;
+      for (const r of l?.product_rebates_snapshot || []) {
+        lineProdReb += (lineNet * num(r.pct)) / 100;
+      }
+      for (const e of l?.product_expenses_snapshot || []) {
+        lineProdExp +=
+          e.type === "percent"
+            ? (lineNet * num(e.value)) / 100
+            : num(e.value);
+      }
+      product_rebates_total += lineProdReb;
+      product_expenses_total += lineProdExp;
+
+      const lineMarginPct = num(l?.margin_pct);
+      line_margin_total +=
+        (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
+    });
+    const net = subtotal + product_expenses_total - product_rebates_total;
+    const margin_amount = line_margin_total;
+    const grand_inr = net + margin_amount + tax_total;
+    const rate = num(liveRate) || 1;
+    return {
+      subtotal,
+      product_expenses_total,
+      product_rebates_total,
+      net,
+      margin_amount,
+      tax_total,
+      grand_inr,
+      grand_currency: grand_inr * rate,
+      rate,
+    };
+  }, [liveLines, liveMargin, liveRate]);
+
+  // ── Submit (full) ───────────────────────────────────────────────────
+  const buildPayload = (values, statusOverride) => {
+    if (isLocked) {
+      return {
+        status: statusOverride || values.status || "draft",
+        internal_notes: values.internal_notes?.trim() || undefined,
+      };
+    }
+    return {
+      lead_id: values.lead_id || undefined,
+      customer_id: values.customer_id || undefined,
+      customer_address_id: values.customer_address_id || undefined,
+      quotation_date: values.quotation_date,
+      valid_until: values.valid_until || undefined,
+      currency_id: values.currency_id,
+      exchange_rate: values.exchange_rate || "1",
+      payment_terms: values.payment_terms?.trim() || undefined,
+      delivery_terms: values.delivery_terms?.trim() || undefined,
+      delivery_location: values.delivery_location?.trim() || undefined,
+      notes_to_client: values.notes_to_client?.trim() || undefined,
+      internal_notes: values.internal_notes?.trim() || undefined,
+      margin_pct: "0",
+      status: statusOverride || values.status || "draft",
+      lines: (values.lines || []).map((l) => ({
+        product_id: l.product_id,
+        vendor_id: l.vendor_id || undefined,
+        description: l.description || "",
+        qty: String(l.qty || "0"),
+        unit: l.unit || "",
+        unit_price: String(l.unit_price || "0"),
+        discount_pct: String(l.discount_pct || "0"),
+        tax_pct: String(l.tax_pct || "0"),
+        margin_pct: String(l.margin_pct || "0"),
+        product_rebates_snapshot: (l.product_rebates_snapshot || []).map(
+          (r) => ({
+            rebate_id: r.rebate_id || null,
+            code: r.code || "",
+            name: r.name || "",
+            pct: String(r.pct ?? "0"),
+          })
+        ),
+        product_expenses_snapshot: (l.product_expenses_snapshot || []).map(
+          (e) => ({
+            expense_id: e.expense_id || null,
+            code: e.code || "",
+            name: e.name || "",
+            type: e.type || "amount",
+            value: String(e.value ?? "0"),
+          })
+        ),
+      })),
+    };
+  };
+
+  const dispatchSave = (payload) => {
+    setSubmitting(true);
+    const action = isEdit
+      ? dispatch(updateQuotation({ id, data: payload }))
+      : dispatch(createQuotation(payload));
+    action.unwrap?.().finally(() => setSubmitting(false)) ||
+      action.finally?.(() => setSubmitting(false));
+  };
+
+  // Single Save action — uses whatever status is currently in the form.
+  // Defaults to "draft" for new quotations; user can change via Step 3 status select.
+  const onSave = handleSubmit(
+    async (values) => {
+      const ok = await trigger();
+      if (!ok) {
+        Notification(
+          "Validation",
+          t("Please fix the highlighted fields."),
+          "warning"
+        );
+        return;
+      }
+      dispatchSave(buildPayload(values));
+    },
+    () => {
+      Notification(
+        "Validation",
+        t("Please fix the highlighted fields."),
+        "warning"
+      );
+    }
+  );
+
+  // ── Step body context (props passed to all steps) ───────────────────
+  const stepCtx = {
+    isEdit,
+    isLocked,
+    rateMeta,
+    customerOptions,
+    customerAddressOptions,
+    currencyOptions,
+    productOptions,
+    allProductOptions,
+    categoryOptions,
+    allCategoryOptions,
+    expenseOptions,
+    rebateOptions,
+    categoryFilter,
+    setCategoryFilter,
+    showAllCategories,
+    setShowAllCategories,
+    leadStore,
+    vendorStore,
+    productById,
+    selectedCurrencyCode,
+    totals,
+    onRevertToDraft: () =>
+      setValue("status", "draft", { shouldDirty: true }),
+  };
+
+  const ActiveStepComponent = visibleSteps[activeStep]?.Component;
+
+  return (
+    <Fragment>
+      <div className="main-content quotation-add quotation-wizard">
+        <div className="d-flex align-items-center justify-content-between mb-2">
+          <h3 className="mb-0">
+            {isEdit ? t("Edit Quotation") : t("Add Quotation")}
+            {isEdit && store?.quotationItem?.voucher_no
+              ? ` - ${store.quotationItem.voucher_no}`
+              : ""}
+          </h3>
+          <Button
+            type="button"
+            className="ms-2 btn-primary"
+            onClick={() => navigate(`${appsRoot}/quotations`)}
+          >
+            <ArrowLeft size={17} />
+          </Button>
+        </div>
+
+        <FormProvider {...form}>
+          <Form onSubmit={(e) => e.preventDefault()}>
+            {isLocked && (
+              <div className="alert alert-warning d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <strong>
+                    {t("This quotation is")} {liveStatus}.
+                  </strong>{" "}
+                  {t(
+                    "Fields are locked. Revert to draft to make changes — Status field stays editable."
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  color="warning"
+                  type="button"
+                  onClick={stepCtx.onRevertToDraft}
+                >
+                  {t("Revert to Draft")}
+                </Button>
+              </div>
+            )}
+
+            <Card>
+              <CardBody>
+                <WizardHeader
+                  steps={visibleSteps}
+                  activeStep={activeStep}
+                  visited={visited}
+                  onStepClick={goTo}
+                  isEdit={isEdit}
+                />
+
+                <div className="wizard-step-body">
+                  {ActiveStepComponent ? (
+                    <ActiveStepComponent {...stepCtx} />
+                  ) : (
+                    <div className="text-center p-5">
+                      <Spinner />
+                    </div>
+                  )}
+                </div>
+
+                <WizardFooter
+                  isFirst={activeStep === 0}
+                  isLast={activeStep === visibleSteps.length - 1}
+                  onBack={back}
+                  onNext={next}
+                  onSubmit={onSave}
+                  onCancel={() => navigate(`${appsRoot}/quotations`)}
+                  submitting={submitting}
+                />
+              </CardBody>
+            </Card>
+          </Form>
+        </FormProvider>
+      </div>
+    </Fragment>
+  );
+};
+
+export default QuotationWizard;

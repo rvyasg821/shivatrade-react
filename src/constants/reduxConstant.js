@@ -401,7 +401,6 @@ const initQuotationItem = {
   internal_notes: "",
   margin_pct: "0",
   status: "draft",
-  skip_product_costing: false,
   // Server-side recomputed
   subtotal: "0",
   expenses_total: "0",
@@ -438,7 +437,6 @@ const initPfiItem = {
   notes_to_client: "",
   internal_notes: "",
   margin_pct: "0",
-  skip_product_costing: false,
   status: "draft",
   subtotal: "0",
   expenses_total: "0",

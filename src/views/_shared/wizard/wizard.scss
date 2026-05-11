@@ -1,0 +1,97 @@
+/* ── Quotation wizard stepper ──────────────────────────────────────── */
+.quotation-wizard {
+  .wizard-stepper {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: #f8f8f8;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .wizard-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    cursor: not-allowed;
+    opacity: 0.55;
+    transition: background 0.15s ease, opacity 0.15s ease;
+
+    &.clickable {
+      cursor: pointer;
+      opacity: 1;
+      &:hover { background: rgba(115, 103, 240, 0.08); }
+    }
+
+    &.active {
+      opacity: 1;
+      .step-circle {
+        background: #7367f0;
+        color: #fff;
+        border-color: #7367f0;
+        box-shadow: 0 0 0 4px rgba(115, 103, 240, 0.2);
+      }
+      .step-label .step-title { color: #5e50ee; font-weight: 600; }
+    }
+
+    &.done {
+      opacity: 1;
+      .step-circle {
+        background: #28c76f;
+        color: #fff;
+        border-color: #28c76f;
+      }
+    }
+  }
+
+  .step-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1.5px solid #d8d6de;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: #6e6b7b;
+    flex: 0 0 36px;
+  }
+
+  .step-label {
+    line-height: 1.15;
+    .step-index { font-size: 11px; color: #b9b9c3; text-transform: uppercase; letter-spacing: 0.5px; }
+    .step-title { font-size: 13.5px; color: #5e5873; }
+  }
+
+  .step-connector {
+    flex: 1 1 auto;
+    height: 2px;
+    background: #d8d6de;
+    margin: 0 0.75rem;
+    align-self: center;
+    transition: background 0.15s ease;
+    &.done { background: #28c76f; }
+  }
+
+  /* ── Footer ─────────────────────────────────────────────────────── */
+  .wizard-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0 0.5rem;
+    border-top: 1px solid #ebe9f1;
+    margin-top: 1.25rem;
+
+    .footer-left, .footer-right { display: flex; gap: 0.5rem; }
+  }
+
+  /* ── Step body wrapper ──────────────────────────────────────────── */
+  .wizard-step-body {
+    min-height: 300px;
+  }
+}
