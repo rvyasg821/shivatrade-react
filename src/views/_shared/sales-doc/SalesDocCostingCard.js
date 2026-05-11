@@ -30,20 +30,6 @@ const SalesDocCostingCard = ({ totals, currencyCode }) => {
           <span>− {t("Rebates")}</span>
           <strong>{fmt(totals.product_rebates_total)}</strong>
         </div>
-        {totals.skipped &&
-          (num(totals.product_rebates_total_raw) > 0 ||
-            num(totals.product_expenses_total_raw) > 0) && (
-            <div className="text-warning small mb-1">
-              <em>
-                {t("Skipping")}{" "}
-                {fmt(
-                  num(totals.product_rebates_total_raw) +
-                    num(totals.product_expenses_total_raw)
-                )}{" "}
-                {t("of product-level costing (opted out).")}
-              </em>
-            </div>
-          )}
         <div className="d-flex justify-content-between mb-1 text-muted">
           <span>= {t("Net")}</span>
           <span>{fmt(totals.net)}</span>
