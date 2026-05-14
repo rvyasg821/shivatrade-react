@@ -219,12 +219,17 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
                 </li>
                 <li>
                   {t(
-                    "Rebates / Expenses: comma-separated codes, optional override after a colon — e.g. DBK:2.5, RODTEP",
+                    "Rebates / Expenses: one master code per cell (e.g. DBK). For multiple, add extra 'rebates' / 'expenses' columns after quality_parameters",
                   )}
                 </li>
                 <li>
                   {t(
-                    "On update, the rebates / expenses cells fully replace the product's existing links (blank clears them)",
+                    "An unknown rebate / expense code is skipped with a warning — only that link is dropped, the row still imports",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "On update, the rebates / expenses columns fully replace the product's existing links (leave blank to clear)",
                   )}
                 </li>
                 <li>
@@ -292,10 +297,37 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
               <Badge className="doc-badge doc-badge-red">
                 {preview.summary.errors} {t("Errors")}
               </Badge>
+              {preview.summary.warnings > 0 && (
+                <Badge className="doc-badge doc-badge-orange">
+                  {preview.summary.warnings} {t("Warnings")}
+                </Badge>
+              )}
               <Badge className="doc-badge doc-badge-gray">
                 {preview.summary.total} {t("Total")}
               </Badge>
             </div>
+            {preview.summary.warnings > 0 && (
+              <Alert color="warning" className="mb-2">
+                <strong>
+                  {t(
+                    "Some rebate / expense codes were not found — those links were skipped, the rows will still import",
+                  )}
+                  :
+                </strong>
+                <ul
+                  className="mb-0 mt-1"
+                  style={{ maxHeight: "120px", overflow: "auto" }}
+                >
+                  {preview.rows
+                    .filter((row) => row.warnings?.length)
+                    .map((row) => (
+                      <li key={row.rowNum}>
+                        {t("Row")} {row.rowNum}: {row.warnings.join("; ")}
+                      </li>
+                    ))}
+                </ul>
+              </Alert>
+            )}
             {preview.summary.errors > 0 ? (
               <>
                 <Alert color="warning" className="mb-2">
