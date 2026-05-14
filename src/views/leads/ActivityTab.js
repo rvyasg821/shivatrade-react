@@ -66,8 +66,8 @@ const renderRow = (row, t) => {
   if (row.type === "note") return row?.body || "";
   if (row.type === "lead_created") return t("Lead created");
   if (row.type === "status_change") {
-    const f = row?.metadata?.from || "—";
-    const to = row?.metadata?.to || "—";
+    const f = row?.metadata?.from || "-";
+    const to = row?.metadata?.to || "-";
     return (
       <span>
         <span className="text-muted">{t("From")}</span>{" "}

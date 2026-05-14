@@ -3,21 +3,41 @@ import { useTranslation } from "react-i18next";
 import { fmt, num, round2 } from "./_helpers";
 
 /**
- * Sticky right-column costing card - shared by Quotation / PFI / PO forms.
+ * Costing card - shared by Quotation / PFI / PO forms and detail pages.
  * Pure display: all math happens in the parent. Pass `totals` from the
  * parent's costing engine (mirrors backend recompute).
+ *   - title:  heading label (default "Costing")
+ *   - sticky: sticky-position the card (default true; off for detail pages
+ *     where the card sits below the table, not in a side column)
  */
-const SalesDocCostingCard = ({ totals, currencyCode }) => {
+const SalesDocCostingCard = ({
+  totals,
+  currencyCode,
+  title,
+  sticky = true,
+}) => {
   const { t } = useTranslation();
 
   return (
-    <Card style={{ position: "sticky", top: 80 }}>
+    <Card style={sticky ? { position: "sticky", top: 80 } : undefined}>
       <CardBody>
         <h5 className="mb-2 fw-bold text-uppercase text-muted">
-          {t("Costing")}
+          {title || t("Costing Breakdown")}
         </h5>
         <hr className="mt-0 mb-2" />
 
+        {num(totals.discount_total) > 0 && (
+          <>
+            <div className="d-flex justify-content-between mb-1 text-muted">
+              <span>{t("Gross")}</span>
+              <span>{fmt(totals.gross_total)}</span>
+            </div>
+            <div className="d-flex justify-content-between mb-1 text-muted">
+              <span>− {t("Discount")}</span>
+              <span>{fmt(totals.discount_total)}</span>
+            </div>
+          </>
+        )}
         <div className="d-flex justify-content-between mb-1">
           <span>{t("Subtotal")}</span>
           <strong>{fmt(totals.subtotal)}</strong>
@@ -132,7 +152,10 @@ const SalesDocCostingCard = ({ totals, currencyCode }) => {
           className="d-flex justify-content-between p-2 mt-1 rounded"
           style={{ background: "#f6f6f9" }}
         >
-          <span className="fw-bold">{t("Customer Total")}</span>
+          <span className="fw-bold">
+            {t("Grand Total")}
+            {currencyCode ? ` (${currencyCode})` : ""}
+          </span>
           <span className="fw-bold">
             {currencyCode ? `${currencyCode} ` : ""}
             {fmt(totals.grand_currency)}

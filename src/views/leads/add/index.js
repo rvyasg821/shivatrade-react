@@ -224,7 +224,7 @@ const LeadForm = () => {
     !!watch("converted_customer_id") ||
     !!watch("customer_id");
   // Allowed on every status except 'lost'. Multiple quotations per lead
-  // are intentional — don't gate by existing quotation count.
+  // are intentional - don't gate by existing quotation count.
   const canCreateQuotation = currentStatus !== "lost";
 
   const handleConvert = () => {
@@ -847,7 +847,7 @@ const LeadForm = () => {
                         type="textarea"
                         rows="3"
                         placeholder={t(
-                          "Product specs, target price, RFQ details — the brief reps reference throughout the deal."
+                          "Product specs, target price, RFQ details - the brief reps reference throughout the deal."
                         )}
                         {...field}
                       />

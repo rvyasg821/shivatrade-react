@@ -104,7 +104,7 @@ const LeadInfoCard = () => {
                     className="text-capitalize text-break mb-0"
                     style={{ overflowWrap: "anywhere" }}
                   >
-                    {l?.company_name || l?.contact_name || "—"}
+                    {l?.company_name || l?.contact_name || "-"}
                   </h4>
                   {sourceLabel && (
                     <span className="card-text text-muted text-capitalize">
@@ -113,7 +113,9 @@ const LeadInfoCard = () => {
                   )}
                 </div>
                 <Badge
-                  color={LEAD_STATUS_BADGE_COLOR[l?.status] || "secondary"}
+                  color={`light-${
+                    LEAD_STATUS_BADGE_COLOR[l?.status] || "secondary"
+                  }`}
                   className="mt-1 text-capitalize"
                 >
                   {statusLabel || t("Unknown")}
