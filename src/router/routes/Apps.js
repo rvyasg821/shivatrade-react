@@ -45,6 +45,7 @@ const ViewCustomer = lazy(() => import('@src/views/customers/view'));
 const LeadList = lazy(() => import('@src/views/leads'));
 const AddLead = lazy(() => import('@src/views/leads/add'));
 const EditLead = lazy(() => import('@src/views/leads/add'));
+const ViewLead = lazy(() => import('@src/views/leads/view'));
 const RebateList = lazy(() => import('@src/views/rebates'));
 const AddRebate = lazy(() => import('@src/views/rebates/add'));
 const EditRebate = lazy(() => import('@src/views/rebates/add'));
@@ -488,6 +489,14 @@ const AppRoutes = [
     meta: {
       permissionId: leadsModuleSlug,
       action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/view/:id`,
+    element: <ViewLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
     },
   },
   {

@@ -172,6 +172,10 @@ const CurrencyForm = () => {
       setRateFormError(t("Please enter a valid rate"));
       return;
     }
+    if (!/^\d+(\.\d{1,6})?$/.test(String(rateFormState.rate))) {
+      setRateFormError(t("Rate allows at most 6 decimal places"));
+      return;
+    }
     if (!rateFormState.effective_date) {
       setRateFormError(t("Please select an effective date"));
       return;
@@ -417,7 +421,7 @@ const CurrencyForm = () => {
                   <Label className="form-label">{t("Rate")}</Label>
                   <Input
                     type="number"
-                    step="0.00000001"
+                    step="0.000001"
                     min="0"
                     placeholder="83.25"
                     value={rateFormState.rate}

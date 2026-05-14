@@ -23,7 +23,7 @@ import withReactContent from "sweetalert2-react-content";
 import { num, round2, fmt, deriveRebateAmount } from "./_helpers";
 
 /**
- * Rebates section — three-mode model (master / override / ad-hoc).
+ * Rebates section - three-mode model (master / override / ad-hoc).
  * Shared across Quotation / PFI / PO. Pass `initRebateItem` for the
  * module-specific empty-row shape.
  */
@@ -137,7 +137,7 @@ const SalesDocRebates = ({
           return (
             <div className="alert alert-warning py-1 px-2 small mb-2">
               ⚠ {t("Already auto-applied from product master:")}{" "}
-              <strong>{overlapping.join(", ")}</strong> —{" "}
+              <strong>{overlapping.join(", ")}</strong> -{" "}
               {t(
                 "adding the same rebate here will double-count. Either remove from this list, or check the 'Skip per-product' option in the header."
               )}
@@ -260,7 +260,7 @@ const SalesDocRebates = ({
                 <div className="form-control bg-light">
                   {editingMaster
                     ? `${num(editingMaster.pct)}% of subtotal`
-                    : t("Ad-hoc — type the amount below")}
+                    : t("Ad-hoc - type the amount below")}
                 </div>
               </Col>
               <Col md="12" className="mb-1">

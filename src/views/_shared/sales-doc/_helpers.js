@@ -1,15 +1,25 @@
 /**
  * Shared pure helpers for the Quotation form.
  *
- * No React, no JSX — easy to unit-test and reuse across PFI / PO when
+ * No React, no JSX - easy to unit-test and reuse across PFI / PO when
  * those modules land. The derive* helpers mirror the backend recompute()
  * exactly so the costing card preview matches what the server will store.
  */
+
+import { EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
 
 export const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+// Currency code → symbol. INR is the home currency; foreign symbols come
+// from the shared exchange-target list. Falls back to the code itself.
+const CURRENCY_SYMBOLS = { INR: "₹" };
+EXCHANGE_TO_CURRENCY_OPTIONS.forEach((o) => {
+  CURRENCY_SYMBOLS[o.value] = o.symbol;
+});
+export const currencySymbol = (code) => CURRENCY_SYMBOLS[code] || code || "";
 
 export const round2 = (n) =>
   Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
@@ -19,6 +29,75 @@ export const fmt = (n) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+/**
+ * Single source of truth for per-line costing - mirrors the backend
+ * recompute() exactly. Used by the line-item modal breakdown, the Step 2
+ * table, and the Step 3 review table so all three always agree.
+ *
+ * Flow: Gross → − Discount → = Taxable → + Expenses → − Rebates
+ *       → + Margin (on taxable+exp−reb) → + GST (on taxable) → Line Total.
+ * Every component is round2()'d; lineTotal sums the rounded parts.
+ */
+export const computeLineCosting = (line) => {
+  const l = line || {};
+  const qty = num(l.qty);
+  const price = num(l.unit_price);
+  const disc = num(l.discount_pct);
+  const gross = round2(qty * price);
+  const discountAmt = round2((gross * disc) / 100);
+  const taxable = round2(gross - discountAmt);
+
+  let rebatesPctAmt = 0;
+  let rebatesFixedAmt = 0;
+  let rebatesPctRate = 0;
+  for (const r of l.product_rebates_snapshot || []) {
+    if (r.type === "fixed") rebatesFixedAmt += num(r.pct);
+    else {
+      rebatesPctRate += num(r.pct);
+      rebatesPctAmt += (taxable * num(r.pct)) / 100;
+    }
+  }
+  rebatesPctAmt = round2(rebatesPctAmt);
+  rebatesFixedAmt = round2(rebatesFixedAmt);
+  const rebates = round2(rebatesPctAmt + rebatesFixedAmt);
+
+  let expensesPctAmt = 0;
+  let expensesFixedAmt = 0;
+  let expensesPctRate = 0;
+  for (const e of l.product_expenses_snapshot || []) {
+    if (e.type === "percent") {
+      expensesPctRate += num(e.value);
+      expensesPctAmt += (taxable * num(e.value)) / 100;
+    } else expensesFixedAmt += num(e.value);
+  }
+  expensesPctAmt = round2(expensesPctAmt);
+  expensesFixedAmt = round2(expensesFixedAmt);
+  const expenses = round2(expensesPctAmt + expensesFixedAmt);
+
+  const marginPct = num(l.margin_pct);
+  const margin = round2(((taxable + expenses - rebates) * marginPct) / 100);
+  const gst = round2((taxable * num(l.tax_pct)) / 100);
+  const lineTotal = round2(taxable + expenses - rebates + margin + gst);
+
+  return {
+    gross,
+    discountPct: disc,
+    discountAmt,
+    taxable,
+    rebates,
+    rebatesPctAmt,
+    rebatesFixedAmt,
+    rebatesPctRate: round2(rebatesPctRate),
+    expenses,
+    expensesPctAmt,
+    expensesFixedAmt,
+    expensesPctRate: round2(expensesPctRate),
+    margin,
+    gst,
+    lineTotal,
+  };
+};
 
 /**
  * Effective amount for an expense row given the current subtotal.
@@ -50,14 +129,11 @@ export const deriveRebateAmount = (row, subtotal, rebateMasterMap) => {
 
 /**
  * Build the option label for a vendor row coming from price-list/by-product.
- *   "Vinay Traders [VND-001] — INR 95 ★ (MOQ 100, 7d)"
- *   ★ marks the primary vendor for that product.
+ *   "Vinay Traders [VND-001] - INR 95 (MOQ 100, 7d)"
  */
 export const formatVendorOption = (r) =>
   `${r.vendor_name || "Vendor"}${
     r.vendor_code ? ` [${r.vendor_code}]` : ""
-  } — ${r.currency_code || ""} ${Number(r.unit_price || 0).toLocaleString()}${
-    r.is_primary ? " ★" : ""
-  }${r.moq ? ` (MOQ ${r.moq})` : ""}${
-    r.lead_time_days ? `, ${r.lead_time_days}d` : ""
-  }`;
+  } - ${r.currency_code || ""} ${Number(r.unit_price || 0).toLocaleString()}${
+    r.moq ? ` (MOQ ${r.moq})` : ""
+  }${r.lead_time_days ? `, ${r.lead_time_days}d` : ""}`;

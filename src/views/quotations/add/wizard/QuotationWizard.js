@@ -22,11 +22,13 @@ import {
   cleanQuotationState,
 } from "../../store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
-import { getExchangeRateOptions } from "../../../currencies/store";
+import {
+  getExchangeRateOptions,
+  getCurrencyDropdown,
+} from "../../../currencies/store";
 import { getProductDropdown } from "../../../products/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
-import { getCategoryDropdown } from "../../../categories/store";
 import { getLead } from "../../../leads/store";
 import { getVendorDropdown } from "../../../vendors/store";
 import { startLoading, stopLoading } from "../../../loadingstore";
@@ -42,7 +44,7 @@ import {
 } from "@constant/reduxConstant";
 import { CUSTOMER_ADDRESS_TYPES } from "@constant/options";
 
-import { num } from "@src/views/_shared/sales-doc/_helpers";
+import { num, round2 } from "@src/views/_shared/sales-doc/_helpers";
 
 // ── Wizard pieces ─────────────────────────────────────────────────────
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -65,14 +67,11 @@ const QuotationWizard = () => {
   const productStore = useSelector((s) => s.product);
   const expenseStore = useSelector((s) => s.expense);
   const rebateStore = useSelector((s) => s.rebate);
-  const categoryStore = useSelector((s) => s.category);
   const leadStore = useSelector((s) => s.lead);
   const vendorStore = useSelector((s) => s.vendor);
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState([]);
-  const [showAllCategories, setShowAllCategories] = useState(false);
   const [rateMeta, setRateMeta] = useState(null);
 
   // ── Yup schema ──────────────────────────────────────────────────────
@@ -210,14 +209,6 @@ const QuotationWizard = () => {
     if (lead.currency && !watch("currency_code")) {
       setValue("currency_code", lead.currency);
     }
-    if (
-      Array.isArray(lead.interested_categories) &&
-      lead.interested_categories.length &&
-      categoryFilter.length === 0 &&
-      !showAllCategories
-    ) {
-      setCategoryFilter(lead.interested_categories);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadStore?.leadItem, watchedLeadId]);
 
@@ -237,12 +228,13 @@ const QuotationWizard = () => {
       .then((resp) => {
         const data = resp?.data?.data;
         if (!data) return setRateMeta({ missing: true });
-        setValue("exchange_rate", String(data.rate));
+        // Trim trailing zeros from the numeric(18,8) string ("0.01200000" → "0.012").
+        setValue("exchange_rate", String(Number(data.rate)));
         setRateMeta({
           rate: Number(data.rate),
           effective_date: data.effective_date,
           same: !!data.same,
-          fromCode: defaultOpt?.code,
+          fromCode: data.from_currency_code || defaultOpt?.code,
           toCode: liveCurrencyCode,
         });
       })
@@ -254,10 +246,10 @@ const QuotationWizard = () => {
   useEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getExchangeRateOptions());
+    dispatch(getCurrencyDropdown());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
-    dispatch(getCategoryDropdown());
     dispatch(getVendorDropdown());
     if (isEdit) {
       dispatch(getQuotation(id));
@@ -280,7 +272,7 @@ const QuotationWizard = () => {
         ...initQuotationItem,
         ...q,
         margin_pct: String(q.margin_pct ?? "0"),
-        exchange_rate: String(q.exchange_rate ?? "1"),
+        exchange_rate: String(Number(q.exchange_rate ?? 1)),
         quotation_date:
           (q.quotation_date || "").slice(0, 10) ||
           new Date().toISOString().slice(0, 10),
@@ -388,36 +380,6 @@ const QuotationWizard = () => {
     [productStore?.productDropdown]
   );
 
-  const productOptions = useMemo(() => {
-    if (showAllCategories || !categoryFilter.length) return allProductOptions;
-    const set = new Set(categoryFilter);
-    return allProductOptions.filter((o) => set.has(o.raw?.category_id));
-  }, [allProductOptions, categoryFilter, showAllCategories]);
-
-  const allCategoryOptions = useMemo(
-    () =>
-      (categoryStore?.categoryDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.name,
-      })),
-    [categoryStore?.categoryDropdown]
-  );
-
-  const leadCategoryIds = useMemo(() => {
-    const lead = leadStore?.leadItem;
-    if (!lead || lead._id !== watchedLeadId) return [];
-    return Array.isArray(lead.interested_categories)
-      ? lead.interested_categories
-      : [];
-  }, [leadStore?.leadItem, watchedLeadId]);
-
-  const categoryOptions = useMemo(() => {
-    if (showAllCategories || leadCategoryIds.length === 0)
-      return allCategoryOptions;
-    const set = new Set(leadCategoryIds);
-    return allCategoryOptions.filter((o) => set.has(o.value));
-  }, [allCategoryOptions, leadCategoryIds, showAllCategories]);
-
   const expenseOptions = useMemo(
     () =>
       (expenseStore?.expenseDropdown || []).map((e) => ({
@@ -438,12 +400,9 @@ const QuotationWizard = () => {
     [rebateStore?.rebateDropdown]
   );
 
-  const selectedCurrencyCode = useMemo(() => {
-    const c = (currencyStore?.currencyDropdown || []).find(
-      (x) => x._id === liveCurrencyId
-    );
-    return c?.code || "";
-  }, [currencyStore?.currencyDropdown, liveCurrencyId]);
+  // currency_code is the source of truth post-migration - the watched value
+  // is already the code, no lookup needed.
+  const selectedCurrencyCode = liveCurrencyCode || "";
 
   const productById = useMemo(() => {
     const m = new Map();
@@ -457,7 +416,21 @@ const QuotationWizard = () => {
     let tax_total = 0;
     let product_rebates_total = 0;
     let product_expenses_total = 0;
+    // Document-wide buckets - % type vs fixed type, summed across all lines.
+    // No combined rate here: each line has its own taxable base.
+    let rebates_pct_total = 0;
+    let rebates_fixed_total = 0;
+    let expenses_pct_total = 0;
+    let expenses_fixed_total = 0;
     let line_margin_total = 0;
+    // Track distinct GST / margin rates so the costing card can show an
+    // exact rate when uniform, or a blended (~) rate when lines differ.
+    const gstRates = new Set();
+    const marginRates = new Set();
+    // GST / Margin amount per distinct rate - powers the per-rate sub-lines
+    // on the costing card when lines carry mixed rates.
+    const gstByRate = {};
+    const marginByRate = {};
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -465,37 +438,90 @@ const QuotationWizard = () => {
       const taxPct = num(l?.tax_pct);
       const lineNet = qty * price * (1 - disc / 100);
       subtotal += lineNet;
-      tax_total += lineNet * (taxPct / 100);
+      const lineTax = lineNet * (taxPct / 100);
+      tax_total += lineTax;
+      if (lineNet > 0) {
+        gstRates.add(taxPct);
+        marginRates.add(num(l?.margin_pct));
+        gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
+      }
 
       let lineProdReb = 0;
       let lineProdExp = 0;
       for (const r of l?.product_rebates_snapshot || []) {
-        lineProdReb += (lineNet * num(r.pct)) / 100;
+        if (r.type === "fixed") {
+          rebates_fixed_total += num(r.pct);
+          lineProdReb += num(r.pct);
+        } else {
+          const amt = (lineNet * num(r.pct)) / 100;
+          rebates_pct_total += amt;
+          lineProdReb += amt;
+        }
       }
       for (const e of l?.product_expenses_snapshot || []) {
-        lineProdExp +=
-          e.type === "percent"
-            ? (lineNet * num(e.value)) / 100
-            : num(e.value);
+        if (e.type === "percent") {
+          const amt = (lineNet * num(e.value)) / 100;
+          expenses_pct_total += amt;
+          lineProdExp += amt;
+        } else {
+          expenses_fixed_total += num(e.value);
+          lineProdExp += num(e.value);
+        }
       }
       product_rebates_total += lineProdReb;
       product_expenses_total += lineProdExp;
 
       const lineMarginPct = num(l?.margin_pct);
-      line_margin_total +=
+      const lineMargin =
         (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
+      line_margin_total += lineMargin;
+      if (lineNet > 0) {
+        marginByRate[lineMarginPct] =
+          (marginByRate[lineMarginPct] || 0) + lineMargin;
+      }
     });
     const net = subtotal + product_expenses_total - product_rebates_total;
     const margin_amount = line_margin_total;
-    const grand_inr = net + margin_amount + tax_total;
+    // Effective rates: exact when all lines share one rate, else blended
+    // (amount ÷ base). gst_uniform / margin_uniform tell the card whether
+    // to prefix the displayed % with "~".
+    const gst_uniform = gstRates.size <= 1;
+    const gst_pct = gst_uniform
+      ? [...gstRates][0] || 0
+      : subtotal > 0
+      ? (tax_total / subtotal) * 100
+      : 0;
+    const margin_uniform = marginRates.size <= 1;
+    const margin_pct = margin_uniform
+      ? [...marginRates][0] || 0
+      : net > 0
+      ? (margin_amount / net) * 100
+      : 0;
+    // Home-currency grand total → rounded to whole rupees. round_off is the
+    // ± adjustment; the customer total derives from the rounded figure.
+    const grand_inr_raw = net + margin_amount + tax_total;
+    const grand_inr = Math.round(grand_inr_raw);
+    const round_off = round2(grand_inr - grand_inr_raw);
     const rate = num(liveRate) || 1;
     return {
       subtotal,
       product_expenses_total,
       product_rebates_total,
+      expenses_pct_total,
+      expenses_fixed_total,
+      rebates_pct_total,
+      rebates_fixed_total,
       net,
       margin_amount,
+      margin_pct,
+      margin_uniform,
       tax_total,
+      margin_by_rate: marginByRate,
+      gst_pct,
+      gst_uniform,
+      gst_by_rate: gstByRate,
+      grand_inr_raw,
+      round_off,
       grand_inr,
       grand_currency: grand_inr * rate,
       rate,
@@ -613,20 +639,18 @@ const QuotationWizard = () => {
     customerOptions,
     customerAddressOptions,
     currencyOptions,
-    productOptions,
+    productOptions: allProductOptions,
     allProductOptions,
-    categoryOptions,
-    allCategoryOptions,
     expenseOptions,
     rebateOptions,
-    categoryFilter,
-    setCategoryFilter,
-    showAllCategories,
-    setShowAllCategories,
     leadStore,
     vendorStore,
     productById,
     selectedCurrencyCode,
+    baseCurrencyCode:
+      (currencyStore?.currencyDropdown || []).find((c) => c.is_default)
+        ?.code || "",
+    exchangeRate: num(liveRate) || 1,
     totals,
     onRevertToDraft: () =>
       setValue("status", "draft", { shouldDirty: true }),

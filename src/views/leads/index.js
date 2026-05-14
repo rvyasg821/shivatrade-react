@@ -35,7 +35,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -234,7 +234,7 @@ const LeadList = () => {
           <span
             className="fw-bold text-capitalize"
             ref={(el) => {
-              if (el && canEdit)
+              if (el)
                 el.style.setProperty("color", "#0d6efd", "important");
             }}
           >
@@ -243,16 +243,12 @@ const LeadList = () => {
         );
         return (
           <div className="py-1">
-            {canEdit ? (
-              <Link
-                to={`${appsRoot}/leads/edit/${row?._id || ""}`}
-                style={{ textDecoration: "none" }}
-              >
-                {nameNode}
-              </Link>
-            ) : (
-              nameNode
-            )}
+            <Link
+              to={`${appsRoot}/leads/view/${row?._id || ""}`}
+              style={{ textDecoration: "none" }}
+            >
+              {nameNode}
+            </Link>
             {row?.contact_name && (
               <div className="text-capitalize small">{row.contact_name}</div>
             )}
@@ -310,12 +306,42 @@ const LeadList = () => {
           : "-",
     },
     {
+      name: t("Last Activity"),
+      sortable: false,
+      selector: (row) => {
+        const iso = row?.last_activity_at;
+        if (!iso) return <span className="text-muted">-</span>;
+        const d = new Date(iso);
+        const s = Math.floor((Date.now() - d.getTime()) / 1000);
+        let label;
+        if (s < 60) label = `${s}s ago`;
+        else if (s < 3600) label = `${Math.floor(s / 60)}m ago`;
+        else if (s < 86400) label = `${Math.floor(s / 3600)}h ago`;
+        else if (s < 2592000) label = `${Math.floor(s / 86400)}d ago`;
+        else label = d.toLocaleDateString();
+        const openStatus =
+          row?.status !== "won" && row?.status !== "lost";
+        const stale = openStatus && s > 7 * 86400;
+        return (
+          <span
+            className={stale ? "fw-bold" : ""}
+            ref={(el) => {
+              if (el && stale)
+                el.style.setProperty("color", "#dc3545", "important");
+            }}
+          >
+            {label}
+          </span>
+        );
+      },
+    },
+    {
       name: t("Follow-up"),
       sortField: "follow_up_date",
       sortable: true,
       selector: (row) => {
         const raw = (row?.follow_up_date || "").slice(0, 10);
-        if (!raw) return <span className="text-muted">—</span>;
+        if (!raw) return <span className="text-muted">-</span>;
         const today = new Date().toISOString().slice(0, 10);
         const open = row?.status !== "won" && row?.status !== "lost";
         const overdue = open && raw < today;
@@ -337,12 +363,25 @@ const LeadList = () => {
     },
   ];
 
-  if (canEdit || canDelete) {
+  {
     columns.push({
       name: t("Action"),
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          <Link
+            className="me-50"
+            id={`lead-view-tooltip-${row?._id || ""}`}
+            to={`${appsRoot}/leads/view/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`lead-view-tooltip-${row?._id || ""}`}
+            >
+              {t("View")}
+            </UncontrolledTooltip>
+            <Eye size={20} />
+          </Link>
           {canEdit && row?.status !== "lost" && (
             <>
               <FileText
@@ -424,7 +463,7 @@ const LeadList = () => {
                 </UncontrolledTooltip>
               </>
             )}
-          {/* "Create Quotation" action moved to lead edit page only — keeps
+          {/* "Create Quotation" action moved to lead edit page only - keeps
               the listing focused on lead-level actions and avoids accidental
               recreation when a quotation already exists. */}
           {canDelete && (

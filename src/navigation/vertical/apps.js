@@ -77,8 +77,6 @@ import {
   grnModuleSlug,
   nonComplianceModuleSlug,
   containerStuffingModuleSlug,
-  // Finance
-  financeGroupSlug,
   invoicesModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
@@ -162,6 +160,15 @@ const navigationItems = [
         title: rolePermissionName[purchaseOrdersModuleSlug],
         icon: <FileText size={20} />,
         navLink: '',
+        companyOnly: true,
+      },
+      {
+        id: invoicesModuleSlug,
+        title: rolePermissionName[invoicesModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: '',
+        // permissionId: invoicesModuleSlug,
+        // resource: invoicesModuleSlug,
         companyOnly: true,
       },
     ],
@@ -278,23 +285,6 @@ const navigationItems = [
   //     },
   //   ],
   // },
-
-  // Finance
-  {
-    id: financeGroupSlug,
-    title: 'Invoices',
-    icon: <DollarSign size={20} />,
-    companyOnly: true,
-    children: [
-      {
-        id: invoicesModuleSlug,
-        title: rolePermissionName[invoicesModuleSlug],
-        icon: <FileText size={20} />,
-        navLink: '',
-        companyOnly: true,
-      },
-    ],
-  },
 
   // People group (Employees + HRM tools)
   {
