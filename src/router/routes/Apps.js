@@ -61,6 +61,8 @@ const EditPriceList = lazy(() => import('@src/views/price-list/add'));
 const QuotationList = lazy(() => import('@src/views/quotations'));
 const AddQuotation = lazy(() => import('@src/views/quotations/add'));
 const EditQuotation = lazy(() => import('@src/views/quotations/add'));
+const ViewQuotation = lazy(() => import('@src/views/quotations/view'));
+const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
 const PfiList = lazy(() => import('@src/views/pfi'));
 const AddPfi = lazy(() => import('@src/views/pfi/add'));
 const EditPfi = lazy(() => import('@src/views/pfi/add'));
@@ -112,20 +114,20 @@ const AssessmentReportDetail = lazy(() => import('@src/views/assessmentforms/Ass
 
 const Payment = lazy(() => import('@src/views/payment/'));
 
-// HRM — Holiday Calendar
+// HRM - Holiday Calendar
 const HolidayCalendarList = lazy(() => import('@src/views/holiday-calendar'));
 const AddHolidayCalendar = lazy(() => import('@src/views/holiday-calendar/add'));
 
-// HRM — Documents
+// HRM - Documents
 const DocumentList = lazy(() => import('@src/views/documents'));
 const DocumentForm = lazy(() => import('@src/views/documents/add'));
 
-// HRM — Leave Management
+// HRM - Leave Management
 const LeaveHome = lazy(() => import('@src/views/leave'));
 const LeaveAdminView = lazy(() => import('@src/views/leave/admin'));
 const LeaveRequestForm = lazy(() => import('@src/views/leave/request-form'));
 
-// HRM — Contracts
+// HRM - Contracts
 const ContractList = lazy(() => import('@src/views/contracts'));
 const ContractTemplateList = lazy(() => import('@src/views/contracts/templates'));
 const ContractTemplateBuilder = lazy(() => import('@src/views/contracts/templates/add'));
@@ -133,11 +135,11 @@ const IssueContract = lazy(() => import('@src/views/contracts/issue'));
 const ContractView = lazy(() => import('@src/views/contracts/view'));
 const ContractSign = lazy(() => import('@src/views/contracts/sign'));
 
-// HRM — Attendance
+// HRM - Attendance
 const AttendancePage = lazy(() => import('@src/views/attendance'));
 const AttendanceAdminPage = lazy(() => import('@src/views/attendance/admin'));
 
-// HRM — Shift / Rota
+// HRM - Shift / Rota
 const ShiftPage = lazy(() => import('@src/views/shift'));
 const ShiftAdminPage = lazy(() => import('@src/views/shift/admin'));
 
@@ -602,6 +604,31 @@ const AppRoutes = [
     },
   },
   {
+    path: `${appsRoot}/quotations/view/:id`,
+    element: <ViewQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/preview/:id`,
+    element: <QuotationPublicView />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+      layout: 'blank',
+    },
+  },
+  {
+    path: '/q/:token',
+    element: <QuotationPublicView />,
+    meta: {
+      publicRoute: true,
+      layout: 'blank',
+    },
+  },
+  {
     path: `${appsRoot}/pfi`,
     element: <PfiList />,
     meta: {
@@ -800,7 +827,7 @@ const AppRoutes = [
     // },
   },
 
-  // HRM — Holiday Calendar
+  // HRM - Holiday Calendar
   {
     path: `${appsRoot}/holiday-calendar`,
     element: <HolidayCalendarList />,
@@ -829,7 +856,7 @@ const AppRoutes = [
     },
   },
 
-  // HRM — Leave Management
+  // HRM - Leave Management
   {
     path: `${appsRoot}/leave`,
     element: <LeaveHome />,
@@ -846,7 +873,7 @@ const AppRoutes = [
     meta: { permissionId: 'leave', action: 'list', toolSlug: 'hrm-leave' },
   },
 
-  // HRM — Contracts
+  // HRM - Contracts
   {
     path: `${appsRoot}/contracts`,
     element: <ContractList />,
@@ -883,7 +910,7 @@ const AppRoutes = [
     meta: { permissionId: 'contract', action: 'view', toolSlug: 'hrm-contracts' },
   },
 
-  // HRM — Documents
+  // HRM - Documents
   {
     path: `${appsRoot}/documents`,
     element: <DocumentList />,
@@ -905,26 +932,26 @@ const AppRoutes = [
     meta: { permissionId: 'document', action: 'view', toolSlug: 'hrm-documents' },
   },
 
-  // Attendance — Employee
+  // Attendance - Employee
   {
     path: `${appsRoot}/attendance`,
     element: <AttendancePage />,
     meta: { permissionId: 'attendance', action: 'list', toolSlug: 'hrm-attendance' },
   },
-  // Attendance — Admin
+  // Attendance - Admin
   {
     path: `${appsRoot}/attendance/admin`,
     element: <AttendanceAdminPage />,
     meta: { permissionId: 'attendance', action: 'admin', toolSlug: 'hrm-attendance' },
   },
 
-  // Shift — Employee
+  // Shift - Employee
   {
     path: `${appsRoot}/shifts`,
     element: <ShiftPage />,
     meta: { permissionId: 'shift', action: 'list', toolSlug: 'hrm-shift-rota' },
   },
-  // Shift — Admin
+  // Shift - Admin
   {
     path: `${appsRoot}/shifts/admin`,
     element: <ShiftAdminPage />,
@@ -948,7 +975,7 @@ const AppRoutes = [
     meta: { permissionId: 'compliance', action: 'list', toolSlug: 'hrm-compliance' },
   },
 
-  // Message Logs (single component, three routes — channel inferred from URL path)
+  // Message Logs (single component, three routes - channel inferred from URL path)
   {
     path: `${appsRoot}/logs/email`,
     element: <MessageLogList />,

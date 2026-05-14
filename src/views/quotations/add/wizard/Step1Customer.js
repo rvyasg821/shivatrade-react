@@ -326,7 +326,7 @@ const Step1Customer = ({
                         ) : null}
                       </span>
                       <a
-                        href={`${appsRoot}/leads/edit/${watchedLeadId}`}
+                        href={`${appsRoot}/leads/view/${watchedLeadId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title={t("Open Lead in new tab")}

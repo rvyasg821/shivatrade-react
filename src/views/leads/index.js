@@ -382,7 +382,12 @@ const LeadList = () => {
             </UncontrolledTooltip>
             <Eye size={20} />
           </Link>
-          {canEdit && row?.status !== "lost" && (
+          {/* List shortcut for the FIRST quotation only. Once a lead has
+              quotations the list shows just "View Quotations"; create more
+              from the lead detail / quotation module. */}
+          {canEdit &&
+            row?.status !== "lost" &&
+            !row?.quotations_count && (
             <>
               <FileText
                 size={20}
