@@ -191,6 +191,9 @@ export const API_ENDPOINTS = {
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
     byProduct: `/admin/price-list/by-product`,
+    import: `/admin/price-list/import`,
+    export: `/admin/price-list/export`,
+    sampleExcel: `/admin/price-list/sample-excel`,
   },
   quotations: {
     list: `/admin/quotation/list`,

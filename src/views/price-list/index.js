@@ -32,10 +32,15 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+
+// ** Import/Export
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 
 const PriceListView = () => {
   const { t } = useTranslation();
@@ -56,6 +61,8 @@ const PriceListView = () => {
   const [searchInput, setSearchInput] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
   const [productFilter, setProductFilter] = useState("");
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleList = useCallback(
     (
@@ -101,6 +108,25 @@ const PriceListView = () => {
   };
 
   const handleSearch = (value) => setSearchInput(value);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.priceList.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `price-list-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export price list"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
@@ -301,7 +327,7 @@ const PriceListView = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="7" md="7">
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -347,15 +373,34 @@ const PriceListView = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-wrap">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/price-list/add`)}
+                    color="secondary"
+                    outline
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    {t("Add Price")} <PlusCircle size={16} />
+                    {t("Export")} <Download size={16} />
                   </Button>
-                )}
+                  {(canAdd || canEdit) && (
+                    <Button
+                      color="secondary"
+                      outline
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={16} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/price-list/add`)}
+                    >
+                      {t("Add Price")} <PlusCircle size={16} />
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -376,6 +421,12 @@ const PriceListView = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleList()}
+      />
     </Fragment>
   );
 };
