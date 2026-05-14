@@ -40,7 +40,7 @@ import { appsRoot } from "@constant/defaultValues";
 import { initPfiItem, initPfiLineItem } from "@constant/reduxConstant";
 import { CUSTOMER_ADDRESS_TYPES } from "@constant/options";
 
-import { num, round2 } from "@src/views/_shared/sales-doc/_helpers";
+import { num, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
@@ -282,16 +282,12 @@ const PfiWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
-  // Save keeps you on the current step. After fresh create, silently swap
-  // URL to /edit/:newId so subsequent saves are PUTs (component preserved).
+  // Save completes the wizard → return to the listing.
   useEffect(() => {
     if (store?.actionFlag === "PFI_CRTD" || store?.actionFlag === "PFI_UPDT") {
       Notification("Success", store?.success || t("Saved"), "success");
-      const newId = store?.pfiItem?._id;
-      if (store.actionFlag === "PFI_CRTD" && newId && !id) {
-        navigate(`${appsRoot}/pfi/edit/${newId}`, { replace: true });
-      }
       dispatch(cleanPfiMessage());
+      navigate(`${appsRoot}/pfi`, { replace: true });
     }
     if (store?.error && !submitting) {
       Notification("Error", store.error, "warning");
@@ -362,123 +358,11 @@ const PfiWizard = () => {
     return m;
   }, [productStore?.productDropdown]);
 
-  // Costing engine.
-  const totals = useMemo(() => {
-    let subtotal = 0;
-    let tax_total = 0;
-    let product_rebates_total = 0;
-    let product_expenses_total = 0;
-    // Document-wide buckets - % type vs fixed type, summed across all lines.
-    // No combined rate here: each line has its own taxable base.
-    let rebates_pct_total = 0;
-    let rebates_fixed_total = 0;
-    let expenses_pct_total = 0;
-    let expenses_fixed_total = 0;
-    let line_margin_total = 0;
-    // Track distinct GST / margin rates so the costing card can show an
-    // exact rate when uniform, or a blended (~) rate when lines differ.
-    const gstRates = new Set();
-    const marginRates = new Set();
-    // GST / Margin amount per distinct rate - powers the per-rate sub-lines
-    // on the costing card when lines carry mixed rates.
-    const gstByRate = {};
-    const marginByRate = {};
-    (liveLines || []).forEach((l) => {
-      const qty = num(l?.qty);
-      const price = num(l?.unit_price);
-      const disc = num(l?.discount_pct);
-      const taxPct = num(l?.tax_pct);
-      const lineNet = qty * price * (1 - disc / 100);
-      subtotal += lineNet;
-      const lineTax = lineNet * (taxPct / 100);
-      tax_total += lineTax;
-      if (lineNet > 0) {
-        gstRates.add(taxPct);
-        marginRates.add(num(l?.margin_pct));
-        gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
-      }
-
-      let lineProdReb = 0;
-      let lineProdExp = 0;
-      for (const r of l?.product_rebates_snapshot || []) {
-        if (r.type === "fixed") {
-          rebates_fixed_total += num(r.pct);
-          lineProdReb += num(r.pct);
-        } else {
-          const amt = (lineNet * num(r.pct)) / 100;
-          rebates_pct_total += amt;
-          lineProdReb += amt;
-        }
-      }
-      for (const e of l?.product_expenses_snapshot || []) {
-        if (e.type === "percent") {
-          const amt = (lineNet * num(e.value)) / 100;
-          expenses_pct_total += amt;
-          lineProdExp += amt;
-        } else {
-          expenses_fixed_total += num(e.value);
-          lineProdExp += num(e.value);
-        }
-      }
-      product_rebates_total += lineProdReb;
-      product_expenses_total += lineProdExp;
-
-      const lineMarginPct = num(l?.margin_pct);
-      const lineMargin =
-        (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
-      line_margin_total += lineMargin;
-      if (lineNet > 0) {
-        marginByRate[lineMarginPct] =
-          (marginByRate[lineMarginPct] || 0) + lineMargin;
-      }
-    });
-    const net = subtotal + product_expenses_total - product_rebates_total;
-    const margin_amount = line_margin_total;
-    // Effective rates: exact when all lines share one rate, else blended
-    // (amount ÷ base). gst_uniform / margin_uniform tell the card whether
-    // to prefix the displayed % with "~".
-    const gst_uniform = gstRates.size <= 1;
-    const gst_pct = gst_uniform
-      ? [...gstRates][0] || 0
-      : subtotal > 0
-      ? (tax_total / subtotal) * 100
-      : 0;
-    const margin_uniform = marginRates.size <= 1;
-    const margin_pct = margin_uniform
-      ? [...marginRates][0] || 0
-      : net > 0
-      ? (margin_amount / net) * 100
-      : 0;
-    // Home-currency grand total → rounded to whole rupees. round_off is the
-    // ± adjustment; the customer total derives from the rounded figure.
-    const grand_inr_raw = net + margin_amount + tax_total;
-    const grand_inr = Math.round(grand_inr_raw);
-    const round_off = round2(grand_inr - grand_inr_raw);
-    const rate = num(liveRate) || 1;
-    return {
-      subtotal,
-      product_expenses_total,
-      product_rebates_total,
-      expenses_pct_total,
-      expenses_fixed_total,
-      rebates_pct_total,
-      rebates_fixed_total,
-      net,
-      margin_amount,
-      margin_pct,
-      margin_uniform,
-      tax_total,
-      margin_by_rate: marginByRate,
-      gst_pct,
-      gst_uniform,
-      gst_by_rate: gstByRate,
-      grand_inr_raw,
-      round_off,
-      grand_inr,
-      grand_currency: grand_inr * rate,
-      rate,
-    };
-  }, [liveLines, liveMargin, liveRate]);
+  // Costing engine - shared roll-up, same as the Quotation wizard.
+  const totals = useMemo(
+    () => computeDocTotals(liveLines, liveRate),
+    [liveLines, liveMargin, liveRate]
+  );
 
   // Submit.
   const buildPayload = (values) => {
@@ -519,6 +403,7 @@ const PfiWizard = () => {
             rebate_id: r.rebate_id || null,
             code: r.code || "",
             name: r.name || "",
+            type: r.type || "percent",
             pct: String(r.pct ?? "0"),
           })
         ),
@@ -527,7 +412,7 @@ const PfiWizard = () => {
             expense_id: e.expense_id || null,
             code: e.code || "",
             name: e.name || "",
-            type: e.type || "amount",
+            type: e.type || "fixed",
             value: String(e.value ?? "0"),
           })
         ),

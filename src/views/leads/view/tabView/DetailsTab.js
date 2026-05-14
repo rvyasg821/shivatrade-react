@@ -11,7 +11,7 @@ const Field = ({ label, value }) => (
   <Col md="6" className="mb-1">
     <div className="text-muted small">{label}</div>
     <div className="text-break" style={{ overflowWrap: "anywhere" }}>
-      {value || "—"}
+      {value || "-"}
     </div>
   </Col>
 );
@@ -55,7 +55,7 @@ const DetailsTab = () => {
             className="text-break"
             style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}
           >
-            {addressLines || "—"}
+            {addressLines || "-"}
           </div>
         </Col>
       </Row>
@@ -85,7 +85,7 @@ const DetailsTab = () => {
             className="text-break"
             style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}
           >
-            {l?.description || "—"}
+            {l?.description || "-"}
           </div>
         </Col>
       </Row>

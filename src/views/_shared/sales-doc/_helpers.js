@@ -100,6 +100,129 @@ export const computeLineCosting = (line) => {
 };
 
 /**
+ * Document-level costing roll-up - the `totals` shape consumed by
+ * SalesDocCostingCard. Single source of truth for both the Quotation /
+ * PFI wizards (live form lines) and their detail pages (saved lines).
+ * Works on any line array with qty / unit_price / discount_pct / tax_pct /
+ * margin_pct / product_rebates_snapshot / product_expenses_snapshot.
+ */
+export const computeDocTotals = (lines, exchangeRate) => {
+  let subtotal = 0;
+  let tax_total = 0;
+  let product_rebates_total = 0;
+  let product_expenses_total = 0;
+  let rebates_pct_total = 0;
+  let rebates_fixed_total = 0;
+  let expenses_pct_total = 0;
+  let expenses_fixed_total = 0;
+  let line_margin_total = 0;
+  let gross_total = 0;
+  let discount_total = 0;
+  const gstRates = new Set();
+  const marginRates = new Set();
+  const gstByRate = {};
+  const marginByRate = {};
+
+  (lines || []).forEach((l) => {
+    const qty = num(l?.qty);
+    const price = num(l?.unit_price);
+    const disc = num(l?.discount_pct);
+    const taxPct = num(l?.tax_pct);
+    const lineGross = qty * price;
+    const lineNet = lineGross * (1 - disc / 100);
+    gross_total += lineGross;
+    discount_total += lineGross - lineNet;
+    subtotal += lineNet;
+    const lineTax = lineNet * (taxPct / 100);
+    tax_total += lineTax;
+    if (lineNet > 0) {
+      gstRates.add(taxPct);
+      marginRates.add(num(l?.margin_pct));
+      gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
+    }
+
+    let lineProdReb = 0;
+    let lineProdExp = 0;
+    for (const r of l?.product_rebates_snapshot || []) {
+      if (r.type === "fixed") {
+        rebates_fixed_total += num(r.pct);
+        lineProdReb += num(r.pct);
+      } else {
+        const amt = (lineNet * num(r.pct)) / 100;
+        rebates_pct_total += amt;
+        lineProdReb += amt;
+      }
+    }
+    for (const e of l?.product_expenses_snapshot || []) {
+      if (e.type === "percent") {
+        const amt = (lineNet * num(e.value)) / 100;
+        expenses_pct_total += amt;
+        lineProdExp += amt;
+      } else {
+        expenses_fixed_total += num(e.value);
+        lineProdExp += num(e.value);
+      }
+    }
+    product_rebates_total += lineProdReb;
+    product_expenses_total += lineProdExp;
+
+    const lineMarginPct = num(l?.margin_pct);
+    const lineMargin =
+      (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
+    line_margin_total += lineMargin;
+    if (lineNet > 0) {
+      marginByRate[lineMarginPct] =
+        (marginByRate[lineMarginPct] || 0) + lineMargin;
+    }
+  });
+
+  const net = subtotal + product_expenses_total - product_rebates_total;
+  const margin_amount = line_margin_total;
+  const gst_uniform = gstRates.size <= 1;
+  const gst_pct = gst_uniform
+    ? [...gstRates][0] || 0
+    : subtotal > 0
+    ? (tax_total / subtotal) * 100
+    : 0;
+  const margin_uniform = marginRates.size <= 1;
+  const margin_pct = margin_uniform
+    ? [...marginRates][0] || 0
+    : net > 0
+    ? (margin_amount / net) * 100
+    : 0;
+  const grand_inr_raw = net + margin_amount + tax_total;
+  const grand_inr = Math.round(grand_inr_raw);
+  const round_off = round2(grand_inr - grand_inr_raw);
+  const rate = num(exchangeRate) || 1;
+
+  return {
+    gross_total,
+    discount_total,
+    subtotal,
+    product_expenses_total,
+    product_rebates_total,
+    expenses_pct_total,
+    expenses_fixed_total,
+    rebates_pct_total,
+    rebates_fixed_total,
+    net,
+    margin_amount,
+    margin_pct,
+    margin_uniform,
+    tax_total,
+    margin_by_rate: marginByRate,
+    gst_pct,
+    gst_uniform,
+    gst_by_rate: gstByRate,
+    grand_inr_raw,
+    round_off,
+    grand_inr,
+    grand_currency: grand_inr * rate,
+    rate,
+  };
+};
+
+/**
  * Effective amount for an expense row given the current subtotal.
  *   master-linked & !is_overridden  → derive from rule (flat or % of subtotal)
  *   else                            → trust stored amount (override or ad-hoc)

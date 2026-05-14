@@ -41,7 +41,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, FileText } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, FileText } from "react-feather";
 
 // ** PFI conversion
 import { createPfiFromQuotation } from "../pfi/store";
@@ -246,19 +246,14 @@ const QuotationView = () => {
       name: t("Quotation #"),
       sortField: "voucher_no",
       sortable: false,
-      selector: (row) => {
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/quotations/edit/${row?._id || ""}`}
-              className="text-wrap"
-            >
-              {row?.voucher_no || "-"}
-            </Link>
-          );
-        }
-        return <span className="text-wrap">{row?.voucher_no || "-"}</span>;
-      },
+      selector: (row) => (
+        <Link
+          to={`${appsRoot}/quotations/view/${row?._id || ""}`}
+          className="text-wrap"
+        >
+          {row?.voucher_no || "-"}
+        </Link>
+      ),
     },
     {
       name: t("Company"),
@@ -373,6 +368,19 @@ const QuotationView = () => {
         const isApproved = row?.status === "approved";
         return (
           <div className="d-flex column-action align-items-center table-icon">
+            <Link
+              className="me-50"
+              id={`qt-view-${row?._id || ""}`}
+              to={`${appsRoot}/quotations/view/${row?._id || ""}`}
+            >
+              <UncontrolledTooltip
+                placement="top"
+                target={`qt-view-${row?._id || ""}`}
+              >
+                {t("View")}
+              </UncontrolledTooltip>
+              <Eye size={20} />
+            </Link>
             {canEdit && (
               <Link
                 className="me-50"

@@ -201,6 +201,11 @@ export const API_ENDPOINTS = {
     create: `/admin/quotation/create`,
     update: `/admin/quotation/update`,
     delete: `/admin/quotation/delete`,
+    publish: `/admin/quotation/publish`,
+    rotateToken: `/admin/quotation/rotate-token`,
+    unpublish: `/admin/quotation/unpublish`,
+    publicPreview: `/admin/quotation/public-preview`,
+    public: `/public/quotation`,
   },
   pfis: {
     list: `/admin/pfi/list`,
