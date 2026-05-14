@@ -595,7 +595,27 @@ const CustomerForm = () => {
                               type="checkbox"
                               id={`addr-default-${idx}`}
                               checked={!!field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                field.onChange(checked);
+                                if (!checked) return;
+                                // Only one default allowed per type.
+                                // Uncheck other rows with the same type.
+                                const myType = watch(
+                                  `addresses.${idx}.type`
+                                );
+                                (addressesField.fields || []).forEach((_a, i) => {
+                                  if (i === idx) return;
+                                  const t = watch(`addresses.${i}.type`);
+                                  if (t === myType) {
+                                    setValue(
+                                      `addresses.${i}.is_default`,
+                                      false,
+                                      { shouldDirty: true }
+                                    );
+                                  }
+                                });
+                              }}
                             />
                           )}
                         />

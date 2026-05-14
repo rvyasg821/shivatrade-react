@@ -33,6 +33,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import DateInput from "@components/date-input";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -73,7 +74,7 @@ const QuotationView = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Optional URL filter — `?lead_id=<uuid>` scopes the listing to a lead.
+  // Optional URL filter - `?lead_id=<uuid>` scopes the listing to a lead.
   // The lead's display name is passed via router state from the source page
   // (Lead edit "View Quotations" button) so we don't need an extra fetch.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -505,18 +506,18 @@ const QuotationView = () => {
                     />
                   </Col>
                   <Col sm="6" md="2" className="mb-2 mb-md-0">
-                    <Input
-                      type="date"
+                    <DateInput
+                      id="qt-date-from"
                       value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
+                      onChange={(dates, str, iso) => setDateFrom(iso)}
                       placeholder={t("From")}
                     />
                   </Col>
                   <Col sm="6" md="2" className="mb-2 mb-md-0">
-                    <Input
-                      type="date"
+                    <DateInput
+                      id="qt-date-to"
                       value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
+                      onChange={(dates, str, iso) => setDateTo(iso)}
                       placeholder={t("To")}
                     />
                   </Col>

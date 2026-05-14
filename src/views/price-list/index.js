@@ -212,21 +212,13 @@ const PriceListView = () => {
       ),
     },
     {
-      name: t("Currency"),
+      name: t("Price"),
       sortable: false,
-      selector: (row) => (
-        <span className="text-uppercase">{row?.currency_code || "-"}</span>
-      ),
-    },
-    {
-      name: t("Unit Price"),
-      sortable: false,
-      selector: (row) => formatNumber(row?.unit_price),
-    },
-    {
-      name: t("MOQ"),
-      sortable: false,
-      selector: (row) => row?.moq ?? "-",
+      selector: (row) => {
+        const sym = row?.currency_symbol || row?.currency_code || "";
+        const amt = formatNumber(row?.unit_price);
+        return sym ? `${sym}${amt}` : amt;
+      },
     },
     {
       name: t("Lead Time"),
@@ -255,17 +247,6 @@ const PriceListView = () => {
           <span className="text-muted fst-italic">until {endDate}</span>
         );
       },
-    },
-    {
-      name: t("Primary"),
-      center: true,
-      sortable: false,
-      selector: (row) =>
-        row?.is_primary ? (
-          <Badge color="light-success">{t("Primary")}</Badge>
-        ) : (
-          <span className="text-muted">-</span>
-        ),
     },
   ];
 

@@ -812,7 +812,27 @@ const VendorForm = () => {
                               type="checkbox"
                               id={`vaddr-default-${idx}`}
                               checked={!!field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                field.onChange(checked);
+                                if (!checked) return;
+                                // Only one default allowed per type.
+                                // Uncheck other rows with the same type.
+                                const myType = watch(
+                                  `addresses.${idx}.type`
+                                );
+                                (addressesField.fields || []).forEach((_a, i) => {
+                                  if (i === idx) return;
+                                  const t = watch(`addresses.${i}.type`);
+                                  if (t === myType) {
+                                    setValue(
+                                      `addresses.${i}.is_default`,
+                                      false,
+                                      { shouldDirty: true }
+                                    );
+                                  }
+                                });
+                              }}
                             />
                           )}
                         />
@@ -928,13 +948,24 @@ const VendorForm = () => {
                 <Button
                   type="button" size="sm" color="primary" outline
                   onClick={() => {
-                    const inr =
-                      (currencyStore?.currencyDropdown || []).find(
-                        (c) => c.code === "INR"
-                      ) || (currencyStore?.currencyDropdown || [])[0];
+                    const list = currencyStore?.currencyDropdown || [];
+                    const def =
+                      list.find((c) => c.is_default) ||
+                      list.find((c) => c.code === "INR") ||
+                      list[0];
+                    const currencyId = def?._id || "";
+                    // Auto-mark as default for the currency when no other bank
+                    // row in the form is already flagged default for it.
+                    const existing = banksField.fields || [];
+                    const hasDefaultForCurrency = existing.some((b, i) => {
+                      const cid = watch(`bank_accounts.${i}.currency_id`);
+                      const def = watch(`bank_accounts.${i}.is_default`);
+                      return cid === currencyId && !!def;
+                    });
                     banksField.append({
                       ...initVendorBankAccountItem,
-                      currency_id: inr?._id || "",
+                      currency_id: currencyId,
+                      is_default: !hasDefaultForCurrency,
                     });
                   }}
                 >
@@ -1091,7 +1122,29 @@ const VendorForm = () => {
                               type="checkbox"
                               id={`vbank-default-${idx}`}
                               checked={!!field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                field.onChange(checked);
+                                if (!checked) return;
+                                // Only one default allowed per currency.
+                                // Uncheck other rows with the same currency.
+                                const myCurrency = watch(
+                                  `bank_accounts.${idx}.currency_id`
+                                );
+                                (banksField.fields || []).forEach((_b, i) => {
+                                  if (i === idx) return;
+                                  const cid = watch(
+                                    `bank_accounts.${i}.currency_id`
+                                  );
+                                  if (cid === myCurrency) {
+                                    setValue(
+                                      `bank_accounts.${i}.is_default`,
+                                      false,
+                                      { shouldDirty: true }
+                                    );
+                                  }
+                                });
+                              }}
                             />
                           )}
                         />

@@ -343,6 +343,26 @@ const LeadList = () => {
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          {canEdit && row?.status !== "lost" && (
+            <>
+              <FileText
+                size={20}
+                className="cursor-pointer me-50 text-primary"
+                id={`lead-create-qt-${row?._id || ""}`}
+                onClick={() =>
+                  navigate(
+                    `${appsRoot}/quotations/add?lead_id=${row?._id || ""}`
+                  )
+                }
+              />
+              <UncontrolledTooltip
+                placement="top"
+                target={`lead-create-qt-${row?._id || ""}`}
+              >
+                {t("Create Quotation")}
+              </UncontrolledTooltip>
+            </>
+          )}
           {row?.quotations_count > 0 && (
             <>
               <FileText

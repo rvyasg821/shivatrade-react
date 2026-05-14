@@ -1,6 +1,6 @@
 // ** React Imports
 import { Fragment, useEffect, useMemo, useState, useLayoutEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
@@ -59,6 +59,8 @@ const ProductForm = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  const urlCategoryId = searchParams.get("category_id") || "";
 
   const store = useSelector((state) => state.product);
   const categoryStore = useSelector((state) => state.category);
@@ -93,6 +95,19 @@ const ProductForm = () => {
           .nullable()
           .notRequired()
           .max(50, t("HSN code must be at most 50 characters")),
+        tax_pct: yup
+          .number()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be a number"))
+          .min(0, t("Must be ≥ 0"))
+          .max(100, t("Must be ≤ 100"))
+          .test(
+            "max-2-decimals",
+            t("Up to 2 decimal places only"),
+            (v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(String(v))
+          )
+          .nullable()
+          .notRequired(),
         unit_of_measure: yup.string().nullable().notRequired(),
         // Pricing
         selling_price: yup
@@ -100,6 +115,24 @@ const ProductForm = () => {
           .transform((v, o) => (o === "" || o === null ? undefined : v))
           .typeError(t("Must be a number"))
           .min(0, t("Must be ≥ 0"))
+          .test(
+            "max-2-decimals",
+            t("Up to 2 decimal places only"),
+            (v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(String(v))
+          )
+          .nullable()
+          .notRequired(),
+        margin_pct: yup
+          .number()
+          .transform((v, o) => (o === "" || o === null ? undefined : v))
+          .typeError(t("Must be a number"))
+          .min(0, t("Must be ≥ 0"))
+          .max(100, t("Must be ≤ 100"))
+          .test(
+            "max-2-decimals",
+            t("Up to 2 decimal places only"),
+            (v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(String(v))
+          )
           .nullable()
           .notRequired(),
         currency_id: yup
@@ -231,8 +264,10 @@ const ProductForm = () => {
         packaging_details: p.packaging_details || "",
         quality_parameters: p.quality_parameters || "",
         hsn_code: p.hsn_code || "",
+        tax_pct: p.tax_pct ?? "",
         unit_of_measure: p.unit_of_measure || "",
         selling_price: p.selling_price ?? "",
+        margin_pct: p.margin_pct ?? "",
         currency_id: p.currency_id || "",
         part_no: p.part_no || "",
         pack_size: p.pack_size ?? "",
@@ -262,6 +297,28 @@ const ProductForm = () => {
       navigate(`${appsRoot}/products`);
     }
   }, [store?.actionFlag, store?.success, store?.error]);
+
+  // On create, default the Currency field to the company's default currency
+  // once the dropdown finishes loading. Skip on edit - saved value wins.
+  useEffect(() => {
+    if (isEditMode) return;
+    const list = currencyStore?.currencyDropdown || [];
+    if (!list.length) return;
+    if (watch("currency_id")) return;
+    const def = list.find((c) => c.is_default);
+    if (def?._id) setValue("currency_id", def._id, { shouldDirty: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyStore?.currencyDropdown, isEditMode]);
+
+  // On create, pre-select the category when arriving with ?category_id=<id>
+  // (e.g. clicked "+ Add Product" from a category detail / listing).
+  useEffect(() => {
+    if (isEditMode) return;
+    if (!urlCategoryId) return;
+    if (watch("category_id")) return;
+    setValue("category_id", urlCategoryId, { shouldDirty: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCategoryId, isEditMode]);
 
   const categoryOptions = useMemo(
     () =>
@@ -296,8 +353,10 @@ const ProductForm = () => {
       packaging_details: data.packaging_details?.trim() || undefined,
       quality_parameters: data.quality_parameters?.trim() || undefined,
       hsn_code: data.hsn_code?.trim() || undefined,
+      tax_pct: numOrUndef(data.tax_pct),
       unit_of_measure: data.unit_of_measure || undefined,
       selling_price: numOrUndef(data.selling_price),
+      margin_pct: numOrUndef(data.margin_pct),
       currency_id: data.currency_id || undefined,
       part_no: data.part_no?.trim() || undefined,
       pack_size: numOrUndef(data.pack_size),
@@ -353,6 +412,29 @@ const ProductForm = () => {
             <Form onSubmit={handleSubmit(onSubmit)}>
               <Row>
                 <Col md="6" className="mb-2">
+                  <Label className="form-label" for="name">
+                    {t("Name")} <span className="text-danger">*</span>
+                  </Label>
+                  <Controller
+                    name="name"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="name"
+                        placeholder={t("Product name")}
+                        invalid={!!errors.name}
+                        {...field}
+                      />
+                    )}
+                  />
+                  {errors.name && (
+                    <FormFeedback className="d-block">
+                      {errors.name.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+
+                <Col md="6" className="mb-2">
                   <Label className="form-label" for="code">
                     {t("Code / SKU")} <span className="text-danger">*</span>
                     {codeChecking && (
@@ -386,29 +468,6 @@ const ProductForm = () => {
                   {!errors.code && codeExists && (
                     <FormFeedback className="d-block">
                       {t("This Code / SKU is already in use")}
-                    </FormFeedback>
-                  )}
-                </Col>
-
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="name">
-                    {t("Name")} <span className="text-danger">*</span>
-                  </Label>
-                  <Controller
-                    name="name"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="name"
-                        placeholder={t("Product name")}
-                        invalid={!!errors.name}
-                        {...field}
-                      />
-                    )}
-                  />
-                  {errors.name && (
-                    <FormFeedback className="d-block">
-                      {errors.name.message}
                     </FormFeedback>
                   )}
                 </Col>
@@ -461,24 +520,6 @@ const ProductForm = () => {
                 </Col>
 
                 <Col md="6" className="mb-2">
-                  <Label className="form-label" for="hsn_code">
-                    {t("HSN Code")}
-                  </Label>
-                  <Controller
-                    name="hsn_code"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="hsn_code"
-                        placeholder={t("Optional, for GST")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="6" className="mb-2">
                   <Label className="form-label d-block">
                     {t("Status")} <span className="text-danger">*</span>
                   </Label>
@@ -514,98 +555,57 @@ const ProductForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="description">
-                    {t("Description")}
-                  </Label>
-                  <Controller
-                    name="description"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="description"
-                        type="textarea"
-                        rows="2"
-                        placeholder={t("Optional description")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="specifications">
-                    {t("Specifications")}
-                  </Label>
-                  <Controller
-                    name="specifications"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="specifications"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. Weight: 50kg, Grade: A, Material: Stainless Steel 304"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="packaging_details">
-                    {t("Packaging Details")}
-                  </Label>
-                  <Controller
-                    name="packaging_details"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="packaging_details"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. 25 kg PP bags, 40 bags per pallet, 20 pallets per 20ft container"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="quality_parameters">
-                    {t("Quality Parameters")}
-                  </Label>
-                  <Controller
-                    name="quality_parameters"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="quality_parameters"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. Moisture ≤ 14%, Impurity ≤ 2%, As per ISO 9001"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
               </Row>
 
               {/* ── Pricing ── */}
               <h4 className="mt-3 mb-2">{t("Pricing")}</h4>
               <Row>
                 <Col md="6" className="mb-2">
+                  <Label className="form-label" for="hsn_code">
+                    {t("HSN Code")}
+                  </Label>
+                  <Controller
+                    name="hsn_code"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="hsn_code"
+                        placeholder={t("Optional")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="tax_pct">
+                    {t("GST %")}
+                  </Label>
+                  <Controller
+                    name="tax_pct"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="tax_pct"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        invalid={!!errors.tax_pct}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.tax_pct && (
+                    <FormFeedback className="d-block">
+                      {errors.tax_pct.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="selling_price">
                     {t("Selling Price")}
                   </Label>
@@ -616,7 +616,7 @@ const ProductForm = () => {
                       <Input
                         id="selling_price"
                         type="number"
-                        step="0.0001"
+                        step="0.01"
                         min="0"
                         invalid={!!errors.selling_price}
                         {...field}
@@ -630,7 +630,34 @@ const ProductForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="margin_pct">
+                    {t("Margin %")}
+                  </Label>
+                  <Controller
+                    name="margin_pct"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="margin_pct"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        invalid={!!errors.margin_pct}
+                        placeholder="e.g. 15"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.margin_pct && (
+                    <FormFeedback className="d-block">
+                      {errors.margin_pct.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="currency_id">
                     {t("Currency")}
                     {Number(watch("selling_price")) > 0 ? <> {required}</> : null}
@@ -789,9 +816,97 @@ const ProductForm = () => {
                 </Col>
               </Row>
 
+              <Row>
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="description">
+                    {t("Description")}
+                  </Label>
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="description"
+                        type="textarea"
+                        rows="2"
+                        placeholder={t("Optional description")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="specifications">
+                    {t("Specifications")}
+                  </Label>
+                  <Controller
+                    name="specifications"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="specifications"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. Weight: 50kg, Grade: A, Material: Stainless Steel 304"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="packaging_details">
+                    {t("Packaging Details")}
+                  </Label>
+                  <Controller
+                    name="packaging_details"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="packaging_details"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. 25 kg PP bags, 40 bags per pallet, 20 pallets per 20ft container"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="quality_parameters">
+                    {t("Quality Parameters")}
+                  </Label>
+                  <Controller
+                    name="quality_parameters"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="quality_parameters"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. Moisture ≤ 14%, Impurity ≤ 2%, As per ISO 9001"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+              </Row>
+
               {/* ── Applicable Rebates ── */}
               <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
-                <h4 className="mb-0">{t("Applicable Rebates")}</h4>
+                <h4 className="mb-0">{t("Rebates")}</h4>
                 <Button
                   type="button"
                   size="sm"
@@ -846,7 +961,7 @@ const ProductForm = () => {
                     </Col>
                     <Col md="4" className="mb-2">
                       <Label className="form-label">
-                        {t("Percentage (editable)")}
+                        {t("Percentage")}
                       </Label>
                       <Controller
                         name={`rebates.${idx}.pct`}
@@ -854,7 +969,7 @@ const ProductForm = () => {
                         render={({ field }) => (
                           <Input
                             type="number"
-                            step="0.0001"
+                            step="0.01"
                             min="0"
                             placeholder={
                               selectedRebate
@@ -884,7 +999,7 @@ const ProductForm = () => {
 
               {/* ── Default Expenses ── */}
               <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
-                <h4 className="mb-0">{t("Default Expenses")}</h4>
+                <h4 className="mb-0">{t("Expenses")}</h4>
                 <Button
                   type="button"
                   size="sm"
@@ -942,7 +1057,7 @@ const ProductForm = () => {
                     </Col>
                     <Col md="4" className="mb-2">
                       <Label className="form-label">
-                        {t("Value (editable)")}
+                        {t("Value")}
                       </Label>
                       <Controller
                         name={`expenses.${idx}.value`}
@@ -950,7 +1065,7 @@ const ProductForm = () => {
                         render={({ field }) => (
                           <Input
                             type="number"
-                            step="0.0001"
+                            step="0.01"
                             min="0"
                             placeholder={
                               selectedExpense

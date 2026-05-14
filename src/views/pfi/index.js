@@ -24,6 +24,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import DateInput from "@components/date-input";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -385,18 +386,18 @@ const PfiView = () => {
                     />
                   </Col>
                   <Col sm="6" md="2" className="mb-2 mb-md-0">
-                    <Input
-                      type="date"
+                    <DateInput
+                      id="pfi-date-from"
                       value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
+                      onChange={(dates, str, iso) => setDateFrom(iso)}
                       placeholder={t("From")}
                     />
                   </Col>
                   <Col sm="6" md="2" className="mb-2 mb-md-0">
-                    <Input
-                      type="date"
+                    <DateInput
+                      id="pfi-date-to"
                       value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
+                      onChange={(dates, str, iso) => setDateTo(iso)}
                       placeholder={t("To")}
                     />
                   </Col>

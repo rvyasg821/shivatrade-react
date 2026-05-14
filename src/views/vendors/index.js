@@ -31,7 +31,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -173,49 +173,65 @@ const VendorList = () => {
 
   const columns = [
     {
-      name: t("Company Name"),
+      name: t("Company"),
       sortField: "company_name",
       sortable: true,
+      grow: 2,
       selector: (row) => {
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/vendors/edit/${row?._id || ""}`}
-              className="text-capitalize text-wrap"
-            >
-              {row?.company_name || ""}
-            </Link>
-          );
-        }
+        const phone =
+          row?.primary_contact_country_code?.formatted ||
+          (row?.primary_contact_country_code?.dial_code &&
+          row?.primary_contact_phone
+            ? `${row.primary_contact_country_code.dial_code} ${row.primary_contact_phone}`
+            : row?.primary_contact_phone) ||
+          "";
+        const nameNode = (
+          <span
+            className="fw-bold text-capitalize text-break"
+            style={{ overflowWrap: "anywhere" }}
+            ref={(el) => {
+              if (el && canEdit)
+                el.style.setProperty("color", "#0d6efd", "important");
+            }}
+          >
+            {row?.company_name || "-"}
+          </span>
+        );
         return (
-          <span className="text-wrap text-capitalize">{row?.company_name || ""}</span>
+          <div className="py-1" style={{ minWidth: 0 }}>
+            <Link
+              to={`${appsRoot}/vendors/view/${row?._id || ""}`}
+              style={{ textDecoration: "none" }}
+            >
+              {nameNode}
+            </Link>
+            {row?.primary_contact_name && (
+              <div
+                className="text-capitalize small text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {row.primary_contact_name}
+              </div>
+            )}
+            {row?.primary_contact_email && (
+              <div
+                className="small text-muted text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {row.primary_contact_email}
+              </div>
+            )}
+            {phone && (
+              <div
+                className="small text-muted text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {phone}
+              </div>
+            )}
+          </div>
         );
       },
-    },
-    {
-      name: t("Contact Person"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap text-capitalize">
-          {row?.primary_contact_name || "-"}
-        </span>
-      ),
-    },
-    {
-      name: t("Email"),
-      sortable: false,
-      selector: (row) => <span className="text-wrap">{row?.primary_contact_email || "-"}</span>,
-    },
-    {
-      name: t("Phone"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap">
-          {row?.primary_contact_country_code?.formatted ||
-            row?.primary_contact_phone ||
-            "-"}
-        </span>
-      ),
     },
     {
       name: t("Categories"),
@@ -247,6 +263,19 @@ const VendorList = () => {
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          <Link
+            className="me-50"
+            id={`vendor-view-tooltip-${row?._id || ""}`}
+            to={`${appsRoot}/vendors/view/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`vendor-view-tooltip-${row?._id || ""}`}
+            >
+              {t("View")}
+            </UncontrolledTooltip>
+            <Eye size={20} />
+          </Link>
           {canEdit && (
             <Link
               className="me-50"

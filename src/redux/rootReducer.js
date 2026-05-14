@@ -26,6 +26,7 @@ import product from "@src/views/products/store";
 import vendor from "@src/views/vendors/store";
 import customer from "@src/views/customers/store";
 import lead from "@src/views/leads/store";
+import leadActivity from "@src/views/leads/activityStore";
 import rebate from "@src/views/rebates/store";
 import expense from "@src/views/expenses/store";
 import currency from "@src/views/currencies/store";
@@ -104,6 +105,7 @@ const rootReducer = {
   vendor,
   customer,
   lead,
+  leadActivity,
   rebate,
   expense,
   currency,

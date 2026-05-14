@@ -16,7 +16,6 @@ import { Edit, Trash2, PlusCircle } from "react-feather";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 
 const TYPE_LABEL = { percent: "%", fixed: "Fixed" };
-const BASE_LABEL = { value: "Line Value", qty: "Per Unit", weight: "Per Kg" };
 
 const ExpenseList = () => {
   const { t } = useTranslation();
@@ -107,14 +106,16 @@ const ExpenseList = () => {
         </Link>
       ) : <span className="text-wrap text-capitalize">{row?.name || ""}</span>,
     },
-    { name: t("Code"), selector: (row) => row?.code || "—" },
-    { name: t("Type"), selector: (row) => TYPE_LABEL[row?.type] || row?.type || "—" },
+    { name: t("Code"), selector: (row) => row?.code || "-" },
+    { name: t("Type"), selector: (row) => TYPE_LABEL[row?.type] || row?.type || "-" },
     {
       name: t("Value"),
-      selector: (row) =>
-        row?.type === "percent" ? `${row.value}%` : row?.value || "—",
+      selector: (row) => {
+        if (row?.value === null || row?.value === undefined || row?.value === "")
+          return "-";
+        return row?.type === "percent" ? `${row.value}%` : row.value;
+      },
     },
-    { name: t("Base"), selector: (row) => BASE_LABEL[row?.base] || row?.base || "—" },
     {
       name: t("Status"),
       selector: (row) => (

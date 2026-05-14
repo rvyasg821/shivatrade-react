@@ -178,9 +178,11 @@ const initProductItem = {
   packaging_details: "",
   quality_parameters: "",
   hsn_code: "",
+  tax_pct: "",
   unit_of_measure: "",
   // Pricing
   selling_price: "",
+  margin_pct: "",
   currency_id: "",
   // Identification (extra)
   part_no: "",
@@ -348,13 +350,10 @@ const initPriceListItem = {
   currency_id: "",
   unit_price: "",
   moq: 1,
-  tax_pct: "0",
   discount_pct: "0",
-  margin_pct: "0",
   lead_time_days: "",
   effective_date: new Date().toISOString().slice(0, 10),
   valid_until: "",
-  is_primary: false,
   notes: "",
 };
 
@@ -392,7 +391,7 @@ const initQuotationItem = {
   customer_address_id: "",
   quotation_date: new Date().toISOString().slice(0, 10),
   valid_until: "",
-  currency_id: "",
+  currency_code: "",
   exchange_rate: "1",
   payment_terms: "",
   delivery_terms: "",
@@ -413,7 +412,7 @@ const initQuotationItem = {
   rebates: [],
 };
 
-// PFI shares the same line/expense/rebate row shapes as Quotation — the
+// PFI shares the same line/expense/rebate row shapes as Quotation - the
 // shared SalesDoc components accept these as props.
 const initPfiLineItem = { ...initQuotationLineItem };
 const initPfiExpenseItem = { ...initQuotationExpenseItem };
@@ -429,7 +428,7 @@ const initPfiItem = {
   customer_address_id: "",
   pfi_date: new Date().toISOString().slice(0, 10),
   valid_until: "",
-  currency_id: "",
+  currency_code: "",
   exchange_rate: "1",
   payment_terms: "",
   delivery_terms: "",
@@ -499,9 +498,8 @@ const initRebateItem = {
   _id: "",
   name: "",
   code: "",
+  type: "percent",
   pct: "",
-  applies_on: "total_after_expenses",
-  description: "",
   is_active: true,
   status: "active",
 };
@@ -512,8 +510,6 @@ const initExpenseItem = {
   code: "",
   type: "percent",
   value: "",
-  base: "value",
-  description: "",
   is_active: true,
   status: "active",
 };

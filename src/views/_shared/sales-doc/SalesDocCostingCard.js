@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { fmt, num } from "./_helpers";
 
 /**
- * Sticky right-column costing card — shared by Quotation / PFI / PO forms.
+ * Sticky right-column costing card - shared by Quotation / PFI / PO forms.
  * Pure display: all math happens in the parent. Pass `totals` from the
  * parent's costing engine (mirrors backend recompute).
  */
@@ -42,7 +42,7 @@ const SalesDocCostingCard = ({ totals, currencyCode }) => {
           <em>({t("sum of per-line margins")})</em>
         </div>
         <div className="d-flex justify-content-between mb-1">
-          <span>+ {t("Tax")}</span>
+          <span>+ {t("GST")}</span>
           <strong>{fmt(totals.tax_total)}</strong>
         </div>
         <hr className="my-2" />

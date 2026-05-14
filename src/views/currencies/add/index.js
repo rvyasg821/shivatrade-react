@@ -47,7 +47,8 @@ import { ArrowLeft, Plus } from "react-feather";
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initCurrencyItem } from "@constant/reduxConstant";
-import { STATUS_OPTIONS } from "@constant/options";
+import { STATUS_OPTIONS, EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
+import DateInput from "@components/date-input";
 
 const CurrencyForm = () => {
   const { id } = useParams();
@@ -94,7 +95,7 @@ const CurrencyForm = () => {
 
   // ── Exchange rate sub-form state ──
   const [rateFormState, setRateFormState] = useState({
-    to_currency_id: "",
+    to_currency_code: "",
     rate: "",
     effective_date: new Date().toISOString().slice(0, 10),
   });
@@ -136,7 +137,7 @@ const CurrencyForm = () => {
       // Refresh rate history; reset sub-form
       dispatch(getExchangeRates(id));
       setRateFormState({
-        to_currency_id: "",
+        to_currency_code: "",
         rate: "",
         effective_date: new Date().toISOString().slice(0, 10),
       });
@@ -163,7 +164,7 @@ const CurrencyForm = () => {
 
   const onAddRate = () => {
     setRateFormError("");
-    if (!rateFormState.to_currency_id) {
+    if (!rateFormState.to_currency_code) {
       setRateFormError(t("Please select a To currency"));
       return;
     }
@@ -179,7 +180,7 @@ const CurrencyForm = () => {
       addExchangeRate({
         currencyId: id,
         data: {
-          to_currency_id: rateFormState.to_currency_id,
+          to_currency_code: rateFormState.to_currency_code,
           rate: String(rateFormState.rate),
           effective_date: rateFormState.effective_date,
         },
@@ -187,14 +188,28 @@ const CurrencyForm = () => {
     );
   };
 
+  // Filter the constant list:
+  //   - exclude the currency we're editing (FROM side - no INR→INR rate)
+  //   - exclude any code that already exists as a real currency row (a managed
+  //     currency shouldn't appear as a "rate-target only" option)
+  const currentCode = store?.currencyItem?.code;
+  const existingCodes = useMemo(
+    () =>
+      new Set(
+        (store?.currencyDropdown || [])
+          .map((c) => (c.code || "").toUpperCase())
+          .filter(Boolean)
+      ),
+    [store?.currencyDropdown]
+  );
   const otherCurrencyOptions = useMemo(() => {
-    return (store?.currencyDropdown || [])
-      .filter((c) => c._id !== id)
-      .map((c) => ({ value: c._id, label: `${c.code} — ${c.name}` }));
-  }, [store?.currencyDropdown, id]);
+    return EXCHANGE_TO_CURRENCY_OPTIONS.filter(
+      (o) => o.value !== currentCode && !existingCodes.has(o.value)
+    );
+  }, [currentCode, existingCodes]);
 
   const selectedTo = otherCurrencyOptions.find(
-    (o) => o.value === rateFormState.to_currency_id
+    (o) => o.value === rateFormState.to_currency_code
   );
 
   useEffect(() => {
@@ -393,7 +408,7 @@ const CurrencyForm = () => {
                     onChange={(opt) =>
                       setRateFormState((s) => ({
                         ...s,
-                        to_currency_id: opt ? opt.value : "",
+                        to_currency_code: opt ? opt.value : "",
                       }))
                     }
                   />
@@ -413,13 +428,13 @@ const CurrencyForm = () => {
                 </Col>
                 <Col md="3">
                   <Label className="form-label">{t("Effective Date")}</Label>
-                  <Input
-                    type="date"
-                    value={rateFormState.effective_date}
-                    onChange={(e) =>
+                  <DateInput
+                    id="effective_date"
+                    value={rateFormState.effective_date || ""}
+                    onChange={(dates, str, iso) =>
                       setRateFormState((s) => ({
                         ...s,
-                        effective_date: e.target.value,
+                        effective_date: iso,
                       }))
                     }
                   />
@@ -453,10 +468,10 @@ const CurrencyForm = () => {
                     {rates.map((r) => (
                       <tr key={r._id}>
                         <td className="text-uppercase">
-                          {r.from_currency_code || "—"}
+                          {r.from_currency_code || "-"}
                         </td>
                         <td className="text-uppercase">
-                          {r.to_currency_code || "—"}
+                          {r.to_currency_code || "-"}
                         </td>
                         <td>
                           {r.rate !== null && r.rate !== undefined

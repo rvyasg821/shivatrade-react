@@ -18,10 +18,9 @@ import { ArrowLeft } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { initRebateItem } from "@constant/reduxConstant";
 
-const APPLIES_ON_OPTIONS = [
-  { value: "value", label: "Line Value" },
-  { value: "total_after_expenses", label: "Total after Expenses (DBK pattern)" },
-  { value: "fob", label: "FOB (RODTEP pattern)" },
+const TYPE_OPTIONS = [
+  { value: "percent", label: "Percent (%)" },
+  { value: "fixed", label: "Fixed Amount" },
 ];
 const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
@@ -42,20 +41,25 @@ const RebateForm = () => {
       yup.object().shape({
         name: yup.string().trim().required(t("Name is required")).max(150),
         code: yup.string().trim().required(t("Code is required")).max(30),
+        type: yup.string().required(t("Type is required")),
         pct: yup
           .number()
           .transform((v, o) => (o === "" || o === null ? undefined : v))
           .typeError(t("Must be a number"))
           .min(0, t("Must be ≥ 0"))
-          .required(t("Percentage is required")),
-        applies_on: yup.string().required(t("Required")),
+          .test(
+            "max-2-decimals",
+            t("Up to 2 decimal places only"),
+            (v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(String(v))
+          )
+          .required(t("Value is required")),
         status: yup.string().required(t("Required")),
       }),
     [t]
   );
 
   const {
-    control, handleSubmit, reset,
+    control, handleSubmit, reset, watch,
     formState: { errors, isSubmitting },
   } = useForm({ mode: "all", resolver: yupResolver(schema), defaultValues: initRebateItem });
 
@@ -89,6 +93,8 @@ const RebateForm = () => {
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading()); else dispatch(stopLoading());
   }, [store?.loading]);
+
+  const watchType = watch("type");
 
   const onSubmit = (data) => {
     const { _id: _ignored, ...rest } = data;
@@ -126,28 +132,29 @@ const RebateForm = () => {
                     render={({ field }) => <Input id="code" placeholder="DBK / RODTEP" invalid={!!errors.code} {...field} />} />
                   {errors.code && <FormFeedback>{errors.code.message}</FormFeedback>}
                 </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="pct">{t("Percentage")} {required}</Label>
-                  <Controller name="pct" control={control}
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="type">{t("Type")} {required}</Label>
+                  <Controller name="type" control={control}
                     render={({ field }) => (
-                      <Input id="pct" type="number" step="0.0001" min="0"
-                        invalid={!!errors.pct} {...field} />
-                    )} />
-                  {errors.pct && <FormFeedback>{errors.pct.message}</FormFeedback>}
-                  <small className="text-muted">{t("E.g. 1.43 for DBK, 0.142 for RODTEP")}</small>
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="applies_on">{t("Applies On")} {required}</Label>
-                  <Controller name="applies_on" control={control}
-                    render={({ field }) => (
-                      <Select inputId="applies_on" options={APPLIES_ON_OPTIONS}
-                        value={APPLIES_ON_OPTIONS.find((o) => o.value === field.value) || null}
+                      <Select inputId="type" options={TYPE_OPTIONS}
+                        value={TYPE_OPTIONS.find((o) => o.value === field.value) || null}
                         onChange={(opt) => field.onChange(opt ? opt.value : "")}
                         classNamePrefix="select" />
                     )} />
-                  {errors.applies_on && <FormFeedback className="d-block">{errors.applies_on.message}</FormFeedback>}
+                  {errors.type && <FormFeedback className="d-block">{errors.type.message}</FormFeedback>}
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="pct">
+                    {watchType === "fixed" ? t("Amount") : t("Percentage")} {required}
+                  </Label>
+                  <Controller name="pct" control={control}
+                    render={({ field }) => (
+                      <Input id="pct" type="number" step="0.01" min="0"
+                        invalid={!!errors.pct} {...field} />
+                    )} />
+                  {errors.pct && <FormFeedback>{errors.pct.message}</FormFeedback>}
+                </Col>
+                <Col md="4" className="mb-2">
                   <Label className="form-label d-block">{t("Status")} {required}</Label>
                   <Controller name="status" control={control}
                     render={({ field }) => (
@@ -169,11 +176,6 @@ const RebateForm = () => {
                         ))}
                       </div>
                     )} />
-                </Col>
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="description">{t("Description")}</Label>
-                  <Controller name="description" control={control}
-                    render={({ field }) => <Input id="description" type="textarea" rows="2" {...field} />} />
                 </Col>
               </Row>
               <div className="d-flex justify-content-end mt-3">

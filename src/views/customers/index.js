@@ -30,7 +30,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -167,7 +167,8 @@ const CustomerList = () => {
           "";
         const nameNode = (
           <span
-            className="fw-bold text-capitalize"
+            className="fw-bold text-capitalize text-break"
+            style={{ overflowWrap: "anywhere" }}
             ref={(el) => {
               if (el && canEdit)
                 el.style.setProperty("color", "#0d6efd", "important");
@@ -177,28 +178,37 @@ const CustomerList = () => {
           </span>
         );
         return (
-          <div className="py-1">
-            {canEdit ? (
-              <Link
-                to={`${appsRoot}/customers/edit/${row?._id || ""}`}
-                style={{ textDecoration: "none" }}
-              >
-                {nameNode}
-              </Link>
-            ) : (
-              nameNode
-            )}
+          <div className="py-1" style={{ minWidth: 0 }}>
+            <Link
+              to={`${appsRoot}/customers/view/${row?._id || ""}`}
+              style={{ textDecoration: "none" }}
+            >
+              {nameNode}
+            </Link>
             {row?.primary_contact_name && (
-              <div className="text-capitalize small">
+              <div
+                className="text-capitalize small text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
                 {row.primary_contact_name}
               </div>
             )}
             {row?.primary_contact_email && (
-              <div className="small text-muted">
+              <div
+                className="small text-muted text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
                 {row.primary_contact_email}
               </div>
             )}
-            {phone && <div className="small text-muted">{phone}</div>}
+            {phone && (
+              <div
+                className="small text-muted text-break"
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {phone}
+              </div>
+            )}
           </div>
         );
       },
@@ -227,6 +237,19 @@ const CustomerList = () => {
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          <Link
+            className="me-50"
+            id={`customer-view-tooltip-${row?._id || ""}`}
+            to={`${appsRoot}/customers/view/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`customer-view-tooltip-${row?._id || ""}`}
+            >
+              {t("View")}
+            </UncontrolledTooltip>
+            <Eye size={20} />
+          </Link>
           {canEdit && (
             <Link
               className="me-50"

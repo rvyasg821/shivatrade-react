@@ -5,16 +5,16 @@ import Step2Items from "./Step2Items";
 import Step4Review from "./Step4Review";
 
 /**
- * Step registry — fully data-driven.
+ * Step registry - fully data-driven.
  *
  * Each entry:
- *   key       — stable identifier (used in URL hash / analytics)
- *   label     — header text
- *   icon      — react-feather component
- *   fields    — RHF field paths to validate before allowing forward nav
- *   Component — step body
- *   isVisible — (form) => boolean   conditional steps (always-on if omitted)
- *   canEnter  — (form) => boolean   guard for jumping into this step
+ *   key       - stable identifier (used in URL hash / analytics)
+ *   label     - header text
+ *   icon      - react-feather component
+ *   fields    - RHF field paths to validate before allowing forward nav
+ *   Component - step body
+ *   isVisible - (form) => boolean   conditional steps (always-on if omitted)
+ *   canEnter  - (form) => boolean   guard for jumping into this step
  */
 export const STEPS = [
   {
@@ -26,7 +26,7 @@ export const STEPS = [
       "customer_address_id",
       "quotation_date",
       "valid_until",
-      "currency_id",
+      "currency_code",
       "exchange_rate",
       "payment_terms",
       "delivery_terms",

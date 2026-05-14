@@ -39,11 +39,9 @@
 
 // ─── Calendar Dropdown ───────────────────────────────
 
+// Positioning lives on the portal wrapper (inline style from JS).
+// This rule only styles the visual.
 .date-input-calendar {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 9999;
   width: 280px;
   background: #ffffff;
   border: 1px solid #ddd;

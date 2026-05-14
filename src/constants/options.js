@@ -33,7 +33,7 @@ const COUNTRY_OPTIONS = (() => {
   return india ? [india, ...all.filter((o) => o.value !== "India")] : all;
 })();
 
-// International Commercial Terms (Incoterms 2020) — published by the ICC.
+// International Commercial Terms (Incoterms 2020) - published by the ICC.
 // Each 3-letter code defines who pays freight/insurance and where risk transfers
 // from seller to buyer. Used on Vendor master, Quotation, PFI, PO, etc.
 const INCOTERMS_OPTIONS = [
@@ -70,10 +70,10 @@ const PAYMENT_TERMS_OPTIONS = [
   { value: "DP", label: "DP - Documents Against Payment" },
 ];
 
-// Backwards-compat alias — vendor module still imports the old name.
+// Backwards-compat alias - vendor module still imports the old name.
 const VENDOR_PAYMENT_TERMS_OPTIONS = PAYMENT_TERMS_OPTIONS;
 
-// Backwards-compat alias — keep until vendor module is migrated to the
+// Backwards-compat alias - keep until vendor module is migrated to the
 // universal `INCOTERMS_OPTIONS` symbol.
 const VENDOR_INCOTERMS_OPTIONS = INCOTERMS_OPTIONS;
 
@@ -120,7 +120,7 @@ const PRODUCT_UOM_OPTIONS = [
   { value: "Container", label: "Container", integer: true  },
 ];
 
-// Helper for forms — UOMs that disallow decimals.
+// Helper for forms - UOMs that disallow decimals.
 const UOM_INTEGER_ONLY = new Set(
   PRODUCT_UOM_OPTIONS.filter((u) => u.integer).map((u) => u.value)
 );
@@ -147,7 +147,7 @@ const LEAD_STATUS_OPTIONS = [
   { value: "lost", label: "Lost" },
 ];
 
-// Solid Bootstrap colors — Reactstrap handles text contrast via .badge defaults
+// Solid Bootstrap colors - Reactstrap handles text contrast via .badge defaults
 // (white text on dark backgrounds, dark text on warning).
 const LEAD_STATUS_BADGE_COLOR = {
   new: "secondary",
@@ -176,6 +176,29 @@ const QUOTATION_STATUS_BADGE_COLOR = {
   rejected: "danger",
 };
 
+/**
+ * ISO 4217 codes available as exchange-rate targets on the Currency module.
+ * Kept static (not from the DB) - INR is the only currency stored as a real
+ * row; everything else is a code that exists purely as a rate target.
+ * Edit this list to support more / fewer currencies.
+ */
+const EXCHANGE_TO_CURRENCY_OPTIONS = [
+  { value: "USD", label: "USD - US Dollar", symbol: "$" },
+  { value: "EUR", label: "EUR - Euro", symbol: "€" },
+  { value: "GBP", label: "GBP - Pound Sterling", symbol: "£" },
+  { value: "AED", label: "AED - UAE Dirham", symbol: "د.إ" },
+  // { value: "JPY", label: "JPY - Japanese Yen", symbol: "¥" },
+  // { value: "CNY", label: "CNY - Chinese Yuan", symbol: "¥" },
+  // { value: "AUD", label: "AUD - Australian Dollar", symbol: "A$" },
+  // { value: "CAD", label: "CAD - Canadian Dollar", symbol: "C$" },
+  // { value: "SGD", label: "SGD - Singapore Dollar", symbol: "S$" },
+  // { value: "CHF", label: "CHF - Swiss Franc", symbol: "CHF" },
+  // { value: "HKD", label: "HKD - Hong Kong Dollar", symbol: "HK$" },
+  // { value: "SAR", label: "SAR - Saudi Riyal", symbol: "﷼" },
+  // { value: "KWD", label: "KWD - Kuwaiti Dinar", symbol: "د.ك" },
+  // { value: "QAR", label: "QAR - Qatari Riyal", symbol: "﷼" },
+];
+
 export {
   STATUS_OPTIONS,
   COUNTRY_OPTIONS,
@@ -192,4 +215,5 @@ export {
   LEAD_STATUS_BADGE_COLOR,
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
+  EXCHANGE_TO_CURRENCY_OPTIONS,
 };

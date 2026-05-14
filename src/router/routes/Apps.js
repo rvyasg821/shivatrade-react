@@ -37,9 +37,11 @@ const EditProduct = lazy(() => import('@src/views/products/add'));
 const VendorList = lazy(() => import('@src/views/vendors'));
 const AddVendor = lazy(() => import('@src/views/vendors/add'));
 const EditVendor = lazy(() => import('@src/views/vendors/add'));
+const ViewVendor = lazy(() => import('@src/views/vendors/view'));
 const CustomerList = lazy(() => import('@src/views/customers'));
 const AddCustomer = lazy(() => import('@src/views/customers/add'));
 const EditCustomer = lazy(() => import('@src/views/customers/add'));
+const ViewCustomer = lazy(() => import('@src/views/customers/view'));
 const LeadList = lazy(() => import('@src/views/leads'));
 const AddLead = lazy(() => import('@src/views/leads/add'));
 const EditLead = lazy(() => import('@src/views/leads/add'));
@@ -425,6 +427,14 @@ const AppRoutes = [
     },
   },
   {
+    path: `${appsRoot}/vendors/view/:id`,
+    element: <ViewVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'view',
+    },
+  },
+  {
     path: `${appsRoot}/customers`,
     element: <CustomerList />,
     meta: {
@@ -446,6 +456,14 @@ const AppRoutes = [
     meta: {
       permissionId: customersModuleSlug,
       action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/view/:id`,
+    element: <ViewCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'view',
     },
   },
   {

@@ -22,7 +22,7 @@ import {
   cleanQuotationState,
 } from "../../store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
-import { getCurrencyDropdown } from "../../../currencies/store";
+import { getExchangeRateOptions } from "../../../currencies/store";
 import { getProductDropdown } from "../../../products/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
@@ -87,7 +87,7 @@ const QuotationWizard = () => {
             then: (s) => s.notRequired(),
             otherwise: (s) => s.required(t("Customer is required")),
           }),
-        currency_id: yup.string().trim().required(t("Currency is required")),
+        currency_code: yup.string().trim().required(t("Currency is required")),
         quotation_date: yup
           .string()
           .trim()
@@ -184,7 +184,7 @@ const QuotationWizard = () => {
   const liveLines = useWatch({ control, name: "lines" }) || [];
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
-  const liveCurrencyId = useWatch({ control, name: "currency_id" });
+  const liveCurrencyCode = useWatch({ control, name: "currency_code" });
   const liveStatus = useWatch({ control, name: "status" });
 
   const isLocked = isEdit && liveStatus && liveStatus !== "draft";
@@ -207,11 +207,8 @@ const QuotationWizard = () => {
     if (lead.customer_id && !watch("customer_id")) {
       setValue("customer_id", lead.customer_id);
     }
-    if (lead.currency && !watch("currency_id")) {
-      const match = (currencyStore?.currencyDropdown || []).find(
-        (c) => c.code === lead.currency
-      );
-      if (match) setValue("currency_id", match._id);
+    if (lead.currency && !watch("currency_code")) {
+      setValue("currency_code", lead.currency);
     }
     if (
       Array.isArray(lead.interested_categories) &&
@@ -222,21 +219,20 @@ const QuotationWizard = () => {
       setCategoryFilter(lead.interested_categories);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadStore?.leadItem, watchedLeadId, currencyStore?.currencyDropdown]);
+  }, [leadStore?.leadItem, watchedLeadId]);
 
   // Exchange rate fetch on currency pick.
   useEffect(() => {
-    if (!liveCurrencyId) {
+    if (!liveCurrencyCode) {
       setRateMeta(null);
       return;
     }
-    const dropdown = currencyStore?.currencyDropdown || [];
-    const defaultCurrency = dropdown.find((c) => c.is_default);
-    if (!defaultCurrency) return;
-    if (isEdit && store?.quotationItem?.currency_id === liveCurrencyId) return;
+    if (isEdit && store?.quotationItem?.currency_code === liveCurrencyCode) return;
+    const options = currencyStore?.exchangeOptions || [];
+    const defaultOpt = options.find((o) => o.is_default);
     instance
       .get(API_ENDPOINTS.currencies.currentRate, {
-        params: { from: defaultCurrency._id, to: liveCurrencyId },
+        params: { to: liveCurrencyCode },
       })
       .then((resp) => {
         const data = resp?.data?.data;
@@ -246,18 +242,18 @@ const QuotationWizard = () => {
           rate: Number(data.rate),
           effective_date: data.effective_date,
           same: !!data.same,
-          fromCode: defaultCurrency.code,
-          toCode: dropdown.find((c) => c._id === liveCurrencyId)?.code,
+          fromCode: defaultOpt?.code,
+          toCode: liveCurrencyCode,
         });
       })
       .catch(() => setRateMeta({ missing: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveCurrencyId, currencyStore?.currencyDropdown]);
+  }, [liveCurrencyCode, currencyStore?.exchangeOptions]);
 
   // ── Initial loads ───────────────────────────────────────────────────
   useEffect(() => {
     dispatch(getCustomerDropdown());
-    dispatch(getCurrencyDropdown());
+    dispatch(getExchangeRateOptions());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
@@ -375,11 +371,11 @@ const QuotationWizard = () => {
 
   const currencyOptions = useMemo(
     () =>
-      (currencyStore?.currencyDropdown || []).map((c) => ({
-        value: c._id,
-        label: `${c.code} - ${c.name}`,
+      (currencyStore?.exchangeOptions || []).map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
       })),
-    [currencyStore?.currencyDropdown]
+    [currencyStore?.exchangeOptions]
   );
 
   const allProductOptions = useMemo(
@@ -520,7 +516,7 @@ const QuotationWizard = () => {
       customer_address_id: values.customer_address_id || undefined,
       quotation_date: values.quotation_date,
       valid_until: values.valid_until || undefined,
-      currency_id: values.currency_id,
+      currency_code: values.currency_code,
       exchange_rate: values.exchange_rate || "1",
       payment_terms: values.payment_terms?.trim() || undefined,
       delivery_terms: values.delivery_terms?.trim() || undefined,
@@ -584,7 +580,7 @@ const QuotationWizard = () => {
     return activeStep;
   };
 
-  // Single Save action — validates whole form, saves on pass, otherwise
+  // Single Save action - validates whole form, saves on pass, otherwise
   // jumps to the first step with errors so the user can see them.
   const onSave = async () => {
     const ok = await trigger();
@@ -666,7 +662,7 @@ const QuotationWizard = () => {
                     {t("This quotation is")} {liveStatus}.
                   </strong>{" "}
                   {t(
-                    "Fields are locked. Revert to draft to make changes — Status field stays editable."
+                    "Fields are locked. Revert to draft to make changes - Status field stays editable."
                   )}
                 </div>
                 <Button

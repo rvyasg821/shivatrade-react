@@ -268,6 +268,28 @@ export const addExchangeRate = createAsyncThunk(
   }
 );
 
+/**
+ * Returns the currency options for sales-doc pickers: latest rate per
+ * to_currency_code plus the company's default currency itself (rate '1').
+ */
+export const getExchangeRateOptions = createAsyncThunk(
+  "appCurrency/getExchangeRateOptions",
+  async () => {
+    try {
+      const res = await instance
+        .get(`${API_ENDPOINTS.currencies.exchangeOptions}`)
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (res?.statusCode && Array.isArray(res?.data)) {
+        return { exchangeOptions: res.data };
+      }
+      return { exchangeOptions: [] };
+    } catch (error) {
+      return { exchangeOptions: [] };
+    }
+  }
+);
+
 // ─── Slice ──────────────────────────────────────────────────────────────
 
 export const appCurrencySlice = createSlice({
@@ -275,6 +297,7 @@ export const appCurrencySlice = createSlice({
   initialState: {
     currencyItems: [],
     currencyDropdown: [],
+    exchangeOptions: [],
     pagination: null,
     currencyItem: initCurrencyItem,
     exchangeRates: [],
@@ -381,6 +404,9 @@ export const appCurrencySlice = createSlice({
       })
       .addCase(getExchangeRates.fulfilled, (state, action) => {
         state.exchangeRates = action.payload?.exchangeRates || [];
+      })
+      .addCase(getExchangeRateOptions.fulfilled, (state, action) => {
+        state.exchangeOptions = action.payload?.exchangeOptions || [];
       })
       .addCase(addExchangeRate.fulfilled, (state, action) => {
         state.actionFlag = action.payload.actionFlag;
