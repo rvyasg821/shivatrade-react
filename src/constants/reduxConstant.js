@@ -534,7 +534,7 @@ const initLeadItem = {
   preferred_vendors: [],
   follow_up_date: "",
   assigned_to: "",
-  notes: "",
+  description: "",
   address_line1: "",
   address_line2: "",
   city: "",

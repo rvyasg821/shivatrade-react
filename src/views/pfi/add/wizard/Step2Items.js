@@ -9,6 +9,9 @@ const Step2Items = ({
   productOptions,
   expenseOptions,
   rebateOptions,
+  selectedCurrencyCode,
+  baseCurrencyCode,
+  exchangeRate,
 }) => {
   const { control, setValue } = useFormContext();
   return (
@@ -19,6 +22,9 @@ const Step2Items = ({
       initLineItem={initPfiLineItem}
       rebateOptions={rebateOptions}
       expenseOptions={expenseOptions}
+      currencyCode={selectedCurrencyCode}
+      baseCurrencyCode={baseCurrencyCode}
+      exchangeRate={exchangeRate}
       readOnly={isLocked}
     />
   );

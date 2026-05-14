@@ -1,4 +1,4 @@
-// PFI Add/Edit — wizard entry point.
+// PFI Add/Edit - wizard entry point.
 // Original single-page form preserved at ./index.legacy.js for easy revert.
 import PfiWizard from "./wizard/PfiWizard";
 

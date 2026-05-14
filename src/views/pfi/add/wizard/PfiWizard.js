@@ -21,7 +21,10 @@ import {
   cleanPfiState,
 } from "../../store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
-import { getExchangeRateOptions } from "../../../currencies/store";
+import {
+  getExchangeRateOptions,
+  getCurrencyDropdown,
+} from "../../../currencies/store";
 import { getProductDropdown } from "../../../products/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
@@ -37,7 +40,7 @@ import { appsRoot } from "@constant/defaultValues";
 import { initPfiItem, initPfiLineItem } from "@constant/reduxConstant";
 import { CUSTOMER_ADDRESS_TYPES } from "@constant/options";
 
-import { num } from "@src/views/_shared/sales-doc/_helpers";
+import { num, round2 } from "@src/views/_shared/sales-doc/_helpers";
 
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
@@ -183,12 +186,13 @@ const PfiWizard = () => {
       .then((resp) => {
         const data = resp?.data?.data;
         if (!data) return setRateMeta({ missing: true });
-        setValue("exchange_rate", String(data.rate));
+        // Trim trailing zeros from the numeric(18,8) string ("0.01200000" → "0.012").
+        setValue("exchange_rate", String(Number(data.rate)));
         setRateMeta({
           rate: Number(data.rate),
           effective_date: data.effective_date,
           same: !!data.same,
-          fromCode: defaultOpt?.code,
+          fromCode: data.from_currency_code || defaultOpt?.code,
           toCode: liveCurrencyCode,
         });
       })
@@ -200,6 +204,7 @@ const PfiWizard = () => {
   useEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getExchangeRateOptions());
+    dispatch(getCurrencyDropdown());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
@@ -224,7 +229,7 @@ const PfiWizard = () => {
         ...initPfiItem,
         ...p,
         margin_pct: String(p.margin_pct ?? "0"),
-        exchange_rate: String(p.exchange_rate ?? "1"),
+        exchange_rate: String(Number(p.exchange_rate ?? 1)),
         pfi_date:
           (p.pfi_date || "").slice(0, 10) ||
           new Date().toISOString().slice(0, 10),
@@ -363,7 +368,21 @@ const PfiWizard = () => {
     let tax_total = 0;
     let product_rebates_total = 0;
     let product_expenses_total = 0;
+    // Document-wide buckets - % type vs fixed type, summed across all lines.
+    // No combined rate here: each line has its own taxable base.
+    let rebates_pct_total = 0;
+    let rebates_fixed_total = 0;
+    let expenses_pct_total = 0;
+    let expenses_fixed_total = 0;
     let line_margin_total = 0;
+    // Track distinct GST / margin rates so the costing card can show an
+    // exact rate when uniform, or a blended (~) rate when lines differ.
+    const gstRates = new Set();
+    const marginRates = new Set();
+    // GST / Margin amount per distinct rate - powers the per-rate sub-lines
+    // on the costing card when lines carry mixed rates.
+    const gstByRate = {};
+    const marginByRate = {};
     (liveLines || []).forEach((l) => {
       const qty = num(l?.qty);
       const price = num(l?.unit_price);
@@ -371,35 +390,90 @@ const PfiWizard = () => {
       const taxPct = num(l?.tax_pct);
       const lineNet = qty * price * (1 - disc / 100);
       subtotal += lineNet;
-      tax_total += lineNet * (taxPct / 100);
+      const lineTax = lineNet * (taxPct / 100);
+      tax_total += lineTax;
+      if (lineNet > 0) {
+        gstRates.add(taxPct);
+        marginRates.add(num(l?.margin_pct));
+        gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
+      }
 
       let lineProdReb = 0;
       let lineProdExp = 0;
       for (const r of l?.product_rebates_snapshot || []) {
-        lineProdReb += (lineNet * num(r.pct)) / 100;
+        if (r.type === "fixed") {
+          rebates_fixed_total += num(r.pct);
+          lineProdReb += num(r.pct);
+        } else {
+          const amt = (lineNet * num(r.pct)) / 100;
+          rebates_pct_total += amt;
+          lineProdReb += amt;
+        }
       }
       for (const e of l?.product_expenses_snapshot || []) {
-        lineProdExp +=
-          e.type === "percent" ? (lineNet * num(e.value)) / 100 : num(e.value);
+        if (e.type === "percent") {
+          const amt = (lineNet * num(e.value)) / 100;
+          expenses_pct_total += amt;
+          lineProdExp += amt;
+        } else {
+          expenses_fixed_total += num(e.value);
+          lineProdExp += num(e.value);
+        }
       }
       product_rebates_total += lineProdReb;
       product_expenses_total += lineProdExp;
 
       const lineMarginPct = num(l?.margin_pct);
-      line_margin_total +=
+      const lineMargin =
         (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
+      line_margin_total += lineMargin;
+      if (lineNet > 0) {
+        marginByRate[lineMarginPct] =
+          (marginByRate[lineMarginPct] || 0) + lineMargin;
+      }
     });
     const net = subtotal + product_expenses_total - product_rebates_total;
     const margin_amount = line_margin_total;
-    const grand_inr = net + margin_amount + tax_total;
+    // Effective rates: exact when all lines share one rate, else blended
+    // (amount ÷ base). gst_uniform / margin_uniform tell the card whether
+    // to prefix the displayed % with "~".
+    const gst_uniform = gstRates.size <= 1;
+    const gst_pct = gst_uniform
+      ? [...gstRates][0] || 0
+      : subtotal > 0
+      ? (tax_total / subtotal) * 100
+      : 0;
+    const margin_uniform = marginRates.size <= 1;
+    const margin_pct = margin_uniform
+      ? [...marginRates][0] || 0
+      : net > 0
+      ? (margin_amount / net) * 100
+      : 0;
+    // Home-currency grand total → rounded to whole rupees. round_off is the
+    // ± adjustment; the customer total derives from the rounded figure.
+    const grand_inr_raw = net + margin_amount + tax_total;
+    const grand_inr = Math.round(grand_inr_raw);
+    const round_off = round2(grand_inr - grand_inr_raw);
     const rate = num(liveRate) || 1;
     return {
       subtotal,
       product_expenses_total,
       product_rebates_total,
+      expenses_pct_total,
+      expenses_fixed_total,
+      rebates_pct_total,
+      rebates_fixed_total,
       net,
       margin_amount,
+      margin_pct,
+      margin_uniform,
       tax_total,
+      margin_by_rate: marginByRate,
+      gst_pct,
+      gst_uniform,
+      gst_by_rate: gstByRate,
+      grand_inr_raw,
+      round_off,
       grand_inr,
       grand_currency: grand_inr * rate,
       rate,
@@ -518,6 +592,10 @@ const PfiWizard = () => {
     vendorStore,
     productById,
     selectedCurrencyCode,
+    baseCurrencyCode:
+      (currencyStore?.currencyDropdown || []).find((c) => c.is_default)
+        ?.code || "",
+    exchangeRate: num(liveRate) || 1,
     totals,
     sourceQuotationVoucher,
     onRevertToDraft: () =>

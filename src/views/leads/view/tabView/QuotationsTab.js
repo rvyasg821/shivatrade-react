@@ -1,0 +1,133 @@
+// Quotations created from this lead. Reuses GET /admin/quotation/list?lead_id=.
+
+import { Fragment, useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { Badge, Button, Table, UncontrolledTooltip } from "reactstrap";
+import { Edit, PlusCircle } from "react-feather";
+import { useTranslation } from "react-i18next";
+
+import {
+  getQuotationList,
+  cleanQuotationMessage,
+} from "@src/views/quotations/store";
+import { appsRoot } from "@constant/defaultValues";
+import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
+
+const QuotationsTab = () => {
+  const { id } = useParams();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const store = useSelector((s) => s.quotation);
+  const leadStore = useSelector((s) => s.lead);
+  const [loaded, setLoaded] = useState(false);
+
+  const currentStatus = leadStore?.leadItem?.status;
+  const canCreateQuotation = currentStatus && currentStatus !== "lost";
+
+  useEffect(() => {
+    if (!id) return;
+    dispatch(
+      getQuotationList({
+        orderBy: "quotation_date",
+        orderDirection: "desc",
+        page: 1,
+        perPage: 50,
+        search: "",
+        lead_id: id,
+      })
+    );
+    setLoaded(true);
+    return () => {
+      dispatch(cleanQuotationMessage(null));
+    };
+  }, [id, dispatch]);
+
+  const rows = store?.quotationItems || [];
+
+  return (
+    <Fragment>
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <h4 className="mb-0">{t("Quotations")}</h4>
+        {canCreateQuotation && (
+          <Button
+            color="primary"
+            size="sm"
+            onClick={() =>
+              navigate(`${appsRoot}/quotations/add?lead_id=${id}`)
+            }
+          >
+            <PlusCircle size={14} className="me-50" />
+            {t("Create Quotation")}
+          </Button>
+        )}
+      </div>
+
+      {loaded && rows.length === 0 ? (
+        <div className="text-muted py-3 text-center">
+          {t("No quotations for this lead yet.")}
+        </div>
+      ) : (
+        <Table responsive bordered className="mb-0">
+          <thead>
+            <tr>
+              <th>{t("Voucher #")}</th>
+              <th>{t("Date")}</th>
+              <th>{t("Valid Until")}</th>
+              <th>{t("Currency")}</th>
+              <th>{t("Grand Total")}</th>
+              <th>{t("Status")}</th>
+              <th className="text-center">{t("Action")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const sym = row?.currency_symbol || row?.currency_code || "";
+              return (
+                <tr key={row?._id}>
+                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
+                  <td>{(row?.quotation_date || "").slice(0, 10) || "-"}</td>
+                  <td>{(row?.valid_until || "").slice(0, 10) || "-"}</td>
+                  <td>{row?.currency_code || "-"}</td>
+                  <td>
+                    {row?.grand_total !== null &&
+                    row?.grand_total !== undefined
+                      ? `${sym}${row.grand_total}`
+                      : "-"}
+                  </td>
+                  <td>
+                    <Badge
+                      color={
+                        QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary"
+                      }
+                      className="text-capitalize"
+                    >
+                      {row?.status || "-"}
+                    </Badge>
+                  </td>
+                  <td className="text-center">
+                    <Link
+                      to={`${appsRoot}/quotations/edit/${row?._id}`}
+                      id={`lead-qt-edit-${row?._id}`}
+                    >
+                      <Edit size={18} />
+                    </Link>
+                    <UncontrolledTooltip
+                      placement="top"
+                      target={`lead-qt-edit-${row?._id}`}
+                    >
+                      {t("Open")}
+                    </UncontrolledTooltip>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      )}
+    </Fragment>
+  );
+};
+
+export default QuotationsTab;

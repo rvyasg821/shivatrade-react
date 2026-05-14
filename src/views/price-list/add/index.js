@@ -452,7 +452,7 @@ const PriceListForm = () => {
 
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="unit_price">
-                    {t("Unit Price")} <span className="text-danger">*</span>
+                    {t("Price")} <span className="text-danger">*</span>
                   </Label>
                   <Controller
                     name="unit_price"

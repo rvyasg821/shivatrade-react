@@ -53,7 +53,6 @@ import { ArrowLeft, UserCheck, FileText } from "react-feather";
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initLeadItem } from "@constant/reduxConstant";
-import ActivityTab from "../ActivityTab";
 import {
   LEAD_SOURCE_OPTIONS,
   LEAD_STATUS_OPTIONS,
@@ -836,17 +835,20 @@ const LeadForm = () => {
                   )}
                 </Col>
                 <Col md="12" className="mb-2">
-                  <Label className="form-label" for="notes">
-                    {t("Notes")}
+                  <Label className="form-label" for="description">
+                    {t("Lead Brief / Description")}
                   </Label>
                   <Controller
-                    name="notes"
+                    name="description"
                     control={control}
                     render={({ field }) => (
                       <Input
-                        id="notes"
+                        id="description"
                         type="textarea"
                         rows="3"
+                        placeholder={t(
+                          "Product specs, target price, RFQ details — the brief reps reference throughout the deal."
+                        )}
                         {...field}
                       />
                     )}
@@ -990,13 +992,6 @@ const LeadForm = () => {
           </CardBody>
         </Card>
 
-        {isEditMode && id && (
-          <Card className="mt-3">
-            <CardBody>
-              <ActivityTab leadId={id} />
-            </CardBody>
-          </Card>
-        )}
       </div>
     </Fragment>
   );

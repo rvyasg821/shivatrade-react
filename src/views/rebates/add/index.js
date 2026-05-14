@@ -17,15 +17,10 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { initRebateItem } from "@constant/reduxConstant";
-
-const TYPE_OPTIONS = [
-  { value: "percent", label: "Percent (%)" },
-  { value: "fixed", label: "Fixed Amount" },
-];
-const STATUS_OPTIONS = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-];
+import {
+  REBATE_EXPENSE_TYPE_OPTIONS as TYPE_OPTIONS,
+  STATUS_OPTIONS,
+} from "@constant/options";
 
 const RebateForm = () => {
   const { id } = useParams();
