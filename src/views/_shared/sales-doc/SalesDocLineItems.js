@@ -26,7 +26,7 @@ import { PRODUCT_UOM_OPTIONS, UOM_INTEGER_ONLY } from "@constant/options";
 import { num, fmt, formatVendorOption } from "./_helpers";
 
 /**
- * Line items section — compact summary table with Add / Edit / Delete actions.
+ * Line items section - compact summary table with Add / Edit / Delete actions.
  * Editing happens in a Modal that hosts the full input layout (Product, Vendor,
  * Qty, Unit, Price, Disc%, Tax%, Description). Modal edits go live to the
  * underlying field-array row; closing a freshly-added empty row auto-removes it.
@@ -34,7 +34,7 @@ import { num, fmt, formatVendorOption } from "./_helpers";
  * Shared across Quotation / PFI / PO. Pass:
  *   - control, setValue from parent useForm
  *   - productOptions: full list (already filtered by header-level category, if any)
- *   - allProductOptions: unfiltered list — used when the per-line Category
+ *   - allProductOptions: unfiltered list - used when the per-line Category
  *     override is set so the line-level filter can re-narrow from scratch
  *   - categoryOptions, defaultCategoryIds: optional per-line Category select
  *   - initLineItem (module-specific empty row shape)
@@ -74,7 +74,7 @@ const SalesDocLineItems = ({
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
-  // Per-line category override — keyed by line index. Defaults to the header
+  // Per-line category override - keyed by line index. Defaults to the header
   // filter at modal-open time; user can change it inside the modal to narrow
   // (or expand) the Product dropdown for THAT line only.
   const [lineCategoryByIdx, setLineCategoryByIdx] = useState({});
@@ -121,12 +121,16 @@ const SalesDocLineItems = ({
     if (opt?.raw) {
       setValue(`lines.${idx}.unit`, opt.raw.unit_of_measure || "");
       setValue(`lines.${idx}.unit_price`, String(opt.raw.selling_price ?? ""));
+      // GST is a product attribute (HSN-driven). Seed from product master.
+      if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
+        setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
+      }
     }
     setValue(`lines.${idx}.vendor_id`, "");
 
     // Replace per-line rebate/expense snapshots with the new product's
     // master defaults. Any prior customizations on the previous product
-    // are dropped (silent reset — matches user direction).
+    // are dropped (silent reset - matches user direction).
     const masterRebates = (opt?.raw?.product_rebates || []).map((r) => ({
       rebate_id: r.rebate_id,
       code: r.code,
@@ -148,9 +152,6 @@ const SalesDocLineItems = ({
       const first = rows[0];
       setValue(`lines.${idx}.vendor_id`, first.vendor_id || "");
       setValue(`lines.${idx}.unit_price`, String(first.unit_price ?? ""));
-      if (first.tax_pct !== undefined && first.tax_pct !== null) {
-        setValue(`lines.${idx}.tax_pct`, String(first.tax_pct));
-      }
       // Pre-fill margin from price list, but don't clobber a user-set value.
       const curMargin = liveLines?.[idx]?.margin_pct;
       if (
@@ -167,10 +168,8 @@ const SalesDocLineItems = ({
     setValue(`lines.${idx}.vendor_id`, opt?.value || "");
     if (opt?.raw) {
       setValue(`lines.${idx}.unit_price`, String(opt.raw.unit_price ?? ""));
-      if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
-        setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
-      }
-      // Same auto-fill rule as on product pick — only fill if line is empty.
+      // GST stays product-level — don't touch tax_pct here.
+      // Same auto-fill rule as on product pick - only fill if line is empty.
       const curMargin = liveLines?.[idx]?.margin_pct;
       if (
         opt.raw.margin_pct !== undefined &&
@@ -297,7 +296,7 @@ const SalesDocLineItems = ({
           return visibleCount === 0;
         })() ? (
           <div className="border rounded p-3 text-center text-muted">
-            {t('No line items yet — click "Add Line".')}
+            {t('No line items yet - click "Add Line".')}
           </div>
         ) : (
           <Table responsive bordered className="mb-0 align-middle">
@@ -310,7 +309,7 @@ const SalesDocLineItems = ({
                 <th>{t("Unit")}</th>
                 <th className="text-end">{t("Unit Price")}</th>
                 <th className="text-end">{t("Disc %")}</th>
-                <th className="text-end">{t("Tax %")}</th>
+                <th className="text-end">{t("GST %")}</th>
                 <th className="text-end">{t("Margin %")}</th>
                 <th className="text-end">{t("Line Total")}</th>
                 <th style={{ width: 80 }}></th>
@@ -330,11 +329,11 @@ const SalesDocLineItems = ({
                 const lineTotal = lineNet;
                 const productLabel =
                   productOptions.find((o) => o.value === l.product_id)
-                    ?.label || (l.product_id ? "—" : t("(not set)"));
+                    ?.label || (l.product_id ? "-" : t("(not set)"));
                 const vendorOpts = vendorOptionsByLine[idx] || [];
                 const vendorLabel =
                   vendorOpts.find((o) => o.value === l.vendor_id)?.label
-                    ?.split(" — ")[0] || "—";
+                    ?.split(" - ")[0] || "-";
                 // Pull rebates/expenses from the line snapshot (which may
                 // be edited per-line), not from the product master.
                 const lineRebates = l?.product_rebates_snapshot || [];
@@ -346,10 +345,10 @@ const SalesDocLineItems = ({
                     <td className="text-muted">{idx + 1}</td>
                     <td>{productLabel}</td>
                     <td>{vendorLabel}</td>
-                    <td className="text-end">{l.qty || "—"}</td>
-                    <td>{l.unit || "—"}</td>
+                    <td className="text-end">{l.qty || "-"}</td>
+                    <td>{l.unit || "-"}</td>
                     <td className="text-end">
-                      {l.unit_price ? fmt(l.unit_price) : "—"}
+                      {l.unit_price ? fmt(l.unit_price) : "-"}
                     </td>
                     <td className="text-end">{num(l.discount_pct) || 0}</td>
                     <td className="text-end">{num(l.tax_pct) || 0}</td>
@@ -672,7 +671,7 @@ const SalesDocLineItems = ({
                   />
                 </Col>
                 <Col md="3" sm="6" className="mb-2">
-                  <Label className="form-label">{t("Tax %")}</Label>
+                  <Label className="form-label">{t("GST %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.tax_pct`}
                     control={control}
@@ -730,7 +729,7 @@ const SalesDocLineItems = ({
                         {...f}
                         value={f.value || ""}
                         placeholder={t(
-                          "Optional — overrides product description on the quote"
+                          "Optional - overrides product description on the quote"
                         )}
                       />
                     )}
@@ -740,7 +739,7 @@ const SalesDocLineItems = ({
 
               <hr className="my-2" />
 
-              {/* Rebates editor — pre-filled from product master, fully editable.
+              {/* Rebates editor - pre-filled from product master, fully editable.
                   Edits are scoped to THIS quotation only; product master untouched. */}
               <Row>
                 <Col md="12" className="mb-1">

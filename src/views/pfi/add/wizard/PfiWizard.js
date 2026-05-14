@@ -21,7 +21,7 @@ import {
   cleanPfiState,
 } from "../../store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
-import { getCurrencyDropdown } from "../../../currencies/store";
+import { getExchangeRateOptions } from "../../../currencies/store";
 import { getProductDropdown } from "../../../products/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
@@ -69,7 +69,7 @@ const PfiWizard = () => {
     () =>
       yup.object().shape({
         customer_id: yup.string().trim().required(t("Customer is required")),
-        currency_id: yup.string().trim().required(t("Currency is required")),
+        currency_code: yup.string().trim().required(t("Currency is required")),
         pfi_date: yup.string().trim().required(t("PFI date is required")),
         valid_until: yup.string().nullable(),
         customer_address_id: yup.string().nullable(),
@@ -157,7 +157,7 @@ const PfiWizard = () => {
   const liveLines = useWatch({ control, name: "lines" }) || [];
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
-  const liveCurrencyId = useWatch({ control, name: "currency_id" });
+  const liveCurrencyCode = useWatch({ control, name: "currency_code" });
   const liveStatus = useWatch({ control, name: "status" });
 
   const isLocked = isEdit && liveStatus && liveStatus !== "draft";
@@ -169,17 +169,16 @@ const PfiWizard = () => {
 
   // Exchange rate fetch.
   useEffect(() => {
-    if (!liveCurrencyId) {
+    if (!liveCurrencyCode) {
       setRateMeta(null);
       return;
     }
-    const dropdown = currencyStore?.currencyDropdown || [];
-    const defaultCurrency = dropdown.find((c) => c.is_default);
-    if (!defaultCurrency) return;
-    if (isEdit && store?.pfiItem?.currency_id === liveCurrencyId) return;
+    if (isEdit && store?.pfiItem?.currency_code === liveCurrencyCode) return;
+    const options = currencyStore?.exchangeOptions || [];
+    const defaultOpt = options.find((o) => o.is_default);
     instance
       .get(API_ENDPOINTS.currencies.currentRate, {
-        params: { from: defaultCurrency._id, to: liveCurrencyId },
+        params: { to: liveCurrencyCode },
       })
       .then((resp) => {
         const data = resp?.data?.data;
@@ -189,18 +188,18 @@ const PfiWizard = () => {
           rate: Number(data.rate),
           effective_date: data.effective_date,
           same: !!data.same,
-          fromCode: defaultCurrency.code,
-          toCode: dropdown.find((c) => c._id === liveCurrencyId)?.code,
+          fromCode: defaultOpt?.code,
+          toCode: liveCurrencyCode,
         });
       })
       .catch(() => setRateMeta({ missing: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveCurrencyId, currencyStore?.currencyDropdown]);
+  }, [liveCurrencyCode, currencyStore?.exchangeOptions]);
 
   // Initial loads.
   useEffect(() => {
     dispatch(getCustomerDropdown());
-    dispatch(getCurrencyDropdown());
+    dispatch(getExchangeRateOptions());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
@@ -313,11 +312,11 @@ const PfiWizard = () => {
 
   const currencyOptions = useMemo(
     () =>
-      (currencyStore?.currencyDropdown || []).map((c) => ({
-        value: c._id,
-        label: `${c.code} - ${c.name}`,
+      (currencyStore?.exchangeOptions || []).map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
       })),
-    [currencyStore?.currencyDropdown]
+    [currencyStore?.exchangeOptions]
   );
 
   const productOptions = useMemo(
@@ -350,12 +349,7 @@ const PfiWizard = () => {
     [rebateStore?.rebateDropdown]
   );
 
-  const selectedCurrencyCode = useMemo(() => {
-    const c = (currencyStore?.currencyDropdown || []).find(
-      (x) => x._id === liveCurrencyId
-    );
-    return c?.code || "";
-  }, [currencyStore?.currencyDropdown, liveCurrencyId]);
+  const selectedCurrencyCode = liveCurrencyCode || "";
 
   const productById = useMemo(() => {
     const m = new Map();
@@ -427,7 +421,7 @@ const PfiWizard = () => {
       customer_address_id: values.customer_address_id || undefined,
       pfi_date: values.pfi_date,
       valid_until: values.valid_until || undefined,
-      currency_id: values.currency_id,
+      currency_code: values.currency_code,
       exchange_rate: values.exchange_rate || "1",
       payment_terms: values.payment_terms?.trim() || undefined,
       delivery_terms: values.delivery_terms?.trim() || undefined,
@@ -560,7 +554,7 @@ const PfiWizard = () => {
                     {t("This PFI is")} {liveStatus}.
                   </strong>{" "}
                   {t(
-                    "Fields are locked. Revert to draft to make changes — Status field stays editable."
+                    "Fields are locked. Revert to draft to make changes - Status field stays editable."
                   )}
                 </div>
                 <Button

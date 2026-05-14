@@ -8,6 +8,7 @@ import {
   INCOTERMS_OPTIONS,
   PAYMENT_TERMS_OPTIONS,
 } from "@constant/options";
+import DateInput from "@components/date-input";
 
 const required = <span className="text-danger">*</span>;
 
@@ -118,11 +119,12 @@ const Step1Customer = ({
             name="pfi_date"
             control={control}
             render={({ field }) => (
-              <Input
-                type="date"
+              <DateInput
+                id="pfi_date"
+                value={field.value || ""}
                 invalid={!!errors.pfi_date}
                 disabled={isLocked}
-                {...field}
+                onChange={(dates, str, iso) => field.onChange(iso)}
               />
             )}
           />
@@ -137,11 +139,11 @@ const Step1Customer = ({
             name="valid_until"
             control={control}
             render={({ field }) => (
-              <Input
-                type="date"
-                disabled={isLocked}
-                {...field}
+              <DateInput
+                id="valid_until"
                 value={field.value || ""}
+                disabled={isLocked}
+                onChange={(dates, str, iso) => field.onChange(iso)}
               />
             )}
           />
@@ -152,7 +154,7 @@ const Step1Customer = ({
             {t("Currency")} {required}
           </Label>
           <Controller
-            name="currency_id"
+            name="currency_code"
             control={control}
             render={({ field }) => (
               <Select
@@ -166,9 +168,9 @@ const Step1Customer = ({
               />
             )}
           />
-          {errors.currency_id && (
+          {errors.currency_code && (
             <FormFeedback className="d-block">
-              {errors.currency_id.message}
+              {errors.currency_code.message}
             </FormFeedback>
           )}
         </Col>
@@ -191,7 +193,7 @@ const Step1Customer = ({
           />
           <small className="text-muted d-block">
             {rateMeta?.same ? (
-              t("Same currency — rate fixed at 1.")
+              t("Same currency - rate fixed at 1.")
             ) : rateMeta?.rate ? (
               <>
                 {t("Auto-filled from Currency master")}
@@ -206,7 +208,7 @@ const Step1Customer = ({
               </>
             ) : rateMeta?.missing ? (
               <span className="text-warning">
-                {t("No rate set in Currency master — enter manually.")}
+                {t("No rate set in Currency master - enter manually.")}
               </span>
             ) : (
               t("INR × rate = customer-currency amount.")
@@ -281,7 +283,7 @@ const Step1Customer = ({
             ) : (
               <small className="text-muted">
                 {t(
-                  "No source quotation. Created standalone — usually you'd convert from an approved Quotation."
+                  "No source quotation. Created standalone - usually you'd convert from an approved Quotation."
                 )}
               </small>
             )}

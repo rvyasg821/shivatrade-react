@@ -14,7 +14,7 @@ export const STEPS = [
       "customer_address_id",
       "pfi_date",
       "valid_until",
-      "currency_id",
+      "currency_code",
       "exchange_rate",
       "payment_terms",
       "delivery_terms",

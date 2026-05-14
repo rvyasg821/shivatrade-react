@@ -15,10 +15,9 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle } from "react-feather";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 
-const APPLIES_ON_LABEL = {
-  value: "Line Value",
-  total_after_expenses: "Total after Expenses",
-  fob: "FOB",
+const TYPE_LABEL = {
+  percent: "Percent",
+  fixed: "Fixed",
 };
 
 const RebateList = () => {
@@ -110,9 +109,16 @@ const RebateList = () => {
         </Link>
       ) : <span className="text-wrap text-capitalize">{row?.name || ""}</span>,
     },
-    { name: t("Code"), selector: (row) => row?.code || "—" },
-    { name: t("Percentage"), selector: (row) => row?.pct ? `${row.pct}%` : "—" },
-    { name: t("Applies On"), selector: (row) => APPLIES_ON_LABEL[row?.applies_on] || row?.applies_on || "—" },
+    { name: t("Code"), selector: (row) => row?.code || "-" },
+    { name: t("Type"), selector: (row) => TYPE_LABEL[row?.type] || row?.type || "-" },
+    {
+      name: t("Value"),
+      selector: (row) => {
+        if (row?.pct === null || row?.pct === undefined || row?.pct === "")
+          return "-";
+        return row?.type === "fixed" ? row.pct : `${row.pct}%`;
+      },
+    },
     {
       name: t("Status"),
       selector: (row) => (

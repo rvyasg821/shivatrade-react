@@ -14,7 +14,7 @@ import {
 import { getCustomerDropdown, getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
 import { getCategoryDropdown } from "../../categories/store";
-import { getCurrencyDropdown } from "../../currencies/store";
+import { getExchangeRateOptions } from "../../currencies/store";
 import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
@@ -40,6 +40,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import PhoneInputField from "@src/components/phone-input/PhoneInputField";
+import DateInput from "@components/date-input";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -52,6 +53,7 @@ import { ArrowLeft, UserCheck, FileText } from "react-feather";
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initLeadItem } from "@constant/reduxConstant";
+import ActivityTab from "../ActivityTab";
 import {
   LEAD_SOURCE_OPTIONS,
   LEAD_STATUS_OPTIONS,
@@ -99,8 +101,8 @@ const LeadForm = () => {
         interested_categories: yup
           .array()
           .of(yup.string())
-          .min(1, t("Select at least one category"))
-          .required(t("At least one category is required")),
+          .nullable()
+          .notRequired(),
         expected_value: yup
           .number()
           .transform((v, o) => (o === "" || o === null ? undefined : v))
@@ -131,7 +133,7 @@ const LeadForm = () => {
     dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
     dispatch(getCategoryDropdown());
-    dispatch(getCurrencyDropdown());
+    dispatch(getExchangeRateOptions());
     dispatch(getVendorDropdown());
     if (isEditMode) {
       dispatch(getLead(id));
@@ -222,9 +224,9 @@ const LeadForm = () => {
     currentStatus === "lost" ||
     !!watch("converted_customer_id") ||
     !!watch("customer_id");
-  const canCreateQuotation = ["contacted", "qualified", "proposal_sent"].includes(
-    currentStatus
-  );
+  // Allowed on every status except 'lost'. Multiple quotations per lead
+  // are intentional — don't gate by existing quotation count.
+  const canCreateQuotation = currentStatus !== "lost";
 
   const handleConvert = () => {
     const linkedCustomerId = watch("customer_id");
@@ -330,9 +332,9 @@ const LeadForm = () => {
     }
   }, [JSON.stringify(watchCategories)]);
 
-  const currencyOptions = (currencyStore?.currencyDropdown || []).map((c) => ({
+  const currencyOptions = (currencyStore?.exchangeOptions || []).map((c) => ({
     value: c.code,
-    label: `${c.code} - ${c.name}`,
+    label: c.name ? `${c.code} - ${c.name}` : c.code,
   }));
 
   const vendorOptions = (vendorStore?.vendorDropdown || []).map((v) => ({
@@ -394,7 +396,7 @@ const LeadForm = () => {
                   : t("quotations")}
               </strong>{" "}
               {t(
-                "already created from this lead. Avoid duplicates — review existing quotations before creating a new one."
+                "already created from this lead. Avoid duplicates - review existing quotations before creating a new one."
               )}
             </div>
             <Button
@@ -446,7 +448,7 @@ const LeadForm = () => {
                           if (opt) {
                             setAutoFillFromCustomer(true);
                           } else {
-                            // Cleared the customer — wipe the fields we
+                            // Cleared the customer - wipe the fields we
                             // auto-filled so the form returns to a blank slate.
                             const blankOpts = { shouldValidate: true };
                             setValue("company_name", "", blankOpts);
@@ -587,11 +589,14 @@ const LeadForm = () => {
               </Row>
 
               {/* ── Opportunity ── */}
-              <h4 className="mt-3 mb-2">{t("Opportunity")}</h4>
+              <h4 className="mt-3 mb-2">
+                {t("Opportunity")}{" "}
+                <small className="text-muted fw-normal">({t("Optional")})</small>
+              </h4>
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="interested_categories">
-                    {t("Interested Categories")} {requiredMark}
+                    {t("Interested Categories")}
                   </Label>
                   <Controller
                     name="interested_categories"
@@ -747,11 +752,10 @@ const LeadForm = () => {
                     name="follow_up_date"
                     control={control}
                     render={({ field }) => (
-                      <Input
+                      <DateInput
                         id="follow_up_date"
-                        type="date"
-                        {...field}
                         value={field.value || ""}
+                        onChange={(dates, str, iso) => field.onChange(iso)}
                       />
                     )}
                   />
@@ -985,6 +989,14 @@ const LeadForm = () => {
             </Form>
           </CardBody>
         </Card>
+
+        {isEditMode && id && (
+          <Card className="mt-3">
+            <CardBody>
+              <ActivityTab leadId={id} />
+            </CardBody>
+          </Card>
+        )}
       </div>
     </Fragment>
   );

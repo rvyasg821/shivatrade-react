@@ -175,7 +175,8 @@ export const API_ENDPOINTS = {
     delete: `/admin/currency/delete`,
     dropdown: `/admin/currency/dropdown`,
     rates: `/admin/currency`, // append `/${id}/rates`
-    currentRate: `/admin/currency/exchange-rate/current`, // ?from=&to=
+    currentRate: `/admin/currency/exchange-rate/current`, // ?to=<code>
+    exchangeOptions: `/admin/currency/exchange-rate/options`,
   },
   priceList: {
     list: `/admin/price-list/list`,
@@ -215,6 +216,7 @@ export const API_ENDPOINTS = {
     update: `/admin/lead/update`,
     delete: `/admin/lead/delete`,
     convert: `/admin/lead/convert`,
+    activity: `/admin/lead`, // append `/${leadId}/activity[/<activityId>]`
   },
   rebates: {
     list: `/admin/rebate/list`,
@@ -622,24 +624,24 @@ export const API_ENDPOINTS = {
     templateClone: '/admin/contract/template/clone',
   },
   attendance: {
-    // Admin — Settings
+    // Admin - Settings
     settings: '/admin/attendance/settings',
     settingsUpdate: '/admin/attendance/settings',
-    // Admin — Import/Export
+    // Admin - Import/Export
     export: '/admin/attendance/export',
     sampleCsv: '/admin/attendance/sample-csv',
     import: '/admin/attendance/import',
-    // Admin — Records
+    // Admin - Records
     list: '/admin/attendance/list',
     get: '/admin/attendance/get',
     manual: '/admin/attendance/manual',
     update: '/admin/attendance/update',
     delete: '/admin/attendance/delete',
-    // Admin — Reports
+    // Admin - Reports
     reportMonthly: '/admin/attendance/report/monthly',
     reportAnnual: '/admin/attendance/report/annual',
     reportDaily: '/admin/attendance/report/daily',
-    // Admin — Face-recognition kiosk
+    // Admin - Face-recognition kiosk
     faceRoster: '/admin/attendance/face-roster',
     faceIdentify: '/admin/attendance/face-identify',
     faceClock: '/admin/attendance/face-clock',

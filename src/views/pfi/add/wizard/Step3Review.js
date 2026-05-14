@@ -31,12 +31,12 @@ const Step3Review = ({
 
   const v = watch();
   const customer =
-    customerOptions.find((o) => o.value === v.customer_id)?.label || "—";
+    customerOptions.find((o) => o.value === v.customer_id)?.label || "-";
   const billTo =
     customerAddressOptions.find((o) => o.value === v.customer_address_id)
-      ?.label || "—";
+      ?.label || "-";
   const currency =
-    currencyOptions.find((o) => o.value === v.currency_id)?.label || "—";
+    currencyOptions.find((o) => o.value === v.currency_code)?.label || "-";
   const lines = v.lines || [];
 
   return (
@@ -64,13 +64,13 @@ const Step3Review = ({
             <tr>
               <td className="text-muted">{t("PFI Date")}</td>
               <td>
-                {v.pfi_date} → {v.valid_until || "—"}
+                {v.pfi_date} → {v.valid_until || "-"}
               </td>
             </tr>
             <tr>
               <td className="text-muted">{t("Payment / Delivery")}</td>
               <td>
-                {v.payment_terms || "—"} / {v.delivery_terms || "—"}
+                {v.payment_terms || "-"} / {v.delivery_terms || "-"}
                 {v.delivery_location ? ` · ${v.delivery_location}` : ""}
               </td>
             </tr>
@@ -89,7 +89,7 @@ const Step3Review = ({
               <th className="text-end">{t("Qty")}</th>
               <th className="text-end">{t("Unit Price")}</th>
               <th className="text-end">{t("Disc%")}</th>
-              <th className="text-end">{t("Tax%")}</th>
+              <th className="text-end">{t("GST%")}</th>
               <th className="text-end">{t("Margin%")}</th>
               <th className="text-end">{t("Line Net")}</th>
             </tr>
@@ -115,7 +115,7 @@ const Step3Review = ({
                   <Fragment key={i}>
                     <tr>
                       <td>{i + 1}</td>
-                      <td>{p ? `${p.code || ""} ${p.name || ""}` : "—"}</td>
+                      <td>{p ? `${p.code || ""} ${p.name || ""}` : "-"}</td>
                       <td className="text-end">{qty}</td>
                       <td className="text-end">{fmt(price)}</td>
                       <td className="text-end">{disc}</td>

@@ -218,7 +218,7 @@ const ProductList = () => {
       ),
     },
     {
-      name: t("Unit of Measure"),
+      name: t("UOM"),
       sortField: "unit_of_measure",
       sortable: false,
       selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "-"}</span>,

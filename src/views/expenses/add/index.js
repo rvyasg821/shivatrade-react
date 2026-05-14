@@ -22,11 +22,6 @@ const TYPE_OPTIONS = [
   { value: "percent", label: "Percent (%)" },
   { value: "fixed", label: "Fixed Amount" },
 ];
-const BASE_OPTIONS = [
-  { value: "value", label: "Line Value (qty × rate)" },
-  { value: "qty", label: "Per Unit (× qty)" },
-  { value: "weight", label: "Per Kg (× weight)" },
-];
 const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
@@ -52,8 +47,12 @@ const ExpenseForm = () => {
           .transform((v, o) => (o === "" || o === null ? undefined : v))
           .typeError(t("Must be a number"))
           .min(0)
+          .test(
+            "max-2-decimals",
+            t("Up to 2 decimal places only"),
+            (v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(String(v))
+          )
           .required(t("Value is required")),
-        base: yup.string().required(t("Base is required")),
         status: yup.string().required(t("Required")),
       }),
     [t]
@@ -149,22 +148,12 @@ const ExpenseForm = () => {
                   </Label>
                   <Controller name="value" control={control}
                     render={({ field }) => (
-                      <Input id="value" type="number" step="0.0001" min="0"
+                      <Input id="value" type="number" step="0.01" min="0"
                         invalid={!!errors.value} {...field} />
                     )} />
                   {errors.value && <FormFeedback>{errors.value.message}</FormFeedback>}
                 </Col>
                 <Col md="4" className="mb-2">
-                  <Label className="form-label" for="base">{t("Base")} {required}</Label>
-                  <Controller name="base" control={control}
-                    render={({ field }) => (
-                      <Select inputId="base" options={BASE_OPTIONS}
-                        value={BASE_OPTIONS.find((o) => o.value === field.value) || null}
-                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
-                        classNamePrefix="select" />
-                    )} />
-                </Col>
-                <Col md="6" className="mb-2">
                   <Label className="form-label d-block">{t("Status")} {required}</Label>
                   <Controller name="status" control={control}
                     render={({ field }) => (
@@ -186,11 +175,6 @@ const ExpenseForm = () => {
                         ))}
                       </div>
                     )} />
-                </Col>
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="description">{t("Description")}</Label>
-                  <Controller name="description" control={control}
-                    render={({ field }) => <Input id="description" type="textarea" rows="2" {...field} />} />
                 </Col>
               </Row>
               <div className="d-flex justify-content-end mt-3">
