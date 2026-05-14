@@ -148,6 +148,9 @@ export const API_ENDPOINTS = {
     update: `/admin/category/update`,
     delete: `/admin/category/delete`,
     dropdown: `/admin/category/dropdown`,
+    import: `/admin/category/import`,
+    export: `/admin/category/export`,
+    sampleExcel: `/admin/category/sample-excel`,
   },
   products: {
     list: `/admin/product/list`,

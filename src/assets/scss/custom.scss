@@ -8647,7 +8647,7 @@ div.doc-badge,
 .doc-badge {
   display: inline-block !important;
   padding: 0.35em 0.75em !important;
-  font-size: 0.75rem !important;
+  font-size: 1rem !important; // Changed from 0.75rem to 1rem
   font-weight: 600 !important;
   line-height: 1 !important;
   text-align: center !important;
