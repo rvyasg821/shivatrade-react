@@ -199,8 +199,20 @@ const EXCHANGE_TO_CURRENCY_OPTIONS = [
   // { value: "QAR", label: "QAR - Qatari Riyal", symbol: "﷼" },
 ];
 
+/**
+ * Rebate / Expense `type` - how the value is interpreted: a percentage of the
+ * line, or a flat amount. Mirrors ENUM_REBATE_TYPE / ENUM_EXPENSE_TYPE on the
+ * backend. Shared by the Rebate & Expense management forms and the sales-doc
+ * line-item modal.
+ */
+const REBATE_EXPENSE_TYPE_OPTIONS = [
+  { value: "percent", label: "Percent (%)" },
+  { value: "fixed", label: "Fixed Amount" },
+];
+
 export {
   STATUS_OPTIONS,
+  REBATE_EXPENSE_TYPE_OPTIONS,
   COUNTRY_OPTIONS,
   INCOTERMS_OPTIONS,
   PAYMENT_TERMS_OPTIONS,

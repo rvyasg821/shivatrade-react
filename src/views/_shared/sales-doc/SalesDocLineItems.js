@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import {
   Card,
   CardBody,
@@ -6,6 +6,8 @@ import {
   Row,
   Button,
   Input,
+  InputGroup,
+  InputGroupText,
   Label,
   Table,
   Modal,
@@ -15,6 +17,7 @@ import {
 } from "reactstrap";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import Select from "react-select";
+import AsyncSelect from "react-select/async";
 import { Plus, Trash2, Edit } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -22,8 +25,19 @@ import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { PRODUCT_UOM_OPTIONS, UOM_INTEGER_ONLY } from "@constant/options";
-import { num, fmt, formatVendorOption } from "./_helpers";
+import {
+  PRODUCT_UOM_OPTIONS,
+  UOM_INTEGER_ONLY,
+  REBATE_EXPENSE_TYPE_OPTIONS,
+} from "@constant/options";
+import {
+  num,
+  fmt,
+  round2,
+  formatVendorOption,
+  currencySymbol,
+  computeLineCosting,
+} from "./_helpers";
 
 /**
  * Line items section - compact summary table with Add / Edit / Delete actions.
@@ -34,9 +48,8 @@ import { num, fmt, formatVendorOption } from "./_helpers";
  * Shared across Quotation / PFI / PO. Pass:
  *   - control, setValue from parent useForm
  *   - productOptions: full list (already filtered by header-level category, if any)
- *   - allProductOptions: unfiltered list - used when the per-line Category
- *     override is set so the line-level filter can re-narrow from scratch
- *   - categoryOptions, defaultCategoryIds: optional per-line Category select
+ *   - allProductOptions: unfiltered product list (the modal's searchable
+ *     Product dropdown uses this - no category pre-filter inside the modal)
  *   - initLineItem (module-specific empty row shape)
  */
 const SalesDocLineItems = ({
@@ -44,12 +57,12 @@ const SalesDocLineItems = ({
   setValue,
   productOptions,
   allProductOptions,
-  categoryOptions,
-  allCategoryOptions,
-  defaultCategoryIds,
   initLineItem,
   rebateOptions = [],
   expenseOptions = [],
+  currencyCode = "",
+  baseCurrencyCode = "",
+  exchangeRate = 1,
   readOnly = false,
 }) => {
   const { t } = useTranslation();
@@ -74,13 +87,42 @@ const SalesDocLineItems = ({
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
-  // Per-line category override - keyed by line index. Defaults to the header
-  // filter at modal-open time; user can change it inside the modal to narrow
-  // (or expand) the Product dropdown for THAT line only.
-  const [lineCategoryByIdx, setLineCategoryByIdx] = useState({});
-  // When true for the modal currently open, the Category dropdown shows
-  // ALL categories (not just lead's interested set). Per-modal-open state.
-  const [modalShowAllCats, setModalShowAllCats] = useState(false);
+  // Product picker mode: false = AsyncSelect server-side search (default),
+  // true = browse the full client-side list (for "I don't know the name").
+  const [browseAll, setBrowseAll] = useState(false);
+  const productSearchTimer = useRef(null);
+
+  // Debounced server-side product search - feeds the AsyncSelect. Hits the
+  // /dropdown endpoint so the picked option still carries selling_price /
+  // tax_pct / margin_pct / product_rebates / product_expenses for auto-fill.
+  const loadProductOptions = (input) =>
+    new Promise((resolve) => {
+      if (productSearchTimer.current) {
+        clearTimeout(productSearchTimer.current);
+      }
+      const term = (input || "").trim();
+      if (term.length < 2) {
+        resolve([]);
+        return;
+      }
+      productSearchTimer.current = setTimeout(async () => {
+        try {
+          const resp = await instance.get(API_ENDPOINTS.products.dropdown, {
+            params: { search: term, limit: 20 },
+          });
+          const rows = resp?.data?.data || [];
+          resolve(
+            rows.map((p) => ({
+              value: p._id,
+              label: `${p.code ? p.code + " - " : ""}${p.name}`,
+              raw: p,
+            }))
+          );
+        } catch {
+          resolve([]);
+        }
+      }, 300);
+    });
 
   // On Edit hydration: fetch vendor options for each existing line so the
   // table shows full labels and the modal Vendor select is ready to use.
@@ -121,9 +163,13 @@ const SalesDocLineItems = ({
     if (opt?.raw) {
       setValue(`lines.${idx}.unit`, opt.raw.unit_of_measure || "");
       setValue(`lines.${idx}.unit_price`, String(opt.raw.selling_price ?? ""));
-      // GST is a product attribute (HSN-driven). Seed from product master.
+      // Product is the source of truth for GST % and Margin % (and the
+      // rebate/expense snapshots below). All overridable per line.
       if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
         setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
+      }
+      if (opt.raw.margin_pct !== undefined && opt.raw.margin_pct !== null) {
+        setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
       }
     }
     setValue(`lines.${idx}.vendor_id`, "");
@@ -135,13 +181,14 @@ const SalesDocLineItems = ({
       rebate_id: r.rebate_id,
       code: r.code,
       name: r.name,
+      type: r.type ?? "percent",
       pct: String(r.pct ?? "0"),
     }));
     const masterExpenses = (opt?.raw?.product_expenses || []).map((e) => ({
       expense_id: e.expense_id,
       code: e.code,
       name: e.name,
-      type: e.type,
+      type: e.type ?? "fixed",
       value: String(e.value ?? "0"),
     }));
     setValue(`lines.${idx}.product_rebates_snapshot`, masterRebates);
@@ -149,17 +196,12 @@ const SalesDocLineItems = ({
 
     const rows = await fetchVendorPrices(idx, opt?.value);
     if (rows.length) {
+      // Vendor price list is the source of truth for Price and Discount %.
       const first = rows[0];
       setValue(`lines.${idx}.vendor_id`, first.vendor_id || "");
       setValue(`lines.${idx}.unit_price`, String(first.unit_price ?? ""));
-      // Pre-fill margin from price list, but don't clobber a user-set value.
-      const curMargin = liveLines?.[idx]?.margin_pct;
-      if (
-        first.margin_pct !== undefined &&
-        first.margin_pct !== null &&
-        (curMargin === "" || curMargin == null)
-      ) {
-        setValue(`lines.${idx}.margin_pct`, String(first.margin_pct));
+      if (first.discount_pct !== undefined && first.discount_pct !== null) {
+        setValue(`lines.${idx}.discount_pct`, String(first.discount_pct));
       }
     }
   };
@@ -167,16 +209,14 @@ const SalesDocLineItems = ({
   const onPickVendor = (idx, opt) => {
     setValue(`lines.${idx}.vendor_id`, opt?.value || "");
     if (opt?.raw) {
+      // Vendor price list drives Price and Discount %. GST % / Margin %
+      // stay product-level - not touched here.
       setValue(`lines.${idx}.unit_price`, String(opt.raw.unit_price ?? ""));
-      // GST stays product-level — don't touch tax_pct here.
-      // Same auto-fill rule as on product pick - only fill if line is empty.
-      const curMargin = liveLines?.[idx]?.margin_pct;
       if (
-        opt.raw.margin_pct !== undefined &&
-        opt.raw.margin_pct !== null &&
-        (curMargin === "" || curMargin == null)
+        opt.raw.discount_pct !== undefined &&
+        opt.raw.discount_pct !== null
       ) {
-        setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
+        setValue(`lines.${idx}.discount_pct`, String(opt.raw.discount_pct));
       }
     }
   };
@@ -184,20 +224,10 @@ const SalesDocLineItems = ({
   const openAdd = () => {
     lineFA.append({ ...initLineItem });
     const newIdx = lineFA.fields.length;
-    // Seed the per-line category override from the header default.
-    setLineCategoryByIdx((m) => ({
-      ...m,
-      [newIdx]: defaultCategoryIds || [],
-    }));
     setModal({ open: true, idx: newIdx, isNew: true });
   };
 
   const openEdit = (idx) => {
-    // For edits, default the category override to the header filter only if
-    // the line doesn't already have one set.
-    setLineCategoryByIdx((m) =>
-      m[idx] !== undefined ? m : { ...m, [idx]: defaultCategoryIds || [] }
-    );
     setModal({ open: true, idx, isNew: false });
   };
 
@@ -220,7 +250,6 @@ const SalesDocLineItems = ({
       }
     }
     setModal({ open: false, idx: null, isNew: false });
-    setModalShowAllCats(false);
   };
 
   const removeLine = (idx) => {
@@ -246,29 +275,20 @@ const SalesDocLineItems = ({
   const editingLine = editingIdx != null ? liveLines[editingIdx] || {} : {};
   const editingVendorOpts =
     editingIdx != null ? vendorOptionsByLine[editingIdx] || [] : [];
-  const editingLineTotal =
-    num(editingLine.qty) *
-    num(editingLine.unit_price) *
-    (1 - num(editingLine.discount_pct) / 100);
+  // Per-line costing for the modal breakdown - shared helper, so the modal,
+  // the Step 2 table, and the Step 3 review all use identical math.
+  const editingCosting = computeLineCosting(editingLine);
 
-  // Per-line category filter for the Product dropdown inside the modal.
-  // If a per-line override exists, narrow from `allProductOptions` (the
-  // unfiltered list) so the user can ALSO pick categories outside the
-  // header's filter. If no override, use the parent-filtered productOptions.
-  const editingCategoryIds =
-    editingIdx != null
-      ? lineCategoryByIdx[editingIdx] ?? defaultCategoryIds ?? []
-      : [];
-  const sourceList =
-    editingCategoryIds && editingCategoryIds.length
-      ? allProductOptions || productOptions
-      : productOptions;
-  const modalProductOptions =
-    editingCategoryIds && editingCategoryIds.length
-      ? (sourceList || []).filter((o) =>
-          editingCategoryIds.includes(o.raw?.category_id)
-        )
-      : sourceList || [];
+  // Costing figures are in the company's home currency (set by the
+  // is_default flag in the Currency module). The converted row only shows
+  // when the document currency differs from the home currency.
+  const baseSym = currencySymbol(baseCurrencyCode);
+  const showConverted =
+    !!currencyCode && !!baseCurrencyCode && currencyCode !== baseCurrencyCode;
+
+  // Full product list - the Product dropdown is searchable, no category
+  // pre-filter inside the modal.
+  const modalProductOptions = allProductOptions || productOptions || [];
 
   if (modal.open && editingIdx != null) {
     ensureVendorOpts(editingIdx, editingLine.product_id);
@@ -306,9 +326,11 @@ const SalesDocLineItems = ({
                 <th>{t("Product")}</th>
                 <th>{t("Vendor")}</th>
                 <th className="text-end">{t("Qty")}</th>
-                <th>{t("Unit")}</th>
-                <th className="text-end">{t("Unit Price")}</th>
+                <th>{t("UOM")}</th>
+                <th className="text-end">{t("Price")}</th>
                 <th className="text-end">{t("Disc %")}</th>
+                <th className="text-end">{t("Expenses")}</th>
+                <th className="text-end">{t("Rebates")}</th>
                 <th className="text-end">{t("GST %")}</th>
                 <th className="text-end">{t("Margin %")}</th>
                 <th className="text-end">{t("Line Total")}</th>
@@ -322,11 +344,8 @@ const SalesDocLineItems = ({
                 // an empty placeholder row in the table behind the modal.
                 if (modal.isNew && modal.idx === idx) return null;
                 const l = liveLines[idx] || {};
-                const lineNet =
-                  num(l.qty) *
-                  num(l.unit_price) *
-                  (1 - num(l.discount_pct) / 100);
-                const lineTotal = lineNet;
+                const c = computeLineCosting(l);
+                const lineNet = c.taxable;
                 const productLabel =
                   productOptions.find((o) => o.value === l.product_id)
                     ?.label || (l.product_id ? "-" : t("(not set)"));
@@ -348,12 +367,21 @@ const SalesDocLineItems = ({
                     <td className="text-end">{l.qty || "-"}</td>
                     <td>{l.unit || "-"}</td>
                     <td className="text-end">
-                      {l.unit_price ? fmt(l.unit_price) : "-"}
+                      {l.unit_price ? `${baseSym}${fmt(l.unit_price)}` : "-"}
                     </td>
                     <td className="text-end">{num(l.discount_pct) || 0}</td>
+                    <td className="text-end">
+                      {c.expenses > 0 ? `${baseSym}${fmt(c.expenses)}` : "-"}
+                    </td>
+                    <td className="text-end">
+                      {c.rebates > 0 ? `${baseSym}${fmt(c.rebates)}` : "-"}
+                    </td>
                     <td className="text-end">{num(l.tax_pct) || 0}</td>
                     <td className="text-end">{num(l.margin_pct) || 0}</td>
-                    <td className="text-end fw-bold">{fmt(lineTotal)}</td>
+                    <td className="text-end fw-bold">
+                      {baseSym}
+                      {fmt(c.lineTotal)}
+                    </td>
                     <td>
                       <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
                         <Edit
@@ -380,19 +408,24 @@ const SalesDocLineItems = ({
                   {hasChips && (
                     <tr className="bg-light">
                       <td></td>
-                      <td colSpan={10} className="py-1">
+                      <td colSpan={12} className="py-1">
                         <small className="text-muted me-2">
                           {t("Auto-applied:")}
                         </small>
                         {lineRebates.map((r) => {
-                          const amt = (lineNet * num(r.pct)) / 100;
+                          const isFixed = r.type === "fixed";
+                          const amt = isFixed
+                            ? num(r.pct)
+                            : (lineNet * num(r.pct)) / 100;
                           return (
                             <span
                               key={`r-${idx}-${r.rebate_id}`}
                               className="badge bg-success text-white me-1"
                             >
-                              {r.code || r.name} {num(r.pct)}% ={" "}
-                              {fmt(amt)}
+                              {r.code || r.name}{" "}
+                              {isFixed
+                                ? fmt(num(r.pct))
+                                : `${num(r.pct)}% = ${fmt(amt)}`}
                             </span>
                           );
                         })}
@@ -426,7 +459,7 @@ const SalesDocLineItems = ({
       </CardBody>
 
       {/* ── Edit modal ── */}
-      <Modal isOpen={modal.open} toggle={closeModal} size="lg" backdrop="static">
+      <Modal isOpen={modal.open} toggle={closeModal} size="xl" backdrop="static">
         <ModalHeader toggle={closeModal}>
           {modal.isNew
             ? t("Add Line Item")
@@ -435,106 +468,78 @@ const SalesDocLineItems = ({
         <ModalBody>
           {editingIdx != null && (
             <>
-              {((allCategoryOptions || categoryOptions) || []).length > 0 && (
-                <Row>
-                  <Col md="12" className="mb-2">
-                    <Label className="form-label d-flex justify-content-between align-items-center">
-                      <span>
-                        {t("Category")}{" "}
-                        <small className="text-muted">
-                          {t("(narrows the Product dropdown for this line)")}
-                        </small>
-                      </span>
-                      {allCategoryOptions &&
-                        categoryOptions &&
-                        allCategoryOptions.length > categoryOptions.length && (
-                          <small>
-                            <a
-                              href="#"
-                              className="text-decoration-none"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setModalShowAllCats((s) => !s);
-                              }}
-                            >
-                              {modalShowAllCats
-                                ? t("Show lead categories only")
-                                : t("Show all categories")}
-                            </a>
-                          </small>
-                        )}
-                    </Label>
-                    {(() => {
-                      const opts =
-                        modalShowAllCats && allCategoryOptions
-                          ? allCategoryOptions
-                          : categoryOptions;
-                      return (
-                    <Select
-                      classNamePrefix="select"
-                      isMulti
-                      isClearable
-                      options={opts}
-                      value={(allCategoryOptions || opts).filter((o) =>
-                        (editingCategoryIds || []).includes(o.value)
-                      )}
-                      onChange={(opts) => {
-                        const next = (opts || []).map((o) => o.value);
-                        setLineCategoryByIdx((m) => ({
-                          ...m,
-                          [editingIdx]: next,
-                        }));
-                        // Clear product if it no longer matches the new
-                        // category set, to avoid orphan selections.
-                        const pid = editingLine.product_id;
-                        if (pid) {
-                          const pool = next.length
-                            ? (allProductOptions || productOptions || []).filter(
-                                (o) => next.includes(o.raw?.category_id)
-                              )
-                            : productOptions || [];
-                          if (!pool.find((o) => o.value === pid)) {
-                            setValue(`lines.${editingIdx}.product_id`, "");
-                          }
-                        }
-                      }}
-                      placeholder={t("All categories (using header filter)")}
-                      menuPortalTarget={document.body}
-                      styles={{
-                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
-                      }}
-                    />
-                      );
-                    })()}
-                  </Col>
-                </Row>
-              )}
               <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label">
-                    {t("Product")} <span className="text-danger">*</span>
+                <Col md="12" className="mb-2">
+                  <Label className="form-label d-flex justify-content-between align-items-center">
+                    <span>
+                      {t("Product")} <span className="text-danger">*</span>
+                    </span>
+                    <small>
+                      <a
+                        href="#"
+                        className="text-decoration-none"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setBrowseAll((s) => !s);
+                        }}
+                      >
+                        {browseAll
+                          ? t("Search instead")
+                          : t("Don't know the name? Browse all")}
+                      </a>
+                    </small>
                   </Label>
                   <Controller
                     name={`lines.${editingIdx}.product_id`}
                     control={control}
-                    render={({ field: f }) => (
-                      <Select
-                        classNamePrefix="select"
-                        options={modalProductOptions}
-                        value={
-                          // Look up in the unfiltered list so the saved
-                          // product still renders even if the active filter
-                          // would hide it.
-                          (allProductOptions || productOptions).find(
-                            (o) => o.value === f.value
-                          ) || null
-                        }
-                        onChange={(opt) => onPickProduct(editingIdx, opt)}
-                      />
-                    )}
+                    render={({ field: f }) => {
+                      const selected =
+                        (allProductOptions || productOptions || []).find(
+                          (o) => o.value === f.value
+                        ) || null;
+                      const portalStyles = {
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      };
+                      return browseAll ? (
+                        <Select
+                          classNamePrefix="select"
+                          isSearchable
+                          options={modalProductOptions}
+                          value={selected}
+                          onChange={(opt) =>
+                            onPickProduct(editingIdx, opt)
+                          }
+                          placeholder={t("Browse all products…")}
+                          menuPortalTarget={document.body}
+                          styles={portalStyles}
+                        />
+                      ) : (
+                        <AsyncSelect
+                          classNamePrefix="select"
+                          cacheOptions
+                          defaultOptions={false}
+                          loadOptions={loadProductOptions}
+                          value={selected}
+                          onChange={(opt) =>
+                            onPickProduct(editingIdx, opt)
+                          }
+                          placeholder={t("Type 2+ letters to search…")}
+                          loadingMessage={() => t("Searching…")}
+                          noOptionsMessage={({ inputValue }) =>
+                            inputValue && inputValue.length >= 2
+                              ? t("No products found")
+                              : t("Type to search")
+                          }
+                          menuPortalTarget={document.body}
+                          styles={portalStyles}
+                        />
+                      );
+                    }}
                   />
                 </Col>
-                <Col md="6" className="mb-2">
+              </Row>
+              <Row>
+                <Col md="12" className="mb-2">
                   <Label className="form-label">{t("Vendor")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.vendor_id`}
@@ -571,10 +576,16 @@ const SalesDocLineItems = ({
                     render={({ field: f }) => {
                       const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
                       const v = num(f.value);
-                      const showError =
-                        f.value === "" || f.value == null
-                          ? false
-                          : v <= 0 || (isInt && !Number.isInteger(v));
+                      const empty = f.value === "" || f.value == null;
+                      // Once the line has been started (product or price set),
+                      // an empty / invalid qty is flagged inline here - not by
+                      // the Done button.
+                      const lineStarted =
+                        !!editingLine.product_id ||
+                        !!editingLine.unit_price;
+                      const showError = empty
+                        ? lineStarted
+                        : v <= 0 || (isInt && !Number.isInteger(v));
                       return (
                         <>
                           <Input
@@ -587,7 +598,9 @@ const SalesDocLineItems = ({
                           />
                           {showError && (
                             <small className="text-danger d-block">
-                              {v <= 0
+                              {empty
+                                ? t("Qty is required")
+                                : v <= 0
                                 ? t("Qty must be greater than 0")
                                 : t(
                                     "This unit ({{unit}}) does not allow decimals",
@@ -601,7 +614,7 @@ const SalesDocLineItems = ({
                   />
                 </Col>
                 <Col md="4" sm="6" className="mb-2">
-                  <Label className="form-label">{t("Unit")}</Label>
+                  <Label className="form-label">{t("UOM")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.unit`}
                     control={control}
@@ -637,24 +650,43 @@ const SalesDocLineItems = ({
                   />
                 </Col>
                 <Col md="4" sm="6" className="mb-2">
-                  <Label className="form-label">{t("Unit Price")}</Label>
+                  <Label className="form-label">
+                    {t("Price")} <span className="text-danger">*</span>
+                  </Label>
                   <Controller
                     name={`lines.${editingIdx}.unit_price`}
                     control={control}
-                    render={({ field: f }) => (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        {...f}
-                        value={f.value ?? ""}
-                      />
-                    )}
+                    render={({ field: f }) => {
+                      const p = num(f.value);
+                      const empty = f.value === "" || f.value == null;
+                      const lineStarted =
+                        !!editingLine.product_id || !!editingLine.qty;
+                      const showError = empty ? lineStarted : p <= 0;
+                      return (
+                        <>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            invalid={showError}
+                            {...f}
+                            value={f.value ?? ""}
+                          />
+                          {showError && (
+                            <small className="text-danger d-block">
+                              {empty
+                                ? t("Price is required")
+                                : t("Price must be greater than 0")}
+                            </small>
+                          )}
+                        </>
+                      );
+                    }}
                   />
                 </Col>
               </Row>
               <Row>
-                <Col md="3" sm="6" className="mb-2">
+                <Col md="4" sm="6" className="mb-2">
                   <Label className="form-label">{t("Disc %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.discount_pct`}
@@ -670,7 +702,7 @@ const SalesDocLineItems = ({
                     )}
                   />
                 </Col>
-                <Col md="3" sm="6" className="mb-2">
+                <Col md="4" sm="6" className="mb-2">
                   <Label className="form-label">{t("GST %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.tax_pct`}
@@ -686,7 +718,7 @@ const SalesDocLineItems = ({
                     )}
                   />
                 </Col>
-                <Col md="3" sm="6" className="mb-2">
+                <Col md="4" sm="6" className="mb-2">
                   <Label className="form-label">{t("Margin %")}</Label>
                   <Controller
                     name={`lines.${editingIdx}.margin_pct`}
@@ -699,38 +731,6 @@ const SalesDocLineItems = ({
                         placeholder="0"
                         {...f}
                         value={f.value ?? ""}
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("Auto-fills from vendor price list")}
-                  </small>
-                </Col>
-                <Col md="3" sm="6" className="mb-2">
-                  <Label className="form-label">{t("Line Total")}</Label>
-                  <div
-                    className="form-control bg-light fw-bold text-end"
-                    style={{ pointerEvents: "none" }}
-                  >
-                    {fmt(editingLineTotal)}
-                  </div>
-                </Col>
-              </Row>
-              <Row>
-                <Col md="12" className="mb-1">
-                  <Label className="form-label">{t("Description")}</Label>
-                  <Controller
-                    name={`lines.${editingIdx}.description`}
-                    control={control}
-                    render={({ field: f }) => (
-                      <Input
-                        type="textarea"
-                        rows="2"
-                        {...f}
-                        value={f.value || ""}
-                        placeholder={t(
-                          "Optional - overrides product description on the quote"
-                        )}
                       />
                     )}
                   />
@@ -760,6 +760,7 @@ const SalesDocLineItems = ({
                           rebate_id: null,
                           code: "",
                           name: "",
+                          type: "percent",
                           pct: "0",
                         });
                         setValue(
@@ -783,7 +784,7 @@ const SalesDocLineItems = ({
                           name={`lines.${editingIdx}.product_rebates_snapshot.${ri}.name`}
                           control={control}
                           defaultValue={row.name || ""}
-                          render={({ field: f }) => (
+                          render={() => (
                             <Select
                               classNamePrefix="select"
                               isClearable
@@ -796,8 +797,8 @@ const SalesDocLineItems = ({
                                       ?.product_rebates_snapshot?.[ri]
                                       ?.rebate_id
                                 ) ||
-                                (f.value
-                                  ? { value: null, label: f.value }
+                                (row.name
+                                  ? { value: null, label: row.name }
                                   : null)
                               }
                               onChange={(opt) => {
@@ -810,6 +811,10 @@ const SalesDocLineItems = ({
                                   rebate_id: opt?.value || null,
                                   code: opt?.raw?.code || cur[ri]?.code || "",
                                   name: opt?.raw?.name || opt?.label || "",
+                                  type:
+                                    opt?.raw?.type ||
+                                    cur[ri]?.type ||
+                                    "percent",
                                   pct:
                                     opt?.raw?.pct != null
                                       ? String(opt.raw.pct)
@@ -820,48 +825,66 @@ const SalesDocLineItems = ({
                                   cur
                                 );
                               }}
-                              placeholder={t("Pick or type a rebate name")}
+                              placeholder={t("Pick a rebate")}
                             />
                           )}
                         />
                       </Col>
                       <Col md="3">
-                        <Input
-                          type="text"
-                          placeholder={t("Custom name")}
-                          value={row.name || ""}
-                          onChange={(e) => {
+                        <Select
+                          classNamePrefix="select"
+                          options={REBATE_EXPENSE_TYPE_OPTIONS}
+                          value={
+                            REBATE_EXPENSE_TYPE_OPTIONS.find(
+                              (o) => o.value === (row.type || "percent")
+                            ) || REBATE_EXPENSE_TYPE_OPTIONS[0]
+                          }
+                          onChange={(opt) => {
                             const cur = (
                               liveLines?.[editingIdx]
                                 ?.product_rebates_snapshot || []
                             ).slice();
-                            cur[ri] = { ...cur[ri], name: e.target.value };
+                            cur[ri] = {
+                              ...cur[ri],
+                              type: opt?.value || "percent",
+                            };
                             setValue(
                               `lines.${editingIdx}.product_rebates_snapshot`,
                               cur
                             );
+                          }}
+                          menuPortalTarget={document.body}
+                          styles={{
+                            menuPortal: (b) => ({ ...b, zIndex: 9999 }),
                           }}
                         />
                       </Col>
                       <Col md="2">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          placeholder="%"
-                          value={row.pct ?? ""}
-                          onChange={(e) => {
-                            const cur = (
-                              liveLines?.[editingIdx]
-                                ?.product_rebates_snapshot || []
-                            ).slice();
-                            cur[ri] = { ...cur[ri], pct: e.target.value };
-                            setValue(
-                              `lines.${editingIdx}.product_rebates_snapshot`,
-                              cur
-                            );
-                          }}
-                        />
+                        <InputGroup>
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            placeholder="0"
+                            value={row.pct ?? ""}
+                            onChange={(e) => {
+                              const cur = (
+                                liveLines?.[editingIdx]
+                                  ?.product_rebates_snapshot || []
+                              ).slice();
+                              cur[ri] = { ...cur[ri], pct: e.target.value };
+                              setValue(
+                                `lines.${editingIdx}.product_rebates_snapshot`,
+                                cur
+                              );
+                            }}
+                          />
+                          <InputGroupText>
+                            {row.type === "fixed"
+                              ? currencySymbol(baseCurrencyCode)
+                              : "%"}
+                          </InputGroupText>
+                        </InputGroup>
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2
@@ -904,7 +927,7 @@ const SalesDocLineItems = ({
                           expense_id: null,
                           code: "",
                           name: "",
-                          type: "amount",
+                          type: "fixed",
                           value: "0",
                         });
                         setValue(
@@ -923,7 +946,7 @@ const SalesDocLineItems = ({
                       key={`exp-${ei}`}
                       className="align-items-center g-1 mb-1"
                     >
-                      <Col md="4">
+                      <Col md="5">
                         <Controller
                           name={`lines.${editingIdx}.product_expenses_snapshot.${ei}.name`}
                           control={control}
@@ -956,7 +979,7 @@ const SalesDocLineItems = ({
                                   code: opt?.raw?.code || cur[ei]?.code || "",
                                   name: opt?.raw?.name || opt?.label || "",
                                   type:
-                                    opt?.raw?.type || cur[ei]?.type || "amount",
+                                    opt?.raw?.type || cur[ei]?.type || "fixed",
                                   value:
                                     opt?.raw?.value != null
                                       ? String(opt.raw.value)
@@ -967,67 +990,69 @@ const SalesDocLineItems = ({
                                   cur
                                 );
                               }}
-                              placeholder={t("Pick or type an expense name")}
+                              placeholder={t("Pick an expense")}
                             />
                           )}
                         />
                       </Col>
                       <Col md="3">
-                        <Input
-                          type="text"
-                          placeholder={t("Custom name")}
-                          value={row.name || ""}
-                          onChange={(e) => {
+                        <Select
+                          classNamePrefix="select"
+                          options={REBATE_EXPENSE_TYPE_OPTIONS}
+                          value={
+                            REBATE_EXPENSE_TYPE_OPTIONS.find(
+                              (o) => o.value === (row.type || "fixed")
+                            ) || REBATE_EXPENSE_TYPE_OPTIONS[1]
+                          }
+                          onChange={(opt) => {
                             const cur = (
                               liveLines?.[editingIdx]
                                 ?.product_expenses_snapshot || []
                             ).slice();
-                            cur[ei] = { ...cur[ei], name: e.target.value };
+                            cur[ei] = {
+                              ...cur[ei],
+                              type: opt?.value || "fixed",
+                            };
                             setValue(
                               `lines.${editingIdx}.product_expenses_snapshot`,
                               cur
                             );
+                          }}
+                          menuPortalTarget={document.body}
+                          styles={{
+                            menuPortal: (b) => ({ ...b, zIndex: 9999 }),
                           }}
                         />
                       </Col>
-                      <Col md="2">
-                        <Input
-                          type="select"
-                          value={row.type || "amount"}
-                          onChange={(e) => {
-                            const cur = (
-                              liveLines?.[editingIdx]
-                                ?.product_expenses_snapshot || []
-                            ).slice();
-                            cur[ei] = { ...cur[ei], type: e.target.value };
-                            setValue(
-                              `lines.${editingIdx}.product_expenses_snapshot`,
-                              cur
-                            );
-                          }}
-                        >
-                          <option value="amount">{t("Amount")}</option>
-                          <option value="percent">{t("Percent")}</option>
-                        </Input>
-                      </Col>
-                      <Col md="2">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          value={row.value ?? ""}
-                          onChange={(e) => {
-                            const cur = (
-                              liveLines?.[editingIdx]
-                                ?.product_expenses_snapshot || []
-                            ).slice();
-                            cur[ei] = { ...cur[ei], value: e.target.value };
-                            setValue(
-                              `lines.${editingIdx}.product_expenses_snapshot`,
-                              cur
-                            );
-                          }}
-                        />
+                      <Col md="3">
+                        <InputGroup>
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            placeholder="0"
+                            value={row.value ?? ""}
+                            onChange={(e) => {
+                              const cur = (
+                                liveLines?.[editingIdx]
+                                  ?.product_expenses_snapshot || []
+                              ).slice();
+                              cur[ei] = {
+                                ...cur[ei],
+                                value: e.target.value,
+                              };
+                              setValue(
+                                `lines.${editingIdx}.product_expenses_snapshot`,
+                                cur
+                              );
+                            }}
+                          />
+                          <InputGroupText>
+                            {row.type === "percent"
+                              ? "%"
+                              : currencySymbol(baseCurrencyCode)}
+                          </InputGroupText>
+                        </InputGroup>
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2
@@ -1048,6 +1073,172 @@ const SalesDocLineItems = ({
                       </Col>
                     </Row>
                   ))}
+                </Col>
+              </Row>
+
+              <hr className="my-2" />
+
+              <Row>
+                <Col md="12" className="mb-1">
+                  <Label className="form-label">{t("Description")}</Label>
+                  <Controller
+                    name={`lines.${editingIdx}.description`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input
+                        type="textarea"
+                        rows="2"
+                        {...f}
+                        value={f.value || ""}
+                        placeholder={t(
+                          "Optional - overrides product description on the quote"
+                        )}
+                      />
+                    )}
+                  />
+                </Col>
+              </Row>
+
+              <hr className="my-2" />
+
+              {/* Per-line costing breakdown - mirrors the backend recompute.
+                  Base figures are in the home currency (INR); the final row
+                  converts the line total to the document currency via the
+                  exchange rate. */}
+              <Row>
+                <Col md="12">
+                  <Label className="form-label fw-bold">
+                    {t("Costing Breakdown")}
+                  </Label>
+                  <ul className="list-unstyled mb-0 border rounded p-2 bg-light">
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">
+                        {t("Gross")}{" "}
+                        <small>
+                          ({t("Qty")} × {t("Price")})
+                        </small>
+                      </span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.gross)}
+                      </span>
+                    </li>
+                    {editingCosting.discountAmt > 0 && (
+                      <li className="d-flex justify-content-between py-25">
+                        <span className="text-muted">
+                          − {t("Discount")} ({editingCosting.discountPct}%)
+                        </span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.discountAmt)}
+                        </span>
+                      </li>
+                    )}
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">= {t("Taxable")}</span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.taxable)}
+                      </span>
+                    </li>
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">+ {t("Expenses")}</span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.expenses)}
+                      </span>
+                    </li>
+                    {editingCosting.expensesPctAmt > 0 && (
+                      <li className="d-flex justify-content-between ps-2 small text-muted">
+                        <span>
+                          · {editingCosting.expensesPctRate}% {t("of value")}
+                        </span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.expensesPctAmt)}
+                        </span>
+                      </li>
+                    )}
+                    {editingCosting.expensesFixedAmt > 0 && (
+                      <li className="d-flex justify-content-between ps-2 small text-muted">
+                        <span>· {t("Flat amount")}</span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.expensesFixedAmt)}
+                        </span>
+                      </li>
+                    )}
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">− {t("Rebates")}</span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.rebates)}
+                      </span>
+                    </li>
+                    {editingCosting.rebatesPctAmt > 0 && (
+                      <li className="d-flex justify-content-between ps-2 small text-muted">
+                        <span>
+                          · {editingCosting.rebatesPctRate}% {t("of value")}
+                        </span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.rebatesPctAmt)}
+                        </span>
+                      </li>
+                    )}
+                    {editingCosting.rebatesFixedAmt > 0 && (
+                      <li className="d-flex justify-content-between ps-2 small text-muted">
+                        <span>· {t("Flat amount")}</span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.rebatesFixedAmt)}
+                        </span>
+                      </li>
+                    )}
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">
+                        + {t("Margin")} ({num(editingLine.margin_pct)}%)
+                      </span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.margin)}
+                      </span>
+                    </li>
+                    <li className="d-flex justify-content-between py-25">
+                      <span className="text-muted">
+                        + {t("GST")} ({num(editingLine.tax_pct)}%)
+                      </span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.gst)}
+                      </span>
+                    </li>
+                    <li className="d-flex justify-content-between pt-50 mt-25 border-top fw-bold">
+                      <span>{t("Line Total")}</span>
+                      <span>
+                        {baseSym}
+                        {fmt(editingCosting.lineTotal)}
+                      </span>
+                    </li>
+                    {showConverted && (
+                      <li className="d-flex justify-content-between pt-25 fw-bold text-primary">
+                        <span>
+                          {t("Line Total")} ({currencyCode}){" "}
+                          <small className="text-muted fw-normal">
+                            @ {exchangeRate}
+                          </small>
+                        </span>
+                        <span>
+                          {currencySymbol(currencyCode)}
+                          {fmt(
+                            round2(
+                              editingCosting.lineTotal * num(exchangeRate)
+                            )
+                          )}
+                        </span>
+                      </li>
+                    )}
+                  </ul>
                 </Col>
               </Row>
             </>
@@ -1076,9 +1267,7 @@ const SalesDocLineItems = ({
                   <small className="text-danger me-auto">
                     {productMissing
                       ? t("Pick a product")
-                      : qtyInvalid
-                      ? t("Enter a valid qty")
-                      : t("Enter a valid unit price")}
+                      : t("Fix the highlighted fields to continue")}
                   </small>
                 )}
                 <Button

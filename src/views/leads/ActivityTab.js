@@ -16,6 +16,7 @@ import {
   UserPlus,
   CheckCircle,
   MessageSquare,
+  Flag,
   Edit,
   Trash2,
   X,
@@ -34,6 +35,7 @@ import {
 
 const TYPE_META = {
   note: { icon: MessageSquare, color: "primary", label: "Note" },
+  lead_created: { icon: Flag, color: "success", label: "Lead created" },
   status_change: { icon: ArrowRight, color: "info", label: "Status changed" },
   conversion: { icon: UserPlus, color: "success", label: "Converted to customer" },
   quotation_created: {
@@ -62,6 +64,7 @@ const relative = (iso) => {
 const renderRow = (row, t) => {
   const md = TYPE_META[row?.type] || TYPE_META.note;
   if (row.type === "note") return row?.body || "";
+  if (row.type === "lead_created") return t("Lead created");
   if (row.type === "status_change") {
     const f = row?.metadata?.from || "—";
     const to = row?.metadata?.to || "—";
@@ -145,7 +148,7 @@ const ActivityTab = ({ leadId }) => {
       <h4 className="mb-2">{t("Activity")}</h4>
 
       {/* Add-note composer */}
-      <div className="d-flex gap-2 mb-3">
+      <div className="d-flex align-items-start gap-2 mb-3">
         <Input
           type="textarea"
           rows="2"
@@ -153,8 +156,14 @@ const ActivityTab = ({ leadId }) => {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
-        <Button color="primary" onClick={onAdd} disabled={!draft.trim()}>
-          <FileText size={14} className="me-50" /> {t("Add")}
+        <Button
+          color="primary"
+          onClick={onAdd}
+          disabled={!draft.trim()}
+          className="text-nowrap flex-shrink-0"
+        >
+          <FileText size={14} className="me-50" />
+          {t("Add")}
         </Button>
       </div>
 

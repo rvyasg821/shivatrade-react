@@ -539,12 +539,12 @@ const AddQuotation = () => {
       // − line product rebates), zeroing the product buckets if skip flag.
       const effLineExp = liveSkipProduct ? 0 : lineProdExp;
       const effLineReb = liveSkipProduct ? 0 : lineProdReb;
-      // No header margin anymore — empty line margin = 0.
+      // No header margin anymore - empty line margin = 0.
       const lineMarginPct = num(l?.margin_pct);
       line_margin_total +=
         (lineNet + effLineExp - effLineReb) * (lineMarginPct / 100);
     });
-    // Header expenses/rebates removed — all rebates/expenses are per-line now.
+    // Header expenses/rebates removed - all rebates/expenses are per-line now.
     const eff_product_rebates = liveSkipProduct ? 0 : product_rebates_total;
     const eff_product_expenses = liveSkipProduct ? 0 : product_expenses_total;
     const net =
@@ -608,7 +608,7 @@ const AddQuotation = () => {
       delivery_location: values.delivery_location?.trim() || undefined,
       notes_to_client: values.notes_to_client?.trim() || undefined,
       internal_notes: values.internal_notes?.trim() || undefined,
-      // Header margin removed — kept as "0" for back-compat with the column.
+      // Header margin removed - kept as "0" for back-compat with the column.
       margin_pct: "0",
       skip_product_costing: !!values.skip_product_costing,
       status: values.status || "draft",

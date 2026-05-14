@@ -23,7 +23,7 @@ import withReactContent from "sweetalert2-react-content";
 import { num, round2, fmt, deriveExpenseAmount } from "./_helpers";
 
 /**
- * Expenses section — three-mode model per row:
+ * Expenses section - three-mode model per row:
  *   1. Master-linked, default        → derived amount displayed read-only
  *   2. Master-linked, overridden     → editable amount + reset-to-rule icon
  *   3. Ad-hoc (no master)            → name + amount both manual
@@ -142,7 +142,7 @@ const SalesDocExpenses = ({
           return (
             <div className="alert alert-warning py-1 px-2 small mb-2">
               ⚠ {t("Already auto-applied from product master:")}{" "}
-              <strong>{overlapping.join(", ")}</strong> —{" "}
+              <strong>{overlapping.join(", ")}</strong> -{" "}
               {t(
                 "adding the same expense here will double-count. Either remove from this list, or check the 'Skip per-product' option in the header."
               )}
@@ -271,7 +271,7 @@ const SalesDocExpenses = ({
                     ? editingMaster.type === "percent"
                       ? `${num(editingMaster.value)}% of subtotal`
                       : `Flat ${fmt(num(editingMaster.value))}`
-                    : t("Ad-hoc — type the amount below")}
+                    : t("Ad-hoc - type the amount below")}
                 </div>
               </Col>
               <Col md="12" className="mb-1">

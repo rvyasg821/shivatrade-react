@@ -9,16 +9,16 @@ import { useTranslation } from "react-i18next";
 
 import { QUOTATION_STATUS_OPTIONS } from "@constant/options";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
-
-const fmt = (n) =>
-  Number(n || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+import {
+  fmt,
+  currencySymbol,
+  computeLineCosting,
+} from "@src/views/_shared/sales-doc/_helpers";
 
 const Step4Review = ({
   totals,
   selectedCurrencyCode,
+  baseCurrencyCode,
   customerOptions,
   customerAddressOptions,
   currencyOptions,
@@ -32,6 +32,7 @@ const Step4Review = ({
   } = useFormContext();
 
   const v = watch();
+  const baseSym = currencySymbol(baseCurrencyCode);
   const customer =
     customerOptions.find((o) => o.value === v.customer_id)?.label || "-";
   const billTo =
@@ -83,23 +84,25 @@ const Step4Review = ({
           {t("Line Items")}{" "}
           <small className="text-muted">({lines.length})</small>
         </h5>
-        <Table size="sm" bordered responsive className="mb-3">
+        <Table size="sm" bordered responsive className="mb-2">
           <thead className="table-light">
             <tr>
               <th>#</th>
               <th>{t("Product")}</th>
               <th className="text-end">{t("Qty")}</th>
-              <th className="text-end">{t("Unit Price")}</th>
+              <th className="text-end">{t("Price")}</th>
               <th className="text-end">{t("Disc%")}</th>
+              <th className="text-end">{t("Expenses")}</th>
+              <th className="text-end">{t("Rebates")}</th>
               <th className="text-end">{t("GST%")}</th>
               <th className="text-end">{t("Margin%")}</th>
-              <th className="text-end">{t("Line Net")}</th>
+              <th className="text-end">{t("Line Total")}</th>
             </tr>
           </thead>
           <tbody>
             {lines.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center text-muted py-3">
+                <td colSpan={10} className="text-center text-muted py-3">
                   {t("No line items.")}
                 </td>
               </tr>
@@ -109,7 +112,8 @@ const Step4Review = ({
                 const qty = Number(l.qty || 0);
                 const price = Number(l.unit_price || 0);
                 const disc = Number(l.discount_pct || 0);
-                const lineNet = qty * price * (1 - disc / 100);
+                const c = computeLineCosting(l);
+                const lineNet = c.taxable;
                 const lineRebates = l.product_rebates_snapshot || [];
                 const lineExpenses = l.product_expenses_snapshot || [];
                 const hasChips =
@@ -120,28 +124,51 @@ const Step4Review = ({
                       <td>{i + 1}</td>
                       <td>{p ? `${p.code || ""} ${p.name || ""}` : "-"}</td>
                       <td className="text-end">{qty}</td>
-                      <td className="text-end">{fmt(price)}</td>
+                      <td className="text-end">
+                        {baseSym}
+                        {fmt(price)}
+                      </td>
                       <td className="text-end">{disc}</td>
+                      <td className="text-end">
+                        {c.expenses > 0
+                          ? `${baseSym}${fmt(c.expenses)}`
+                          : "-"}
+                      </td>
+                      <td className="text-end">
+                        {c.rebates > 0
+                          ? `${baseSym}${fmt(c.rebates)}`
+                          : "-"}
+                      </td>
                       <td className="text-end">{l.tax_pct || 0}</td>
                       <td className="text-end">{l.margin_pct || 0}</td>
-                      <td className="text-end fw-bold">{fmt(lineNet)}</td>
+                      <td className="text-end fw-bold">
+                        {baseSym}
+                        {fmt(c.lineTotal)}
+                      </td>
                     </tr>
                     {hasChips && (
                       <tr className="bg-light">
                         <td></td>
-                        <td colSpan={7} className="py-1">
+                        <td colSpan={9} className="py-1">
                           <small className="text-muted me-2">
                             {t("Auto-applied:")}
                           </small>
                           {lineRebates.map((r, ri) => {
-                            const amt = (lineNet * Number(r.pct || 0)) / 100;
+                            const isFixed = r.type === "fixed";
+                            const amt = isFixed
+                              ? Number(r.pct || 0)
+                              : (lineNet * Number(r.pct || 0)) / 100;
                             return (
                               <span
                                 key={`r-${i}-${ri}`}
                                 className="badge bg-success text-white me-1"
                               >
-                                {r.code || r.name} {Number(r.pct || 0)}% ={" "}
-                                {fmt(amt)}
+                                {r.code || r.name}{" "}
+                                {isFixed
+                                  ? `${baseSym}${fmt(amt)}`
+                                  : `${Number(r.pct || 0)}% = ${baseSym}${fmt(
+                                      amt
+                                    )}`}
                               </span>
                             );
                           })}
@@ -159,7 +186,8 @@ const Step4Review = ({
                                 {e.type === "percent"
                                   ? `${Number(e.value || 0)}%`
                                   : ""}{" "}
-                                = {fmt(amt)}
+                                = {baseSym}
+                                {fmt(amt)}
                               </span>
                             );
                           })}
@@ -173,7 +201,7 @@ const Step4Review = ({
           </tbody>
         </Table>
 
-        <Row>
+        <Row className="mt-2">
           <Col md="6" className="mb-2">
             <Label className="form-label">{t("Notes to Client")}</Label>
             <Controller
