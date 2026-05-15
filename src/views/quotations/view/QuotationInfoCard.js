@@ -70,10 +70,16 @@ const QuotationInfoCard = () => {
               <div className="d-flex flex-column align-items-center text-center">
                 <h4 className="text-break mb-0">{q?.voucher_no || "-"}</h4>
                 <Badge
-                  color={
-                    QUOTATION_STATUS_BADGE_COLOR[q?.status] || "secondary"
-                  }
-                  className="mt-1 text-capitalize"
+                  color={`light-${
+                    QUOTATION_STATUS_BADGE_COLOR[
+                      (q?.status || "").toLowerCase()
+                    ] || "secondary"
+                  }`}
+                  className={`badge-light-${
+                    QUOTATION_STATUS_BADGE_COLOR[
+                      (q?.status || "").toLowerCase()
+                    ] || "secondary"
+                  } mt-1 text-capitalize`}
                 >
                   {q?.status || "-"}
                 </Badge>
