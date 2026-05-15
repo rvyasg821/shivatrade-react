@@ -322,7 +322,7 @@ const ProductList = () => {
             <Row>
               <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-product"
@@ -332,7 +332,7 @@ const ProductList = () => {
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       value={selectedCategory}
                       onChange={(opt) => setCategoryFilter(opt ? opt.value : "")}
@@ -342,7 +342,7 @@ const ProductList = () => {
                       classNamePrefix="select"
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       value={
                         statusFilter
@@ -370,30 +370,34 @@ const ProductList = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-wrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap">
                   <Button
-                    color="secondary"
-                    outline
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
                     onClick={handleExport}
                     disabled={exporting}
                   >
-                    {t("Export")} <Download size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
                   {(canAdd || canEdit) && (
                     <Button
-                      color="secondary"
-                      outline
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
                       onClick={() => setImportModalOpen(true)}
                     >
-                      {t("Import")} <Upload size={16} />
+                      {t("Import")} <Upload size={14} />
                     </Button>
                   )}
                   {canAdd && (
                     <Button
                       color="primary"
+                     
+                      className="text-nowrap"
                       onClick={() => navigate(`${appsRoot}/products/add`)}
                     >
-                      {t("Add Product")} <PlusCircle size={16} />
+                      {t("Add Product")} <PlusCircle size={14} />
                     </Button>
                   )}
                 </div>
