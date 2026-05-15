@@ -567,23 +567,27 @@ const QuotationWizard = () => {
         <FormProvider {...form}>
           <Form onSubmit={(e) => e.preventDefault()}>
             {isLocked && (
-              <div className="alert alert-warning d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <strong>
-                    {t("This quotation is")} {liveStatus}.
-                  </strong>{" "}
-                  {t(
-                    "Fields are locked. Revert to draft to make changes - Status field stays editable."
-                  )}
+              <div className="alert alert-warning mb-2">
+                <div className="alert-body d-flex justify-content-between align-items-center gap-2">
+                  <div>
+                    <strong>
+                      {t("This quotation is")} {liveStatus}.
+                    </strong>{" "}
+                    {t(
+                      "Fields are locked. Revert to draft to make changes - Status field stays editable."
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    color="warning"
+                    outline
+                    type="button"
+                    className="flex-shrink-0"
+                    onClick={stepCtx.onRevertToDraft}
+                  >
+                    {t("Revert to Draft")}
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  color="warning"
-                  type="button"
-                  onClick={stepCtx.onRevertToDraft}
-                >
-                  {t("Revert to Draft")}
-                </Button>
               </div>
             )}
 

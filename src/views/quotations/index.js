@@ -243,7 +243,7 @@ const QuotationView = () => {
 
   const columns = [
     {
-      name: t("Quotation #"),
+      name: t("Quote #"),
       sortField: "voucher_no",
       sortable: false,
       selector: (row) => (

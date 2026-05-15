@@ -385,37 +385,40 @@ const LeadForm = () => {
         </div>
 
         {isEditMode && store?.leadItem?.quotations_count > 0 && (
-          <div className="alert alert-info d-flex justify-content-between align-items-center mb-2">
-            <div>
-              <FileText size={16} className="me-1" />
-              <strong>
-                {store.leadItem.quotations_count}{" "}
-                {store.leadItem.quotations_count === 1
-                  ? t("quotation")
-                  : t("quotations")}
-              </strong>{" "}
-              {t(
-                "already created from this lead. Avoid duplicates - review existing quotations before creating a new one."
-              )}
+          <div className="alert alert-info mb-2">
+            <div className="alert-body d-flex justify-content-between align-items-center gap-2">
+              <div>
+                <FileText size={16} className="me-1" />
+                <strong>
+                  {store.leadItem.quotations_count}{" "}
+                  {store.leadItem.quotations_count === 1
+                    ? t("quotation")
+                    : t("quotations")}
+                </strong>{" "}
+                {t(
+                  "already created from this lead. Avoid duplicates - review existing quotations before creating a new one."
+                )}
+              </div>
+              <Button
+                size="sm"
+                color="info"
+                outline
+                type="button"
+                className="flex-shrink-0"
+                onClick={() =>
+                  navigate(`${appsRoot}/quotations?lead_id=${id}`, {
+                    state: {
+                      leadName:
+                        store?.leadItem?.company_name ||
+                        store?.leadItem?.contact_name ||
+                        "",
+                    },
+                  })
+                }
+              >
+                {t("View Quotations")}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              color="info"
-              outline
-              type="button"
-              onClick={() =>
-                navigate(`${appsRoot}/quotations?lead_id=${id}`, {
-                  state: {
-                    leadName:
-                      store?.leadItem?.company_name ||
-                      store?.leadItem?.contact_name ||
-                      "",
-                  },
-                })
-              }
-            >
-              {t("View Quotations")}
-            </Button>
           </div>
         )}
 
