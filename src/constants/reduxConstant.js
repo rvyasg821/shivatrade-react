@@ -44,7 +44,13 @@ const initRoleItem = {
   status: true,
 };
 
-const initSmsTempItem = { _id: "", name: "", slug: "", content: "", status: "Active", };
+const initSmsTempItem = {
+  _id: "",
+  name: "",
+  slug: "",
+  content: "",
+  status: "Active",
+};
 
 const initEmailTempItem = {
   _id: "",
@@ -85,7 +91,13 @@ const initCountryItem = {
   status: "Active",
 };
 
-const initStateItem = { _id: "", name: "", country_id: null, state_code: "", status: "Active", };
+const initStateItem = {
+  _id: "",
+  name: "",
+  country_id: null,
+  state_code: "",
+  status: "Active",
+};
 const initCityItem = {
   _id: "",
   name: "",
@@ -108,13 +120,13 @@ const initPlanItem = {
       price: 0,
       special_price: null,
       special_price_duration: 0,
-      platform_fee: 0
-    }
+      platform_fee: 0,
+    },
   ],
   tools: [],
   features: [""],
   displayOrder: 1,
-  metadata: {}
+  metadata: {},
 };
 
 const initAddOnServiceItem = {
@@ -257,7 +269,9 @@ const initVendorItem = {
   is_active: true,
   status: "active",
   contacts: [{ ...initVendorContactItem, is_primary: true }],
-  addresses: [{ ...initVendorAddressItem, type: "bill_from", is_default: true }],
+  addresses: [
+    { ...initVendorAddressItem, type: "bill_from", is_default: true },
+  ],
   bank_accounts: [],
 };
 
@@ -414,7 +428,14 @@ const initQuotationItem = {
 
 // PFI shares the same line/expense/rebate row shapes as Quotation - the
 // shared SalesDoc components accept these as props.
-const initPfiLineItem = { ...initQuotationLineItem };
+const initPfiLineItem = {
+  ...initQuotationLineItem,
+  // ── Export-document line fields (Phase 2) ──
+  hs_code: "",
+  net_weight_kg: "0",
+  gross_weight_kg: "0",
+  package_count: 0,
+};
 const initPfiExpenseItem = { ...initQuotationExpenseItem };
 const initPfiRebateItem = { ...initQuotationRebateItem };
 
@@ -448,6 +469,30 @@ const initPfiItem = {
   lines: [],
   expenses: [],
   rebates: [],
+  // ── Consignee ──
+  consignee_name: "",
+  consignee_address: "",
+  // ── Shipping ──
+  port_of_loading: "",
+  port_of_discharge: "",
+  final_destination: "",
+  country_of_origin: "India",
+  country_of_final_destination: "",
+  mode_of_shipment: "",
+  container_details: "",
+  est_shipment_date: "",
+  est_delivery_date: "",
+  // ── Packing ──
+  packing_marks: "",
+  packing_type: "",
+  total_packages: 0,
+  gross_weight_kg: "0",
+  net_weight_kg: "0",
+  // ── Bank + commercial defaults ──
+  bank_account_id: "",
+  payment_terms_text: "100% advance via T/T",
+  declaration_text: "",
+  validity_days: 30,
 };
 
 const initCustomerContactItem = {
@@ -491,7 +536,9 @@ const initCustomerItem = {
   is_active: true,
   status: "active",
   contacts: [{ ...initCustomerContactItem, is_primary: true }],
-  addresses: [{ ...initCustomerAddressItem, type: "bill_to", is_default: true }],
+  addresses: [
+    { ...initCustomerAddressItem, type: "bill_to", is_default: true },
+  ],
 };
 
 const initRebateItem = {
@@ -682,18 +729,16 @@ const initSubscriptionPlanItem = {
 };
 
 const initPayment = {
-  date: "",             // Payment date
-  customer: "",         // Customer name
-  email: "",            // Customer email
-  plan: "",             // Plan name or ID
-  mode: "",             // Payment mode (e.g., UPI, Card, NetBanking)
-  transaction_id: "",   // Unique transaction ID
-  final_price: "",      // Total price or final amount
-  status: "",  
-   gateway: "",         // e.g., success, pending, failed
+  date: "", // Payment date
+  customer: "", // Customer name
+  email: "", // Customer email
+  plan: "", // Plan name or ID
+  mode: "", // Payment mode (e.g., UPI, Card, NetBanking)
+  transaction_id: "", // Unique transaction ID
+  final_price: "", // Total price or final amount
+  status: "",
+  gateway: "", // e.g., success, pending, failed
 };
-
-
 
 const initCustomerSubscriptionItem = {
   _id: "",
@@ -800,10 +845,10 @@ const initialBookingOrderVal = {
   booking_date: "", // String
   totalBathroom: 0,
   totalBedroom: 0,
-  vacuumUsedOf: { value: '', text: '' },
+  vacuumUsedOf: { value: "", text: "" },
   specialNote: "",
-  wayToGetIn: { value: '', text: '' },
-  homeCleanlinessPrice: 0
+  wayToGetIn: { value: "", text: "" },
+  homeCleanlinessPrice: 0,
 };
 
 const initialBookingVal = {

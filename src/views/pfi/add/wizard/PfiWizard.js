@@ -31,6 +31,7 @@ import { getRebateDropdown } from "../../../rebates/store";
 import { getLead } from "../../../leads/store";
 import { getVendorDropdown } from "../../../vendors/store";
 import { startLoading, stopLoading } from "../../../loadingstore";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -63,6 +64,7 @@ const PfiWizard = () => {
   const rebateStore = useSelector((s) => s.rebate);
   const leadStore = useSelector((s) => s.lead);
   const vendorStore = useSelector((s) => s.vendor);
+  const companyStore = useSelector((s) => s.company);
 
   const [submitting, setSubmitting] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
@@ -86,6 +88,32 @@ const PfiWizard = () => {
         status: yup.string().nullable(),
         quotation_id: yup.string().nullable(),
         lead_id: yup.string().nullable(),
+        // ── Shipping & Packing step ──
+        consignee_name: yup.string().nullable().max(200),
+        consignee_address: yup.string().nullable().max(2000),
+        port_of_loading: yup.string().nullable().max(150),
+        port_of_discharge: yup.string().nullable().max(150),
+        final_destination: yup.string().nullable().max(150),
+        country_of_origin: yup.string().nullable().max(100),
+        country_of_final_destination: yup.string().nullable().max(100),
+        mode_of_shipment: yup
+          .string()
+          .nullable()
+          .oneOf(["", "sea", "air", "road"], t("Invalid mode of shipment")),
+        container_details: yup.string().nullable().max(200),
+        est_shipment_date: yup.string().nullable(),
+        est_delivery_date: yup.string().nullable(),
+        packing_marks: yup.string().nullable().max(200),
+        packing_type: yup.string().nullable().max(50),
+        validity_days: yup
+          .number()
+          .transform((v, o) => (o === "" || o == null ? undefined : v))
+          .nullable()
+          .integer()
+          .min(0),
+        payment_terms_text: yup.string().nullable().max(2000),
+        declaration_text: yup.string().nullable().max(4000),
+        bank_account_id: yup.string().nullable(),
         lines: yup
           .array()
           .of(
@@ -93,11 +121,11 @@ const PfiWizard = () => {
               product_id: yup.string().required(t("Product is required")),
               qty: yup.string().required(t("Qty is required")),
               unit_price: yup.string().required(t("Unit price is required")),
-            })
+            }),
           )
           .min(1, t("Add at least one line item")),
       }),
-    [t]
+    [t],
   );
 
   const form = useForm({
@@ -114,7 +142,7 @@ const PfiWizard = () => {
   const visibleSteps = useMemo(
     () => STEPS.filter((s) => !s.isVisible || s.isVisible(form)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [STEPS, form]
+    [STEPS, form],
   );
 
   const goTo = async (idx, { validate = true } = {}) => {
@@ -128,7 +156,7 @@ const PfiWizard = () => {
           Notification(
             "Validation",
             t("Please complete the highlighted fields first."),
-            "warning"
+            "warning",
           );
           return;
         }
@@ -139,7 +167,7 @@ const PfiWizard = () => {
       Notification(
         "Step locked",
         t("Complete the previous step first."),
-        "warning"
+        "warning",
       );
       return;
     }
@@ -209,6 +237,7 @@ const PfiWizard = () => {
     dispatch(getExpenseDropdown());
     dispatch(getRebateDropdown());
     dispatch(getVendorDropdown());
+    dispatch(getCompanyDetails());
     if (isEdit) {
       dispatch(getPfi(id));
     } else {
@@ -234,6 +263,8 @@ const PfiWizard = () => {
           (p.pfi_date || "").slice(0, 10) ||
           new Date().toISOString().slice(0, 10),
         valid_until: (p.valid_until || "").slice(0, 10) || "",
+        est_shipment_date: (p.est_shipment_date || "").slice(0, 10) || "",
+        est_delivery_date: (p.est_delivery_date || "").slice(0, 10) || "",
         lines: (p.lines || []).map((l) => ({
           ...initPfiLineItem,
           ...l,
@@ -243,6 +274,11 @@ const PfiWizard = () => {
           tax_pct: String(l.tax_pct ?? "0"),
           product_rebates_snapshot: l.product_rebates_snapshot || [],
           product_expenses_snapshot: l.product_expenses_snapshot || [],
+          // ── Export-document line fields (Phase 2) ──
+          hs_code: l.hs_code || "",
+          net_weight_kg: String(l.net_weight_kg ?? "0"),
+          gross_weight_kg: String(l.gross_weight_kg ?? "0"),
+          package_count: Number(l.package_count || 0),
         })),
       });
       setVisited(new Set(STEPS.map((_, i) => i)));
@@ -269,7 +305,7 @@ const PfiWizard = () => {
             !a.type ||
             a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
             a.is_default ||
-            a._id === boundId
+            a._id === boundId,
         )
         .map((a) => ({
           value: a._id,
@@ -280,7 +316,11 @@ const PfiWizard = () => {
       setCustomerAddressOptions(opts);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
+  }, [
+    customerStore?.customerItem,
+    watchedCustomer,
+    watch("customer_address_id"),
+  ]);
 
   // Save completes the wizard → return to the listing.
   useEffect(() => {
@@ -308,7 +348,7 @@ const PfiWizard = () => {
         value: c._id,
         label: c.company_name,
       })),
-    [customerStore?.customerDropdown]
+    [customerStore?.customerDropdown],
   );
 
   const currencyOptions = useMemo(
@@ -317,7 +357,7 @@ const PfiWizard = () => {
         value: c.code,
         label: c.name ? `${c.code} - ${c.name}` : c.code,
       })),
-    [currencyStore?.exchangeOptions]
+    [currencyStore?.exchangeOptions],
   );
 
   const productOptions = useMemo(
@@ -327,7 +367,7 @@ const PfiWizard = () => {
         label: `${p.code ? p.code + " - " : ""}${p.name}`,
         raw: p,
       })),
-    [productStore?.productDropdown]
+    [productStore?.productDropdown],
   );
 
   const expenseOptions = useMemo(
@@ -337,7 +377,7 @@ const PfiWizard = () => {
         label: e.name,
         raw: e,
       })),
-    [expenseStore?.expenseDropdown]
+    [expenseStore?.expenseDropdown],
   );
 
   const rebateOptions = useMemo(
@@ -347,7 +387,7 @@ const PfiWizard = () => {
         label: r.name,
         raw: r,
       })),
-    [rebateStore?.rebateDropdown]
+    [rebateStore?.rebateDropdown],
   );
 
   const selectedCurrencyCode = liveCurrencyCode || "";
@@ -361,7 +401,7 @@ const PfiWizard = () => {
   // Costing engine - shared roll-up, same as the Quotation wizard.
   const totals = useMemo(
     () => computeDocTotals(liveLines, liveRate),
-    [liveLines, liveMargin, liveRate]
+    [liveLines, liveMargin, liveRate],
   );
 
   // Submit.
@@ -388,6 +428,28 @@ const PfiWizard = () => {
       internal_notes: values.internal_notes?.trim() || undefined,
       margin_pct: values.margin_pct || "0",
       status: values.status || "draft",
+      // ── Shipping & Packing ──
+      consignee_name: values.consignee_name?.trim() || undefined,
+      consignee_address: values.consignee_address?.trim() || undefined,
+      port_of_loading: values.port_of_loading?.trim() || undefined,
+      port_of_discharge: values.port_of_discharge?.trim() || undefined,
+      final_destination: values.final_destination?.trim() || undefined,
+      country_of_origin: values.country_of_origin?.trim() || undefined,
+      country_of_final_destination:
+        values.country_of_final_destination?.trim() || undefined,
+      mode_of_shipment: values.mode_of_shipment || undefined,
+      container_details: values.container_details?.trim() || undefined,
+      est_shipment_date: values.est_shipment_date || undefined,
+      est_delivery_date: values.est_delivery_date || undefined,
+      packing_marks: values.packing_marks?.trim() || undefined,
+      packing_type: values.packing_type || undefined,
+      validity_days:
+        values.validity_days === "" || values.validity_days == null
+          ? undefined
+          : Number(values.validity_days),
+      payment_terms_text: values.payment_terms_text?.trim() || undefined,
+      declaration_text: values.declaration_text?.trim() || undefined,
+      bank_account_id: values.bank_account_id || undefined,
       lines: (values.lines || []).map((l) => ({
         product_id: l.product_id,
         vendor_id: l.vendor_id || undefined,
@@ -405,7 +467,7 @@ const PfiWizard = () => {
             name: r.name || "",
             type: r.type || "percent",
             pct: String(r.pct ?? "0"),
-          })
+          }),
         ),
         product_expenses_snapshot: (l.product_expenses_snapshot || []).map(
           (e) => ({
@@ -414,8 +476,13 @@ const PfiWizard = () => {
             name: e.name || "",
             type: e.type || "fixed",
             value: String(e.value ?? "0"),
-          })
+          }),
         ),
+        // ── Export-document line fields (Phase 2) ──
+        hs_code: l.hs_code || undefined,
+        net_weight_kg: String(l.net_weight_kg ?? "0"),
+        gross_weight_kg: String(l.gross_weight_kg ?? "0"),
+        package_count: Number(l.package_count || 0),
       })),
     };
   };
@@ -454,7 +521,7 @@ const PfiWizard = () => {
       Notification(
         "Validation",
         t("Please fix the highlighted fields."),
-        "warning"
+        "warning",
       );
       return;
     }
@@ -463,6 +530,42 @@ const PfiWizard = () => {
 
   const sourceQuotationVoucher = store?.pfiItem?.quotation_voucher_no;
   const sourceQuotationId = store?.pfiItem?.quotation_id;
+
+  // Bank accounts come back from /admin/company/my-company with currency_code
+  // already enriched on each row. Filter to active + matching the PFI currency.
+  const allBankAccounts = useMemo(
+    () => companyStore?.companyItem?.bank_accounts || [],
+    [companyStore?.companyItem]
+  );
+  const bankAccountsForCurrency = useMemo(
+    () =>
+      allBankAccounts.filter(
+        (b) =>
+          !b.soft_delete &&
+          b.is_active !== false &&
+          (b.currency_code || "").toUpperCase() ===
+            (liveCurrencyCode || "").toUpperCase()
+      ),
+    [allBankAccounts, liveCurrencyCode]
+  );
+  const liveBankAccountId = useWatch({ control, name: "bank_account_id" });
+
+  // Default-pick logic: when the user changes currency (or after company
+  // loads), auto-select the is_default bank account for that currency, or
+  // the first active one if none is flagged default. Don't override an
+  // explicit user pick that already matches.
+  useEffect(() => {
+    if (!liveCurrencyCode || !allBankAccounts.length) return;
+    const currentMatches = bankAccountsForCurrency.some(
+      (b) => b._id === liveBankAccountId
+    );
+    if (currentMatches) return;
+    const def =
+      bankAccountsForCurrency.find((b) => b.is_default) ||
+      bankAccountsForCurrency[0];
+    setValue("bank_account_id", def ? def._id : "", { shouldDirty: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveCurrencyCode, allBankAccounts]);
 
   const stepCtx = {
     isEdit,
@@ -479,14 +582,15 @@ const PfiWizard = () => {
     productById,
     selectedCurrencyCode,
     baseCurrencyCode:
-      (currencyStore?.currencyDropdown || []).find((c) => c.is_default)
-        ?.code || "",
+      (currencyStore?.currencyDropdown || []).find((c) => c.is_default)?.code ||
+      "",
     exchangeRate: num(liveRate) || 1,
     totals,
     sourceQuotationVoucher,
     sourceQuotationId,
-    onRevertToDraft: () =>
-      setValue("status", "draft", { shouldDirty: true }),
+    allBankAccounts,
+    bankAccountsForCurrency,
+    onRevertToDraft: () => setValue("status", "draft", { shouldDirty: true }),
   };
 
   const ActiveStepComponent = visibleSteps[activeStep]?.Component;
@@ -520,7 +624,7 @@ const PfiWizard = () => {
                       {t("This PFI is")} {liveStatus}.
                     </strong>{" "}
                     {t(
-                      "Fields are locked. Revert to draft to make changes - Status field stays editable."
+                      "Fields are locked. Revert to draft to make changes - Status field stays editable.",
                     )}
                   </div>
                   <Button

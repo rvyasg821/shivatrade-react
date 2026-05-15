@@ -237,6 +237,107 @@ export const deletePfi = createAsyncThunk("appPfi/deletePfi", async (id) => {
   }
 });
 
+// ─── Public share link ────────────────────────────────────────────────
+
+// View-only fetch by public token - no auth. Powers the /p/:token page.
+export const getPublicPfi = createAsyncThunk(
+  "appPfi/getPublicPfi",
+  async (token) => {
+    try {
+      const response = await instance
+        .get(`${API_ENDPOINTS.pfis.public}/${token}`)
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (response?.statusCode && response.data) {
+        return { publicItem: response.data, error: "" };
+      }
+      return {
+        publicItem: null,
+        error:
+          response?.response?.data?.message ||
+          response?.message ||
+          "PFI not found",
+      };
+    } catch (error) {
+      return { publicItem: null, error: error.message || error };
+    }
+  }
+);
+
+// Admin "preview as client" - same sanitized shape as the public route,
+// works in any status. Feeds the same renderer as /p/:token.
+export const getPfiPreview = createAsyncThunk(
+  "appPfi/getPfiPreview",
+  async (id) => {
+    try {
+      const response = await instance
+        .get(`${API_ENDPOINTS.pfis.publicPreview}/${id}`)
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (response?.statusCode && response.data) {
+        return { publicItem: response.data, error: "" };
+      }
+      return {
+        publicItem: null,
+        error:
+          response?.response?.data?.message ||
+          response?.message ||
+          "PFI not found",
+      };
+    } catch (error) {
+      return { publicItem: null, error: error.message || error };
+    }
+  }
+);
+
+// Admin: publish / rotate / unpublish - all return the updated PFI.
+const publishLikePfiThunk = (name, endpointKey, flag) =>
+  createAsyncThunk(`appPfi/${name}`, async (id) => {
+    try {
+      const response = await instance
+        .post(`${API_ENDPOINTS.pfis[endpointKey]}/${id}`)
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (response?.statusCode && response.data) {
+        return {
+          pfiItem: response.data,
+          actionFlag: flag,
+          success: response?.message || "",
+          error: "",
+        };
+      }
+      return {
+        pfiItem: null,
+        actionFlag: "",
+        success: "",
+        error: response?.response?.data?.message || response?.message,
+      };
+    } catch (error) {
+      return {
+        pfiItem: null,
+        actionFlag: "",
+        success: "",
+        error: error.message || error,
+      };
+    }
+  });
+
+export const publishPfi = publishLikePfiThunk(
+  "publishPfi",
+  "publish",
+  "PFI_PUBLISHED"
+);
+export const rotatePfiToken = publishLikePfiThunk(
+  "rotatePfiToken",
+  "rotateToken",
+  "PFI_TOKEN_ROTATED"
+);
+export const unpublishPfi = publishLikePfiThunk(
+  "unpublishPfi",
+  "unpublish",
+  "PFI_UNPUBLISHED"
+);
+
 // ─── Slice ────────────────────────────────────────────────────────────
 
 export const appPfiSlice = createSlice({
@@ -343,7 +444,57 @@ export const appPfiSlice = createSlice({
       })
       .addCase(deletePfi.rejected, (state) => {
         state.loading = true;
+      })
+      .addCase(getPublicPfi.pending, (state) => {
+        state.loading = false;
+        state.publicItem = null;
+        state.error = "";
+      })
+      .addCase(getPublicPfi.fulfilled, (state, action) => {
+        state.loading = true;
+        state.publicItem = action.payload?.publicItem || null;
+        state.error = action.payload?.error || "";
+      })
+      .addCase(getPublicPfi.rejected, (state) => {
+        state.loading = true;
+        state.publicItem = null;
+      })
+      .addCase(getPfiPreview.pending, (state) => {
+        state.loading = false;
+        state.publicItem = null;
+        state.error = "";
+      })
+      .addCase(getPfiPreview.fulfilled, (state, action) => {
+        state.loading = true;
+        state.publicItem = action.payload?.publicItem || null;
+        state.error = action.payload?.error || "";
+      })
+      .addCase(getPfiPreview.rejected, (state) => {
+        state.loading = true;
+        state.publicItem = null;
       });
+    // publish / rotate / unpublish share one fulfilled handler.
+    [publishPfi, rotatePfiToken, unpublishPfi].forEach((thunk) => {
+      builder
+        .addCase(thunk.pending, (state) => {
+          state.loading = false;
+          state.actionFlag = "";
+          state.success = "";
+          state.error = "";
+        })
+        .addCase(thunk.fulfilled, (state, action) => {
+          state.loading = true;
+          if (action.payload?.pfiItem) {
+            state.pfiItem = action.payload.pfiItem;
+          }
+          state.actionFlag = action.payload?.actionFlag || "";
+          state.success = action.payload?.success || "";
+          state.error = action.payload?.error || "";
+        })
+        .addCase(thunk.rejected, (state) => {
+          state.loading = true;
+        });
+    });
   },
 });
 
