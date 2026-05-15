@@ -3,7 +3,9 @@ import { Controller, useFormContext } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
+import { ExternalLink } from "react-feather";
 
+import { appsRoot } from "@constant/defaultValues";
 import {
   INCOTERMS_OPTIONS,
   PAYMENT_TERMS_OPTIONS,
@@ -19,6 +21,7 @@ const Step1Customer = ({
   customerAddressOptions,
   currencyOptions,
   sourceQuotationVoucher,
+  sourceQuotationId,
   leadStore,
   vendorStore,
 }) => {
@@ -277,9 +280,22 @@ const Step1Customer = ({
 
         <Col md="12" className="mb-2">
           <Label className="form-label">{t("Source Quotation")}</Label>
-          <div className="form-control bg-light">
+          <div className="form-control bg-light d-flex justify-content-between align-items-center">
             {sourceQuotationVoucher ? (
-              <span>🔗 {sourceQuotationVoucher}</span>
+              <>
+                <span>🔗 {sourceQuotationVoucher}</span>
+                {sourceQuotationId && (
+                  <a
+                    href={`${appsRoot}/quotations/view/${sourceQuotationId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={t("Open Quotation in new tab")}
+                    className="text-decoration-none ms-2"
+                  >
+                    <ExternalLink size={16} />
+                  </a>
+                )}
+              </>
             ) : (
               <small className="text-muted">
                 {t(

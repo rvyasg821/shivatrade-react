@@ -233,14 +233,46 @@ const PfiView = () => {
       },
     },
     {
-      name: t("Quotation #"),
+      name: t("Quote #"),
       sortable: false,
-      selector: (row) => row?.quotation_voucher_no || "-",
+      selector: (row) => {
+        if (!row?.quotation_voucher_no) return "-";
+        if (!row?.quotation_id) return row.quotation_voucher_no;
+        return (
+          <Link
+            to={`${appsRoot}/quotations/view/${row.quotation_id}`}
+            className="text-wrap"
+          >
+            {row.quotation_voucher_no}
+          </Link>
+        );
+      },
     },
     {
-      name: t("Customer"),
+      name: t("Company"),
       sortable: false,
-      selector: (row) => row?.customer_name || "-",
+      grow: 2,
+      selector: (row) => {
+        const phone = row?.customer_contact_country_code?.formatted || "";
+        return (
+          <div className="py-1">
+            <span className="fw-bold text-capitalize">
+              {row?.customer_name || "-"}
+            </span>
+            {row?.customer_contact_name && (
+              <div className="text-capitalize small">
+                {row.customer_contact_name}
+              </div>
+            )}
+            {row?.customer_contact_email && (
+              <div className="small text-muted">
+                {row.customer_contact_email}
+              </div>
+            )}
+            {phone && <div className="small text-muted">{phone}</div>}
+          </div>
+        );
+      },
     },
     {
       name: t("Date"),
