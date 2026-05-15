@@ -1,10 +1,21 @@
 // ** React Imports
-import { Fragment, useState, useEffect, useCallback, useLayoutEffect, useMemo } from "react";
+import {
+  Fragment,
+  useState,
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deletePriceList, getPriceListList, cleanPriceListMessage } from "./store";
+import {
+  deletePriceList,
+  getPriceListList,
+  cleanPriceListMessage,
+} from "./store";
 import { getVendorDropdown } from "../vendors/store";
 import { getProductDropdown } from "../products/store";
 import { startLoading, stopLoading } from "../loadingstore";
@@ -72,7 +83,7 @@ const PriceListView = () => {
       perPage = rowsPerPage,
       search = searchInput,
       vendorId = vendorFilter,
-      productId = productFilter
+      productId = productFilter,
     ) => {
       const params = {
         orderBy: sortCol,
@@ -85,7 +96,16 @@ const PriceListView = () => {
       if (productId) params.product_id = productId;
       dispatch(getPriceListList(params));
     },
-    [sort, sortColumn, currentPage, rowsPerPage, searchInput, vendorFilter, productFilter, dispatch]
+    [
+      sort,
+      sortColumn,
+      currentPage,
+      rowsPerPage,
+      searchInput,
+      vendorFilter,
+      productFilter,
+      dispatch,
+    ],
   );
 
   const handleSort = (column, sortDirection) => {
@@ -139,10 +159,26 @@ const PriceListView = () => {
     if (searchInput) {
       handler = setTimeout(() => {
         setCurrentPage(1);
-        handleList(sort, sortColumn, 1, rowsPerPage, searchInput, vendorFilter, productFilter);
+        handleList(
+          sort,
+          sortColumn,
+          1,
+          rowsPerPage,
+          searchInput,
+          vendorFilter,
+          productFilter,
+        );
       }, 500);
     } else {
-      handleList(sort, sortColumn, 1, rowsPerPage, searchInput, vendorFilter, productFilter);
+      handleList(
+        sort,
+        sortColumn,
+        1,
+        rowsPerPage,
+        searchInput,
+        vendorFilter,
+        productFilter,
+      );
     }
     return () => clearTimeout(handler);
   }, [searchInput, vendorFilter, productFilter]);
@@ -176,7 +212,8 @@ const PriceListView = () => {
   };
 
   const isSystemAdmin =
-    authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
+    authUserItem?.role?.name === "Super Admin" ||
+    authUserItem?.role?.name === "Admin";
   const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
   const perms = authUserItem?.role?.permissions?.["price-list"];
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
@@ -191,7 +228,7 @@ const PriceListView = () => {
           ? `${v.company_name} [${v.vendor_code}]`
           : v.company_name,
       })),
-    [vendorStore?.vendorDropdown]
+    [vendorStore?.vendorDropdown],
   );
 
   const productOptions = useMemo(
@@ -200,7 +237,7 @@ const PriceListView = () => {
         value: p._id,
         label: `${p.code} - ${p.name}`,
       })),
-    [productStore?.productDropdown]
+    [productStore?.productDropdown],
   );
 
   const formatNumber = (v) =>
@@ -233,7 +270,9 @@ const PriceListView = () => {
       sortable: false,
       selector: (row) => (
         <span className="text-wrap">
-          {row?.product_code ? `${row.product_code} - ${row.product_name}` : row?.product_name || "-"}
+          {row?.product_code
+            ? `${row.product_code} - ${row.product_name}`
+            : row?.product_name || "-"}
         </span>
       ),
     },
@@ -288,7 +327,10 @@ const PriceListView = () => {
               id={`pl-edit-${row?._id || ""}`}
               to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
             >
-              <UncontrolledTooltip placement="top" target={`pl-edit-${row?._id || ""}`}>
+              <UncontrolledTooltip
+                placement="top"
+                target={`pl-edit-${row?._id || ""}`}
+              >
                 {t("Edit")}
               </UncontrolledTooltip>
               <Edit size={20} />
@@ -302,7 +344,10 @@ const PriceListView = () => {
                 id={`pl-delete-${row?._id || ""}`}
                 onClick={() => handleDelete(row?._id)}
               />
-              <UncontrolledTooltip placement="top" target={`pl-delete-${row?._id || ""}`}>
+              <UncontrolledTooltip
+                placement="top"
+                target={`pl-delete-${row?._id || ""}`}
+              >
                 {t("Delete")}
               </UncontrolledTooltip>
             </>
@@ -329,24 +374,25 @@ const PriceListView = () => {
             <Row>
               <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-pl"
                       value={searchInput}
-                      className="w-100"
+                      className="w-100 select"
                       placeholder={t("Search notes")}
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       isClearable
                       classNamePrefix="select"
                       placeholder={t("Filter by Vendor")}
                       options={vendorOptions}
                       value={
-                        vendorOptions.find((o) => o.value === vendorFilter) || null
+                        vendorOptions.find((o) => o.value === vendorFilter) ||
+                        null
                       }
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
                       menuPortalTarget={document.body}
@@ -355,14 +401,15 @@ const PriceListView = () => {
                       }}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       isClearable
                       classNamePrefix="select"
                       placeholder={t("Filter by Product")}
                       options={productOptions}
                       value={
-                        productOptions.find((o) => o.value === productFilter) || null
+                        productOptions.find((o) => o.value === productFilter) ||
+                        null
                       }
                       onChange={(opt) => setProductFilter(opt ? opt.value : "")}
                       menuPortalTarget={document.body}
@@ -374,36 +421,39 @@ const PriceListView = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-wrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap">
                   <Button
-                    color="secondary"
-                    outline
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
                     onClick={handleExport}
                     disabled={exporting}
                   >
-                    {t("Export")} <Download size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
                   {(canAdd || canEdit) && (
                     <Button
-                      color="secondary"
-                      outline
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
                       onClick={() => setImportModalOpen(true)}
                     >
-                      {t("Import")} <Upload size={16} />
+                      {t("Import")} <Upload size={14} />
                     </Button>
                   )}
                   {canAdd && (
                     <Button
                       color="primary"
+
+                      className="text-nowrap"
                       onClick={() => navigate(`${appsRoot}/price-list/add`)}
                     >
-                      {t("Add Price")} <PlusCircle size={16} />
+                      {t("Add Price")} <PlusCircle size={14} />
                     </Button>
                   )}
                 </div>
               </Col>
             </Row>
-
             <Row className="mt-2">
               <Col md="12" className="price-list-tables">
                 <DatatablePagination
