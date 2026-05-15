@@ -21,6 +21,18 @@ import country from "@src/views/countries/store";
 import states from "@src/views/states/store";
 import city from "@src/views/cities/store";
 import location from "@src/views/locations/store";
+import category from "@src/views/categories/store";
+import product from "@src/views/products/store";
+import vendor from "@src/views/vendors/store";
+import customer from "@src/views/customers/store";
+import lead from "@src/views/leads/store";
+import leadActivity from "@src/views/leads/activityStore";
+import rebate from "@src/views/rebates/store";
+import expense from "@src/views/expenses/store";
+import currency from "@src/views/currencies/store";
+import priceList from "@src/views/price-list/store";
+import quotation from "@src/views/quotations/store";
+import pfi from "@src/views/pfi/store";
 import employee from "@src/views/employees/store";
 
 import setting from "@src/views/settings/store";
@@ -88,6 +100,18 @@ const rootReducer = {
   states,
   city,
   location,
+  category,
+  product,
+  vendor,
+  customer,
+  lead,
+  leadActivity,
+  rebate,
+  expense,
+  currency,
+  priceList,
+  quotation,
+  pfi,
   locationContext,
   employee,
   setting,

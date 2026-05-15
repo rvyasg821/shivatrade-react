@@ -81,12 +81,12 @@
 // Multi Select
 .select__multi-value,
 .react-select__multi-value {
-  color: $white;
+  background-color: rgba($color: $primary, $alpha: 0.12);
   border-radius: 3px;
   margin: 0 0.7rem 0 0;
 
   .select__multi-value__label {
-    color: $white;
+    color: $primary;
     font-size: 0.85rem;
     border-radius: $border-radius;
     padding: 0.26rem 0.6rem;
@@ -96,17 +96,18 @@
     padding-left: 0;
     padding-right: 0.5rem;
 
-    &:hover {
-      background-color: inherit;
-      color: inherit;
-    }
-
     svg {
       height: 0.85rem;
       width: 0.85rem;
+      fill: $primary;
       &:hover {
         cursor: pointer;
       }
+    }
+
+    &:hover {
+      background-color: transparent !important;
+      svg { fill: $primary; }
     }
   }
 }

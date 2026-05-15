@@ -5,13 +5,21 @@ import { lazy } from 'react';
 import {
   appsRoot,
   holidayCalendarModuleSlug,
+  categoriesModuleSlug,
+  productsModuleSlug,
+  vendorsModuleSlug,
+  customersModuleSlug,
+  leadsModuleSlug,
+  rebatesModuleSlug,
+  expensesModuleSlug,
+  currenciesModuleSlug,
+  priceListModuleSlug,
+  quotationsModuleSlug,
+  pfiModuleSlug,
 } from '@constant/defaultValues';
 
 // **
 const Dashboard = lazy(() => import('@src/views/dashboard'));
-const SeverityGraph = lazy(() => import('@src/views/dashboard/wazuhGraph/SeverityGraph'))
-const ConfigurationAssessmentChart = lazy(() => import('@src/views/dashboard/configurationAssessments/configurationAssessmentChart'))
-const NetswitchThreatIntelList = lazy(() => import('@src/views/dashboard/netswitchThreatIntels'))
 const Profile = lazy(() => import('@src/views/auth/profile'));
 const Settings = lazy(() => import('@src/views/settings'));
 const UserList = lazy(() => import('@src/views/users'));
@@ -20,6 +28,44 @@ const AddUser = lazy(() => import('@src/views/users/add'));
 const LocationList = lazy(() => import('@src/views/locations'));
 const AddLocation = lazy(() => import('@src/views/locations/add'));
 const EditLocation = lazy(() => import('@src/views/locations/add'));
+const CategoryList = lazy(() => import('@src/views/categories'));
+const AddCategory = lazy(() => import('@src/views/categories/add'));
+const EditCategory = lazy(() => import('@src/views/categories/add'));
+const ProductList = lazy(() => import('@src/views/products'));
+const AddProduct = lazy(() => import('@src/views/products/add'));
+const EditProduct = lazy(() => import('@src/views/products/add'));
+const VendorList = lazy(() => import('@src/views/vendors'));
+const AddVendor = lazy(() => import('@src/views/vendors/add'));
+const EditVendor = lazy(() => import('@src/views/vendors/add'));
+const ViewVendor = lazy(() => import('@src/views/vendors/view'));
+const CustomerList = lazy(() => import('@src/views/customers'));
+const AddCustomer = lazy(() => import('@src/views/customers/add'));
+const EditCustomer = lazy(() => import('@src/views/customers/add'));
+const ViewCustomer = lazy(() => import('@src/views/customers/view'));
+const LeadList = lazy(() => import('@src/views/leads'));
+const AddLead = lazy(() => import('@src/views/leads/add'));
+const EditLead = lazy(() => import('@src/views/leads/add'));
+const ViewLead = lazy(() => import('@src/views/leads/view'));
+const RebateList = lazy(() => import('@src/views/rebates'));
+const AddRebate = lazy(() => import('@src/views/rebates/add'));
+const EditRebate = lazy(() => import('@src/views/rebates/add'));
+const ExpenseList = lazy(() => import('@src/views/expenses'));
+const AddExpense = lazy(() => import('@src/views/expenses/add'));
+const EditExpense = lazy(() => import('@src/views/expenses/add'));
+const CurrencyList = lazy(() => import('@src/views/currencies'));
+const AddCurrency = lazy(() => import('@src/views/currencies/add'));
+const EditCurrency = lazy(() => import('@src/views/currencies/add'));
+const PriceList = lazy(() => import('@src/views/price-list'));
+const AddPriceList = lazy(() => import('@src/views/price-list/add'));
+const EditPriceList = lazy(() => import('@src/views/price-list/add'));
+const QuotationList = lazy(() => import('@src/views/quotations'));
+const AddQuotation = lazy(() => import('@src/views/quotations/add'));
+const EditQuotation = lazy(() => import('@src/views/quotations/add'));
+const ViewQuotation = lazy(() => import('@src/views/quotations/view'));
+const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
+const PfiList = lazy(() => import('@src/views/pfi'));
+const AddPfi = lazy(() => import('@src/views/pfi/add'));
+const EditPfi = lazy(() => import('@src/views/pfi/add'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -68,20 +114,20 @@ const AssessmentReportDetail = lazy(() => import('@src/views/assessmentforms/Ass
 
 const Payment = lazy(() => import('@src/views/payment/'));
 
-// HRM — Holiday Calendar
+// HRM - Holiday Calendar
 const HolidayCalendarList = lazy(() => import('@src/views/holiday-calendar'));
 const AddHolidayCalendar = lazy(() => import('@src/views/holiday-calendar/add'));
 
-// HRM — Documents
+// HRM - Documents
 const DocumentList = lazy(() => import('@src/views/documents'));
 const DocumentForm = lazy(() => import('@src/views/documents/add'));
 
-// HRM — Leave Management
+// HRM - Leave Management
 const LeaveHome = lazy(() => import('@src/views/leave'));
 const LeaveAdminView = lazy(() => import('@src/views/leave/admin'));
 const LeaveRequestForm = lazy(() => import('@src/views/leave/request-form'));
 
-// HRM — Contracts
+// HRM - Contracts
 const ContractList = lazy(() => import('@src/views/contracts'));
 const ContractTemplateList = lazy(() => import('@src/views/contracts/templates'));
 const ContractTemplateBuilder = lazy(() => import('@src/views/contracts/templates/add'));
@@ -89,11 +135,11 @@ const IssueContract = lazy(() => import('@src/views/contracts/issue'));
 const ContractView = lazy(() => import('@src/views/contracts/view'));
 const ContractSign = lazy(() => import('@src/views/contracts/sign'));
 
-// HRM — Attendance
+// HRM - Attendance
 const AttendancePage = lazy(() => import('@src/views/attendance'));
 const AttendanceAdminPage = lazy(() => import('@src/views/attendance/admin'));
 
-// HRM — Shift / Rota
+// HRM - Shift / Rota
 const ShiftPage = lazy(() => import('@src/views/shift'));
 const ShiftAdminPage = lazy(() => import('@src/views/shift/admin'));
 
@@ -312,6 +358,301 @@ const AppRoutes = [
     },
   },
   {
+    path: `${appsRoot}/categories`,
+    element: <CategoryList />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/categories/add`,
+    element: <AddCategory />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/categories/edit/:id`,
+    element: <EditCategory />,
+    meta: {
+      permissionId: categoriesModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/products`,
+    element: <ProductList />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/products/add`,
+    element: <AddProduct />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/products/edit/:id`,
+    element: <EditProduct />,
+    meta: {
+      permissionId: productsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors`,
+    element: <VendorList />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors/add`,
+    element: <AddVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors/edit/:id`,
+    element: <EditVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/vendors/view/:id`,
+    element: <ViewVendor />,
+    meta: {
+      permissionId: vendorsModuleSlug,
+      action: 'view',
+    },
+  },
+  {
+    path: `${appsRoot}/customers`,
+    element: <CustomerList />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/add`,
+    element: <AddCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/edit/:id`,
+    element: <EditCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/customers/view/:id`,
+    element: <ViewCustomer />,
+    meta: {
+      permissionId: customersModuleSlug,
+      action: 'view',
+    },
+  },
+  {
+    path: `${appsRoot}/leads`,
+    element: <LeadList />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/add`,
+    element: <AddLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/edit/:id`,
+    element: <EditLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/leads/view/:id`,
+    element: <ViewLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/rebates`,
+    element: <RebateList />,
+    meta: { permissionId: rebatesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/rebates/add`,
+    element: <AddRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/rebates/edit/:id`,
+    element: <EditRebate />,
+    meta: { permissionId: rebatesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/expenses`,
+    element: <ExpenseList />,
+    meta: { permissionId: expensesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/expenses/add`,
+    element: <AddExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/expenses/edit/:id`,
+    element: <EditExpense />,
+    meta: { permissionId: expensesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/currencies`,
+    element: <CurrencyList />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/currencies/add`,
+    element: <AddCurrency />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/currencies/edit/:id`,
+    element: <EditCurrency />,
+    meta: {
+      permissionId: currenciesModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list`,
+    element: <PriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list/add`,
+    element: <AddPriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/price-list/edit/:id`,
+    element: <EditPriceList />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations`,
+    element: <QuotationList />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/add`,
+    element: <AddQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/edit/:id`,
+    element: <EditQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/view/:id`,
+    element: <ViewQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/preview/:id`,
+    element: <QuotationPublicView />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'list',
+      layout: 'blank',
+    },
+  },
+  {
+    path: '/q/:token',
+    element: <QuotationPublicView />,
+    meta: {
+      publicRoute: true,
+      layout: 'blank',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi`,
+    element: <PfiList />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/add`,
+    element: <AddPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/edit/:id`,
+    element: <EditPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
     path: `${appsRoot}/employees`,
     element: <EmployeeList />,
     meta: {
@@ -433,30 +774,6 @@ const AppRoutes = [
     },
   },
   {
-    path: `${appsRoot}/level-severity-graph`,
-    element: <SeverityGraph />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
-  },
-  {
-    path: `${appsRoot}/configuration-assessment-chart`,
-    element: <ConfigurationAssessmentChart />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
-  },
-  {
-    path: `${appsRoot}/netswitch-threat-intels`,
-    element: <NetswitchThreatIntelList />,
-    // meta: {
-    //   permissionId: 'tools',
-    //   action: 'edit',
-    // },
-  },
-  {
     path: `${appsRoot}/assessment-forms`,
     element: <AssessmentForms />,
     // meta: {
@@ -510,7 +827,7 @@ const AppRoutes = [
     // },
   },
 
-  // HRM — Holiday Calendar
+  // HRM - Holiday Calendar
   {
     path: `${appsRoot}/holiday-calendar`,
     element: <HolidayCalendarList />,
@@ -539,7 +856,7 @@ const AppRoutes = [
     },
   },
 
-  // HRM — Leave Management
+  // HRM - Leave Management
   {
     path: `${appsRoot}/leave`,
     element: <LeaveHome />,
@@ -556,7 +873,7 @@ const AppRoutes = [
     meta: { permissionId: 'leave', action: 'list', toolSlug: 'hrm-leave' },
   },
 
-  // HRM — Contracts
+  // HRM - Contracts
   {
     path: `${appsRoot}/contracts`,
     element: <ContractList />,
@@ -593,7 +910,7 @@ const AppRoutes = [
     meta: { permissionId: 'contract', action: 'view', toolSlug: 'hrm-contracts' },
   },
 
-  // HRM — Documents
+  // HRM - Documents
   {
     path: `${appsRoot}/documents`,
     element: <DocumentList />,
@@ -615,26 +932,26 @@ const AppRoutes = [
     meta: { permissionId: 'document', action: 'view', toolSlug: 'hrm-documents' },
   },
 
-  // Attendance — Employee
+  // Attendance - Employee
   {
     path: `${appsRoot}/attendance`,
     element: <AttendancePage />,
     meta: { permissionId: 'attendance', action: 'list', toolSlug: 'hrm-attendance' },
   },
-  // Attendance — Admin
+  // Attendance - Admin
   {
     path: `${appsRoot}/attendance/admin`,
     element: <AttendanceAdminPage />,
     meta: { permissionId: 'attendance', action: 'admin', toolSlug: 'hrm-attendance' },
   },
 
-  // Shift — Employee
+  // Shift - Employee
   {
     path: `${appsRoot}/shifts`,
     element: <ShiftPage />,
     meta: { permissionId: 'shift', action: 'list', toolSlug: 'hrm-shift-rota' },
   },
-  // Shift — Admin
+  // Shift - Admin
   {
     path: `${appsRoot}/shifts/admin`,
     element: <ShiftAdminPage />,
@@ -658,7 +975,7 @@ const AppRoutes = [
     meta: { permissionId: 'compliance', action: 'list', toolSlug: 'hrm-compliance' },
   },
 
-  // Message Logs (single component, three routes — channel inferred from URL path)
+  // Message Logs (single component, three routes - channel inferred from URL path)
   {
     path: `${appsRoot}/logs/email`,
     element: <MessageLogList />,

@@ -284,7 +284,7 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
         </Row>
 
         {/* Additional Locations */}
-        <h5 className="mt-3 mb-2">{t("Additional Locations")}</h5>
+        {/* <h5 className="mt-3 mb-2">{t("Additional Locations")}</h5>
         <Row>
           <Col sm="12" className="mb-2">
             <div className="d-flex align-items-end gap-2 mb-2">
@@ -332,7 +332,7 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
               </div>
             )}
           </Col>
-        </Row>
+        </Row> */}
 
         <div className="mt-2">
           <Button type="submit" color="primary" disabled={loading}>

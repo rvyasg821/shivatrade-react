@@ -1,6 +1,6 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-const */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
     Row, Col, Card, CardBody, CardHeader, CardTitle, Spinner, Badge, Button, Progress,
@@ -390,7 +390,7 @@ const EmployeeDashboard = () => {
     leaveTypes.forEach((lt) => { leaveTypeMap[lt._id] = lt.name; });
 
     return (
-        <>
+        <Fragment>
             {/* Attendance — clock in/out, today status */}
             <AttendancePage hideRecords />
 
@@ -475,7 +475,7 @@ const EmployeeDashboard = () => {
                     </Card>
                 </Col>
             </Row>
-        </>
+        </Fragment>
     );
 };
 
@@ -537,7 +537,7 @@ const Dashboard = () => {
                     instance.get(API_ENDPOINTS.companySettings.setupStatus)
                         .then(setupRes => {
                             if (setupRes.data?.data && !setupRes.data.data.setup_completed) {
-                                navigate(`${appsRoot}/setup`, { replace: true });
+                                // navigate(`${appsRoot}/setup`, { replace: true });
                             }
                         })
                         .catch(() => {});
@@ -547,7 +547,7 @@ const Dashboard = () => {
                     instance.get(API_ENDPOINTS.companySettings.setupStatus)
                         .then(setupRes => {
                             if (setupRes.data?.data && !setupRes.data.data.setup_completed) {
-                                navigate(`${appsRoot}/setup`, { replace: true });
+                                // navigate(`${appsRoot}/setup`, { replace: true });
                             }
                         })
                         .catch(() => {});
@@ -581,10 +581,10 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    <CompanyDashboard stats={companyStats} loading={companyStatsLoading} showSetupChecklist onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
+                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} showSetupChecklist onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
                     <div className="mt-1">
                         <SubscriptionCard />
-                    </div>
+                    </div> */}
                 </div>
             );
         }
@@ -592,7 +592,7 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    <CompanyDashboard stats={companyStats} loading={companyStatsLoading} onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
+                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} /> */}
                 </div>
             );
         }

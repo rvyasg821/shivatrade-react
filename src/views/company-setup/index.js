@@ -118,7 +118,7 @@ const CompanySetupPage = () => {
         {allComplete && !alreadyCompleted && (
           <Alert color="success" className="mb-2">
             <CheckCircle size={16} className="me-50" />
-            {t("All steps are complete! Click 'Complete Setup' to start using PeopleGem.")}
+            {t("All steps are complete! Click 'Complete Setup' to start using ShivaTrade.")}
           </Alert>
         )}
 

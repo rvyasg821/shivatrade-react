@@ -159,6 +159,108 @@ const initLocationItem = {
   is_default: false,
 };
 
+const initCategoryItem = {
+  _id: "",
+  name: "",
+  description: "",
+  parent_id: "",
+  is_active: true,
+  status: "active",
+};
+
+const initProductItem = {
+  _id: "",
+  code: "",
+  name: "",
+  category_id: "",
+  description: "",
+  specifications: "",
+  packaging_details: "",
+  quality_parameters: "",
+  hsn_code: "",
+  tax_pct: "",
+  unit_of_measure: "",
+  // Pricing
+  selling_price: "",
+  margin_pct: "",
+  currency_id: "",
+  // Identification (extra)
+  part_no: "",
+  // Logistics
+  pack_size: "",
+  net_weight_per_unit: "",
+  gross_weight_per_unit: "",
+  country_of_origin: "India",
+  // Links
+  rebates: [], // [{ rebate_id, pct? }]
+  expenses: [], // [{ expense_id, value? }]
+  is_active: true,
+  status: "active",
+};
+
+const initVendorContactItem = {
+  name: "",
+  designation: "",
+  email: "",
+  phone: "",
+  country_code: null,
+  is_primary: false,
+};
+
+const initVendorAddressItem = {
+  type: "bill_from",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postcode: "",
+  gstin: "",
+  is_default: false,
+};
+
+const initVendorBankAccountItem = {
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  ifsc: "",
+  swift_code: "",
+  iban: "",
+  currency_id: "",
+  branch_name: "",
+  branch_address: "",
+  account_type: "current",
+  is_default: false,
+  notes: "",
+  is_active: true,
+};
+
+const initVendorItem = {
+  _id: "",
+  company_name: "",
+  website: "",
+  social_media: {
+    linkedin: "",
+    facebook: "",
+    instagram: "",
+    twitter: "",
+    other: "",
+  },
+  category_ids: [],
+  // Tax & Compliance
+  gstin: "",
+  pan: "",
+  vendor_code: "",
+  payment_terms: "",
+  incoterms: "",
+  is_active: true,
+  status: "active",
+  contacts: [{ ...initVendorContactItem, is_primary: true }],
+  addresses: [{ ...initVendorAddressItem, type: "bill_from", is_default: true }],
+  bank_accounts: [],
+};
+
 const initEmployeeItem = {
   _id: "",
   first_name: "",
@@ -231,23 +333,216 @@ const initEmployeeItem = {
   reporting_to: "",
 };
 
+const initCurrencyItem = {
+  _id: "",
+  code: "",
+  name: "",
+  symbol: "",
+  is_active: true,
+  is_default: false,
+  status: "active",
+};
+
+const initPriceListItem = {
+  _id: "",
+  vendor_id: "",
+  product_id: "",
+  currency_id: "",
+  unit_price: "",
+  moq: 1,
+  discount_pct: "0",
+  lead_time_days: "",
+  effective_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  notes: "",
+};
+
+const initQuotationLineItem = {
+  product_id: "",
+  vendor_id: "",
+  description: "",
+  qty: "",
+  unit: "",
+  unit_price: "",
+  discount_pct: "0",
+  tax_pct: "0",
+  margin_pct: "0",
+};
+
+const initQuotationExpenseItem = {
+  expense_id: "",
+  name: "",
+  amount: "",
+  is_overridden: false,
+};
+
+const initQuotationRebateItem = {
+  rebate_id: "",
+  name: "",
+  amount: "",
+  is_overridden: false,
+};
+
+const initQuotationItem = {
+  _id: "",
+  voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  quotation_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_code: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  // Server-side recomputed
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
+};
+
+// PFI shares the same line/expense/rebate row shapes as Quotation - the
+// shared SalesDoc components accept these as props.
+const initPfiLineItem = { ...initQuotationLineItem };
+const initPfiExpenseItem = { ...initQuotationExpenseItem };
+const initPfiRebateItem = { ...initQuotationRebateItem };
+
+const initPfiItem = {
+  _id: "",
+  voucher_no: "",
+  quotation_id: "",
+  quotation_voucher_no: "",
+  lead_id: "",
+  customer_id: "",
+  customer_address_id: "",
+  pfi_date: new Date().toISOString().slice(0, 10),
+  valid_until: "",
+  currency_code: "",
+  exchange_rate: "1",
+  payment_terms: "",
+  delivery_terms: "",
+  delivery_location: "",
+  notes_to_client: "",
+  internal_notes: "",
+  margin_pct: "0",
+  status: "draft",
+  subtotal: "0",
+  expenses_total: "0",
+  rebates_total: "0",
+  product_expenses_total: "0",
+  product_rebates_total: "0",
+  margin_amount: "0",
+  tax_total: "0",
+  grand_total: "0",
+  lines: [],
+  expenses: [],
+  rebates: [],
+};
+
+const initCustomerContactItem = {
+  name: "",
+  designation: "",
+  email: "",
+  phone: "",
+  country_code: null,
+  is_primary: false,
+};
+
+const initCustomerAddressItem = {
+  type: "bill_to",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postcode: "",
+  gstin: "",
+  iec: "",
+  is_default: false,
+};
+
 const initCustomerItem = {
   _id: "",
-  firstName: "",
-  lastName: "",
-  name: "",
-  email: "",
-  password: "",
-  role: null,
-  mobile: "",
-  country_code: null,
-  gender: "",
-  dob: null,
-  timezone: "",
-  profile_picture: "",
+  company_name: "",
+  website: "",
+  social_media: {
+    linkedin: "",
+    facebook: "",
+    instagram: "",
+    twitter: "",
+    other: "",
+  },
+  // Tax & Compliance
+  gstin: "",
+  pan: "",
+  iec: "",
+  is_active: true,
   status: "active",
-  sms_notification: "active",
-  email_notification: "active",
+  contacts: [{ ...initCustomerContactItem, is_primary: true }],
+  addresses: [{ ...initCustomerAddressItem, type: "bill_to", is_default: true }],
+};
+
+const initRebateItem = {
+  _id: "",
+  name: "",
+  code: "",
+  type: "percent",
+  pct: "",
+  is_active: true,
+  status: "active",
+};
+
+const initExpenseItem = {
+  _id: "",
+  name: "",
+  code: "",
+  type: "percent",
+  value: "",
+  is_active: true,
+  status: "active",
+};
+
+const initLeadItem = {
+  _id: "",
+  customer_id: "",
+  company_name: "",
+  contact_name: "",
+  contact_email: "",
+  contact_phone: "",
+  country_code: null,
+  source: "web",
+  interested_categories: [],
+  interested_products: [],
+  expected_value: "",
+  currency: "",
+  website_url: "",
+  social_media_urls: {},
+  quantity: "",
+  delivery_expectation: "",
+  preferred_vendors: [],
+  follow_up_date: "",
+  assigned_to: "",
+  description: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postcode: "",
+  status: "new",
+  is_active: true,
 };
 
 const initSettingSchedulesItem = {
@@ -287,6 +582,36 @@ const initCompanyItem = {
     description: "",
     address: "",
   },
+};
+
+const initCompanyAddressItem = {
+  type: "corporate",
+  label: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  postcode: "",
+  gstin: "",
+  is_default: false,
+};
+
+const initCompanyBankAccountItem = {
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  ifsc: "",
+  swift_code: "",
+  iban: "",
+  ad_code: "",
+  currency_id: "",
+  branch_name: "",
+  branch_address: "",
+  account_type: "current",
+  is_default: false,
+  notes: "",
+  is_active: true,
 };
 const initCompanyDataUpdate = {
   name: "",
@@ -503,9 +828,32 @@ export {
   initCityItem,
   initAddOnServiceItem,
   initLocationItem,
+  initCategoryItem,
+  initProductItem,
+  initVendorItem,
+  initVendorContactItem,
+  initVendorAddressItem,
+  initVendorBankAccountItem,
   initEmployeeItem,
   initCustomerItem,
+  initCustomerContactItem,
+  initCustomerAddressItem,
+  initLeadItem,
+  initRebateItem,
+  initExpenseItem,
+  initCurrencyItem,
+  initPriceListItem,
+  initQuotationItem,
+  initQuotationLineItem,
+  initQuotationExpenseItem,
+  initQuotationRebateItem,
+  initPfiItem,
+  initPfiLineItem,
+  initPfiExpenseItem,
+  initPfiRebateItem,
   initCompanyItem,
+  initCompanyAddressItem,
+  initCompanyBankAccountItem,
   initCompanyDataUpdate,
   initPlanItem,
   initSettingSchedulesItem,

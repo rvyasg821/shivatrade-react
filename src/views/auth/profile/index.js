@@ -16,7 +16,6 @@ import UserInfoCard from "./userInfoCard";
 import CompanyInfoCard from "../../../views/company/CompanyInfoCard";
 
 import ProfileTabView from "./tabView";
-import CompanyTabView from "./editCompany/tabView/index";
 
 // ** Styles
 import '@styles/react/apps/app-users.scss'
@@ -94,11 +93,7 @@ const Profile = () => {
 
                     {/*  xs={{ order: 0 }} */}
                     <Col xl={8} lg={7} md={{ order: 1, size: 7 }}>
-                        {isCompanyAdmin && !isUser ? (
-                            <CompanyTabView />
-                        ) : (
-                            <ProfileTabView />
-                        )}
+                        <ProfileTabView />
                     </Col>
                     
                 </Row>

@@ -333,7 +333,7 @@ const CompanySettingsPage = () => {
       </Card>
 
       {/* Scope Selector -- Company Admin only */}
-      {isCompanyAdmin && (
+      {false && isCompanyAdmin && (
         <Card className='mb-1'>
           <CardBody className='py-1'>
             <Row className='g-2 align-items-center'>
@@ -374,7 +374,7 @@ const CompanySettingsPage = () => {
       )}
 
       {/* Info Banners */}
-      {isCompanyAdmin && settingsScope === 'company' && (
+      {false && isCompanyAdmin && settingsScope === 'company' && (
         <Alert color='info' className='d-flex align-items-center mb-1'>
           <Info size={16} className='me-75' />
           These settings apply to all locations without custom overrides.

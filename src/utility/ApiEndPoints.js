@@ -141,6 +141,104 @@ export const API_ENDPOINTS = {
     dropdown: `/admin/location/list`,
     capacity: `/admin/location/capacity`,
   },
+  categories: {
+    list: `/admin/category/list`,
+    get: `/admin/category/get`,
+    create: `/admin/category/create`,
+    update: `/admin/category/update`,
+    delete: `/admin/category/delete`,
+    dropdown: `/admin/category/dropdown`,
+  },
+  products: {
+    list: `/admin/product/list`,
+    get: `/admin/product/get`,
+    create: `/admin/product/create`,
+    update: `/admin/product/update`,
+    delete: `/admin/product/delete`,
+    dropdown: `/admin/product/dropdown`,
+    checkCode: `/admin/product/check-code`,
+  },
+  vendors: {
+    list: `/admin/vendor/list`,
+    get: `/admin/vendor/get`,
+    create: `/admin/vendor/create`,
+    update: `/admin/vendor/update`,
+    delete: `/admin/vendor/delete`,
+    dropdown: `/admin/vendor/dropdown`,
+    checkCode: `/admin/vendor/check-code`,
+  },
+  currencies: {
+    list: `/admin/currency/list`,
+    get: `/admin/currency/get`,
+    create: `/admin/currency/create`,
+    update: `/admin/currency/update`,
+    delete: `/admin/currency/delete`,
+    dropdown: `/admin/currency/dropdown`,
+    rates: `/admin/currency`, // append `/${id}/rates`
+    currentRate: `/admin/currency/exchange-rate/current`, // ?to=<code>
+    exchangeOptions: `/admin/currency/exchange-rate/options`,
+  },
+  priceList: {
+    list: `/admin/price-list/list`,
+    get: `/admin/price-list/get`,
+    create: `/admin/price-list/create`,
+    update: `/admin/price-list/update`,
+    delete: `/admin/price-list/delete`,
+    byProduct: `/admin/price-list/by-product`,
+  },
+  quotations: {
+    list: `/admin/quotation/list`,
+    get: `/admin/quotation/get`,
+    create: `/admin/quotation/create`,
+    update: `/admin/quotation/update`,
+    delete: `/admin/quotation/delete`,
+    publish: `/admin/quotation/publish`,
+    rotateToken: `/admin/quotation/rotate-token`,
+    unpublish: `/admin/quotation/unpublish`,
+    publicPreview: `/admin/quotation/public-preview`,
+    public: `/public/quotation`,
+  },
+  pfis: {
+    list: `/admin/pfi/list`,
+    get: `/admin/pfi/get`,
+    create: `/admin/pfi/create`,
+    update: `/admin/pfi/update`,
+    delete: `/admin/pfi/delete`,
+    fromQuotation: `/admin/pfi/from-quotation`, // append /:quotationId
+  },
+  customers: {
+    list: `/admin/customer/list`,
+    get: `/admin/customer/get`,
+    create: `/admin/customer/create`,
+    update: `/admin/customer/update`,
+    delete: `/admin/customer/delete`,
+    dropdown: `/admin/customer/dropdown`,
+  },
+  leads: {
+    list: `/admin/lead/list`,
+    get: `/admin/lead/get`,
+    create: `/admin/lead/create`,
+    update: `/admin/lead/update`,
+    delete: `/admin/lead/delete`,
+    convert: `/admin/lead/convert`,
+    activity: `/admin/lead`, // append `/${leadId}/activity[/<activityId>]`
+  },
+  rebates: {
+    list: `/admin/rebate/list`,
+    get: `/admin/rebate/get`,
+    create: `/admin/rebate/create`,
+    update: `/admin/rebate/update`,
+    delete: `/admin/rebate/delete`,
+    dropdown: `/admin/rebate/dropdown`,
+  },
+  expenses: {
+    list: `/admin/expense/list`,
+    get: `/admin/expense/get`,
+    create: `/admin/expense/create`,
+    update: `/admin/expense/update`,
+    delete: `/admin/expense/delete`,
+    dropdown: `/admin/expense/dropdown`,
+  },
   employees: {
     list: `/admin/employee/list`,
     get: `/admin/employee/get`,
@@ -531,24 +629,24 @@ export const API_ENDPOINTS = {
     templateClone: '/admin/contract/template/clone',
   },
   attendance: {
-    // Admin — Settings
+    // Admin - Settings
     settings: '/admin/attendance/settings',
     settingsUpdate: '/admin/attendance/settings',
-    // Admin — Import/Export
+    // Admin - Import/Export
     export: '/admin/attendance/export',
     sampleCsv: '/admin/attendance/sample-csv',
     import: '/admin/attendance/import',
-    // Admin — Records
+    // Admin - Records
     list: '/admin/attendance/list',
     get: '/admin/attendance/get',
     manual: '/admin/attendance/manual',
     update: '/admin/attendance/update',
     delete: '/admin/attendance/delete',
-    // Admin — Reports
+    // Admin - Reports
     reportMonthly: '/admin/attendance/report/monthly',
     reportAnnual: '/admin/attendance/report/annual',
     reportDaily: '/admin/attendance/report/daily',
-    // Admin — Face-recognition kiosk
+    // Admin - Face-recognition kiosk
     faceRoster: '/admin/attendance/face-roster',
     faceIdentify: '/admin/attendance/face-identify',
     faceClock: '/admin/attendance/face-clock',

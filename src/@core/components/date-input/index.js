@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Calendar } from "react-feather";
 import "./date-input.scss";
 
 /**
- * DateInput — stable date picker with manual typing + calendar popup.
- * No Flatpickr — plain React input + custom calendar grid.
+ * DateInput - stable date picker with manual typing + calendar popup.
+ * No Flatpickr - plain React input + custom calendar grid.
  * Stores ISO YYYY-MM-DD, displays DD/MM/YYYY.
  */
 const DateInput = ({
@@ -27,20 +28,58 @@ const DateInput = ({
   const [displayVal, setDisplayVal] = useState(() => isoToDisplay(value));
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => valueToViewDate(value));
+  const [popupStyle, setPopupStyle] = useState(null);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
+  const popupRef = useRef(null);
+
+  // Compute viewport-fixed coords for the portalled calendar. Flips upward
+  // when there isn't enough room below the input.
+  const reposition = useCallback(() => {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const calendarHeight = 320;
+    const calendarWidth = 280;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const above = spaceBelow < calendarHeight && spaceAbove > spaceBelow;
+    const left = Math.min(
+      Math.max(rect.left, 8),
+      window.innerWidth - calendarWidth - 8
+    );
+    setPopupStyle({
+      position: "fixed",
+      left,
+      top: above ? rect.top - calendarHeight - 4 : rect.bottom + 4,
+      zIndex: 9999,
+    });
+  }, []);
+
+  // Recompute position on open and on every scroll/resize while open.
+  useEffect(() => {
+    if (!open) return;
+    reposition();
+    const handle = () => reposition();
+    window.addEventListener("scroll", handle, true);
+    window.addEventListener("resize", handle);
+    return () => {
+      window.removeEventListener("scroll", handle, true);
+      window.removeEventListener("resize", handle);
+    };
+  }, [open, reposition]);
 
   // Sync display when external value changes
   useEffect(() => {
     setDisplayVal(isoToDisplay(value));
   }, [value]);
 
-  // Close calendar on outside click
+  // Close calendar on outside click. Check BOTH the wrapper and the portal
+  // since the popup is no longer a DOM child of the wrapper.
   useEffect(() => {
     const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+      const inWrapper = wrapperRef.current?.contains(e.target);
+      const inPopup = popupRef.current?.contains(e.target);
+      if (!inWrapper && !inPopup) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -68,7 +107,7 @@ const DateInput = ({
         commitISO(formatToISO(parsed));
         setViewDate(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
       } else {
-        // Invalid — revert
+        // Invalid - revert
         setDisplayVal(isoToDisplay(value));
       }
     }
@@ -136,16 +175,20 @@ const DateInput = ({
         </button>
       </div>
 
-      {open && (
-        <CalendarDropdown
-          viewDate={viewDate}
-          setViewDate={setViewDate}
-          selectedISO={value}
-          onDayClick={handleDayClick}
-          maxDate={resolvedMax}
-          minDate={resolvedMin}
-        />
-      )}
+      {open && popupStyle &&
+        createPortal(
+          <div ref={popupRef} style={popupStyle}>
+            <CalendarDropdown
+              viewDate={viewDate}
+              setViewDate={setViewDate}
+              selectedISO={value}
+              onDayClick={handleDayClick}
+              maxDate={resolvedMax}
+              minDate={resolvedMin}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
