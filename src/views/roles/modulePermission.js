@@ -179,46 +179,63 @@ const ModulePermission = () => {
   const isCompanyAdmin = authStore?.authUserItem?.role?.name === 'Company Admin';
 
   const navigation = [
-    {
+    // Root group (Company + Tools) is Super Admin only
+    ...(isSuperAdmin ? [{
       title: t("Root"),
       children: [
-        // Company listing is Super Admin only
-        ...(isSuperAdmin ? [{ title: "Company" }] : []),
-        { title: "Tools" },
+        { title: "Company", slug: "company" },
+        { title: "Tools", slug: "tools" },
       ]
-    },
+    }] : []),
     {
       title: t("Master"),
       children: [
-        { title: "User" },
-        { title: "Role" },
-        { title: "Location" },
-        { title: "Employee" },
+        { title: "Users", slug: "user" },
+        { title: "Roles", slug: "role" },
+        { title: "Locations", slug: "location" },
+        { title: "Currencies", slug: "currencies" },
+        { title: "Rebates", slug: "rebates" },
+        { title: "Expenses", slug: "expenses" },
+      ]
+    },
+    {
+      title: t("Catalog"),
+      children: [
+        { title: "Categories", slug: "categories" },
+        { title: "Products", slug: "products" },
+        { title: "Vendors", slug: "vendors" },
+        { title: "Price List", slug: "price-list" },
+      ]
+    },
+    {
+      title: t("Sales"),
+      children: [
+        { title: "Leads", slug: "leads" },
+        { title: "Quotations", slug: "quotations" },
+        { title: "PFI", slug: "pfi" },
+        { title: "Purchase Order", slug: "purchase-orders" },
+        // Invoices, PO Vendors, Tracking, GRN added when those modules ship
+      ]
+    },
+    {
+      title: t("People"),
+      children: [
+        { title: "Employee", slug: "employee" },
+        { title: "Attendance", slug: "attendance" },
+        { title: "Leave Request", slug: "leave" },
+        { title: "Holiday Calendar", slug: "holiday_calendar" },
       ]
     },
     // Subscription group is Super Admin only (Company Admin manages subscription from profile)
     ...(isSuperAdmin ? [{
       title: t("Subscription"),
       children: [
-        { title: "Plans" },
-        { title: "Subscription" },
-        { title: "Payments" },
-        { title: "Discount" },
+        { title: "Plans", slug: "plan" },
+        { title: "Subscription", slug: "subscription" },
+        { title: "Payments", slug: "module" },
+        { title: "Discount", slug: "discounts" },
       ]
     }] : []),
-    // HRM group — shown for all editors so Super Admin can configure HRM permissions on company roles
-    {
-      title: t("HRM"),
-      children: [
-        { title: "Holiday Calendar" },
-        { title: "Document" },
-        { title: "Contract" },
-        { title: "Leave" },
-        { title: "Attendance" },
-        { title: "Shift" },
-        { title: "Compliance" },
-      ]
-    }
   ];
 
   return (
@@ -246,7 +263,7 @@ const ModulePermission = () => {
             const children = navGroup.children || [];
             // Convert children titles → module slugs
             const expectedSlugs = children.length
-              ? children.map((c) => c.title.toLowerCase().replace(/\s+/g, "_"))
+              ? children.map((c) => c.slug || c.title.toLowerCase().replace(/\s+/g, "_"))
               : [groupTitle.toLowerCase().replace(/\s+/g, "_")]; // ensure matching
             // Filter modules that belong to this group
             const modulesInGroup = rolePermissions
