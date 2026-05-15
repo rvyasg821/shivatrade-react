@@ -210,6 +210,8 @@ export const API_ENDPOINTS = {
     unpublish: `/admin/pfi/unpublish`,
     publicPreview: `/admin/pfi/public-preview`,
     public: `/public/pfi`,
+    pdf: `/admin/pfi`, // append /:id/pdf
+    publicPdf: `/public/pfi`, // append /:token/pdf
   },
   customers: {
     list: `/admin/customer/list`,

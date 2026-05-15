@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -16,6 +16,7 @@ import {
   FileText,
   Edit,
   ExternalLink,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +24,9 @@ import Avatar from "@components/avatar";
 import { appsRoot } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import Notification from "@components/toast/notification";
 
 const InfoRow = ({ icon: Icon, value }) => {
   if (!value) return null;
@@ -47,6 +51,37 @@ const PfiInfoCard = () => {
   const { pfiItem } = useSelector((s) => s.pfi);
   const p = pfiItem || {};
   const sym = p?.currency_symbol || p?.currency_code || "";
+
+  const [downloading, setDownloading] = useState(false);
+  const onDownloadPdf = async () => {
+    if (!id || downloading) return;
+    setDownloading(true);
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.pfis.pdf}/${id}/pdf`,
+        { responseType: "blob" }
+      );
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${p?.voucher_no || "pfi"}.pdf`;
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Fragment>
@@ -157,7 +192,7 @@ const PfiInfoCard = () => {
             />
           </ul>
 
-          <div className="d-flex justify-content-center">
+          <div className="d-flex justify-content-center flex-wrap gap-1">
             <Button
               color="primary"
               outline
@@ -168,6 +203,18 @@ const PfiInfoCard = () => {
             </Button>
             <UncontrolledTooltip target="pfi-edit-from-view" placement="top">
               {t("Edit PFI")}
+            </UncontrolledTooltip>
+            <Button
+              color="primary"
+              onClick={onDownloadPdf}
+              disabled={downloading}
+              id="pfi-pdf-from-view"
+            >
+              <Download size={14} className="me-50" />
+              {downloading ? t("Generating…") : t("Download PDF")}
+            </Button>
+            <UncontrolledTooltip target="pfi-pdf-from-view" placement="top">
+              {t("Download PFI as PDF")}
             </UncontrolledTooltip>
           </div>
         </CardBody>

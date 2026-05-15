@@ -174,6 +174,8 @@ const QUOTATION_STATUS_BADGE_COLOR = {
   sent: "info",
   approved: "success",
   rejected: "danger",
+  // PFI-only terminal state — set when a Commercial Invoice is generated.
+  closed: "dark",
 };
 
 /**

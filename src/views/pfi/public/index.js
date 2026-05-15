@@ -5,14 +5,17 @@
 // Both feed `publicItem` - the sanitized, customer-currency projection.
 // Never renders margin / expenses / rebates / internal notes.
 
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Card, CardBody, Table, Badge, Spinner } from "reactstrap";
+import { Card, CardBody, Table, Badge, Spinner, Button } from "reactstrap";
+import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPublicPfi, getPfiPreview } from "@src/views/pfi/store";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import appLogo from "@src/assets/images/logo/login-logo.png";
 
 const PfiPublicView = () => {
@@ -29,6 +32,34 @@ const PfiPublicView = () => {
     if (token) dispatch(getPublicPfi(token));
     else if (id) dispatch(getPfiPreview(id));
   }, [token, id, dispatch]);
+
+  const [downloading, setDownloading] = useState(false);
+  const onDownloadPdf = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const url = token
+        ? `${API_ENDPOINTS.pfis.publicPdf}/${token}/pdf`
+        : `${API_ENDPOINTS.pfis.pdf}/${id}/pdf`;
+      const resp = await instance.get(url, { responseType: "blob" });
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${p?.voucher_no || "pfi"}.pdf`;
+      const blobUrl = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch {
+      // user-visible Notification is heavy here; the public page should
+      // degrade gracefully — silent failure is acceptable.
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const sym = p?.currency_symbol || p?.currency_code || "";
   const money = (v) => `${sym}${fmt(v)}`;
@@ -65,6 +96,19 @@ const PfiPublicView = () => {
             {t("This PFI has expired.")}
           </div>
         )}
+
+        <div className="d-flex justify-content-end mb-2">
+          <Button
+            color="primary"
+            outline
+            size="sm"
+            onClick={onDownloadPdf}
+            disabled={downloading}
+          >
+            <Download size={14} className="me-50" />
+            {downloading ? t("Generating…") : t("Download PDF")}
+          </Button>
+        </div>
 
         <Card>
           <CardBody>
