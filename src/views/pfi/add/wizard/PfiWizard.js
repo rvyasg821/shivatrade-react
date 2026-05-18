@@ -257,6 +257,7 @@ const PfiWizard = () => {
       reset({
         ...initPfiItem,
         ...p,
+        bank_account_id: p.bank_account_id || "",
         margin_pct: String(p.margin_pct ?? "0"),
         exchange_rate: String(Number(p.exchange_rate ?? 1)),
         pfi_date:
@@ -321,6 +322,27 @@ const PfiWizard = () => {
     watchedCustomer,
     watch("customer_address_id"),
   ]);
+
+  // On new PFI: pre-fill port_of_loading + declaration_text from the
+  // company-level defaults once the company profile finishes loading.
+  // Only fills empty fields — never overrides what the user has typed or
+  // what came back hydrated from an existing PFI on edit.
+  useEffect(() => {
+    if (isEdit) return;
+    const ci = companyStore?.companyItem;
+    if (!ci || !ci._id) return;
+    if (!watch("port_of_loading") && ci.default_port_of_loading) {
+      setValue("port_of_loading", ci.default_port_of_loading, {
+        shouldDirty: false,
+      });
+    }
+    if (!watch("declaration_text") && ci.default_declaration_text) {
+      setValue("declaration_text", ci.default_declaration_text, {
+        shouldDirty: false,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyStore?.companyItem?._id, isEdit]);
 
   // Save completes the wizard → return to the listing.
   useEffect(() => {
@@ -550,22 +572,37 @@ const PfiWizard = () => {
   );
   const liveBankAccountId = useWatch({ control, name: "bank_account_id" });
 
-  // Default-pick logic: when the user changes currency (or after company
-  // loads), auto-select the is_default bank account for that currency, or
-  // the first active one if none is flagged default. Don't override an
-  // explicit user pick that already matches.
+  // Active (non-deleted, is_active) bank accounts of any currency. Used as a
+  // fallback so the PFI always ends up with some bank_account_id rather than
+  // saving NULL when no currency-matching account exists.
+  const activeBankAccounts = useMemo(
+    () =>
+      allBankAccounts.filter(
+        (b) => !b.soft_delete && b.is_active !== false
+      ),
+    [allBankAccounts]
+  );
+
+  // Default-pick logic — applies ONLY to new PFI creation. On edit we
+  // always keep the bank account that was chosen when the PFI was created,
+  // even if the company's default has since changed (or the PFI's saved
+  // bank doesn't match the current currency). Hydration handles the edit
+  // case by spreading the saved PFI into the form.
   useEffect(() => {
-    if (!liveCurrencyCode || !allBankAccounts.length) return;
-    const currentMatches = bankAccountsForCurrency.some(
+    if (isEdit) return;
+    if (!allBankAccounts.length) return;
+    const stillValid = activeBankAccounts.some(
       (b) => b._id === liveBankAccountId
     );
-    if (currentMatches) return;
+    if (liveBankAccountId && stillValid) return;
     const def =
       bankAccountsForCurrency.find((b) => b.is_default) ||
-      bankAccountsForCurrency[0];
+      bankAccountsForCurrency[0] ||
+      activeBankAccounts.find((b) => b.is_default) ||
+      activeBankAccounts[0];
     setValue("bank_account_id", def ? def._id : "", { shouldDirty: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveCurrencyCode, allBankAccounts]);
+  }, [liveCurrencyCode, allBankAccounts, isEdit]);
 
   const stepCtx = {
     isEdit,

@@ -6,8 +6,6 @@ import {
   Row,
   Button,
   Input,
-  InputGroup,
-  InputGroupText,
   Label,
   Table,
   Modal,
@@ -913,31 +911,24 @@ const SalesDocLineItems = ({
                         />
                       </Col>
                       <Col md="2">
-                        <InputGroup>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            placeholder="0"
-                            value={row.pct ?? ""}
-                            onChange={(e) => {
-                              const cur = (
-                                liveLines?.[editingIdx]
-                                  ?.product_rebates_snapshot || []
-                              ).slice();
-                              cur[ri] = { ...cur[ri], pct: e.target.value };
-                              setValue(
-                                `lines.${editingIdx}.product_rebates_snapshot`,
-                                cur,
-                              );
-                            }}
-                          />
-                          <InputGroupText>
-                            {row.type === "fixed"
-                              ? currencySymbol(baseCurrencyCode)
-                              : "%"}
-                          </InputGroupText>
-                        </InputGroup>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          placeholder="0"
+                          value={row.pct ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_rebates_snapshot || []
+                            ).slice();
+                            cur[ri] = { ...cur[ri], pct: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_rebates_snapshot`,
+                              cur,
+                            );
+                          }}
+                        />
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2
@@ -1079,34 +1070,27 @@ const SalesDocLineItems = ({
                         />
                       </Col>
                       <Col md="3">
-                        <InputGroup>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            placeholder="0"
-                            value={row.value ?? ""}
-                            onChange={(e) => {
-                              const cur = (
-                                liveLines?.[editingIdx]
-                                  ?.product_expenses_snapshot || []
-                              ).slice();
-                              cur[ei] = {
-                                ...cur[ei],
-                                value: e.target.value,
-                              };
-                              setValue(
-                                `lines.${editingIdx}.product_expenses_snapshot`,
-                                cur,
-                              );
-                            }}
-                          />
-                          <InputGroupText>
-                            {row.type === "percent"
-                              ? "%"
-                              : currencySymbol(baseCurrencyCode)}
-                          </InputGroupText>
-                        </InputGroup>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          placeholder="0"
+                          value={row.value ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur[ei] = {
+                              ...cur[ei],
+                              value: e.target.value,
+                            };
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur,
+                            );
+                          }}
+                        />
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2

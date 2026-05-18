@@ -82,10 +82,7 @@ const PfiPublicView = () => {
 
   return (
     <Fragment>
-      <div
-        className="pfi-public-view mx-auto py-3"
-        style={{ maxWidth: 960 }}
-      >
+      <div className="pfi-public-view mx-auto py-3" style={{ maxWidth: 960 }}>
         {isPreview && (
           <div className="alert alert-info py-1 mb-2">
             {t("Preview - this is what the client sees. Not yet shared.")}
@@ -121,14 +118,10 @@ const PfiPublicView = () => {
                   style={{ height: 38 }}
                   className="mb-1 d-block"
                 />
-                {p.company_name && (
-                  <h4 className="mb-0">{p.company_name}</h4>
-                )}
+                {p.company_name && <h4 className="mb-0">{p.company_name}</h4>}
               </div>
               <div className="text-end">
-                <h3 className="mb-0 text-uppercase">
-                  {t("Proforma Invoice")}
-                </h3>
+                <h3 className="mb-0 text-uppercase">{t("Proforma Invoice")}</h3>
                 <div className="fw-bold">{p.voucher_no || "-"}</div>
                 <Badge color="light-primary" className="text-capitalize">
                   {p.status || "-"}
@@ -190,9 +183,7 @@ const PfiPublicView = () => {
                 </div>
                 {p.valid_until && (
                   <div className="small">
-                    <span className="text-muted">
-                      {t("Valid Until")}:{" "}
-                    </span>
+                    <span className="text-muted">{t("Valid Until")}: </span>
                     {p.valid_until.slice(0, 10)}
                   </div>
                 )}
@@ -282,17 +273,13 @@ const PfiPublicView = () => {
                   )}
                   {p.est_shipment_date && (
                     <div className="small">
-                      <span className="text-muted">
-                        {t("Est. Shipment")}:{" "}
-                      </span>
+                      <span className="text-muted">{t("Est. Shipment")}: </span>
                       {p.est_shipment_date.slice(0, 10)}
                     </div>
                   )}
                   {p.est_delivery_date && (
                     <div className="small">
-                      <span className="text-muted">
-                        {t("Est. Delivery")}:{" "}
-                      </span>
+                      <span className="text-muted">{t("Est. Delivery")}: </span>
                       {p.est_delivery_date.slice(0, 10)}
                     </div>
                   )}
@@ -333,9 +320,7 @@ const PfiPublicView = () => {
                     <td className="text-end">{fmt(l.net_weight_kg || 0)}</td>
                     <td className="text-end">{fmt(l.gross_weight_kg || 0)}</td>
                     <td className="text-end">{l.package_count || 0}</td>
-                    <td className="text-end fw-bold">
-                      {money(l.line_total)}
-                    </td>
+                    <td className="text-end fw-bold">{money(l.line_total)}</td>
                   </tr>
                 ))}
                 {(p.lines || []).length === 0 && (
@@ -356,9 +341,7 @@ const PfiPublicView = () => {
                 </div>
                 <div className="d-flex flex-wrap gap-4">
                   <div>
-                    <span className="text-muted">
-                      {t("Total Packages")}:{" "}
-                    </span>
+                    <span className="text-muted">{t("Total Packages")}: </span>
                     {p.total_packages || 0}
                     {p.packing_type ? ` × ${p.packing_type}` : ""}
                   </div>
@@ -401,16 +384,14 @@ const PfiPublicView = () => {
 
             {/* Bank details */}
             {p.bank && (
-              <div className="border-top pt-2 mb-3">
+              <div className="border-top pt-2 mb-3 p-2 rounded bg-light ">
                 <div className="text-muted small text-uppercase mb-1">
                   {t("Beneficiary Bank Details")}
                 </div>
-                <div className="row small">
+                <div className="row small text-dark">
                   {p.bank.beneficiary_name && (
-                    <div className="col-md-6">
-                      <span className="text-muted">
-                        {t("Beneficiary")}:{" "}
-                      </span>
+                    <div className="col-md-6 ">
+                      <span className="text-muted">{t("Beneficiary")}: </span>
                       {p.bank.beneficiary_name}
                     </div>
                   )}
@@ -422,9 +403,7 @@ const PfiPublicView = () => {
                   )}
                   {p.bank.account_number && (
                     <div className="col-md-6">
-                      <span className="text-muted">
-                        {t("Account No.")}:{" "}
-                      </span>
+                      <span className="text-muted">{t("Account No.")}: </span>
                       {p.bank.account_number}
                     </div>
                   )}

@@ -451,7 +451,10 @@ const StepShipping = ({
           name="bank_account_id"
           control={control}
           render={({ field }) => {
-            const opts = bankAccountsForCurrency.map((b) => ({
+            const activeBanks = allBankAccounts.filter(
+              (b) => !b.soft_delete && b.is_active !== false
+            );
+            const opts = activeBanks.map((b) => ({
               value: b._id,
               label: [
                 b.bank_name,
@@ -467,28 +470,24 @@ const StepShipping = ({
               <Select
                 classNamePrefix="select"
                 isClearable
-                isDisabled={isLocked || !bankAccountsForCurrency.length}
+                isDisabled={isLocked || !activeBanks.length}
                 options={opts}
                 value={opts.find((o) => o.value === field.value) || null}
                 onChange={(opt) => field.onChange(opt ? opt.value : "")}
                 placeholder={
-                  bankAccountsForCurrency.length
+                  activeBanks.length
                     ? t("Select bank account")
-                    : t("No bank account for this currency")
+                    : t("No bank accounts on file")
                 }
               />
             );
           }}
         />
-        {!bankAccountsForCurrency.length && (
+        {!allBankAccounts.length && (
           <small className="text-warning d-block mt-1">
-            {allBankAccounts.length
-              ? t(
-                  "No bank account exists for this currency. Add one in Company Profile → Bank Accounts before saving this PFI."
-                )
-              : t(
-                  "No bank accounts on file. Add at least one in Company Profile → Bank Accounts."
-                )}
+            {t(
+              "No bank accounts on file. Add at least one in Company Profile → Bank Accounts."
+            )}
           </small>
         )}
         {errors.bank_account_id && (
