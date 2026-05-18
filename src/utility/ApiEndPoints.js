@@ -214,6 +214,13 @@ export const API_ENDPOINTS = {
     update: `/admin/pfi/update`,
     delete: `/admin/pfi/delete`,
     fromQuotation: `/admin/pfi/from-quotation`, // append /:quotationId
+    publish: `/admin/pfi/publish`,
+    rotateToken: `/admin/pfi/rotate-token`,
+    unpublish: `/admin/pfi/unpublish`,
+    publicPreview: `/admin/pfi/public-preview`,
+    public: `/public/pfi`,
+    pdf: `/admin/pfi`, // append /:id/pdf
+    publicPdf: `/public/pfi`, // append /:token/pdf
   },
   customers: {
     list: `/admin/customer/list`,

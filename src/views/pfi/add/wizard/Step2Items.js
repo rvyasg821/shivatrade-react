@@ -26,6 +26,7 @@ const Step2Items = ({
       baseCurrencyCode={baseCurrencyCode}
       exchangeRate={exchangeRate}
       readOnly={isLocked}
+      showExportFields
     />
   );
 };

@@ -1,7 +1,8 @@
-import { Users, Package, CheckCircle } from "react-feather";
+import { Users, Package, Truck, CheckCircle } from "react-feather";
 
 import Step1Customer from "./Step1Customer";
 import Step2Items from "./Step2Items";
+import StepShipping from "./StepShipping";
 import Step3Review from "./Step3Review";
 
 export const STEPS = [
@@ -30,6 +31,32 @@ export const STEPS = [
     fields: ["lines"],
     Component: Step2Items,
     canEnter: (form) => !!form.getValues("customer_id"),
+  },
+  {
+    key: "shipping",
+    label: "Shipping & Packing",
+    icon: Truck,
+    fields: [
+      "consignee_name",
+      "consignee_address",
+      "port_of_loading",
+      "port_of_discharge",
+      "final_destination",
+      "country_of_origin",
+      "country_of_final_destination",
+      "mode_of_shipment",
+      "container_details",
+      "est_shipment_date",
+      "est_delivery_date",
+      "packing_marks",
+      "packing_type",
+      "validity_days",
+      "payment_terms_text",
+      "declaration_text",
+      "bank_account_id",
+    ],
+    Component: StepShipping,
+    canEnter: (form) => (form.getValues("lines") || []).length > 0,
   },
   {
     key: "review",
