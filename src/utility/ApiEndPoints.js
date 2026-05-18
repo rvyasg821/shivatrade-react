@@ -148,6 +148,9 @@ export const API_ENDPOINTS = {
     update: `/admin/category/update`,
     delete: `/admin/category/delete`,
     dropdown: `/admin/category/dropdown`,
+    import: `/admin/category/import`,
+    export: `/admin/category/export`,
+    sampleExcel: `/admin/category/sample-excel`,
   },
   products: {
     list: `/admin/product/list`,
@@ -157,6 +160,9 @@ export const API_ENDPOINTS = {
     delete: `/admin/product/delete`,
     dropdown: `/admin/product/dropdown`,
     checkCode: `/admin/product/check-code`,
+    import: `/admin/product/import`,
+    export: `/admin/product/export`,
+    sampleExcel: `/admin/product/sample-excel`,
   },
   vendors: {
     list: `/admin/vendor/list`,
@@ -185,6 +191,9 @@ export const API_ENDPOINTS = {
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
     byProduct: `/admin/price-list/by-product`,
+    import: `/admin/price-list/import`,
+    export: `/admin/price-list/export`,
+    sampleExcel: `/admin/price-list/sample-excel`,
   },
   quotations: {
     list: `/admin/quotation/list`,

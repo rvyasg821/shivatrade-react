@@ -35,10 +35,15 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+
+// ** Import/Export
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 
 const ProductList = () => {
   const { t } = useTranslation();
@@ -58,6 +63,8 @@ const ProductList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleProductLists = useCallback(
     (
@@ -113,6 +120,25 @@ const ProductList = () => {
   };
 
   const handleSearch = (value) => setSearchInput(value);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.products.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `products-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export products"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     let handler;
@@ -294,9 +320,9 @@ const ProductList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-product"
@@ -306,7 +332,7 @@ const ProductList = () => {
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       value={selectedCategory}
                       onChange={(opt) => setCategoryFilter(opt ? opt.value : "")}
@@ -316,7 +342,7 @@ const ProductList = () => {
                       classNamePrefix="select"
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="4" md="4" className="mb-2 mb-md-0">
                     <Select
                       value={
                         statusFilter
@@ -343,15 +369,38 @@ const ProductList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/products/add`)}
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    {t("Add Product")} <PlusCircle size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {(canAdd || canEdit) && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                     
+                      className="text-nowrap"
+                      onClick={() => navigate(`${appsRoot}/products/add`)}
+                    >
+                      {t("Add Product")} <PlusCircle size={14} />
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -372,6 +421,12 @@ const ProductList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleProductLists()}
+      />
     </Fragment>
   );
 };
