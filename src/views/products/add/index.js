@@ -52,7 +52,12 @@ import { ArrowLeft, Loader, Plus, Trash2 } from "react-feather";
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
 import { initProductItem } from "@constant/reduxConstant";
-import { STATUS_OPTIONS, PRODUCT_UOM_OPTIONS, COUNTRY_OPTIONS } from "@constant/options";
+import {
+  STATUS_OPTIONS,
+  PRODUCT_UOM_OPTIONS,
+  COUNTRY_OPTIONS,
+  REBATE_EXPENSE_TYPE_OPTIONS,
+} from "@constant/options";
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -276,11 +281,13 @@ const ProductForm = () => {
         country_of_origin: p.country_of_origin || "",
         rebates: (p.rebates || []).map((r) => ({
           rebate_id: r.rebate_id,
-          // Backend returns the effective pct (override or master); show it.
+          // Backend returns the effective type and pct (override or master).
+          type: r.type ?? "percent",
           pct: r.pct ?? "",
         })),
         expenses: (p.expenses || []).map((e) => ({
           expense_id: e.expense_id,
+          type: e.type ?? "fixed",
           value: e.value ?? "",
         })),
         status: p.status || (p.is_active ? "active" : "inactive"),
@@ -367,12 +374,14 @@ const ProductForm = () => {
         .filter((r) => isUuid(r.rebate_id))
         .map((r) => ({
           rebate_id: r.rebate_id,
+          type: r.type || undefined,
           pct: numOrUndef(r.pct),
         })),
       expenses: (data.expenses || [])
         .filter((e) => isUuid(e.expense_id))
         .map((e) => ({
           expense_id: e.expense_id,
+          type: e.type || undefined,
           value: numOrUndef(e.value),
         })),
       status: data.status,
@@ -913,7 +922,11 @@ const ProductForm = () => {
                   color="primary"
                   outline
                   onClick={() =>
-                    rebatesField.append({ rebate_id: "", pct: "" })
+                    rebatesField.append({
+                      rebate_id: "",
+                      type: "percent",
+                      pct: "",
+                    })
                   }
                 >
                   <Plus size={14} /> {t("Add Rebate")}
@@ -927,15 +940,19 @@ const ProductForm = () => {
               {rebatesField.fields.map((row, idx) => {
                 const opts = (rebateStore?.rebateDropdown || []).map((r) => ({
                   value: r._id,
-                  label: `${r.code} - ${r.name} (${r.pct}%)`,
+                  label: `${r.code} - ${r.name} (${r.pct}${
+                    r.type === "fixed" ? "" : "%"
+                  })`,
                   pct: r.pct,
+                  type: r.type || "percent",
                 }));
                 const selectedRebate = opts.find(
                   (o) => o.value === watch(`rebates.${idx}.rebate_id`)
                 );
+                const currentType = watch(`rebates.${idx}.type`) || "percent";
                 return (
                   <Row key={row._key} className="align-items-end">
-                    <Col md="7" className="mb-2">
+                    <Col md="5" className="mb-2">
                       <Label className="form-label">{t("Rebate")}</Label>
                       <Controller
                         name={`rebates.${idx}.rebate_id`}
@@ -949,6 +966,11 @@ const ProductForm = () => {
                             onChange={(opt) => {
                               field.onChange(opt ? opt.value : "");
                               setValue(
+                                `rebates.${idx}.type`,
+                                opt ? opt.type : "percent",
+                                { shouldValidate: true }
+                              );
+                              setValue(
                                 `rebates.${idx}.pct`,
                                 opt ? opt.pct : "",
                                 { shouldValidate: true }
@@ -959,9 +981,30 @@ const ProductForm = () => {
                         )}
                       />
                     </Col>
-                    <Col md="4" className="mb-2">
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("Type")}</Label>
+                      <Controller
+                        name={`rebates.${idx}.type`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            classNamePrefix="select"
+                            options={REBATE_EXPENSE_TYPE_OPTIONS}
+                            value={
+                              REBATE_EXPENSE_TYPE_OPTIONS.find(
+                                (o) => o.value === field.value
+                              ) || null
+                            }
+                            onChange={(opt) =>
+                              field.onChange(opt ? opt.value : "percent")
+                            }
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
                       <Label className="form-label">
-                        {t("Percentage")}
+                        {currentType === "fixed" ? t("Amount") : t("Percentage")}
                       </Label>
                       <Controller
                         name={`rebates.${idx}.pct`}
@@ -973,7 +1016,9 @@ const ProductForm = () => {
                             min="0"
                             placeholder={
                               selectedRebate
-                                ? `Default ${selectedRebate.pct}%`
+                                ? `Default ${selectedRebate.pct}${
+                                    selectedRebate.type === "fixed" ? "" : "%"
+                                  }`
                                 : ""
                             }
                             {...field}
@@ -1006,7 +1051,11 @@ const ProductForm = () => {
                   color="primary"
                   outline
                   onClick={() =>
-                    expensesField.append({ expense_id: "", value: "" })
+                    expensesField.append({
+                      expense_id: "",
+                      type: "fixed",
+                      value: "",
+                    })
                   }
                 >
                   <Plus size={14} /> {t("Add Expense")}
@@ -1023,15 +1072,16 @@ const ProductForm = () => {
                   label: `${e.code} - ${e.name} (${e.value}${
                     e.type === "percent" ? "%" : ""
                   })`,
-                  type: e.type,
+                  type: e.type || "fixed",
                   master_value: e.value,
                 }));
                 const selectedExpense = opts.find(
                   (o) => o.value === watch(`expenses.${idx}.expense_id`)
                 );
+                const currentType = watch(`expenses.${idx}.type`) || "fixed";
                 return (
                   <Row key={row._key} className="align-items-end">
-                    <Col md="7" className="mb-2">
+                    <Col md="5" className="mb-2">
                       <Label className="form-label">{t("Expense")}</Label>
                       <Controller
                         name={`expenses.${idx}.expense_id`}
@@ -1045,6 +1095,11 @@ const ProductForm = () => {
                             onChange={(opt) => {
                               field.onChange(opt ? opt.value : "");
                               setValue(
+                                `expenses.${idx}.type`,
+                                opt ? opt.type : "fixed",
+                                { shouldValidate: true }
+                              );
+                              setValue(
                                 `expenses.${idx}.value`,
                                 opt ? opt.master_value : "",
                                 { shouldValidate: true }
@@ -1055,9 +1110,30 @@ const ProductForm = () => {
                         )}
                       />
                     </Col>
-                    <Col md="4" className="mb-2">
+                    <Col md="3" className="mb-2">
+                      <Label className="form-label">{t("Type")}</Label>
+                      <Controller
+                        name={`expenses.${idx}.type`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            classNamePrefix="select"
+                            options={REBATE_EXPENSE_TYPE_OPTIONS}
+                            value={
+                              REBATE_EXPENSE_TYPE_OPTIONS.find(
+                                (o) => o.value === field.value
+                              ) || null
+                            }
+                            onChange={(opt) =>
+                              field.onChange(opt ? opt.value : "fixed")
+                            }
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" className="mb-2">
                       <Label className="form-label">
-                        {t("Value")}
+                        {currentType === "percent" ? t("Percentage") : t("Amount")}
                       </Label>
                       <Controller
                         name={`expenses.${idx}.value`}

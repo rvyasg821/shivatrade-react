@@ -104,25 +104,25 @@ const CUSTOMER_ADDRESS_TYPE_OPTIONS = [
 // `integer: true` means quantities sold in this UOM must be whole numbers
 // (you can't have half a bearing). Weight/volume/length UOMs allow decimals.
 const PRODUCT_UOM_OPTIONS = [
-  { value: "KG",        label: "KG",        integer: false },
-  { value: "MT",        label: "MT",        integer: false },
-  { value: "Tonne",     label: "Tonne",     integer: false },
-  { value: "Nos",       label: "Nos",       integer: true  },
-  { value: "Piece",     label: "Piece",     integer: true  },
-  { value: "Pack",      label: "Pack",      integer: true  },
-  { value: "Box",       label: "Box",       integer: true  },
-  { value: "Litre",     label: "Litre",     integer: false },
-  { value: "ML",        label: "ML",        integer: false },
-  { value: "Meter",     label: "Meter",     integer: false },
-  { value: "CM",        label: "CM",        integer: false },
-  { value: "Bag",       label: "Bag",       integer: true  },
-  { value: "Pallet",    label: "Pallet",    integer: true  },
-  { value: "Container", label: "Container", integer: true  },
+  { value: "KG", label: "KG", integer: false },
+  { value: "MT", label: "MT", integer: false },
+  { value: "Tonne", label: "Tonne", integer: false },
+  { value: "Nos", label: "Nos", integer: true },
+  { value: "Piece", label: "Piece", integer: true },
+  { value: "Pack", label: "Pack", integer: true },
+  { value: "Box", label: "Box", integer: true },
+  { value: "Litre", label: "Litre", integer: false },
+  { value: "ML", label: "ML", integer: false },
+  { value: "Meter", label: "Meter", integer: false },
+  { value: "CM", label: "CM", integer: false },
+  { value: "Bag", label: "Bag", integer: true },
+  { value: "Pallet", label: "Pallet", integer: true },
+  { value: "Container", label: "Container", integer: true },
 ];
 
 // Helper for forms - UOMs that disallow decimals.
 const UOM_INTEGER_ONLY = new Set(
-  PRODUCT_UOM_OPTIONS.filter((u) => u.integer).map((u) => u.value)
+  PRODUCT_UOM_OPTIONS.filter((u) => u.integer).map((u) => u.value),
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,6 +174,8 @@ const QUOTATION_STATUS_BADGE_COLOR = {
   sent: "info",
   approved: "success",
   rejected: "danger",
+  // PFI-only terminal state — set when a Commercial Invoice is generated.
+  closed: "dark",
 };
 
 /**
@@ -210,6 +212,24 @@ const REBATE_EXPENSE_TYPE_OPTIONS = [
   { value: "fixed", label: "Fixed Amount" },
 ];
 
+/** PFI / shipping documents - mode of shipment. */
+const MODE_OF_SHIPMENT_OPTIONS = [
+  { value: "sea", label: "Sea" },
+  { value: "air", label: "Air" },
+  { value: "road", label: "Road" },
+];
+
+/** PFI / shipping documents - packing type. Free text on the API; this is the
+ *  pick-list shown in the UI. */
+const PACKING_TYPE_OPTIONS = [
+  { value: "Cartons", label: "Cartons" },
+  { value: "Pallets", label: "Pallets" },
+  { value: "Drums", label: "Drums" },
+  { value: "Bags", label: "Bags" },
+  { value: "Bundles", label: "Bundles" },
+  { value: "Crates", label: "Crates" },
+];
+
 export {
   STATUS_OPTIONS,
   REBATE_EXPENSE_TYPE_OPTIONS,
@@ -228,4 +248,6 @@ export {
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
   EXCHANGE_TO_CURRENCY_OPTIONS,
+  MODE_OF_SHIPMENT_OPTIONS,
+  PACKING_TYPE_OPTIONS,
 };

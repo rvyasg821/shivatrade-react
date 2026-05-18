@@ -32,7 +32,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -218,19 +218,14 @@ const PfiView = () => {
       name: t("PFI #"),
       sortField: "voucher_no",
       sortable: false,
-      selector: (row) => {
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/pfi/edit/${row?._id || ""}`}
-              className="text-wrap"
-            >
-              {row?.voucher_no || "-"}
-            </Link>
-          );
-        }
-        return <span className="text-wrap">{row?.voucher_no || "-"}</span>;
-      },
+      selector: (row) => (
+        <Link
+          to={`${appsRoot}/pfi/view/${row?._id || ""}`}
+          className="text-wrap"
+        >
+          {row?.voucher_no || "-"}
+        </Link>
+      ),
     },
     {
       name: t("Quote #"),
@@ -318,12 +313,26 @@ const PfiView = () => {
     },
   ];
 
-  if (canEdit || canDelete) {
+  {
+    // View action is always available; Edit/Delete are gated by perms.
     columns.push({
       name: t("Action"),
       center: true,
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
+          <Link
+            className="me-50"
+            id={`pfi-view-${row?._id || ""}`}
+            to={`${appsRoot}/pfi/view/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`pfi-view-${row?._id || ""}`}
+            >
+              {t("View")}
+            </UncontrolledTooltip>
+            <Eye size={20} />
+          </Link>
           {canEdit && (
             <Link
               className="me-50"

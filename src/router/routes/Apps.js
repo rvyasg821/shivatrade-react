@@ -66,6 +66,8 @@ const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
 const PfiList = lazy(() => import('@src/views/pfi'));
 const AddPfi = lazy(() => import('@src/views/pfi/add'));
 const EditPfi = lazy(() => import('@src/views/pfi/add'));
+const ViewPfi = lazy(() => import('@src/views/pfi/view'));
+const PfiPublicView = lazy(() => import('@src/views/pfi/public'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -650,6 +652,31 @@ const AppRoutes = [
     meta: {
       permissionId: pfiModuleSlug,
       action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/view/:id`,
+    element: <ViewPfi />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/pfi/preview/:id`,
+    element: <PfiPublicView />,
+    meta: {
+      permissionId: pfiModuleSlug,
+      action: 'list',
+      layout: 'blank',
+    },
+  },
+  {
+    path: '/p/:token',
+    element: <PfiPublicView />,
+    meta: {
+      publicRoute: true,
+      layout: 'blank',
     },
   },
   {

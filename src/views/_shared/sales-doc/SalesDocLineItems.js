@@ -6,8 +6,6 @@ import {
   Row,
   Button,
   Input,
-  InputGroup,
-  InputGroupText,
   Label,
   Table,
   Modal,
@@ -64,6 +62,10 @@ const SalesDocLineItems = ({
   baseCurrencyCode = "",
   exchangeRate = 1,
   readOnly = false,
+  /** PFI (and future Commercial Invoice) only: render HS code + per-line
+   *  weight / package fields in the modal and auto-fill them from the
+   *  product master. Off for Quotation / PO. */
+  showExportFields = false,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -116,7 +118,7 @@ const SalesDocLineItems = ({
               value: p._id,
               label: `${p.code ? p.code + " - " : ""}${p.name}`,
               raw: p,
-            }))
+            })),
           );
         } catch {
           resolve([]);
@@ -142,7 +144,7 @@ const SalesDocLineItems = ({
     }
     try {
       const resp = await instance.get(
-        `${API_ENDPOINTS.priceList.byProduct}/${productId}`
+        `${API_ENDPOINTS.priceList.byProduct}/${productId}`,
       );
       const rows = resp?.data?.data || [];
       const vOpts = rows.map((r) => ({
@@ -170,6 +172,31 @@ const SalesDocLineItems = ({
       }
       if (opt.raw.margin_pct !== undefined && opt.raw.margin_pct !== null) {
         setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
+      }
+      // PFI / export documents: auto-fill HS code + per-line weights from
+      // product master. qty defaults to 1 if blank so the weight math has
+      // a starting value; user can override any of these.
+      if (showExportFields) {
+        if (opt.raw.hsn_code != null) {
+          setValue(`lines.${idx}.hs_code`, String(opt.raw.hsn_code));
+        }
+        const liveQty = num(liveLines?.[idx]?.qty);
+        const nwpu = num(opt.raw.net_weight_per_unit);
+        const gwpu = num(opt.raw.gross_weight_per_unit);
+        // Stash per-unit values on the line so a later qty change can
+        // recompute weights without re-fetching the product.
+        setValue(`lines.${idx}._nwpu`, String(nwpu));
+        setValue(`lines.${idx}._gwpu`, String(gwpu));
+        if (liveQty > 0) {
+          setValue(
+            `lines.${idx}.net_weight_kg`,
+            String(round2(liveQty * nwpu)),
+          );
+          setValue(
+            `lines.${idx}.gross_weight_kg`,
+            String(round2(liveQty * gwpu)),
+          );
+        }
       }
     }
     setValue(`lines.${idx}.vendor_id`, "");
@@ -212,10 +239,7 @@ const SalesDocLineItems = ({
       // Vendor price list drives Price and Discount %. GST % / Margin %
       // stay product-level - not touched here.
       setValue(`lines.${idx}.unit_price`, String(opt.raw.unit_price ?? ""));
-      if (
-        opt.raw.discount_pct !== undefined &&
-        opt.raw.discount_pct !== null
-      ) {
+      if (opt.raw.discount_pct !== undefined && opt.raw.discount_pct !== null) {
         setValue(`lines.${idx}.discount_pct`, String(opt.raw.discount_pct));
       }
     }
@@ -347,12 +371,13 @@ const SalesDocLineItems = ({
                 const c = computeLineCosting(l);
                 const lineNet = c.taxable;
                 const productLabel =
-                  productOptions.find((o) => o.value === l.product_id)
-                    ?.label || (l.product_id ? "-" : t("(not set)"));
+                  productOptions.find((o) => o.value === l.product_id)?.label ||
+                  (l.product_id ? "-" : t("(not set)"));
                 const vendorOpts = vendorOptionsByLine[idx] || [];
                 const vendorLabel =
-                  vendorOpts.find((o) => o.value === l.vendor_id)?.label
-                    ?.split(" - ")[0] || "-";
+                  vendorOpts
+                    .find((o) => o.value === l.vendor_id)
+                    ?.label?.split(" - ")[0] || "-";
                 // Pull rebates/expenses from the line snapshot (which may
                 // be edited per-line), not from the product master.
                 const lineRebates = l?.product_rebates_snapshot || [];
@@ -360,96 +385,97 @@ const SalesDocLineItems = ({
                 const hasChips = lineRebates.length || lineExpenses.length;
                 return (
                   <Fragment key={field.id}>
-                  <tr>
-                    <td className="text-muted">{idx + 1}</td>
-                    <td>{productLabel}</td>
-                    <td>{vendorLabel}</td>
-                    <td className="text-end">{l.qty || "-"}</td>
-                    <td>{l.unit || "-"}</td>
-                    <td className="text-end">
-                      {l.unit_price ? `${baseSym}${fmt(l.unit_price)}` : "-"}
-                    </td>
-                    <td className="text-end">{num(l.discount_pct) || 0}</td>
-                    <td className="text-end">
-                      {c.expenses > 0 ? `${baseSym}${fmt(c.expenses)}` : "-"}
-                    </td>
-                    <td className="text-end">
-                      {c.rebates > 0 ? `${baseSym}${fmt(c.rebates)}` : "-"}
-                    </td>
-                    <td className="text-end">{num(l.tax_pct) || 0}</td>
-                    <td className="text-end">{num(l.margin_pct) || 0}</td>
-                    <td className="text-end fw-bold">
-                      {baseSym}
-                      {fmt(c.lineTotal)}
-                    </td>
-                    <td>
-                      <div className="d-flex justify-content-center align-items-center" style={{ gap: "2px" }}>
-                        <Edit
-                          size={16}
-                          className={
-                            readOnly
-                              ? "text-muted opacity-50"
-                              : "cursor-pointer text-primary"
-                          }
-                          onClick={() => !readOnly && openEdit(idx)}
-                        />
-                        <Trash2
-                          size={16}
-                          className={
-                            readOnly
-                              ? "text-muted opacity-50"
-                              : "cursor-pointer text-danger"
-                          }
-                          onClick={() => !readOnly && removeLine(idx)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                  {hasChips && (
-                    <tr className="bg-light">
-                      <td></td>
-                      <td colSpan={12} className="py-1">
-                        <small className="text-muted me-2">
-                          {t("Auto-applied:")}
-                        </small>
-                        {lineRebates.map((r) => {
-                          const isFixed = r.type === "fixed";
-                          const amt = isFixed
-                            ? num(r.pct)
-                            : (lineNet * num(r.pct)) / 100;
-                          return (
-                            <span
-                              key={`r-${idx}-${r.rebate_id}`}
-                              className="badge bg-success text-white me-1"
-                            >
-                              {r.code || r.name}{" "}
-                              {isFixed
-                                ? fmt(num(r.pct))
-                                : `${num(r.pct)}% = ${fmt(amt)}`}
-                            </span>
-                          );
-                        })}
-                        {lineExpenses.map((e) => {
-                          const amt =
-                            e.type === "percent"
-                              ? (lineNet * num(e.value)) / 100
-                              : num(e.value);
-                          return (
-                            <span
-                              key={`e-${idx}-${e.expense_id}`}
-                              className="badge bg-warning text-dark me-1"
-                            >
-                              {e.code || e.name}{" "}
-                              {e.type === "percent"
-                                ? `${num(e.value)}%`
-                                : ""}{" "}
-                              = {fmt(amt)}
-                            </span>
-                          );
-                        })}
+                    <tr>
+                      <td className="text-muted">{idx + 1}</td>
+                      <td>{productLabel}</td>
+                      <td>{vendorLabel}</td>
+                      <td className="text-end">{l.qty || "-"}</td>
+                      <td>{l.unit || "-"}</td>
+                      <td className="text-end">
+                        {l.unit_price ? `${baseSym}${fmt(l.unit_price)}` : "-"}
+                      </td>
+                      <td className="text-end">{num(l.discount_pct) || 0}</td>
+                      <td className="text-end">
+                        {c.expenses > 0 ? `${baseSym}${fmt(c.expenses)}` : "-"}
+                      </td>
+                      <td className="text-end">
+                        {c.rebates > 0 ? `${baseSym}${fmt(c.rebates)}` : "-"}
+                      </td>
+                      <td className="text-end">{num(l.tax_pct) || 0}</td>
+                      <td className="text-end">{num(l.margin_pct) || 0}</td>
+                      <td className="text-end fw-bold">
+                        {baseSym}
+                        {fmt(c.lineTotal)}
+                      </td>
+                      <td>
+                        <div
+                          className="d-flex justify-content-center align-items-center"
+                          style={{ gap: "2px" }}
+                        >
+                          <Edit
+                            size={16}
+                            className={
+                              readOnly
+                                ? "text-muted opacity-50"
+                                : "cursor-pointer text-primary"
+                            }
+                            onClick={() => !readOnly && openEdit(idx)}
+                          />
+                          <Trash2
+                            size={16}
+                            className={
+                              readOnly
+                                ? "text-muted opacity-50"
+                                : "cursor-pointer text-danger"
+                            }
+                            onClick={() => !readOnly && removeLine(idx)}
+                          />
+                        </div>
                       </td>
                     </tr>
-                  )}
+                    {hasChips && (
+                      <tr className="bg-light">
+                        <td></td>
+                        <td colSpan={12} className="py-1">
+                          <small className="text-muted me-2">
+                            {t("Auto-applied:")}
+                          </small>
+                          {lineRebates.map((r) => {
+                            const isFixed = r.type === "fixed";
+                            const amt = isFixed
+                              ? num(r.pct)
+                              : (lineNet * num(r.pct)) / 100;
+                            return (
+                              <span
+                                key={`r-${idx}-${r.rebate_id}`}
+                                className="badge bg-success text-white me-1"
+                              >
+                                {r.code || r.name}{" "}
+                                {isFixed
+                                  ? fmt(num(r.pct))
+                                  : `${num(r.pct)}% = ${fmt(amt)}`}
+                              </span>
+                            );
+                          })}
+                          {lineExpenses.map((e) => {
+                            const amt =
+                              e.type === "percent"
+                                ? (lineNet * num(e.value)) / 100
+                                : num(e.value);
+                            return (
+                              <span
+                                key={`e-${idx}-${e.expense_id}`}
+                                className="badge bg-warning text-dark me-1"
+                              >
+                                {e.code || e.name}{" "}
+                                {e.type === "percent" ? `${num(e.value)}%` : ""}{" "}
+                                = {fmt(amt)}
+                              </span>
+                            );
+                          })}
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 );
               })}
@@ -459,7 +485,12 @@ const SalesDocLineItems = ({
       </CardBody>
 
       {/* ── Edit modal ── */}
-      <Modal isOpen={modal.open} toggle={closeModal} size="xl" backdrop="static">
+      <Modal
+        isOpen={modal.open}
+        toggle={closeModal}
+        size="xl"
+        backdrop="static"
+      >
         <ModalHeader toggle={closeModal}>
           {modal.isNew
             ? t("Add Line Item")
@@ -495,7 +526,7 @@ const SalesDocLineItems = ({
                     render={({ field: f }) => {
                       const selected =
                         (allProductOptions || productOptions || []).find(
-                          (o) => o.value === f.value
+                          (o) => o.value === f.value,
                         ) || null;
                       const portalStyles = {
                         menuPortal: (b) => ({ ...b, zIndex: 9999 }),
@@ -506,9 +537,7 @@ const SalesDocLineItems = ({
                           isSearchable
                           options={modalProductOptions}
                           value={selected}
-                          onChange={(opt) =>
-                            onPickProduct(editingIdx, opt)
-                          }
+                          onChange={(opt) => onPickProduct(editingIdx, opt)}
                           placeholder={t("Browse all products…")}
                           menuPortalTarget={document.body}
                           styles={portalStyles}
@@ -520,9 +549,7 @@ const SalesDocLineItems = ({
                           defaultOptions={false}
                           loadOptions={loadProductOptions}
                           value={selected}
-                          onChange={(opt) =>
-                            onPickProduct(editingIdx, opt)
-                          }
+                          onChange={(opt) => onPickProduct(editingIdx, opt)}
                           placeholder={t("Type 2+ letters to search…")}
                           loadingMessage={() => t("Searching…")}
                           noOptionsMessage={({ inputValue }) =>
@@ -581,8 +608,7 @@ const SalesDocLineItems = ({
                       // an empty / invalid qty is flagged inline here - not by
                       // the Done button.
                       const lineStarted =
-                        !!editingLine.product_id ||
-                        !!editingLine.unit_price;
+                        !!editingLine.product_id || !!editingLine.unit_price;
                       const showError = empty
                         ? lineStarted
                         : v <= 0 || (isInt && !Number.isInteger(v));
@@ -595,17 +621,41 @@ const SalesDocLineItems = ({
                             invalid={showError}
                             {...f}
                             value={f.value ?? ""}
+                            onChange={(e) => {
+                              f.onChange(e);
+                              if (showExportFields) {
+                                const q = num(e.target.value);
+                                const nwpu = num(
+                                  liveLines?.[editingIdx]?._nwpu,
+                                );
+                                const gwpu = num(
+                                  liveLines?.[editingIdx]?._gwpu,
+                                );
+                                if (q > 0 && nwpu > 0) {
+                                  setValue(
+                                    `lines.${editingIdx}.net_weight_kg`,
+                                    String(round2(q * nwpu)),
+                                  );
+                                }
+                                if (q > 0 && gwpu > 0) {
+                                  setValue(
+                                    `lines.${editingIdx}.gross_weight_kg`,
+                                    String(round2(q * gwpu)),
+                                  );
+                                }
+                              }
+                            }}
                           />
                           {showError && (
                             <small className="text-danger d-block">
                               {empty
                                 ? t("Qty is required")
                                 : v <= 0
-                                ? t("Qty must be greater than 0")
-                                : t(
-                                    "This unit ({{unit}}) does not allow decimals",
-                                    { unit: editingLine.unit }
-                                  )}
+                                  ? t("Qty must be greater than 0")
+                                  : t(
+                                      "This unit ({{unit}}) does not allow decimals",
+                                      { unit: editingLine.unit },
+                                    )}
                             </small>
                           )}
                         </>
@@ -625,7 +675,7 @@ const SalesDocLineItems = ({
                         options={PRODUCT_UOM_OPTIONS}
                         value={
                           PRODUCT_UOM_OPTIONS.find(
-                            (o) => o.value === f.value
+                            (o) => o.value === f.value,
                           ) || null
                         }
                         onChange={(opt) => {
@@ -641,7 +691,7 @@ const SalesDocLineItems = ({
                           ) {
                             setValue(
                               `lines.${editingIdx}.qty`,
-                              String(Math.floor(num(editingLine.qty)))
+                              String(Math.floor(num(editingLine.qty))),
                             );
                           }
                         }}
@@ -753,9 +803,10 @@ const SalesDocLineItems = ({
                       color="info"
                       outline
                       onClick={() => {
-                        const cur =
-                          (liveLines?.[editingIdx]?.product_rebates_snapshot ||
-                            []).slice();
+                        const cur = (
+                          liveLines?.[editingIdx]?.product_rebates_snapshot ||
+                          []
+                        ).slice();
                         cur.push({
                           rebate_id: null,
                           code: "",
@@ -765,7 +816,7 @@ const SalesDocLineItems = ({
                         });
                         setValue(
                           `lines.${editingIdx}.product_rebates_snapshot`,
-                          cur
+                          cur,
                         );
                       }}
                     >
@@ -795,7 +846,7 @@ const SalesDocLineItems = ({
                                     o.value ===
                                     liveLines?.[editingIdx]
                                       ?.product_rebates_snapshot?.[ri]
-                                      ?.rebate_id
+                                      ?.rebate_id,
                                 ) ||
                                 (row.name
                                   ? { value: null, label: row.name }
@@ -822,7 +873,7 @@ const SalesDocLineItems = ({
                                 };
                                 setValue(
                                   `lines.${editingIdx}.product_rebates_snapshot`,
-                                  cur
+                                  cur,
                                 );
                               }}
                               placeholder={t("Pick a rebate")}
@@ -836,7 +887,7 @@ const SalesDocLineItems = ({
                           options={REBATE_EXPENSE_TYPE_OPTIONS}
                           value={
                             REBATE_EXPENSE_TYPE_OPTIONS.find(
-                              (o) => o.value === (row.type || "percent")
+                              (o) => o.value === (row.type || "percent"),
                             ) || REBATE_EXPENSE_TYPE_OPTIONS[0]
                           }
                           onChange={(opt) => {
@@ -850,7 +901,7 @@ const SalesDocLineItems = ({
                             };
                             setValue(
                               `lines.${editingIdx}.product_rebates_snapshot`,
-                              cur
+                              cur,
                             );
                           }}
                           menuPortalTarget={document.body}
@@ -860,31 +911,24 @@ const SalesDocLineItems = ({
                         />
                       </Col>
                       <Col md="2">
-                        <InputGroup>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            placeholder="0"
-                            value={row.pct ?? ""}
-                            onChange={(e) => {
-                              const cur = (
-                                liveLines?.[editingIdx]
-                                  ?.product_rebates_snapshot || []
-                              ).slice();
-                              cur[ri] = { ...cur[ri], pct: e.target.value };
-                              setValue(
-                                `lines.${editingIdx}.product_rebates_snapshot`,
-                                cur
-                              );
-                            }}
-                          />
-                          <InputGroupText>
-                            {row.type === "fixed"
-                              ? currencySymbol(baseCurrencyCode)
-                              : "%"}
-                          </InputGroupText>
-                        </InputGroup>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          placeholder="0"
+                          value={row.pct ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_rebates_snapshot || []
+                            ).slice();
+                            cur[ri] = { ...cur[ri], pct: e.target.value };
+                            setValue(
+                              `lines.${editingIdx}.product_rebates_snapshot`,
+                              cur,
+                            );
+                          }}
+                        />
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2
@@ -898,7 +942,7 @@ const SalesDocLineItems = ({
                             cur.splice(ri, 1);
                             setValue(
                               `lines.${editingIdx}.product_rebates_snapshot`,
-                              cur
+                              cur,
                             );
                           }}
                         />
@@ -920,9 +964,10 @@ const SalesDocLineItems = ({
                       color="info"
                       outline
                       onClick={() => {
-                        const cur =
-                          (liveLines?.[editingIdx]?.product_expenses_snapshot ||
-                            []).slice();
+                        const cur = (
+                          liveLines?.[editingIdx]?.product_expenses_snapshot ||
+                          []
+                        ).slice();
                         cur.push({
                           expense_id: null,
                           code: "",
@@ -932,7 +977,7 @@ const SalesDocLineItems = ({
                         });
                         setValue(
                           `lines.${editingIdx}.product_expenses_snapshot`,
-                          cur
+                          cur,
                         );
                       }}
                     >
@@ -962,7 +1007,7 @@ const SalesDocLineItems = ({
                                     o.value ===
                                     liveLines?.[editingIdx]
                                       ?.product_expenses_snapshot?.[ei]
-                                      ?.expense_id
+                                      ?.expense_id,
                                 ) ||
                                 (row.name
                                   ? { value: null, label: row.name }
@@ -987,7 +1032,7 @@ const SalesDocLineItems = ({
                                 };
                                 setValue(
                                   `lines.${editingIdx}.product_expenses_snapshot`,
-                                  cur
+                                  cur,
                                 );
                               }}
                               placeholder={t("Pick an expense")}
@@ -1001,7 +1046,7 @@ const SalesDocLineItems = ({
                           options={REBATE_EXPENSE_TYPE_OPTIONS}
                           value={
                             REBATE_EXPENSE_TYPE_OPTIONS.find(
-                              (o) => o.value === (row.type || "fixed")
+                              (o) => o.value === (row.type || "fixed"),
                             ) || REBATE_EXPENSE_TYPE_OPTIONS[1]
                           }
                           onChange={(opt) => {
@@ -1015,7 +1060,7 @@ const SalesDocLineItems = ({
                             };
                             setValue(
                               `lines.${editingIdx}.product_expenses_snapshot`,
-                              cur
+                              cur,
                             );
                           }}
                           menuPortalTarget={document.body}
@@ -1025,34 +1070,27 @@ const SalesDocLineItems = ({
                         />
                       </Col>
                       <Col md="3">
-                        <InputGroup>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            placeholder="0"
-                            value={row.value ?? ""}
-                            onChange={(e) => {
-                              const cur = (
-                                liveLines?.[editingIdx]
-                                  ?.product_expenses_snapshot || []
-                              ).slice();
-                              cur[ei] = {
-                                ...cur[ei],
-                                value: e.target.value,
-                              };
-                              setValue(
-                                `lines.${editingIdx}.product_expenses_snapshot`,
-                                cur
-                              );
-                            }}
-                          />
-                          <InputGroupText>
-                            {row.type === "percent"
-                              ? "%"
-                              : currencySymbol(baseCurrencyCode)}
-                          </InputGroupText>
-                        </InputGroup>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          placeholder="0"
+                          value={row.value ?? ""}
+                          onChange={(e) => {
+                            const cur = (
+                              liveLines?.[editingIdx]
+                                ?.product_expenses_snapshot || []
+                            ).slice();
+                            cur[ei] = {
+                              ...cur[ei],
+                              value: e.target.value,
+                            };
+                            setValue(
+                              `lines.${editingIdx}.product_expenses_snapshot`,
+                              cur,
+                            );
+                          }}
+                        />
                       </Col>
                       <Col md="1" className="text-end">
                         <Trash2
@@ -1066,7 +1104,7 @@ const SalesDocLineItems = ({
                             cur.splice(ei, 1);
                             setValue(
                               `lines.${editingIdx}.product_expenses_snapshot`,
-                              cur
+                              cur,
                             );
                           }}
                         />
@@ -1075,6 +1113,86 @@ const SalesDocLineItems = ({
                   ))}
                 </Col>
               </Row>
+
+              {showExportFields && (
+                <>
+                  <hr className="my-2" />
+                  <Row>
+                    <Col md="12" className="mb-1">
+                      <Label className="form-label fw-bold">
+                        {t("Export / Shipping")}
+                      </Label>
+                      <small className="text-muted d-block mb-2">
+                        {t(
+                          "HS code and weights auto-fill from the product master; weights are qty × per-unit and update with qty. Override any value as needed.",
+                        )}
+                      </small>
+                    </Col>
+                    <Col md="3" sm="6" className="mb-2">
+                      <Label className="form-label">{t("HS Code")}</Label>
+                      <Controller
+                        name={`lines.${editingIdx}.hs_code`}
+                        control={control}
+                        render={({ field: f }) => (
+                          <Input {...f} value={f.value ?? ""} maxLength={15} />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" sm="6" className="mb-2">
+                      <Label className="form-label">
+                        {t("Net Weight (kg)")}
+                      </Label>
+                      <Controller
+                        name={`lines.${editingIdx}.net_weight_kg`}
+                        control={control}
+                        render={({ field: f }) => (
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            {...f}
+                            value={f.value ?? ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" sm="6" className="mb-2">
+                      <Label className="form-label">
+                        {t("Gross Weight (kg)")}
+                      </Label>
+                      <Controller
+                        name={`lines.${editingIdx}.gross_weight_kg`}
+                        control={control}
+                        render={({ field: f }) => (
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            {...f}
+                            value={f.value ?? ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                    <Col md="3" sm="6" className="mb-2">
+                      <Label className="form-label">{t("Packages")}</Label>
+                      <Controller
+                        name={`lines.${editingIdx}.package_count`}
+                        control={control}
+                        render={({ field: f }) => (
+                          <Input
+                            type="number"
+                            step="1"
+                            min="0"
+                            {...f}
+                            value={f.value ?? ""}
+                          />
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                </>
+              )}
 
               <hr className="my-2" />
 
@@ -1091,7 +1209,7 @@ const SalesDocLineItems = ({
                         {...f}
                         value={f.value || ""}
                         placeholder={t(
-                          "Optional - overrides product description on the quote"
+                          "Optional - overrides product description on the quote",
                         )}
                       />
                     )}
@@ -1232,8 +1350,8 @@ const SalesDocLineItems = ({
                           {currencySymbol(currencyCode)}
                           {fmt(
                             round2(
-                              editingCosting.lineTotal * num(exchangeRate)
-                            )
+                              editingCosting.lineTotal * num(exchangeRate),
+                            ),
                           )}
                         </span>
                       </li>
@@ -1256,8 +1374,7 @@ const SalesDocLineItems = ({
               !!editingLine.qty ||
               !!editingLine.unit_price;
             const qtyInvalid =
-              hasAnyData &&
-              (q <= 0 || (isInt && !Number.isInteger(q)));
+              hasAnyData && (q <= 0 || (isInt && !Number.isInteger(q)));
             const priceInvalid = hasAnyData && p <= 0;
             const productMissing = hasAnyData && !editingLine.product_id;
             const blocked = qtyInvalid || priceInvalid || productMissing;
@@ -1270,11 +1387,7 @@ const SalesDocLineItems = ({
                       : t("Fix the highlighted fields to continue")}
                   </small>
                 )}
-                <Button
-                  color="primary"
-                  onClick={closeModal}
-                  disabled={blocked}
-                >
+                <Button color="primary" onClick={closeModal} disabled={blocked}>
                   {t("Done")}
                 </Button>
               </>
