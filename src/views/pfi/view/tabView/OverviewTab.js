@@ -6,18 +6,73 @@ import { Fragment, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Row, Col, Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import {
+  Briefcase,
+  User,
+  Truck,
+  Package,
+  CreditCard,
+  FileText,
+  Anchor,
+} from "react-feather";
 
 import { fmt, num, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 
-const Field = ({ label, value }) =>
-  value ? (
-    <Col md="4" className="mb-1">
-      <small className="text-muted d-block">{label}</small>
-      <span>{value}</span>
+/* ─── Shared design tokens ────────────────────────────────────────── */
+const CARD_BASE = "rounded-3 border h-100 d-flex flex-column";
+const CARD_PAD = {
+  padding: "1rem 1.1rem",
+  backgroundColor: "#f8f9fa",
+  color: "#212529",
+};
+const FIELD_LABEL_STYLE = {
+  fontSize: "0.7rem",
+  letterSpacing: "0.5px",
+  textTransform: "uppercase",
+};
+
+/* ─── Header chip with icon ───────────────────────────────────────── */
+const SectionHeader = ({ icon: Icon, label, color = "primary" }) => (
+  <div className="d-flex align-items-center mb-1">
+    <div
+      className={`d-flex align-items-center justify-content-center rounded-circle bg-light-${color} me-75`}
+      style={{ width: 28, height: 28, flexShrink: 0 }}
+    >
+      <Icon size={14} className={`text-${color}`} />
+    </div>
+    <h6
+      className="text-muted mb-0 fw-bold"
+      style={FIELD_LABEL_STYLE}
+    >
+      {label}
+    </h6>
+  </div>
+);
+
+/* ─── Field cell (label above value) ──────────────────────────────── */
+const Field = ({ label, value, md = 4, prominent = false, mono = false }) => {
+  if (!value) return null;
+  return (
+    <Col md={md} className="mb-1">
+      <div className="text-muted mb-25" style={FIELD_LABEL_STYLE}>
+        {label}
+      </div>
+      <div
+        className={prominent ? "fw-bolder text-primary" : "fw-semibold"}
+        style={{
+          color: prominent ? undefined : "#212529",
+          ...(mono ? { fontFamily: "monospace", letterSpacing: "0.3px" } : {}),
+        }}
+      >
+        {value}
+      </div>
     </Col>
-  ) : null;
+  );
+};
+
+const Divider = () => <hr className="my-3 opacity-25" />;
 
 const OverviewTab = () => {
   const { t } = useTranslation();
@@ -43,82 +98,118 @@ const OverviewTab = () => {
   return (
     <Fragment>
       {/* ── Parties: Seller / Buyer / Consignee ──────────────────────── */}
-      <Row>
+      <Row className="g-3 mb-3">
         <Col md="4">
-          <div className="mb-3 p-2 border rounded h-100 bg-light text-dark">
-            <h6 className="text-uppercase text-muted small mb-2">
-              {t("Seller")}
-            </h6>
-            <div className="fw-bold">{seller.company_name || "-"}</div>
-            {seller.address_1 && <div>{seller.address_1}</div>}
-            {seller.address_2 && <div>{seller.address_2}</div>}
-            <div>
-              {[seller.city, seller.state, seller.zipcode]
-                .filter(Boolean)
-                .join(", ")}
-            </div>
-            <div>{seller.country}</div>
-            {seller.iec && (
-              <div>
-                <small className="text-muted">IEC: </small>
-                {seller.iec}
+          <div className={CARD_BASE} style={CARD_PAD}>
+            <SectionHeader
+              icon={Briefcase}
+              label={t("Seller")}
+              color="primary"
+            />
+            <div className="mt-1">
+              <div className="fw-bolder mb-25">
+                {seller.company_name || "-"}
               </div>
-            )}
-            {seller.email && <div>{seller.email}</div>}
-            {seller.mobile && <div>{seller.mobile}</div>}
-          </div>
-        </Col>
-
-        <Col md="4">
-          <div className="mb-3 p-2 border rounded h-100 bg-light text-dark">
-            <h6 className="text-uppercase text-muted small mb-2">
-              {t("Buyer")}
-            </h6>
-            <div className="fw-bold">{p.customer_name || "-"}</div>
-            {p.customer_contact_name && <div>{p.customer_contact_name}</div>}
-            {p.customer_contact_email && <div>{p.customer_contact_email}</div>}
-            {p.customer_contact_phone && (
-              <div>
-                {p.customer_contact_country_code
-                  ? `+${p.customer_contact_country_code} `
-                  : ""}
-                {p.customer_contact_phone}
-              </div>
-            )}
-          </div>
-        </Col>
-
-        <Col md="4">
-          <div className="mb-3 p-2 border rounded h-100 bg-light text-dark">
-            <h6 className="text-uppercase text-muted small mb-2">
-              {t("Consignee")}
-            </h6>
-            {p.consignee_name || p.consignee_address ? (
-              <>
-                <div className="fw-bold">{p.consignee_name || "-"}</div>
-                {p.consignee_address && (
-                  <div style={{ whiteSpace: "pre-line" }}>
-                    {p.consignee_address}
+              <div className="small text-muted lh-base">
+                {seller.address_1 && <div>{seller.address_1}</div>}
+                {seller.address_2 && <div>{seller.address_2}</div>}
+                {(seller.city || seller.state || seller.zipcode) && (
+                  <div>
+                    {[seller.city, seller.state, seller.zipcode]
+                      .filter(Boolean)
+                      .join(", ")}
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="text-muted small">
-                {t("Same as Buyer")}
+                {seller.country && <div>{seller.country}</div>}
               </div>
-            )}
+              {seller.iec && (
+                <div className="small mt-1">
+                  <span className="text-muted">IEC </span>
+                  <span className="fw-semibold">{seller.iec}</span>
+                </div>
+              )}
+              {(seller.email || seller.mobile) && (
+                <div className="small mt-1 text-muted lh-base">
+                  {seller.email && <div>{seller.email}</div>}
+                  {seller.mobile && <div>{seller.mobile}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        </Col>
+
+        <Col md="4">
+          <div className={CARD_BASE} style={CARD_PAD}>
+            <SectionHeader icon={User} label={t("Buyer")} color="success" />
+            <div className="mt-1">
+              <div className="fw-bolder mb-25">
+                {p.customer_name || "-"}
+              </div>
+              <div className="small text-muted lh-base">
+                {p.customer_contact_name && (
+                  <div>{p.customer_contact_name}</div>
+                )}
+                {p.customer_contact_email && (
+                  <div>{p.customer_contact_email}</div>
+                )}
+                {p.customer_contact_phone && (
+                  <div>
+                    {p.customer_contact_country_code
+                      ? `+${p.customer_contact_country_code} `
+                      : ""}
+                    {p.customer_contact_phone}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Col>
+
+        <Col md="4">
+          <div className={CARD_BASE} style={CARD_PAD}>
+            <SectionHeader
+              icon={Truck}
+              label={t("Consignee")}
+              color="info"
+            />
+            <div className="mt-1">
+              {p.consignee_name || p.consignee_address ? (
+                <>
+                  <div className="fw-bolder mb-25">
+                    {p.consignee_name || "-"}
+                  </div>
+                  {p.consignee_address && (
+                    <div
+                      className="small text-muted lh-base"
+                      style={{ whiteSpace: "pre-line" }}
+                    >
+                      {p.consignee_address}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-muted small fst-italic mt-1">
+                  {t("Same as Buyer")}
+                </div>
+              )}
+            </div>
           </div>
         </Col>
       </Row>
 
       {/* ── Shipping & Packing summary ─────────────────────────────── */}
-      <div className="mb-3 p-2 border rounded bg-light">
-        <h6 className="text-uppercase text-muted small mb-2">
-          {t("Shipping & Packing")}
-        </h6>
-        <Row>
+      <div className={`${CARD_BASE} mb-3`} style={CARD_PAD}>
+        <SectionHeader
+          icon={Anchor}
+          label={t("Shipping & Packing")}
+          color="warning"
+        />
+        <Row className="g-2 mt-1">
           <Field label={t("Port of Loading")} value={p?.port_of_loading} />
-          <Field label={t("Port of Discharge")} value={p?.port_of_discharge} />
+          <Field
+            label={t("Port of Discharge")}
+            value={p?.port_of_discharge}
+          />
           <Field
             label={t("Mode of Shipment")}
             value={
@@ -164,76 +255,127 @@ const OverviewTab = () => {
         </Row>
       </div>
 
-      {/* Full-width line items */}
-      <h4 className="mb-2">{t("Line Items")}</h4>
-      <Table responsive bordered size="sm" className="mb-3">
-        <thead className="table-light">
-          <tr>
-            <th>#</th>
-            <th>{t("Product")}</th>
-            <th>{t("HS Code")}</th>
-            <th className="text-end">{t("Qty")}</th>
-            <th className="text-end">{t("Price")}</th>
-            <th className="text-end">{t("Net Wt")}</th>
-            <th className="text-end">{t("Gross Wt")}</th>
-            <th className="text-end">{t("Pkgs")}</th>
-            <th className="text-end">{t("Line Total")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.length === 0 ? (
+      {/* ── Line items ─────────────────────────────────────────────── */}
+      <div className="d-flex align-items-center justify-content-between mb-2 mt-3">
+        <div className="d-flex align-items-center">
+          <div
+            className="d-flex align-items-center justify-content-center rounded-circle bg-light-primary me-75"
+            style={{ width: 32, height: 32 }}
+          >
+            <Package size={16} className="text-primary" />
+          </div>
+          <h5 className="mb-0 fw-bolder">{t("Line Items")}</h5>
+        </div>
+        <span className="badge bg-light-primary text-primary">
+          {lines.length} {lines.length === 1 ? t("item") : t("items")}
+        </span>
+      </div>
+      <div className="rounded-3 border overflow-hidden mb-3">
+        <Table responsive hover size="sm" className="mb-0 align-middle">
+          <thead
+            className="table-light"
+            style={{
+              fontSize: "0.7rem",
+              letterSpacing: "0.5px",
+              textTransform: "uppercase",
+            }}
+          >
             <tr>
-              <td colSpan={9} className="text-center text-muted py-3">
-                {t("No line items.")}
-              </td>
+              <th style={{ width: 48, paddingLeft: "1rem" }}>#</th>
+              <th>{t("Product")}</th>
+              <th>{t("HS Code")}</th>
+              <th className="text-end">{t("Qty")}</th>
+              <th className="text-end">{t("Price")}</th>
+              <th className="text-end">{t("Net Wt")}</th>
+              <th className="text-end">{t("Gross Wt")}</th>
+              <th className="text-end">{t("Pkgs")}</th>
+              <th className="text-end" style={{ paddingRight: "1rem" }}>
+                {t("Line Total")}
+              </th>
             </tr>
-          ) : (
-            lines.map((l, i) => (
-              <tr key={l._id || i}>
-                <td>{i + 1}</td>
-                <td className="text-wrap">
-                  <div className="fw-semibold">
-                    {l.product_name || l.product_code || "-"}
-                  </div>
-                  {l.description && (
-                    <small className="text-muted d-block">
-                      {l.description}
-                    </small>
-                  )}
+          </thead>
+          <tbody>
+            {lines.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center text-muted py-4">
+                  {t("No line items.")}
                 </td>
-                <td>{l.hs_code || "-"}</td>
-                <td className="text-end">{l.qty || "-"}</td>
-                <td className="text-end">{fmt(l.unit_price)}</td>
-                <td className="text-end">{fmt(l.net_weight_kg || 0)}</td>
-                <td className="text-end">{fmt(l.gross_weight_kg || 0)}</td>
-                <td className="text-end">{num(l.package_count) || 0}</td>
-                <td className="text-end fw-bold">{fmt(l.line_total)}</td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </Table>
+            ) : (
+              lines.map((l, i) => (
+                <tr key={l._id || i}>
+                  <td className="text-muted" style={{ paddingLeft: "1rem" }}>
+                    {i + 1}
+                  </td>
+                  <td className="text-wrap" style={{ minWidth: 200 }}>
+                    <div className="fw-semibold">
+                      {l.product_name || l.product_code || "-"}
+                    </div>
+                    {l.description && (
+                      <small className="text-muted d-block">
+                        {l.description}
+                      </small>
+                    )}
+                  </td>
+                  <td>
+                    {l.hs_code ? (
+                      <code className="text-primary">{l.hs_code}</code>
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
+                  </td>
+                  <td className="text-end">{l.qty || "-"}</td>
+                  <td className="text-end">{fmt(l.unit_price)}</td>
+                  <td className="text-end text-muted">
+                    {fmt(l.net_weight_kg || 0)}
+                  </td>
+                  <td className="text-end text-muted">
+                    {fmt(l.gross_weight_kg || 0)}
+                  </td>
+                  <td className="text-end">{num(l.package_count) || 0}</td>
+                  <td
+                    className="text-end fw-bolder text-primary"
+                    style={{ paddingRight: "1rem" }}
+                  >
+                    {fmt(l.line_total)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </div>
 
       {/* ── Bank Account ───────────────────────────────────────────── */}
       {bank && (
-        <div className="mb-3 p-2 border rounded bg-light text-dark">
-          <h6 className="text-uppercase text-muted small mb-2">
-            {t("Bank Account (Beneficiary)")}
-          </h6>
-          <Row>
+        <div className={`${CARD_BASE} mb-3`} style={CARD_PAD}>
+          <SectionHeader
+            icon={CreditCard}
+            label={t("Bank Account (Beneficiary)")}
+            color="success"
+          />
+          <Row className="g-2 mt-1">
             <Field
               label={t("Beneficiary")}
               value={bank.beneficiary_name}
+              prominent
             />
             <Field label={t("Bank")} value={bank.bank_name} />
             <Field
               label={t("Account No.")}
               value={bank.account_number}
+              prominent
+              mono
             />
-            <Field label={t("SWIFT")} value={bank.swift_code} />
-            <Field label={t("IFSC")} value={bank.ifsc} />
-            <Field label={t("IBAN")} value={bank.iban} />
-            <Field label={t("AD Code")} value={bank.ad_code} />
+            <Field
+              label={t("SWIFT")}
+              value={bank.swift_code}
+              prominent
+              mono
+            />
+            <Field label={t("IFSC")} value={bank.ifsc} mono />
+            <Field label={t("IBAN")} value={bank.iban} mono />
+            <Field label={t("AD Code")} value={bank.ad_code} mono />
             <Field label={t("Currency")} value={bank.currency_code} />
             <Field
               label={t("Branch")}
@@ -244,6 +386,7 @@ const OverviewTab = () => {
                     }`
                   : null
               }
+              md={8}
             />
           </Row>
         </div>
@@ -251,14 +394,25 @@ const OverviewTab = () => {
 
       {/* ── Payment Terms + Declaration ───────────────────────────── */}
       {(p?.payment_terms_text || p?.declaration_text) && (
-        <Row>
+        <Row className="g-3 mb-3">
           {p?.payment_terms_text && (
             <Col md="6">
-              <div className="mb-3 p-2 border rounded h-100 bg-light text-dark">
-                <h6 className="text-uppercase text-muted small mb-2">
-                  {t("Payment Terms")}
-                </h6>
-                <div style={{ whiteSpace: "pre-line" }}>
+              <div
+                className={CARD_BASE}
+                style={{
+                  ...CARD_PAD,
+                  borderLeft: "3px solid var(--bs-primary)",
+                }}
+              >
+                <SectionHeader
+                  icon={FileText}
+                  label={t("Payment Terms")}
+                  color="primary"
+                />
+                <div
+                  className="mt-1 lh-base"
+                  style={{ whiteSpace: "pre-line" }}
+                >
                   {p.payment_terms_text}
                 </div>
               </div>
@@ -266,11 +420,22 @@ const OverviewTab = () => {
           )}
           {p?.declaration_text && (
             <Col md="6">
-              <div className="mb-3 p-2 border rounded h-100 bg-light text-dark">
-                <h6 className="text-uppercase text-muted small mb-2">
-                  {t("Declaration")}
-                </h6>
-                <div style={{ whiteSpace: "pre-line" }}>
+              <div
+                className={CARD_BASE}
+                style={{
+                  ...CARD_PAD,
+                  borderLeft: "3px solid var(--bs-info)",
+                }}
+              >
+                <SectionHeader
+                  icon={FileText}
+                  label={t("Declaration")}
+                  color="info"
+                />
+                <div
+                  className="mt-1 lh-base"
+                  style={{ whiteSpace: "pre-line" }}
+                >
                   {p.declaration_text}
                 </div>
               </div>
@@ -280,15 +445,20 @@ const OverviewTab = () => {
       )}
 
       {p?.internal_notes && (
-        <div className="border-top pt-2 mt-3">
-          <div className="text-muted small">{t("Internal Notes")}</div>
-          <div style={{ whiteSpace: "pre-line" }}>{p.internal_notes}</div>
-        </div>
+        <Fragment>
+          <Divider />
+          <div className="text-muted fw-bold mb-50" style={FIELD_LABEL_STYLE}>
+            {t("Internal Notes")}
+          </div>
+          <div className="small lh-base" style={{ whiteSpace: "pre-line" }}>
+            {p.internal_notes}
+          </div>
+        </Fragment>
       )}
 
       {/* Costing breakdown - invoice-footer style: right-aligned below the
           line items, same vertical flow as the wizard's final step. */}
-      <Row className="mt-3 justify-content-end">
+      <Row className="mt-4 justify-content-end">
         <Col md="10" lg="8" xl="7">
           <SalesDocCostingCard
             totals={totals}
