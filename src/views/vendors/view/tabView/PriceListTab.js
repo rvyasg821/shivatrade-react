@@ -12,7 +12,7 @@ import {
   getPriceListList,
   cleanPriceListMessage,
 } from "@src/views/price-list/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 
 const PriceListTab = () => {
   const { id } = useParams();
@@ -23,13 +23,10 @@ const PriceListTab = () => {
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
 
-  const isSystemAdmin =
-    authUserItem?.role?.name === "Super Admin" ||
-    authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["price-list"];
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
 
   const [loaded, setLoaded] = useState(false);
 

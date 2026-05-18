@@ -452,6 +452,32 @@ const rolePermissionJson = [
   },
 ];
 
+// ── System role names (must match BE ENUM_SYSTEM_ROLE values exactly) ──
+const SYSTEM_ROLE = {
+  SUPER_ADMIN: "Admin",          // Platform owner (DB stores name "Admin")
+  COMPANY_ADMIN: "Company Admin",
+  LOCATION_ADMIN: "Location Admin",
+  EMPLOYEE: "Employee",
+  AGENT: "Agent",
+  VENDOR: "Vendor",
+  CUSTOMER: "Customer",
+};
+
+/**
+ * Returns true when the current auth user is Super Admin or Company Admin —
+ * the two roles that bypass per-module permission checks across the app.
+ * Pass `authUserItem` (state.auth.authUserItem). Safe for nullish input.
+ */
+const isAdminUser = (authUserItem) => {
+  const name = authUserItem?.role?.name;
+  return (
+    name === SYSTEM_ROLE.SUPER_ADMIN ||
+    name === "Super Admin" /* legacy display alias */ ||
+    name === SYSTEM_ROLE.COMPANY_ADMIN ||
+    !!authUserItem?.isSystemUser
+  );
+};
+
 export {
   root,
   appsRoot,
@@ -564,4 +590,7 @@ export {
   payRunsModuleSlug,
   myPayslipsModuleSlug,
   hrmPayrollToolSlug,
+  // System role helpers
+  SYSTEM_ROLE,
+  isAdminUser,
 };

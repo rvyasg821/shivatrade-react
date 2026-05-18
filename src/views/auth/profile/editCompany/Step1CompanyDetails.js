@@ -113,7 +113,7 @@ const Step1CompanyDetails = () => {
     zipcode: yup.string().nullable(),
   });
 
-  const { reset, control, setValue, handleSubmit, formState: { errors } } = useForm({
+  const { reset, control, setValue, getValues, handleSubmit, formState: { errors } } = useForm({
     mode: "all",
     shouldFocusError: false,
     resolver: yupResolver(ProfileSchema),
@@ -146,6 +146,9 @@ const Step1CompanyDetails = () => {
       lut_no: "",
       lut_date: "",
       cin: "",
+      // ── PFI / export-document defaults ──
+      default_port_of_loading: "",
+      default_declaration_text: "",
       // ── Multi-address & multi-bank ──
       addresses: [],
       bank_accounts: [],
@@ -230,6 +233,8 @@ const Step1CompanyDetails = () => {
         lut_no: company.lut_no || "",
         lut_date: company.lut_date ? String(company.lut_date).slice(0, 10) : "",
         cin: company.cin || "",
+        default_port_of_loading: company.default_port_of_loading || "",
+        default_declaration_text: company.default_declaration_text || "",
         addresses: (company.addresses || []).map((a) => ({
           type: a.type || "corporate",
           label: a.label || "",
@@ -304,6 +309,10 @@ const Step1CompanyDetails = () => {
       lut_no: values.lut_no || undefined,
       lut_date: values.lut_date || undefined,
       cin: values.cin || undefined,
+      default_port_of_loading:
+        values.default_port_of_loading?.trim() || undefined,
+      default_declaration_text:
+        values.default_declaration_text?.trim() || undefined,
       addresses: (values.addresses || [])
         .filter((a) =>
           a.address_line1?.trim() ||
@@ -562,6 +571,48 @@ const Step1CompanyDetails = () => {
                   {t("Issue date of the LUT. Re-file every 1 April for the new financial year.")}
                 </small>
               </Col>
+
+              {/* ── PFI / export-document defaults ───────────────────── */}
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="default_port_of_loading">
+                  {t("Default Port of Loading")}
+                </Label>
+                <Controller name="default_port_of_loading" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="default_port_of_loading"
+                      maxLength={150}
+                      placeholder="e.g. Mundra Port, India"
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+                <small className="text-muted">
+                  {t("Pre-fills the PFI's Port of Loading on Quotation → PFI conversion. Editable per PFI.")}
+                </small>
+              </Col>
+              <Col md="12" className="mb-2">
+                <Label className="form-label" for="default_declaration_text">
+                  {t("Default Declaration Text")}
+                </Label>
+                <Controller name="default_declaration_text" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="default_declaration_text"
+                      type="textarea"
+                      rows="3"
+                      maxLength={4000}
+                      placeholder="e.g. We declare that this PFI shows the actual price of the goods..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+                <small className="text-muted">
+                  {t("Pre-fills the declaration block on every PFI / Commercial Invoice. Editable per document.")}
+                </small>
+              </Col>
             </Row>
 
             {/* ── Addresses (multi) ── */}
@@ -665,7 +716,19 @@ const Step1CompanyDetails = () => {
                           <Input type="checkbox" id={`caddr-default-${idx}`}
                             disabled={isReadOnly}
                             checked={!!field.value}
-                            onChange={(e) => field.onChange(e.target.checked)} />
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              field.onChange(checked);
+                              if (checked) {
+                                const myType = getValues(`addresses.${idx}.type`) || "corporate";
+                                const all = getValues("addresses") || [];
+                                all.forEach((row, j) => {
+                                  if (j !== idx && (row?.type || "corporate") === myType && row?.is_default) {
+                                    setValue(`addresses.${j}.is_default`, false, { shouldDirty: true });
+                                  }
+                                });
+                              }
+                            }} />
                         )} />
                       <Label className="form-check-label" for={`caddr-default-${idx}`}>
                         {t("Default for this type")}
@@ -814,7 +877,20 @@ const Step1CompanyDetails = () => {
                           <Input type="checkbox" id={`cbank-default-${idx}`}
                             disabled={isReadOnly}
                             checked={!!field.value}
-                            onChange={(e) => field.onChange(e.target.checked)} />
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              field.onChange(checked);
+                              if (checked) {
+                                const myCurr = getValues(`bank_accounts.${idx}.currency_id`);
+                                if (!myCurr) return;
+                                const all = getValues("bank_accounts") || [];
+                                all.forEach((row, j) => {
+                                  if (j !== idx && row?.currency_id === myCurr && row?.is_default) {
+                                    setValue(`bank_accounts.${j}.is_default`, false, { shouldDirty: true });
+                                  }
+                                });
+                              }
+                            }} />
                         )} />
                       <Label className="form-check-label" for={`cbank-default-${idx}`}>
                         {t("Default for currency")}

@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle } from "react-feather";
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 
 const TYPE_LABEL = { percent: "%", fixed: "Fixed" };
 
@@ -90,12 +90,11 @@ const ExpenseList = () => {
     }).then((result) => { if (result.isConfirmed) dispatch(deleteExpense(id)); });
   };
 
-  const isSystemAdmin = authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.expenses;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
-  const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
+  const canDelete = isAdmin || perms?.can_delete;
 
   const columns = [
     {
@@ -180,7 +179,7 @@ const ExpenseList = () => {
               <Col sm="3" md="3" className="text-end">
                 {canAdd && (
                   <Button color="primary" onClick={() => navigate(`${appsRoot}/expenses/add`)}>
-                    {t("Add Expense")} <PlusCircle size={16} />
+                    <PlusCircle size={14} className="me-50" />{t("Add")}
                   </Button>
                 )}
               </Col>
