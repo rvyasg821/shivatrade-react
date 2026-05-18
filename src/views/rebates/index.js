@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle } from "react-feather";
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 
 const TYPE_LABEL = {
   percent: "Percent",
@@ -93,12 +93,11 @@ const RebateList = () => {
     }).then((result) => { if (result.isConfirmed) dispatch(deleteRebate(id)); });
   };
 
-  const isSystemAdmin = authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.rebates;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
-  const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
+  const canDelete = isAdmin || perms?.can_delete;
 
   const columns = [
     {
@@ -183,7 +182,7 @@ const RebateList = () => {
               <Col sm="3" md="3" className="text-end">
                 {canAdd && (
                   <Button color="primary" onClick={() => navigate(`${appsRoot}/rebates/add`)}>
-                    {t("Add Rebate")} <PlusCircle size={16} />
+                    <PlusCircle size={14} className="me-50" />{t("Add")}
                   </Button>
                 )}
               </Col>

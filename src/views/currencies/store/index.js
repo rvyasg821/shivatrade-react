@@ -268,6 +268,63 @@ export const addExchangeRate = createAsyncThunk(
   }
 );
 
+export const updateExchangeRate = createAsyncThunk(
+  "appCurrency/updateExchangeRate",
+  async ({ currencyId, rateId, data }, { rejectWithValue }) => {
+    try {
+      const res = await instance
+        .put(
+          `${API_ENDPOINTS.currencies.rates}/${currencyId}/rates/${rateId}`,
+          data
+        )
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (res?.statusCode && res?.data) {
+        return {
+          actionFlag: "CUR_RATE_UPD",
+          success: res?.message || "Exchange rate updated",
+          error: "",
+        };
+      }
+      return rejectWithValue(
+        res?.response?.data?.message || res.message || "Failed to update rate"
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
+export const deleteExchangeRate = createAsyncThunk(
+  "appCurrency/deleteExchangeRate",
+  async ({ currencyId, rateId }, { rejectWithValue }) => {
+    try {
+      const res = await instance
+        .delete(
+          `${API_ENDPOINTS.currencies.rates}/${currencyId}/rates/${rateId}`
+        )
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (res?.statusCode) {
+        return {
+          actionFlag: "CUR_RATE_DLT",
+          success: res?.message || "Exchange rate deleted",
+          error: "",
+        };
+      }
+      return rejectWithValue(
+        res?.response?.data?.message || res.message || "Failed to delete rate"
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 /**
  * Returns the currency options for sales-doc pickers: latest rate per
  * to_currency_code plus the company's default currency itself (rate '1').

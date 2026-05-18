@@ -434,7 +434,7 @@ const UserList = (props) => {
                     color="primary"
                     onClick={() => navigate(addPath, { state: { roleType } })}
                   >
-                    {t("Add")} {t(roleType || "User")} <PlusCircle size={16} />
+                    <PlusCircle size={14} className="me-50" />{t("Add")} {t(roleType || "User")}
                   </Button>
                 )}
               </Col>
