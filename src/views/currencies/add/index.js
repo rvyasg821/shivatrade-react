@@ -12,6 +12,8 @@ import {
   cleanCurrencyMessage,
   getExchangeRates,
   addExchangeRate,
+  updateExchangeRate,
+  deleteExchangeRate,
 } from "../store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
@@ -27,7 +29,10 @@ import {
   Button,
   FormFeedback,
   Table,
+  UncontrolledTooltip,
 } from "reactstrap";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 // ** Form
 import { useForm, Controller } from "react-hook-form";
@@ -42,10 +47,10 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, Plus } from "react-feather";
+import { ArrowLeft, Plus, Edit, Trash2, Check, X } from "react-feather";
 
 // ** Constants
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { initCurrencyItem } from "@constant/reduxConstant";
 import { STATUS_OPTIONS, EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
@@ -57,7 +62,16 @@ const CurrencyForm = () => {
   const dispatch = useDispatch();
 
   const store = useSelector((state) => state.currency);
+  const authStore = useSelector((state) => state.auth);
+  const authUserItem = authStore?.authUserItem || null;
   const isEditMode = !!id;
+
+  // Mirror the listing's permission gating for the rate-history actions.
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.currencies;
+  const canAddRate = isAdmin || perms?.can_add;
+  const canEditRate = isAdmin || perms?.can_update;
+  const canDeleteRate = isAdmin || perms?.can_delete;
 
   const schema = useMemo(
     () =>
@@ -222,6 +236,60 @@ const CurrencyForm = () => {
   }, [store?.loading]);
 
   const rates = store?.exchangeRates || [];
+
+  // Inline edit state for rate history rows
+  const [editingRateId, setEditingRateId] = useState(null);
+  const [editingRate, setEditingRate] = useState("");
+  const [editingDate, setEditingDate] = useState("");
+  const mySwal = withReactContent(Swal);
+
+  const startEditRate = (r) => {
+    setEditingRateId(r._id);
+    setEditingRate(r.rate ?? "");
+    setEditingDate((r.effective_date || "").slice(0, 10));
+  };
+  const cancelEditRate = () => {
+    setEditingRateId(null);
+    setEditingRate("");
+    setEditingDate("");
+  };
+  const saveEditRate = async () => {
+    if (!editingRateId) return;
+    await dispatch(
+      updateExchangeRate({
+        currencyId: id,
+        rateId: editingRateId,
+        data: {
+          rate: editingRate,
+          effective_date: editingDate || undefined,
+        },
+      })
+    );
+    cancelEditRate();
+    dispatch(getExchangeRates(id));
+  };
+  const deleteRateRow = (r) => {
+    mySwal
+      .fire({
+        title: t("Are you sure?"),
+        text: t("Delete this exchange-rate entry?"),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, delete it!"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        await dispatch(
+          deleteExchangeRate({ currencyId: id, rateId: r._id })
+        );
+        dispatch(getExchangeRates(id));
+      });
+  };
 
   return (
     <Fragment>
@@ -401,54 +469,56 @@ const CurrencyForm = () => {
                 )}
               </p>
 
-              <Row className="align-items-end mb-2">
-                <Col md="4">
-                  <Label className="form-label">{t("To Currency")}</Label>
-                  <Select
-                    classNamePrefix="select"
-                    options={otherCurrencyOptions}
-                    value={selectedTo || null}
-                    placeholder={t("Select target currency")}
-                    onChange={(opt) =>
-                      setRateFormState((s) => ({
-                        ...s,
-                        to_currency_code: opt ? opt.value : "",
-                      }))
-                    }
-                  />
-                </Col>
-                <Col md="3">
-                  <Label className="form-label">{t("Rate")}</Label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    min="0"
-                    placeholder="83.25"
-                    value={rateFormState.rate}
-                    onChange={(e) =>
-                      setRateFormState((s) => ({ ...s, rate: e.target.value }))
-                    }
-                  />
-                </Col>
-                <Col md="3">
-                  <Label className="form-label">{t("Effective Date")}</Label>
-                  <DateInput
-                    id="effective_date"
-                    value={rateFormState.effective_date || ""}
-                    onChange={(dates, str, iso) =>
-                      setRateFormState((s) => ({
-                        ...s,
-                        effective_date: iso,
-                      }))
-                    }
-                  />
-                </Col>
-                <Col md="2">
-                  <Button color="primary" type="button" onClick={onAddRate}>
-                    <Plus size={14} /> {t("Add Rate")}
-                  </Button>
-                </Col>
-              </Row>
+              {canAddRate && (
+                <Row className="align-items-end mb-2">
+                  <Col md="4">
+                    <Label className="form-label">{t("To Currency")}</Label>
+                    <Select
+                      classNamePrefix="select"
+                      options={otherCurrencyOptions}
+                      value={selectedTo || null}
+                      placeholder={t("Select target currency")}
+                      onChange={(opt) =>
+                        setRateFormState((s) => ({
+                          ...s,
+                          to_currency_code: opt ? opt.value : "",
+                        }))
+                      }
+                    />
+                  </Col>
+                  <Col md="3">
+                    <Label className="form-label">{t("Rate")}</Label>
+                    <Input
+                      type="number"
+                      step="0.000001"
+                      min="0"
+                      placeholder="83.25"
+                      value={rateFormState.rate}
+                      onChange={(e) =>
+                        setRateFormState((s) => ({ ...s, rate: e.target.value }))
+                      }
+                    />
+                  </Col>
+                  <Col md="3">
+                    <Label className="form-label">{t("Effective Date")}</Label>
+                    <DateInput
+                      id="effective_date"
+                      value={rateFormState.effective_date || ""}
+                      onChange={(dates, str, iso) =>
+                        setRateFormState((s) => ({
+                          ...s,
+                          effective_date: iso,
+                        }))
+                      }
+                    />
+                  </Col>
+                  <Col md="2">
+                    <Button color="primary" type="button" onClick={onAddRate}>
+                      <Plus size={14} /> {t("Add Rate")}
+                    </Button>
+                  </Col>
+                </Row>
+              )}
 
               {rateFormError && (
                 <div className="text-danger mb-2">{rateFormError}</div>
@@ -465,31 +535,125 @@ const CurrencyForm = () => {
                       <th>{t("To")}</th>
                       <th>{t("Rate")}</th>
                       <th>{t("Effective Date")}</th>
-                      <th>{t("Added")}</th>
+                      {(canEditRate || canDeleteRate) && (
+                        <th className="text-center" style={{ width: 110 }}>
+                          {t("Actions")}
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {rates.map((r) => (
-                      <tr key={r._id}>
-                        <td className="text-uppercase">
-                          {r.from_currency_code || "-"}
-                        </td>
-                        <td className="text-uppercase">
-                          {r.to_currency_code || "-"}
-                        </td>
-                        <td>
-                          {r.rate !== null && r.rate !== undefined
-                            ? Number(r.rate).toString()
-                            : ""}
-                        </td>
-                        <td>{(r.effective_date || "").slice(0, 10)}</td>
-                        <td>
-                          {r.createdAt
-                            ? new Date(r.createdAt).toLocaleString()
-                            : ""}
-                        </td>
-                      </tr>
-                    ))}
+                    {rates.map((r) => {
+                      const isEditing = editingRateId === r._id;
+                      return (
+                        <tr key={r._id}>
+                          <td className="text-uppercase">
+                            {r.from_currency_code || "-"}
+                          </td>
+                          <td className="text-uppercase">
+                            {r.to_currency_code || "-"}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                step="0.000001"
+                                min="0"
+                                bsSize="sm"
+                                value={editingRate}
+                                onChange={(e) =>
+                                  setEditingRate(e.target.value)
+                                }
+                              />
+                            ) : r.rate !== null && r.rate !== undefined ? (
+                              Number(r.rate).toString()
+                            ) : (
+                              ""
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <DateInput
+                                id={`rate-date-${r._id}`}
+                                value={editingDate || ""}
+                                onChange={(dates, str, iso) =>
+                                  setEditingDate(iso)
+                                }
+                              />
+                            ) : (
+                              (r.effective_date || "").slice(0, 10)
+                            )}
+                          </td>
+                          {(canEditRate || canDeleteRate) && (
+                          <td className="text-center">
+                            {isEditing ? (
+                              <Fragment>
+                                <Check
+                                  size={18}
+                                  className="cursor-pointer text-success me-1"
+                                  onClick={saveEditRate}
+                                  id={`rate-save-${r._id}`}
+                                />
+                                <UncontrolledTooltip
+                                  placement="top"
+                                  target={`rate-save-${r._id}`}
+                                >
+                                  {t("Save")}
+                                </UncontrolledTooltip>
+                                <X
+                                  size={18}
+                                  className="cursor-pointer text-muted"
+                                  onClick={cancelEditRate}
+                                  id={`rate-cancel-${r._id}`}
+                                />
+                                <UncontrolledTooltip
+                                  placement="top"
+                                  target={`rate-cancel-${r._id}`}
+                                >
+                                  {t("Cancel")}
+                                </UncontrolledTooltip>
+                              </Fragment>
+                            ) : (
+                              <Fragment>
+                                {canEditRate && (
+                                  <Fragment>
+                                    <Edit
+                                      size={18}
+                                      className="cursor-pointer me-1"
+                                      onClick={() => startEditRate(r)}
+                                      id={`rate-edit-${r._id}`}
+                                    />
+                                    <UncontrolledTooltip
+                                      placement="top"
+                                      target={`rate-edit-${r._id}`}
+                                    >
+                                      {t("Edit")}
+                                    </UncontrolledTooltip>
+                                  </Fragment>
+                                )}
+                                {canDeleteRate && (
+                                  <Fragment>
+                                    <Trash2
+                                      size={18}
+                                      className="cursor-pointer text-danger"
+                                      onClick={() => deleteRateRow(r)}
+                                      id={`rate-delete-${r._id}`}
+                                    />
+                                    <UncontrolledTooltip
+                                      placement="top"
+                                      target={`rate-delete-${r._id}`}
+                                    >
+                                      {t("Delete")}
+                                    </UncontrolledTooltip>
+                                  </Fragment>
+                                )}
+                              </Fragment>
+                            )}
+                          </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </Table>
               )}

@@ -39,7 +39,7 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 
 // ** Constants
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 
 // ** Import/Export
 import instance from "@src/utility/AxiosConfig";
@@ -211,14 +211,11 @@ const CategoryList = () => {
   };
 
   // Permission gating
-  const isSystemAdmin =
-    authUserItem?.role?.name === "Super Admin" ||
-    authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.categories;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
-  const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
+  const canDelete = isAdmin || perms?.can_delete;
 
   const columns = [
     {

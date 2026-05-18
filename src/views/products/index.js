@@ -38,7 +38,7 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 
 // ** Constants
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 
 // ** Import/Export
 import instance from "@src/utility/AxiosConfig";
@@ -195,13 +195,11 @@ const ProductList = () => {
   };
 
   // Permission gating
-  const isSystemAdmin =
-    authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.products;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
-  const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
+  const canDelete = isAdmin || perms?.can_delete;
 
   const categoryOptions = (categoryStore?.categoryDropdown || []).map((c) => ({
     value: c._id,
@@ -397,7 +395,7 @@ const ProductList = () => {
                       className="text-nowrap"
                       onClick={() => navigate(`${appsRoot}/products/add`)}
                     >
-                      {t("Add Product")} <PlusCircle size={14} />
+                      <PlusCircle size={14} className="me-50" />{t("Add")}
                     </Button>
                   )}
                 </div>

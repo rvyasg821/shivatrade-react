@@ -33,7 +33,7 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 
 const CurrencyList = () => {
   const { t } = useTranslation();
@@ -143,13 +143,11 @@ const CurrencyList = () => {
       });
   };
 
-  const isSystemAdmin =
-    authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
-  const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
+  const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.currencies;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
-  const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
-  const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canAdd = isAdmin || perms?.can_add;
+  const canEdit = isAdmin || perms?.can_update;
+  const canDelete = isAdmin || perms?.can_delete;
 
   const columns = [
     {
@@ -294,7 +292,7 @@ const CurrencyList = () => {
                     color="primary"
                     onClick={() => navigate(`${appsRoot}/currencies/add`)}
                   >
-                    {t("Add Currency")} <PlusCircle size={16} />
+                    <PlusCircle size={14} className="me-50" /> {t("Add")}
                   </Button>
                 )}
               </Col>
