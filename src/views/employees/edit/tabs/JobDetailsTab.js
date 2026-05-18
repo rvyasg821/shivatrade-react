@@ -9,6 +9,7 @@ import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
 import DateInput from "@components/date-input";
 import { getLocationList } from "@src/views/locations/store";
+import { getRoleList } from "@src/views/roles/store";
 import { getLookups, createLookup } from "@src/views/company-lookups/store";
 import { getCodeSettings } from "@src/views/company-settings/store";
 import { getLocationAssignments, addLocationAssignment, removeLocationAssignment } from "../../store";
@@ -23,6 +24,7 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
   useFormLoading(submitting);
   const dispatch = useDispatch();
   const locationStore = useSelector((state) => state.location);
+  const roleStore = useSelector((state) => state.role);
   const lookupStore = useSelector((state) => state.companyLookup);
   const locationAssignments = useSelector((state) => state.employee?.locationAssignments) || [];
   const authStore = useSelector((state) => state.auth);
@@ -44,6 +46,7 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
     department: yup.string().required(t("Department is required")),
     date_of_joining: yup.string().required(t("Date of Joining is required")).transform((v) => (v === "" ? null : v)).nullable(),
     location_id: yup.mixed().required(t("Location is required")),
+    role_id: yup.string().required(t("Role is required")),
   });
 
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm({
@@ -57,6 +60,8 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
       employment_type: "",
       date_of_joining: "",
       location_id: "",
+      additional_location_ids: [],
+      role_id: "",
       reporting_to: "",
       is_active: true,
     },
@@ -64,6 +69,9 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
 
   useEffect(() => {
     dispatch(getLocationList({ status: "ACTIVE", dropdown: "yes" }));
+    // Roles dropdown — BE returns Employee default + custom roles for this
+    // company. We filter to custom-only below.
+    dispatch(getRoleList({ purpose: "user-form" }));
     dispatch(getLookups("designation"));
     dispatch(getLookups("department"));
     dispatch(getCodeSettings());
@@ -102,6 +110,20 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
         displayCode = displayCode.slice(employeeCodePrefix.length);
       }
 
+      const addlIds =
+        employeeData.additional_location_ids ||
+        (employeeData.additional_locations || []).map(
+          (a) => a.location_id
+        );
+
+      // role_id on edit: backend returns role_id when the user has a custom role.
+      // For default Employees the BE returns the Employee system role's id; we
+      // map that to empty in the form so the dropdown shows the placeholder.
+      const rawRoleId = employeeData.role_id || "";
+      const employeeSystemRoleName = (employeeData.role_name || "").toLowerCase();
+      const isDefaultEmployee = employeeSystemRoleName === "employee";
+      const initialRoleId = isDefaultEmployee ? "" : rawRoleId;
+
       reset({
         employee_code: displayCode,
         designation: employeeData.designation || "",
@@ -109,6 +131,8 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
         employment_type: employeeData.employment_type || "",
         date_of_joining: employeeData.date_of_joining || "",
         location_id: locOption || "",
+        additional_location_ids: addlIds || [],
+        role_id: initialRoleId,
         reporting_to: employeeData.reporting_to || "",
         is_active: employeeData.is_active !== false,
       });
@@ -155,6 +179,10 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
         location_id: isLocationAdmin && selectedLocationId
           ? selectedLocationId
           : (values.location_id?.value || values.location_id || ""),
+        additional_location_ids: Array.isArray(values.additional_location_ids)
+          ? values.additional_location_ids
+          : [],
+        role_id: values.role_id || "",
         reporting_to: values.reporting_to || null,
         is_active: values.is_active,
       });
@@ -204,6 +232,40 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
           </Col>
 
           <Col md="6" className="mb-2">
+            <Label>{t("Additional Locations")}</Label>
+            <Controller
+              name="additional_location_ids"
+              control={control}
+              render={({ field }) => {
+                const primaryId =
+                  watch("location_id")?.value || watch("location_id") || "";
+                const opts = locationOptions.filter((o) => o.value !== primaryId);
+                const selected = opts.filter((o) =>
+                  (field.value || []).includes(o.value)
+                );
+                return (
+                  <Select
+                    isMulti
+                    isClearable
+                    isDisabled={isLocationAdmin}
+                    options={opts}
+                    value={selected}
+                    onChange={(arr) =>
+                      field.onChange((arr || []).map((o) => o.value))
+                    }
+                    className="react-select"
+                    classNamePrefix="select"
+                    placeholder={t("Select extra locations...")}
+                  />
+                );
+              }}
+            />
+            <small className="text-muted">
+              {t("Employee can also clock in / be assigned at these locations.")}
+            </small>
+          </Col>
+
+          <Col md="6" className="mb-2">
             <Label>{t("Designation")} <span className="text-danger">*</span></Label>
             <Controller name="designation" control={control} render={({ field }) => (
               <CreatableSelect
@@ -243,6 +305,36 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
               />
             )} />
             <FormFeedback className="d-block">{errors.department?.message}</FormFeedback>
+          </Col>
+
+          <Col md="6" className="mb-2">
+            <Label>{t("Role")} <span className="text-danger">*</span></Label>
+            <Controller
+              name="role_id"
+              control={control}
+              render={({ field }) => {
+                // Custom roles only — exclude Employee / Location Admin /
+                // Company Admin / Super Admin / Vendor / Customer / Agent.
+                const customOpts = (roleStore?.roleItems || [])
+                  .filter((r) => (r?.category || "") === "custom" && r?.isActive !== false)
+                  .map((r) => ({ value: r._id, label: r.name }));
+                const selected =
+                  customOpts.find((o) => o.value === field.value) || null;
+                return (
+                  <Select
+                    isClearable={false}
+                    classNamePrefix="select"
+                    className="react-select"
+                    options={customOpts}
+                    value={selected}
+                    onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                    placeholder={t("Select a role...")}
+                    noOptionsMessage={() => t("No custom roles. Create one in Master → Roles.")}
+                  />
+                );
+              }}
+            />
+            <FormFeedback className="d-block">{errors.role_id?.message}</FormFeedback>
           </Col>
 
           <Col md="6" className="mb-2">
