@@ -8,7 +8,9 @@ import PhoneInput from "react-phone-input-2";
 import parsePhoneNumberFromString from "libphonenumber-js";
 import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
 import DateInput from "@components/date-input";
-import { useSelector } from "react-redux";
+import Select from "react-select";
+import { useSelector, useDispatch } from "react-redux";
+import { getRoleList } from "@src/views/roles/store";
 import InputPasswordToggle from "@components/input-password-toggle";
 import { Camera, CheckCircle } from "react-feather";
 import FaceCaptureModal from "@src/views/attendance/components/FaceCaptureModal";
@@ -23,9 +25,17 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
+  const dispatch = useDispatch();
   const companyItem = useSelector((state) => state.company?.companyItem);
   const authStore = useSelector((state) => state.auth);
   const locationCtx = useSelector((state) => state.locationContext);
+  const roleStore = useSelector((state) => state.role);
+
+  useEffect(() => {
+    if (isCreateMode) {
+      dispatch(getRoleList({ purpose: "user-form" }));
+    }
+  }, [isCreateMode]);
 
   // Resolve phone country: location > company > auth user company > "us"
   const resolvePhoneCountry = () => {
@@ -113,6 +123,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
     // Create mode fields
     ...(isCreateMode ? {
       location_id: yup.string().required(t("Location is required")),
+      role_id: yup.string().required(t("Role is required")),
     } : {}),
   };
   const schema = yup.object().shape(schemaShape);
@@ -141,7 +152,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
       marital_status: "",
       nationality: "",
       ni_number: "",
-      ...(isCreateMode ? { location_id: "" } : {}),
+      ...(isCreateMode ? { location_id: "", role_id: "" } : {}),
     },
   });
 
@@ -238,6 +249,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
       // Add create-mode fields
       if (isCreateMode) {
         data.location_id = values.location_id;
+        data.role_id = values.role_id;
       }
       if (emailExists) return;
       await onSave(data);
@@ -282,15 +294,57 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
             <>
               <Col md="6" className="mb-2">
                 <Label>{t("Location")} <span className="text-danger">*</span></Label>
-                <Controller name="location_id" control={control} render={({ field }) => (
-                  <Input type="select" {...field} invalid={!!errors.location_id}>
-                    <option value="">{t("Select Location")}</option>
-                    {locations.map(loc => (
-                      <option key={loc._id} value={loc._id}>{loc.location_name}</option>
-                    ))}
-                  </Input>
-                )} />
-                <FormFeedback>{errors.location_id?.message}</FormFeedback>
+                <Controller
+                  name="location_id"
+                  control={control}
+                  render={({ field }) => {
+                    const options = locations.map(loc => ({
+                      value: loc._id,
+                      label: loc.location_name,
+                    }));
+                    const selected =
+                      options.find(o => o.value === field.value) || null;
+                    return (
+                      <Select
+                        classNamePrefix="select"
+                        className="react-select"
+                        isClearable={false}
+                        options={options}
+                        value={selected}
+                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        placeholder={t("Select Location")}
+                      />
+                    );
+                  }}
+                />
+                <FormFeedback className="d-block">{errors.location_id?.message}</FormFeedback>
+              </Col>
+              <Col md="6" className="mb-2">
+                <Label>{t("Role")} <span className="text-danger">*</span></Label>
+                <Controller
+                  name="role_id"
+                  control={control}
+                  render={({ field }) => {
+                    const opts = (roleStore?.roleItems || [])
+                      .filter((r) => (r?.category || "") === "custom" && r?.isActive !== false)
+                      .map((r) => ({ value: r._id, label: r.name }));
+                    const selected =
+                      opts.find((o) => o.value === field.value) || null;
+                    return (
+                      <Select
+                        classNamePrefix="select"
+                        className="react-select"
+                        isClearable={false}
+                        options={opts}
+                        value={selected}
+                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                        placeholder={t("Select a role...")}
+                        noOptionsMessage={() => t("No custom roles. Create one in Master → Roles.")}
+                      />
+                    );
+                  }}
+                />
+                <FormFeedback className="d-block">{errors.role_id?.message}</FormFeedback>
               </Col>
               <Col md="6" className="mb-2">
                 <Label>{t("Employee Code")}</Label>
