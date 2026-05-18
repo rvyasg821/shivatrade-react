@@ -1,0 +1,531 @@
+// ── Purchase Order Wizard Orchestrator ──────────────────────────────
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+
+import { Card, CardBody, Form, Spinner, Button } from "reactstrap";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useDispatch, useSelector } from "react-redux";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft } from "react-feather";
+
+import {
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  getPurchaseOrder,
+  cleanPurchaseOrderMessage,
+  cleanPurchaseOrderState,
+} from "../../store";
+import { getVendorDropdown, getVendor } from "../../../vendors/store";
+import { getProductDropdown } from "../../../products/store";
+import { startLoading, stopLoading } from "../../../loadingstore";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
+
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import Notification from "@components/toast/notification";
+
+import { appsRoot } from "@constant/defaultValues";
+import {
+  initPurchaseOrderItem,
+  initPurchaseOrderLineItem,
+} from "@constant/reduxConstant";
+
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import "@src/views/_shared/wizard/wizard.scss";
+
+import { STEPS } from "./steps";
+
+// Normalise state names so "Gujarat" / "gujarat" / " Gujarat " match.
+const normState = (s) =>
+  (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+
+const PurchaseOrderWizard = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { id } = useParams();
+  const isEdit = !!id;
+
+  const store = useSelector((s) => s.purchaseOrder);
+  const vendorStore = useSelector((s) => s.vendor);
+  const productStore = useSelector((s) => s.product);
+  const companyStore = useSelector((s) => s.company);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [vendorPriceList, setVendorPriceList] = useState([]);
+
+  const schema = useMemo(
+    () =>
+      yup.object().shape({
+        vendor_id: yup.string().trim().required(t("Vendor is required")),
+        po_date: yup.string().trim().required(t("PO date is required")),
+        delivery_address: yup
+          .string()
+          .trim()
+          .required(t("Delivery address is required")),
+        expected_delivery_date: yup.string().nullable(),
+        payment_terms: yup.string().nullable().max(100),
+        delivery_terms: yup.string().nullable().max(100),
+        notes_to_vendor: yup.string().nullable().max(2000),
+        internal_notes: yup.string().nullable().max(2000),
+        status: yup.string().nullable(),
+        vendor_address_id: yup.string().nullable(),
+        lines: yup
+          .array()
+          .of(
+            yup.object().shape({
+              product_id: yup.string().required(t("Product is required")),
+              qty: yup.string().required(t("Qty is required")),
+              unit_price: yup.string().required(t("Unit price is required")),
+            })
+          )
+          .min(1, t("Add at least one line item")),
+      }),
+    [t]
+  );
+
+  const form = useForm({
+    mode: "all",
+    resolver: yupResolver(schema),
+    defaultValues: initPurchaseOrderItem,
+  });
+  const { control, handleSubmit, reset, setValue, watch, trigger } = form;
+
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+
+  const visibleSteps = useMemo(
+    () => STEPS.filter((s) => !s.isVisible || s.isVisible(form)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [STEPS, form]
+  );
+
+  const goTo = async (idx, { validate = true } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= visibleSteps.length) return;
+    if (idx > activeStep && validate) {
+      const fields = visibleSteps[activeStep].fields || [];
+      if (fields.length > 0) {
+        const ok = await trigger(fields);
+        if (!ok) {
+          Notification(
+            "Validation",
+            t("Please complete the highlighted fields first."),
+            "warning"
+          );
+          return;
+        }
+      }
+    }
+    const target = visibleSteps[idx];
+    if (target.canEnter && !target.canEnter(form)) {
+      Notification(
+        "Step locked",
+        t("Complete the previous step first."),
+        "warning"
+      );
+      return;
+    }
+    setVisited((prev) => {
+      const n = new Set(prev);
+      n.add(idx);
+      return n;
+    });
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const next = () => goTo(activeStep + 1);
+  const back = () => goTo(activeStep - 1, { validate: false });
+
+  const watchedVendor = watch("vendor_id");
+  const watchedVendorAddr = watch("vendor_address_id");
+  const liveStatus = useWatch({ control, name: "status" });
+  const isLocked = isEdit && liveStatus && liveStatus !== "draft";
+
+  // ── Initial dropdowns + edit hydration ──
+  useEffect(() => {
+    dispatch(getVendorDropdown());
+    dispatch(getProductDropdown());
+    dispatch(getCompanyDetails());
+    if (isEdit) {
+      dispatch(getPurchaseOrder(id));
+    } else {
+      dispatch(cleanPurchaseOrderState());
+      reset(initPurchaseOrderItem);
+    }
+    return () => {
+      dispatch(cleanPurchaseOrderMessage());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, id]);
+
+  // Hydrate on edit.
+  useEffect(() => {
+    if (isEdit && store?.purchaseOrderItem?._id) {
+      const p = store.purchaseOrderItem;
+      reset({
+        ...initPurchaseOrderItem,
+        ...p,
+        po_date:
+          (p.po_date || "").slice(0, 10) ||
+          new Date().toISOString().slice(0, 10),
+        expected_delivery_date:
+          (p.expected_delivery_date || "").slice(0, 10) || "",
+        lines: (p.lines || []).map((l) => ({
+          ...initPurchaseOrderLineItem,
+          ...l,
+          qty: String(l.qty ?? ""),
+          unit_price: String(l.unit_price ?? ""),
+          discount_pct: String(l.discount_pct ?? "0"),
+          tax_pct: String(l.tax_pct ?? "0"),
+          hsn_code: l.hsn_code || "",
+          unit: l.unit || "",
+          description: l.description || "",
+        })),
+      });
+      setVisited(new Set(STEPS.map((_, i) => i)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store?.purchaseOrderItem?._id]);
+
+  // Pre-fill delivery_address from company default on NEW PO only.
+  useEffect(() => {
+    if (isEdit) return;
+    const ci = companyStore?.companyItem;
+    if (!ci || !ci._id) return;
+    if (!watch("delivery_address") && ci.default_po_delivery_address) {
+      setValue("delivery_address", ci.default_po_delivery_address, {
+        shouldDirty: false,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyStore?.companyItem?._id, isEdit]);
+
+  // Load vendor details (for vendor addresses dropdown).
+  useEffect(() => {
+    if (!watchedVendor) return;
+    dispatch(getVendor(watchedVendor));
+  }, [watchedVendor, dispatch]);
+
+  // Load vendor price list whenever vendor changes.
+  useEffect(() => {
+    if (!watchedVendor) {
+      setVendorPriceList([]);
+      return;
+    }
+    instance
+      .get(API_ENDPOINTS.priceList.list, {
+        params: { vendor_id: watchedVendor, perPage: 500 },
+      })
+      .then((resp) => setVendorPriceList(resp?.data?.data || []))
+      .catch(() => setVendorPriceList([]));
+  }, [watchedVendor]);
+
+  // Vendor → list of addresses.
+  const vendorAddressOptions = useMemo(() => {
+    const v = vendorStore?.vendorItem;
+    if (!v || v._id !== watchedVendor) return [];
+    return (v.addresses || []).map((a) => ({
+      value: a._id,
+      label: [a.label, a.address_line1, a.city, a.state, a.country]
+        .filter(Boolean)
+        .join(", "),
+      raw: a,
+    }));
+  }, [vendorStore?.vendorItem, watchedVendor]);
+
+  // Auto-pick vendor's default address on new PO.
+  useEffect(() => {
+    if (!watchedVendor) return;
+    if (watchedVendorAddr) return;
+    const v = vendorStore?.vendorItem;
+    if (!v || v._id !== watchedVendor) return;
+    const def =
+      (v.addresses || []).find((a) => a.is_default) ||
+      (v.addresses || [])[0];
+    if (def?._id) {
+      setValue("vendor_address_id", def._id, { shouldDirty: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorStore?.vendorItem, watchedVendor]);
+
+  // Vendor's state (from the picked address) drives intra/inter-state GST.
+  const vendorState = useMemo(() => {
+    const v = vendorStore?.vendorItem;
+    if (!v || v._id !== watchedVendor) return "";
+    const addr =
+      (v.addresses || []).find((a) => a._id === watchedVendorAddr) ||
+      (v.addresses || []).find((a) => a.is_default) ||
+      (v.addresses || [])[0];
+    return addr?.state || "";
+  }, [vendorStore?.vendorItem, watchedVendor, watchedVendorAddr]);
+
+  const companyState = useMemo(() => {
+    const ci = companyStore?.companyItem;
+    if (!ci) return "";
+    const addrs = ci.addresses || [];
+    const corp =
+      addrs.find((a) => a.type === "corporate" && a.is_default) ||
+      addrs.find((a) => a.type === "corporate") ||
+      addrs.find((a) => a.is_default) ||
+      addrs[0];
+    return corp?.state || ci.state || "";
+  }, [companyStore?.companyItem]);
+
+  const intraState =
+    !!vendorState && !!companyState && normState(vendorState) === normState(companyState);
+
+  // ── Product master map (full product dropdown) ──
+  const productById = useMemo(() => {
+    const m = new Map();
+    (productStore?.productDropdown || []).forEach((p) => m.set(p._id, p));
+    return m;
+  }, [productStore?.productDropdown]);
+
+  // ── Vendor → price list product set ──
+  // Only products on this vendor's price list can be added (per plan §8).
+  const priceByProduct = useMemo(() => {
+    const m = new Map();
+    for (const r of vendorPriceList) {
+      const pid = r.product_id?.toString?.() || r.product_id;
+      if (!pid) continue;
+      // Keep first occurrence (price-list returns desc by effective_date).
+      if (!m.has(pid)) m.set(pid, r);
+    }
+    return m;
+  }, [vendorPriceList]);
+
+  const vendorProductOptions = useMemo(() => {
+    const opts = [];
+    for (const [pid] of priceByProduct) {
+      const p = productById.get(pid);
+      if (!p) continue;
+      opts.push({
+        value: pid,
+        label: `${p.code ? p.code + " - " : ""}${p.name}`,
+        raw: p,
+      });
+    }
+    return opts;
+  }, [priceByProduct, productById]);
+
+  const vendorOptions = useMemo(
+    () =>
+      (vendorStore?.vendorDropdown || []).map((v) => ({
+        value: v._id,
+        label: v.company_name || v.name,
+      })),
+    [vendorStore?.vendorDropdown]
+  );
+
+  // ── Submit ──
+  const buildPayload = (values) => {
+    if (isLocked) {
+      return {
+        status: values.status || "draft",
+        internal_notes: values.internal_notes?.trim() || undefined,
+      };
+    }
+    return {
+      vendor_id: values.vendor_id,
+      vendor_address_id: values.vendor_address_id || undefined,
+      customer_id: values.customer_id || undefined,
+      quotation_id: values.quotation_id || undefined,
+      pfi_id: values.pfi_id || undefined,
+      po_date: values.po_date,
+      expected_delivery_date: values.expected_delivery_date || undefined,
+      delivery_address: values.delivery_address?.trim(),
+      payment_terms: values.payment_terms?.trim() || undefined,
+      delivery_terms: values.delivery_terms?.trim() || undefined,
+      notes_to_vendor: values.notes_to_vendor?.trim() || undefined,
+      internal_notes: values.internal_notes?.trim() || undefined,
+      currency_code: values.currency_code || "INR",
+      exchange_rate: values.exchange_rate || "1",
+      status: values.status || "draft",
+      lines: (values.lines || []).map((l) => ({
+        product_id: l.product_id,
+        source_quotation_line_id: l.source_quotation_line_id || undefined,
+        source_pfi_line_id: l.source_pfi_line_id || undefined,
+        description: l.description || "",
+        hsn_code: l.hsn_code || undefined,
+        qty: String(l.qty || "0"),
+        unit: l.unit || "",
+        unit_price: String(l.unit_price || "0"),
+        discount_pct: String(l.discount_pct || "0"),
+        tax_pct: String(l.tax_pct || "0"),
+      })),
+    };
+  };
+
+  const dispatchSave = (payload) => {
+    setSubmitting(true);
+    const action = isEdit
+      ? dispatch(updatePurchaseOrder({ id, data: payload }))
+      : dispatch(createPurchaseOrder(payload));
+    action.unwrap?.().finally(() => setSubmitting(false)) ||
+      action.finally?.(() => setSubmitting(false));
+  };
+
+  const findFirstErrorStep = () => {
+    const errs = form.formState.errors || {};
+    const hasErr = (path) => !!errs[path.split(".")[0]];
+    for (let i = 0; i < visibleSteps.length; i++) {
+      if ((visibleSteps[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      Notification(
+        "Validation",
+        t("Please fix the highlighted fields."),
+        "warning"
+      );
+      return;
+    }
+    handleSubmit((values) => dispatchSave(buildPayload(values)))();
+  };
+
+  // Save completes → back to listing.
+  useEffect(() => {
+    if (
+      store?.actionFlag === "PO_CRTD" ||
+      store?.actionFlag === "PO_UPDT"
+    ) {
+      Notification("Success", store?.success || t("Saved"), "success");
+      dispatch(cleanPurchaseOrderMessage());
+      navigate(`${appsRoot}/purchase-orders`, { replace: true });
+    }
+    if (store?.error && !submitting) {
+      Notification("Error", store.error, "warning");
+      dispatch(cleanPurchaseOrderMessage());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store?.actionFlag, store?.error]);
+
+  useEffect(() => {
+    if (!store?.loading) dispatch(startLoading());
+    else dispatch(stopLoading());
+  }, [store?.loading, dispatch]);
+
+  const stepCtx = {
+    isEdit,
+    isLocked,
+    vendorOptions,
+    vendorAddressOptions,
+    productById,
+    priceByProduct,
+    vendorProductOptions,
+    intraState,
+    sourcePfiVoucher: store?.purchaseOrderItem?.pfi_voucher_no,
+    sourcePfiId: store?.purchaseOrderItem?.pfi_id,
+    sourceQuotationVoucher: store?.purchaseOrderItem?.quotation_voucher_no,
+    sourceQuotationId: store?.purchaseOrderItem?.quotation_id,
+    onRevertToDraft: () =>
+      setValue("status", "draft", { shouldDirty: true }),
+  };
+
+  const ActiveStepComponent = visibleSteps[activeStep]?.Component;
+
+  return (
+    <Fragment>
+      <div className="main-content purchase-orders-add quotation-wizard">
+        <div className="d-flex align-items-center justify-content-between mb-2">
+          <h3 className="mb-0">
+            {isEdit ? t("Edit Purchase Order") : t("Add Purchase Order")}
+            {isEdit && store?.purchaseOrderItem?.voucher_no
+              ? ` - ${store.purchaseOrderItem.voucher_no}`
+              : ""}
+          </h3>
+          <Button
+            type="button"
+            className="ms-2 btn-primary"
+            onClick={() => navigate(`${appsRoot}/purchase-orders`)}
+          >
+            <ArrowLeft size={17} />
+          </Button>
+        </div>
+
+        <FormProvider {...form}>
+          <Form onSubmit={(e) => e.preventDefault()}>
+            {isLocked && (
+              <div className="alert alert-warning mb-2">
+                <div className="alert-body d-flex justify-content-between align-items-center gap-2">
+                  <div>
+                    <strong>
+                      {t("This PO is")} {liveStatus.replace(/_/g, " ")}.
+                    </strong>{" "}
+                    {t(
+                      "Fields are locked. Revert to draft to make changes - status & internal notes stay editable."
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    color="warning"
+                    outline
+                    type="button"
+                    className="flex-shrink-0"
+                    onClick={stepCtx.onRevertToDraft}
+                  >
+                    {t("Revert to Draft")}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Card>
+              <CardBody>
+                <WizardHeader
+                  steps={visibleSteps}
+                  activeStep={activeStep}
+                  visited={visited}
+                  onStepClick={goTo}
+                  isEdit={isEdit}
+                />
+
+                <div className="wizard-step-body">
+                  {ActiveStepComponent ? (
+                    <ActiveStepComponent {...stepCtx} />
+                  ) : (
+                    <div className="text-center p-5">
+                      <Spinner />
+                    </div>
+                  )}
+                </div>
+
+                <WizardFooter
+                  isFirst={activeStep === 0}
+                  isLast={activeStep === visibleSteps.length - 1}
+                  isEdit={isEdit}
+                  onBack={back}
+                  onNext={next}
+                  onSubmit={onSave}
+                  onCancel={() => navigate(`${appsRoot}/purchase-orders`)}
+                  submitting={submitting}
+                />
+              </CardBody>
+            </Card>
+          </Form>
+        </FormProvider>
+      </div>
+    </Fragment>
+  );
+};
+
+export default PurchaseOrderWizard;

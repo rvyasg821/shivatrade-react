@@ -159,7 +159,9 @@ const navigationItems = [
         id: purchaseOrdersModuleSlug,
         title: rolePermissionName[purchaseOrdersModuleSlug],
         icon: <FileText size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/purchase-orders`,
+        permissionId: purchaseOrdersModuleSlug,
+        resource: purchaseOrdersModuleSlug,
         companyOnly: true,
       },
       {
