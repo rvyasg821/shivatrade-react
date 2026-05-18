@@ -144,25 +144,26 @@
   color: #05DEF5 !important;
 }
 
-/* ---------- Custom Global Inputs (default = white) ---------- */
-.form-control {
-  height: 38px;
-  border-radius: 0.357rem;
-  // border: 1px solid #c0c0c0;
-  border: 1px solid #cdaba4 !important;
-  background-color: #f6e8e5 !important;
-  color: #613228 !important;
-
-  &:focus {
+/* ---------- Auth Page Inputs (scoped) ---------- */
+.auth-wrapper {
+  .form-control {
+    height: 38px;
+    border-radius: 0.357rem;
     border: 1px solid #cdaba4 !important;
     background-color: #f6e8e5 !important;
-    -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
-  }
+    color: #613228 !important;
 
-  &:focus-within {
-    border: 1px solid #cdaba4 !important;
-    background-color: #f6e8e5 !important;
-    -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
+    &:focus {
+      border: 1px solid #cdaba4 !important;
+      background-color: #f6e8e5 !important;
+      -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
+    }
+
+    &:focus-within {
+      border: 1px solid #cdaba4 !important;
+      background-color: #f6e8e5 !important;
+      -webkit-box-shadow: 0 0 0 1000px #f6e8e5 inset !important;
+    }
   }
 }
 
