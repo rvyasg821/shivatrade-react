@@ -113,7 +113,7 @@ const Step1CompanyDetails = () => {
     zipcode: yup.string().nullable(),
   });
 
-  const { reset, control, setValue, handleSubmit, formState: { errors } } = useForm({
+  const { reset, control, setValue, getValues, handleSubmit, formState: { errors } } = useForm({
     mode: "all",
     shouldFocusError: false,
     resolver: yupResolver(ProfileSchema),
@@ -665,7 +665,19 @@ const Step1CompanyDetails = () => {
                           <Input type="checkbox" id={`caddr-default-${idx}`}
                             disabled={isReadOnly}
                             checked={!!field.value}
-                            onChange={(e) => field.onChange(e.target.checked)} />
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              field.onChange(checked);
+                              if (checked) {
+                                const myType = getValues(`addresses.${idx}.type`) || "corporate";
+                                const all = getValues("addresses") || [];
+                                all.forEach((row, j) => {
+                                  if (j !== idx && (row?.type || "corporate") === myType && row?.is_default) {
+                                    setValue(`addresses.${j}.is_default`, false, { shouldDirty: true });
+                                  }
+                                });
+                              }
+                            }} />
                         )} />
                       <Label className="form-check-label" for={`caddr-default-${idx}`}>
                         {t("Default for this type")}
@@ -814,7 +826,20 @@ const Step1CompanyDetails = () => {
                           <Input type="checkbox" id={`cbank-default-${idx}`}
                             disabled={isReadOnly}
                             checked={!!field.value}
-                            onChange={(e) => field.onChange(e.target.checked)} />
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              field.onChange(checked);
+                              if (checked) {
+                                const myCurr = getValues(`bank_accounts.${idx}.currency_id`);
+                                if (!myCurr) return;
+                                const all = getValues("bank_accounts") || [];
+                                all.forEach((row, j) => {
+                                  if (j !== idx && row?.currency_id === myCurr && row?.is_default) {
+                                    setValue(`bank_accounts.${j}.is_default`, false, { shouldDirty: true });
+                                  }
+                                });
+                              }
+                            }} />
                         )} />
                       <Label className="form-check-label" for={`cbank-default-${idx}`}>
                         {t("Default for currency")}
