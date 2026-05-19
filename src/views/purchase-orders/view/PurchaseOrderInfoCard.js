@@ -205,7 +205,22 @@ const PurchaseOrderInfoCard = () => {
                 {p?.customer_name && (
                   <InfoRow
                     icon={User}
-                    value={`${t("Customer")} · ${p.customer_name}`}
+                    value={
+                      <span className="d-inline-flex align-items-center">
+                        {t("Customer")} · {p.customer_name}
+                        {p?.customer_id && (
+                          <a
+                            href={`${appsRoot}/customers/view/${p.customer_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={t("Open customer in new tab")}
+                            className="text-decoration-none ms-1"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </span>
+                    }
                   />
                 )}
                 <InfoRow

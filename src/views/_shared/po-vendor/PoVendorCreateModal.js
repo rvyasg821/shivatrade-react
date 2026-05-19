@@ -20,13 +20,14 @@ import {
   Spinner,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ChevronDown, ChevronRight } from "react-feather";
+import { AlertTriangle } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { createPoVendorFromPo } from "@src/views/po-vendors/store";
 import { appsRoot } from "@constant/defaultValues";
+import CompanyAddressSelect from "@src/views/_shared/CompanyAddressSelect";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -46,8 +47,17 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
   const [loading, setLoading] = useState(false);
   const [coverage, setCoverage] = useState(null);
   const [coverByLine, setCoverByLine] = useState({});
-  const [override, setOverride] = useState("");
-  const [showOverride, setShowOverride] = useState(false);
+
+  // Delivery address state. Priorities (resolved server-side):
+  //   manual text > picked company address id > inherit from PO.
+  // `addressMode` controls UI only:
+  //   "inherit" — show PO's snapshot, send nothing
+  //   "pick"    — pick a different company address
+  //   "manual"  — type a one-off text override
+  const [addressMode, setAddressMode] = useState("inherit");
+  const [pickedAddressId, setPickedAddressId] = useState("");
+  const [manualText, setManualText] = useState("");
+
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -58,8 +68,9 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
     setLoading(true);
     setCoverage(null);
     setCoverByLine({});
-    setOverride("");
-    setShowOverride(false);
+    setAddressMode("inherit");
+    setPickedAddressId("");
+    setManualText("");
     setNotes("");
 
     instance
@@ -149,6 +160,15 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
       return;
     }
 
+    // Delivery address resolution — see addressMode docs above.
+    let deliveryAddressOverride;
+    let deliveryAddressIdOverride;
+    if (addressMode === "manual" && manualText.trim()) {
+      deliveryAddressOverride = manualText.trim();
+    } else if (addressMode === "pick" && pickedAddressId) {
+      deliveryAddressIdOverride = pickedAddressId;
+    }
+
     setSubmitting(true);
     try {
       const result = await dispatch(
@@ -156,7 +176,8 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
           purchase_order_id: po._id,
           payload: {
             lines,
-            delivery_address: showOverride && override.trim() ? override.trim() : undefined,
+            delivery_address: deliveryAddressOverride,
+            delivery_address_id: deliveryAddressIdOverride,
             notes: notes || undefined,
           },
         })
@@ -208,39 +229,69 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
           </small>
         </div>
 
-        {/* Delivery address — read-only with collapsed override */}
+        {/* Delivery address — inherit / pick / manual.
+            Default: inherit from PO. */}
         <div className="mb-2">
           <Label className="form-label">{t("Deliver To")}</Label>
-          <div
-            className="p-2 border rounded small bg-light"
-            style={{ whiteSpace: "pre-wrap" }}
-          >
-            {po?.delivery_address || "-"}
-          </div>
-          <button
-            type="button"
-            className="btn btn-link btn-sm p-0 mt-50"
-            onClick={() => setShowOverride((s) => !s)}
-          >
-            {showOverride ? (
-              <ChevronDown size={12} />
-            ) : (
-              <ChevronRight size={12} />
-            )}{" "}
-            {t("Override delivery address (advanced)")}
-          </button>
-          {showOverride && (
+
+          {addressMode === "inherit" && (
+            <div
+              className="p-2 border rounded small bg-light"
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {po?.delivery_address || "-"}
+            </div>
+          )}
+
+          {addressMode === "pick" && (
+            <CompanyAddressSelect
+              value={pickedAddressId}
+              onChange={setPickedAddressId}
+              autoSelectDefault={false}
+            />
+          )}
+
+          {addressMode === "manual" && (
             <Input
               type="textarea"
               rows="3"
-              className="mt-1"
-              value={override}
-              onChange={(e) => setOverride(e.target.value)}
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
               placeholder={t(
                 "One-off destination — factory-to-port direct, customer pickup, etc."
               )}
             />
           )}
+
+          <div className="mt-50 small">
+            {addressMode !== "inherit" && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 me-2"
+                onClick={() => setAddressMode("inherit")}
+              >
+                {t("Use PO address")}
+              </button>
+            )}
+            {addressMode !== "pick" && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 me-2"
+                onClick={() => setAddressMode("pick")}
+              >
+                {t("Pick a different company address")}
+              </button>
+            )}
+            {addressMode !== "manual" && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0"
+                onClick={() => setAddressMode("manual")}
+              >
+                {t("Type custom text")}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Lines */}
