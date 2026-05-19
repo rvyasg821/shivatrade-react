@@ -1,6 +1,7 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import {
   Card,
   CardBody,
@@ -16,6 +17,7 @@ import {
   FileText,
   Edit,
   ExternalLink,
+  Truck,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -46,6 +48,7 @@ const QuotationInfoCard = () => {
 
   const { quotationItem } = useSelector((s) => s.quotation);
   const q = quotationItem || {};
+  const [poModalOpen, setPoModalOpen] = useState(false);
   const sym = q?.currency_symbol || q?.currency_code || "";
 
   return (
@@ -137,7 +140,7 @@ const QuotationInfoCard = () => {
             />
           </ul>
 
-          <div className="d-flex justify-content-center">
+          <div className="d-grid gap-1">
             <Button
               color="primary"
               outline
@@ -149,9 +152,30 @@ const QuotationInfoCard = () => {
             <UncontrolledTooltip target="qt-edit-from-view" placement="top">
               {t("Edit quotation")}
             </UncontrolledTooltip>
+            {(q?.status || "").toLowerCase() === "approved" && (
+              <>
+                <Button
+                  color="success"
+                  onClick={() => setPoModalOpen(true)}
+                  id="qt-generate-pos"
+                >
+                  <Truck size={14} className="me-50" /> {t("Generate POs")}
+                </Button>
+                <UncontrolledTooltip target="qt-generate-pos" placement="top">
+                  {t("Split this Quotation into vendor Purchase Orders")}
+                </UncontrolledTooltip>
+              </>
+            )}
           </div>
         </CardBody>
       </Card>
+      <PoGeneratePreviewModal
+        isOpen={poModalOpen}
+        toggle={() => setPoModalOpen((s) => !s)}
+        sourceType="quotation"
+        sourceId={id}
+        sourceVoucherNo={q?.voucher_no}
+      />
     </Fragment>
   );
 };

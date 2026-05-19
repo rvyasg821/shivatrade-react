@@ -33,6 +33,7 @@ import currency from "@src/views/currencies/store";
 import priceList from "@src/views/price-list/store";
 import quotation from "@src/views/quotations/store";
 import pfi from "@src/views/pfi/store";
+import purchaseOrder from "@src/views/purchase-orders/store";
 import employee from "@src/views/employees/store";
 
 import setting from "@src/views/settings/store";
@@ -112,6 +113,7 @@ const rootReducer = {
   priceList,
   quotation,
   pfi,
+  purchaseOrder,
   locationContext,
   employee,
   setting,
