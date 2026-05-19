@@ -35,8 +35,13 @@ export const fmt = (n) =>
  * recompute() exactly. Used by the line-item modal breakdown, the Step 2
  * table, and the Step 3 review table so all three always agree.
  *
- * Flow: Gross → − Discount → = Taxable → + Expenses → − Rebates
- *       → + Margin (on taxable+exp−reb) → + GST (on taxable) → Line Total.
+ * Flow (matches Development Plan p.24 costing formula):
+ *   Gross → − Discount → = Taxable
+ *   → + Expenses → − Rebates
+ *   → + Margin (on taxable+exp−reb)
+ *   → = Net Total
+ *   → + GST (on Net Total)
+ *   → Line Total
  * Every component is round2()'d; lineTotal sums the rounded parts.
  */
 export const computeLineCosting = (line) => {
@@ -77,8 +82,11 @@ export const computeLineCosting = (line) => {
 
   const marginPct = num(l.margin_pct);
   const margin = round2(((taxable + expenses - rebates) * marginPct) / 100);
-  const gst = round2((taxable * num(l.tax_pct)) / 100);
-  const lineTotal = round2(taxable + expenses - rebates + margin + gst);
+  // Net Total per spec (p.24): (Price + Expenses − Rebates) + Margin.
+  const netTotal = round2(taxable + expenses - rebates + margin);
+  // GST is applied on the Net Total (NOT just taxable).
+  const gst = round2((netTotal * num(l.tax_pct)) / 100);
+  const lineTotal = round2(netTotal + gst);
 
   return {
     gross,
@@ -133,13 +141,6 @@ export const computeDocTotals = (lines, exchangeRate) => {
     gross_total += lineGross;
     discount_total += lineGross - lineNet;
     subtotal += lineNet;
-    const lineTax = lineNet * (taxPct / 100);
-    tax_total += lineTax;
-    if (lineNet > 0) {
-      gstRates.add(taxPct);
-      marginRates.add(num(l?.margin_pct));
-      gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
-    }
 
     let lineProdReb = 0;
     let lineProdExp = 0;
@@ -173,6 +174,16 @@ export const computeDocTotals = (lines, exchangeRate) => {
     if (lineNet > 0) {
       marginByRate[lineMarginPct] =
         (marginByRate[lineMarginPct] || 0) + lineMargin;
+    }
+
+    // GST is on Net Total per spec (p.24): (Price + Exp − Reb) + Margin.
+    const lineNetTotal = lineNet + lineProdExp - lineProdReb + lineMargin;
+    const lineTax = lineNetTotal * (taxPct / 100);
+    tax_total += lineTax;
+    if (lineNet > 0) {
+      gstRates.add(taxPct);
+      marginRates.add(lineMarginPct);
+      gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
     }
   });
 

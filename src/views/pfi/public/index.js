@@ -293,7 +293,6 @@ const PfiPublicView = () => {
                 <tr>
                   <th>#</th>
                   <th>{t("Product")}</th>
-                  <th>{t("HS Code")}</th>
                   <th className="text-end">{t("Qty")}</th>
                   <th>{t("Unit")}</th>
                   <th className="text-end">{t("Rate")}</th>
@@ -313,7 +312,6 @@ const PfiPublicView = () => {
                         <div className="small text-muted">{l.description}</div>
                       )}
                     </td>
-                    <td>{l.hs_code || "-"}</td>
                     <td className="text-end">{l.qty || "-"}</td>
                     <td>{l.unit || "-"}</td>
                     <td className="text-end">{money(l.unit_price)}</td>
@@ -366,15 +364,6 @@ const PfiPublicView = () => {
             {/* Totals */}
             <div className="d-flex justify-content-end mb-3">
               <div style={{ minWidth: 280 }}>
-                <div className="d-flex justify-content-between mb-1">
-                  <span className="text-muted">{t("Subtotal")}</span>
-                  <span>{money(p.subtotal)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-1">
-                  <span className="text-muted">{t("GST")}</span>
-                  <span>{money(p.gst_total)}</span>
-                </div>
-                <hr className="my-1" />
                 <div className="d-flex justify-content-between fw-bold fs-5">
                   <span>{t("Grand Total")}</span>
                   <span>{money(p.grand_total)}</span>

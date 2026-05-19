@@ -34,6 +34,7 @@ import priceList from "@src/views/price-list/store";
 import quotation from "@src/views/quotations/store";
 import pfi from "@src/views/pfi/store";
 import purchaseOrder from "@src/views/purchase-orders/store";
+import poVendor from "@src/views/po-vendors/store";
 import employee from "@src/views/employees/store";
 
 import setting from "@src/views/settings/store";
@@ -114,6 +115,7 @@ const rootReducer = {
   quotation,
   pfi,
   purchaseOrder,
+  poVendor,
   locationContext,
   employee,
   setting,
