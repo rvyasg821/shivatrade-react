@@ -151,7 +151,6 @@ const Step1CompanyDetails = () => {
       default_port_of_loading: "",
       default_declaration_text: "",
       // ── PO defaults ──
-      default_po_delivery_address: "",
       default_po_terms: "",
       authorised_signatory_name: "",
       // ── Multi-address & multi-bank ──
@@ -240,7 +239,6 @@ const Step1CompanyDetails = () => {
         cin: company.cin || "",
         default_port_of_loading: company.default_port_of_loading || "",
         default_declaration_text: company.default_declaration_text || "",
-        default_po_delivery_address: company.default_po_delivery_address || "",
         default_po_terms: company.default_po_terms || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
         addresses: (company.addresses || []).map((a) => ({
@@ -325,10 +323,6 @@ const Step1CompanyDetails = () => {
         values.default_port_of_loading?.trim() || undefined,
       default_declaration_text:
         values.default_declaration_text?.trim() || undefined,
-      default_po_delivery_address:
-        values.default_po_delivery_address != null
-          ? values.default_po_delivery_address.trim()
-          : undefined,
       default_po_terms:
         values.default_po_terms != null
           ? values.default_po_terms.trim()
@@ -660,27 +654,6 @@ const Step1CompanyDetails = () => {
                   )} />
                 <small className="text-muted">
                   {t("Name printed under the signatory block on PFI / PO PDFs.")}
-                </small>
-              </Col>
-              <Col md="6" className="mb-2">
-                <Label className="form-label" for="default_po_delivery_address">
-                  {t("Default PO Delivery Address")}
-                </Label>
-                <Controller name="default_po_delivery_address" control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="default_po_delivery_address"
-                      type="textarea"
-                      rows="2"
-                      maxLength={1000}
-                      placeholder="e.g. Forwarder Warehouse, Mundra Port..."
-                      disabled={isReadOnly}
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  )} />
-                <small className="text-muted">
-                  {t("Pre-fills the 'Deliver To' address on every PO. Editable per PO.")}
                 </small>
               </Col>
               <Col md="12" className="mb-2">
