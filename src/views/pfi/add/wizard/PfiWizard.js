@@ -91,29 +91,59 @@ const PfiWizard = () => {
         // ── Shipping & Packing step ──
         consignee_name: yup.string().nullable().max(200),
         consignee_address: yup.string().nullable().max(2000),
-        port_of_loading: yup.string().nullable().max(150),
-        port_of_discharge: yup.string().nullable().max(150),
+        port_of_loading: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Port of Loading is required"))
+          .max(150),
+        port_of_discharge: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Port of Discharge is required"))
+          .max(150),
         final_destination: yup.string().nullable().max(150),
-        country_of_origin: yup.string().nullable().max(100),
-        country_of_final_destination: yup.string().nullable().max(100),
+        country_of_origin: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Country of Origin is required"))
+          .max(100),
+        country_of_final_destination: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Country of Final Destination is required"))
+          .max(100),
         mode_of_shipment: yup
           .string()
-          .nullable()
-          .oneOf(["", "sea", "air", "road"], t("Invalid mode of shipment")),
+          .required(t("Mode of Shipment is required"))
+          .oneOf(["sea", "air", "road"], t("Mode of Shipment is required")),
         container_details: yup.string().nullable().max(200),
         est_shipment_date: yup.string().nullable(),
         est_delivery_date: yup.string().nullable(),
         packing_marks: yup.string().nullable().max(200),
-        packing_type: yup.string().nullable().max(50),
+        packing_type: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Packing Type is required"))
+          .max(50),
         validity_days: yup
           .number()
           .transform((v, o) => (o === "" || o == null ? undefined : v))
           .nullable()
           .integer()
           .min(0),
-        payment_terms_text: yup.string().nullable().max(2000),
-        declaration_text: yup.string().nullable().max(4000),
-        bank_account_id: yup.string().nullable(),
+        payment_terms_text: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Payment Terms are required"))
+          .max(2000),
+        declaration_text: yup
+          .string()
+          .transform((v) => (typeof v === "string" ? v.trim() : v))
+          .required(t("Declaration is required"))
+          .max(4000),
+        bank_account_id: yup
+          .string()
+          .required(t("Bank Account is required")),
         lines: yup
           .array()
           .of(
