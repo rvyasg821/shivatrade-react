@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
 import { deleteEmployee, getEmployeeList, cleanEmployeeMessage } from "./store";
+import { getLocationList } from "../locations/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap Imports
@@ -60,7 +61,9 @@ const EmployeeList = () => {
   const store = useSelector((state) => state.employee);
   const authStore = useSelector((state) => state.auth);
   const selectedLocationId = useSelector((state) => state.locationContext?.selectedLocationId);
+  const locationStore = useSelector((state) => state.location);
   const authUserItem = authStore?.authUserItem || null;
+  const isLocationAdmin = authUserItem?.role?.name === "Location Admin";
 
   /* Pagination */
   const [sort, setSort] = useState("desc");
@@ -71,6 +74,7 @@ const EmployeeList = () => {
 
   // status filter
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [locationFilter, setLocationFilter] = useState("");
   const [importModal, setImportModal] = useState(false);
 
   const handleExport = async () => {
@@ -98,8 +102,11 @@ const EmployeeList = () => {
       search,
       status,
     };
-    if (selectedLocationId) {
-      params.location_id = selectedLocationId;
+    const effectiveLoc = isLocationAdmin
+      ? selectedLocationId
+      : locationFilter || "";
+    if (effectiveLoc) {
+      params.location_id = effectiveLoc;
     }
     dispatch(getEmployeeList(params));
   };
@@ -142,8 +149,11 @@ const EmployeeList = () => {
         search: searchInput,
         status: statusFilter,
       };
-      if (selectedLocationId) {
-        params.location_id = selectedLocationId;
+      const effectiveLoc = isLocationAdmin
+        ? selectedLocationId
+        : locationFilter || "";
+      if (effectiveLoc) {
+        params.location_id = effectiveLoc;
       }
       setCurrentPage(1);
       dispatch(getEmployeeList(params));
@@ -158,10 +168,13 @@ const EmployeeList = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [searchInput, statusFilter, selectedLocationId]);
+  }, [searchInput, statusFilter, selectedLocationId, locationFilter]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    if (!isLocationAdmin) {
+      dispatch(getLocationList({ status: "ACTIVE", dropdown: "yes" }));
+    }
   }, []);
 
   useEffect(() => {
@@ -299,6 +312,15 @@ const EmployeeList = () => {
       selector: (row) => (
         <span className="text-wrap text-capitalize">
           {row?.location_id?.location_name || ""}
+        </span>
+      ),
+    },
+    {
+      name: t("Role"),
+      sortable: false,
+      selector: (row) => (
+        <span className="text-wrap text-capitalize">
+          {row?.role_name || t("Employee")}
         </span>
       ),
     },
@@ -445,6 +467,36 @@ const EmployeeList = () => {
                     classNamePrefix="select"
                   />
                 </div>
+                {/* Location filter — temporarily disabled.
+                {!isLocationAdmin && (
+                  <div style={{ width: 220 }}>
+                    <Select
+                      isClearable
+                      classNamePrefix="select"
+                      placeholder={t("All Locations")}
+                      options={(locationStore?.locationItems || []).map(
+                        (loc) => ({
+                          value: loc._id,
+                          label: loc.location_name,
+                        })
+                      )}
+                      value={
+                        locationFilter
+                          ? (locationStore?.locationItems || [])
+                              .map((loc) => ({
+                                value: loc._id,
+                                label: loc.location_name,
+                              }))
+                              .find((o) => o.value === locationFilter) || null
+                          : null
+                      }
+                      onChange={(opt) =>
+                        setLocationFilter(opt ? opt.value : "")
+                      }
+                    />
+                  </div>
+                )}
+                */}
               </div>
               <div className="d-flex align-items-center gap-1 flex-wrap">
                 <Button color="outline-secondary" size="sm" onClick={handleExport}>
