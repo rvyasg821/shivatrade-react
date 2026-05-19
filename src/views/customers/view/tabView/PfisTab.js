@@ -4,19 +4,12 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Badge, Table, UncontrolledTooltip } from "reactstrap";
-import { Edit } from "react-feather";
+import { Table, UncontrolledTooltip } from "reactstrap";
+import { Eye } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPfiList, cleanPfiMessage } from "@src/views/pfi/store";
 import { appsRoot } from "@constant/defaultValues";
-
-const STATUS_BADGE = {
-  draft: "secondary",
-  sent: "info",
-  approved: "success",
-  rejected: "danger",
-};
 
 const PfisTab = () => {
   const { id } = useParams();
@@ -56,11 +49,10 @@ const PfisTab = () => {
         <Table responsive bordered className="mb-0">
           <thead>
             <tr>
-              <th>{t("Voucher #")}</th>
               <th>{t("Date")}</th>
+              <th>{t("PFI #")}</th>
               <th>{t("Valid Until")}</th>
-              <th>{t("Currency")}</th>
-              <th>{t("Grand Total")}</th>
+              <th>{t("Total")}</th>
               <th>{t("Status")}</th>
               <th className="text-center">{t("Action")}</th>
             </tr>
@@ -70,36 +62,28 @@ const PfisTab = () => {
               const sym = row?.currency_symbol || row?.currency_code || "";
               return (
                 <tr key={row?._id}>
-                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
                   <td>{(row?.pfi_date || "").slice(0, 10) || "-"}</td>
+                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
                   <td>{(row?.valid_until || "").slice(0, 10) || "-"}</td>
-                  <td>{row?.currency_code || "-"}</td>
                   <td>
                     {row?.grand_total !== null &&
                     row?.grand_total !== undefined
                       ? `${sym}${row.grand_total}`
                       : "-"}
                   </td>
-                  <td>
-                    <Badge
-                      color={STATUS_BADGE[row?.status] || "secondary"}
-                      className="text-capitalize"
-                    >
-                      {row?.status || "-"}
-                    </Badge>
-                  </td>
+                  <td className="text-capitalize">{row?.status || "-"}</td>
                   <td className="text-center">
                     <Link
-                      to={`${appsRoot}/pfi/edit/${row?._id}`}
-                      id={`cust-pfi-edit-${row?._id}`}
+                      to={`${appsRoot}/pfi/view/${row?._id}`}
+                      id={`cust-pfi-view-${row?._id}`}
                     >
-                      <Edit size={18} />
+                      <Eye size={18} />
                     </Link>
                     <UncontrolledTooltip
                       placement="top"
-                      target={`cust-pfi-edit-${row?._id}`}
+                      target={`cust-pfi-view-${row?._id}`}
                     >
-                      {t("Open")}
+                      {t("View")}
                     </UncontrolledTooltip>
                   </td>
                 </tr>

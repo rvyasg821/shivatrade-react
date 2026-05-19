@@ -25,6 +25,7 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
+import DateInput from "@components/date-input";
 
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
@@ -314,7 +315,11 @@ const Step1CompanyDetails = () => {
       zipcode: values.zipcode,
       iec: values.iec || undefined,
       lut_no: values.lut_no || undefined,
-      lut_date: values.lut_date || undefined,
+      // Truncate any ISO timestamp (DateInput / Flatpickr emits a full ISO)
+      // to YYYY-MM-DD so it matches the `date` column shape on the BE.
+      lut_date: values.lut_date
+        ? String(values.lut_date).slice(0, 10)
+        : undefined,
       cin: values.cin || undefined,
       default_port_of_loading:
         values.default_port_of_loading?.trim() || undefined,
@@ -583,8 +588,12 @@ const Step1CompanyDetails = () => {
                 <Label className="form-label" for="lut_date">{t("LUT Date")}</Label>
                 <Controller name="lut_date" control={control}
                   render={({ field }) => (
-                    <Input id="lut_date" type="date"
-                      disabled={isReadOnly} {...field} value={field.value || ""} />
+                    <DateInput
+                      id="lut_date"
+                      disabled={isReadOnly}
+                      value={field.value || ""}
+                      onChange={(dates, str, iso) => field.onChange(iso)}
+                    />
                   )} />
                 <small className="text-muted">
                   {t("Issue date of the LUT. Re-file every 1 April for the new financial year.")}
@@ -772,9 +781,30 @@ const Step1CompanyDetails = () => {
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Country")}</Label>
                     <Controller name={`addresses.${idx}.country`} control={control}
-                      render={({ field }) => (
-                        <Input disabled={isReadOnly} {...field} value={field.value || ""} />
-                      )} />
+                      render={({ field }) => {
+                        // Match the saved value (free-text from legacy data)
+                        // against the country list by label (case-insensitive).
+                        const raw = field.value || "";
+                        const selected =
+                          countryList.find(
+                            (c) =>
+                              c.label?.toLowerCase() === raw.toLowerCase() ||
+                              c.value?.toLowerCase() === raw.toLowerCase()
+                          ) || null;
+                        return (
+                          <Select
+                            classNamePrefix="select"
+                            isClearable
+                            isDisabled={isReadOnly}
+                            options={countryList}
+                            value={selected}
+                            // Save the country NAME ("India") to match
+                            // existing free-text data shape on the BE.
+                            onChange={(opt) => field.onChange(opt ? opt.label : "")}
+                            placeholder={t("Select country")}
+                          />
+                        );
+                      }} />
                   </Col>
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Postcode")}</Label>
