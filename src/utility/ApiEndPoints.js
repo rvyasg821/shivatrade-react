@@ -222,6 +222,18 @@ export const API_ENDPOINTS = {
     pdf: `/admin/pfi`, // append /:id/pdf
     publicPdf: `/public/pfi`, // append /:token/pdf
   },
+  purchaseOrders: {
+    list: `/admin/purchase-order/list`,
+    get: `/admin/purchase-order/get`,
+    create: `/admin/purchase-order/create`,
+    update: `/admin/purchase-order/update`,
+    delete: `/admin/purchase-order/delete`,
+    fromPfi: `/admin/purchase-order/from-pfi`, // append /:pfiId
+    fromQuotation: `/admin/purchase-order/from-quotation`, // append /:quotationId
+    previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
+    previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
+    pdf: `/admin/purchase-order`, // append /:id/pdf
+  },
   customers: {
     list: `/admin/customer/list`,
     get: `/admin/customer/get`,

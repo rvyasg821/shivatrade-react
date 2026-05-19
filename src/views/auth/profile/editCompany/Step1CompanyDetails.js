@@ -150,6 +150,10 @@ const Step1CompanyDetails = () => {
       // ── PFI / export-document defaults ──
       default_port_of_loading: "",
       default_declaration_text: "",
+      // ── PO defaults ──
+      default_po_delivery_address: "",
+      default_po_terms: "",
+      authorised_signatory_name: "",
       // ── Multi-address & multi-bank ──
       addresses: [],
       bank_accounts: [],
@@ -236,6 +240,9 @@ const Step1CompanyDetails = () => {
         cin: company.cin || "",
         default_port_of_loading: company.default_port_of_loading || "",
         default_declaration_text: company.default_declaration_text || "",
+        default_po_delivery_address: company.default_po_delivery_address || "",
+        default_po_terms: company.default_po_terms || "",
+        authorised_signatory_name: company.authorised_signatory_name || "",
         addresses: (company.addresses || []).map((a) => ({
           type: a.type || "corporate",
           label: a.label || "",
@@ -318,6 +325,18 @@ const Step1CompanyDetails = () => {
         values.default_port_of_loading?.trim() || undefined,
       default_declaration_text:
         values.default_declaration_text?.trim() || undefined,
+      default_po_delivery_address:
+        values.default_po_delivery_address != null
+          ? values.default_po_delivery_address.trim()
+          : undefined,
+      default_po_terms:
+        values.default_po_terms != null
+          ? values.default_po_terms.trim()
+          : undefined,
+      authorised_signatory_name:
+        values.authorised_signatory_name != null
+          ? values.authorised_signatory_name.trim()
+          : undefined,
       addresses: (values.addresses || [])
         .filter((a) =>
           a.address_line1?.trim() ||
@@ -620,6 +639,69 @@ const Step1CompanyDetails = () => {
                   )} />
                 <small className="text-muted">
                   {t("Pre-fills the declaration block on every PFI / Commercial Invoice. Editable per document.")}
+                </small>
+              </Col>
+
+              {/* ── PO defaults ─────────────────────────────────────── */}
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="authorised_signatory_name">
+                  {t("Authorised Signatory Name")}
+                </Label>
+                <Controller name="authorised_signatory_name" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="authorised_signatory_name"
+                      maxLength={150}
+                      placeholder="e.g. Rakesh Patel"
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+                <small className="text-muted">
+                  {t("Name printed under the signatory block on PFI / PO PDFs.")}
+                </small>
+              </Col>
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="default_po_delivery_address">
+                  {t("Default PO Delivery Address")}
+                </Label>
+                <Controller name="default_po_delivery_address" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="default_po_delivery_address"
+                      type="textarea"
+                      rows="2"
+                      maxLength={1000}
+                      placeholder="e.g. Forwarder Warehouse, Mundra Port..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+                <small className="text-muted">
+                  {t("Pre-fills the 'Deliver To' address on every PO. Editable per PO.")}
+                </small>
+              </Col>
+              <Col md="12" className="mb-2">
+                <Label className="form-label" for="default_po_terms">
+                  {t("Default PO Terms & Conditions")}
+                </Label>
+                <Controller name="default_po_terms" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="default_po_terms"
+                      type="textarea"
+                      rows="3"
+                      maxLength={4000}
+                      placeholder="e.g. Goods must conform to agreed specifications..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+                <small className="text-muted">
+                  {t("Standard footer text printed at the bottom of every PO PDF.")}
                 </small>
               </Col>
             </Row>
