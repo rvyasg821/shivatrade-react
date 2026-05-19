@@ -271,7 +271,9 @@ const navigationItems = [
         id: poVendorsModuleSlug,
         title: rolePermissionName[poVendorsModuleSlug],
         icon: <CheckSquare size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/po-vendors`,
+        permissionId: poVendorsModuleSlug,
+        resource: poVendorsModuleSlug,
         companyOnly: true,
       },
       {
