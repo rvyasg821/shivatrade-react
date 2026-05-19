@@ -8,7 +8,17 @@ import {
   Button,
   UncontrolledTooltip,
 } from "reactstrap";
-import { User, Phone, Mail, Hash, MapPin, Globe, Edit } from "react-feather";
+import {
+  User,
+  Phone,
+  Mail,
+  Hash,
+  MapPin,
+  Globe,
+  Edit,
+  FileText,
+  Briefcase,
+} from "react-feather";
 
 import Avatar from "@components/avatar";
 import { appsRoot } from "@constant/defaultValues";
@@ -115,6 +125,8 @@ const CustomerInfoCard = () => {
             <InfoRow icon={Phone} value={phone} />
             <InfoRow icon={MapPin} value={billLine} />
             <InfoRow icon={Globe} value={billTo?.country || c?.country} />
+            <InfoRow icon={FileText} value={c?.gstin} />
+            <InfoRow icon={Briefcase} value={c?.pan} />
           </ul>
 
           <div className="d-flex justify-content-center">
