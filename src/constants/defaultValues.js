@@ -454,7 +454,8 @@ const rolePermissionJson = [
 
 // ── System role names (must match BE ENUM_SYSTEM_ROLE values exactly) ──
 const SYSTEM_ROLE = {
-  SUPER_ADMIN: "Admin",          // Platform owner (DB stores name "Admin")
+  ADMIN: "Admin",                // Platform owner (DB stores name "Admin")
+  SUPER_ADMIN: "Super Admin",    // Display alias sometimes seen in UI
   COMPANY_ADMIN: "Company Admin",
   LOCATION_ADMIN: "Location Admin",
   EMPLOYEE: "Employee",
@@ -464,15 +465,16 @@ const SYSTEM_ROLE = {
 };
 
 /**
- * Returns true when the current auth user is Super Admin or Company Admin —
- * the two roles that bypass per-module permission checks across the app.
- * Pass `authUserItem` (state.auth.authUserItem). Safe for nullish input.
+ * Returns true when the current auth user is Admin / Super Admin /
+ * Company Admin — roles that bypass per-module permission checks
+ * across the app. Pass `authUserItem` (state.auth.authUserItem).
+ * Safe for nullish input.
  */
 const isAdminUser = (authUserItem) => {
   const name = authUserItem?.role?.name;
   return (
+    name === SYSTEM_ROLE.ADMIN ||
     name === SYSTEM_ROLE.SUPER_ADMIN ||
-    name === "Super Admin" /* legacy display alias */ ||
     name === SYSTEM_ROLE.COMPANY_ADMIN ||
     !!authUserItem?.isSystemUser
   );
