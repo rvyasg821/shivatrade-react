@@ -348,17 +348,17 @@ const SalesDocLineItems = ({
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>{t("Product")}</th>
-                <th>{t("Vendor")}</th>
                 <th className="text-end">{t("Qty")}</th>
-                <th>{t("UOM")}</th>
                 <th className="text-end">{t("Price")}</th>
                 <th className="text-end">{t("Disc %")}</th>
                 <th className="text-end">{t("Expenses")}</th>
                 <th className="text-end">{t("Rebates")}</th>
                 <th className="text-end">{t("GST %")}</th>
                 <th className="text-end">{t("Margin %")}</th>
-                <th className="text-end">{t("Line Total")}</th>
-                <th style={{ width: 80 }}></th>
+                <th className="text-end">{t("Total")}</th>
+                <th className="text-center" style={{ width: 90 }}>
+                  {t("Actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -387,10 +387,26 @@ const SalesDocLineItems = ({
                   <Fragment key={field.id}>
                     <tr>
                       <td className="text-muted">{idx + 1}</td>
-                      <td>{productLabel}</td>
-                      <td>{vendorLabel}</td>
-                      <td className="text-end">{l.qty || "-"}</td>
-                      <td>{l.unit || "-"}</td>
+                      <td>
+                        <span>{productLabel}</span>
+                        {vendorLabel && vendorLabel !== "-" ? (
+                          <span
+                            className="badge ms-1"
+                            style={{
+                              background: "#eef0f3",
+                              color: "#1a2238",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {vendorLabel}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="text-end">
+                        {l.qty
+                          ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                          : "-"}
+                      </td>
                       <td className="text-end">
                         {l.unit_price ? `${baseSym}${fmt(l.unit_price)}` : "-"}
                       </td>
@@ -436,7 +452,7 @@ const SalesDocLineItems = ({
                     {hasChips && (
                       <tr className="bg-light">
                         <td></td>
-                        <td colSpan={12} className="py-1">
+                        <td colSpan={10} className="py-1">
                           <small className="text-muted me-2">
                             {t("Auto-applied:")}
                           </small>

@@ -6,6 +6,7 @@ import { ArrowLeft } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import Tabs from "./tabs";
 import OverviewTab from "./OverviewTab";
+import PosTab from "./PosTab";
 import PublicLinkTab from "./PublicLinkTab";
 
 const PfiTabView = () => {
@@ -32,6 +33,9 @@ const PfiTabView = () => {
           <TabContent activeTab={active}>
             <TabPane tabId="overview">
               <OverviewTab />
+            </TabPane>
+            <TabPane tabId="pos">
+              {active === "pos" && <PosTab />}
             </TabPane>
             <TabPane tabId="public-link">
               <PublicLinkTab />
