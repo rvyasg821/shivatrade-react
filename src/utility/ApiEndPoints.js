@@ -233,6 +233,17 @@ export const API_ENDPOINTS = {
     previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
     previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
     pdf: `/admin/purchase-order`, // append /:id/pdf
+    coverage: `/admin/purchase-order`, // append /:id/coverage
+  },
+  poVendors: {
+    list: `/admin/po-vendor/list`,
+    get: `/admin/po-vendor/get`,
+    update: `/admin/po-vendor/update`,
+    delete: `/admin/po-vendor/delete`,
+    fromPo: `/admin/po-vendor/from-po`, // append /:poId
+    dispatch: `/admin/po-vendor`, // append /:id/dispatch
+    receive: `/admin/po-vendor`, // append /:id/receive
+    cancel: `/admin/po-vendor`, // append /:id/cancel
   },
   customers: {
     list: `/admin/customer/list`,
