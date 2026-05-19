@@ -29,30 +29,40 @@ const getTimezone = () => {
   return company?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
+const pad2 = (n) => String(n).padStart(2, '0')
+
 /**
- * Format a YYYY-MM-DD date string using company locale.
- * Parses as a local date to avoid UTC midnight shift.
- * e.g. "2026-02-26" → "26 Feb 2026" (en-GB) | "Feb 26, 2026" (en-US)
+ * Format a date as DD/MM/YY (Indian / day-first short format).
+ * Accepts either a YYYY-MM-DD string or a full ISO datetime string.
+ * e.g. "2026-02-26" → "26/02/26"  |  "2026-02-26T09:00:00Z" → "26/02/26"
  */
-export const formatDate = (dateStr) => {
-  if (!dateStr) return '—'
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Intl.DateTimeFormat(getLocale(), {
-    day: 'numeric', month: 'short', year: 'numeric',
-  }).format(new Date(y, m - 1, d))
+export const formatDate = (value) => {
+  if (!value) return '—'
+  const str = String(value)
+  // Plain date — parse locally so we don't get UTC midnight shifts.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number)
+    return `${pad2(d)}/${pad2(m)}/${String(y)}`
+  }
+  const d = new Date(str)
+  if (Number.isNaN(d.getTime())) return '—'
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear())}`
 }
 
 /**
- * Format an ISO datetime string as date + time in company timezone with AM/PM.
- * e.g. "2026-02-26T09:00:00Z" → "26 Feb 2026, 9:00 AM" (en-GB, Europe/London)
+ * Format an ISO datetime string as DD/MM/YY h:MM AM/PM in company timezone.
+ * e.g. "2026-02-26T09:00:00Z" → "26/02/26, 9:00 AM"
  */
 export const formatDateTime = (isoStr) => {
   if (!isoStr) return '—'
-  return new Intl.DateTimeFormat(getLocale(), {
+  const d = new Date(isoStr)
+  if (Number.isNaN(d.getTime())) return '—'
+  const datePart = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear())}`
+  const timePart = new Intl.DateTimeFormat(getLocale(), {
     timeZone: getTimezone(),
-    day: 'numeric', month: 'short', year: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true,
-  }).format(new Date(isoStr))
+  }).format(d)
+  return `${datePart}, ${timePart}`
 }
 
 /**
