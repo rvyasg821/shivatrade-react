@@ -24,6 +24,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
+import CompanyAddressSelect from "@src/views/_shared/CompanyAddressSelect";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -54,6 +55,9 @@ const PoGeneratePreviewModal = ({
   const [assignment, setAssignment] = useState({});
   // dropped[source_line_id] = true if user removed from batch
   const [dropped, setDropped] = useState({});
+  // Deliver-to address (applies to every PO created in this batch).
+  const [deliveryAddressId, setDeliveryAddressId] = useState("");
+  const [companyAddresses, setCompanyAddresses] = useState([]);
 
   const previewEndpoint =
     sourceType === "pfi"
@@ -161,9 +165,20 @@ const PoGeneratePreviewModal = ({
       Notification("Validation", t("No lines to convert."), "warning");
       return;
     }
+    if (!deliveryAddressId) {
+      Notification(
+        "Validation",
+        t("Pick a delivery address before generating POs."),
+        "warning"
+      );
+      return;
+    }
     setCreating(true);
     try {
-      const resp = await instance.post(createEndpoint, { assignments });
+      const resp = await instance.post(createEndpoint, {
+        assignments,
+        delivery_address_id: deliveryAddressId,
+      });
       const created = resp?.data?.data?.created || [];
       const skipped = resp?.data?.data?.skipped || [];
 
@@ -212,6 +227,32 @@ const PoGeneratePreviewModal = ({
         <code>{sourceVoucherNo || ""}</code>
       </ModalHeader>
       <ModalBody>
+        {/* Deliver-to address — applies to every PO created in this batch. */}
+        <div className="mb-3">
+          <label className="form-label fw-semibold">
+            {t("Deliver goods to")}{" "}
+            <span className="text-danger">*</span>
+          </label>
+          <CompanyAddressSelect
+            value={deliveryAddressId}
+            onChange={setDeliveryAddressId}
+            onAddressesLoaded={setCompanyAddresses}
+          />
+          <small className="text-muted">
+            {t(
+              "Vendors will deliver to this address. Pick a saved company address."
+            )}
+          </small>
+          {!companyAddresses.length && (
+            <div className="alert alert-warning small mt-2 mb-0">
+              {t("No company addresses on file.")}{" "}
+              <a href="/apps/profile" target="_blank" rel="noopener noreferrer">
+                {t("Add one in your Company Profile")}
+              </a>
+            </div>
+          )}
+        </div>
+
         {loading ? (
           <div className="text-center py-5">
             <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
@@ -398,7 +439,8 @@ const PoGeneratePreviewModal = ({
             creating ||
             loading ||
             hasUnassignedActiveLines ||
-            vendorSummary.length === 0
+            vendorSummary.length === 0 ||
+            !deliveryAddressId
           }
         >
           {creating ? <Spinner size="sm" /> : null}{" "}
