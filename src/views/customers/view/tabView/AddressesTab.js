@@ -36,7 +36,7 @@ const AddressesTab = () => {
             <th>{t("State")}</th>
             <th>{t("Country")}</th>
             <th>{t("Postcode")}</th>
-            <th>{t("GSTIN")}</th>
+            <th>{t("Tax ID")}</th>
             <th>{t("Default")}</th>
           </tr>
         </thead>
