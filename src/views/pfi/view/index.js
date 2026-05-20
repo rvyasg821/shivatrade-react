@@ -33,13 +33,12 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
-  DetailPanel,
   DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
-import PfiPartiesPanel from "./PfiPartiesPanel";
 import PfiRelatedDocsTabs from "./PfiRelatedDocsTabs";
 import PfiPublicLinkPanel from "./PfiPublicLinkPanel";
+import PfiDetailsPanel from "./PfiDetailsPanel";
 
 const PIPELINE_STEPS = [
   { value: "draft", label: "Draft" },
@@ -223,15 +222,13 @@ const ViewPfi = () => {
 
         <DetailTwoPanel
           ratio="9-3"
-          left={
+          left={<PfiRelatedDocsTabs />}
+          right={
             <Fragment>
-              <DetailPanel title={t("PFI Summary")}>
-                <PfiPartiesPanel />
-              </DetailPanel>
-              <PfiRelatedDocsTabs />
+              <PfiPublicLinkPanel />
+              <PfiDetailsPanel />
             </Fragment>
           }
-          right={<PfiPublicLinkPanel />}
         />
       </div>
 

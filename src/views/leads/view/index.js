@@ -26,7 +26,6 @@ import {
   Truck,
   Layers,
   Hash,
-  UserCheck,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -43,11 +42,12 @@ import {
   LEAD_SOURCE_OPTIONS,
 } from "@constant/options";
 
+import { Row, Col } from "reactstrap";
+
 import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
-  DetailSummaryCard,
   DetailFieldList,
   DetailChips,
   DetailSocials,
@@ -257,60 +257,48 @@ const ViewLead = () => {
     },
   ];
 
-  // ── Summary card field groups ──
-  const aboutFields = [
-    { icon: User, label: t("Contact"), value: l?.contact_name },
-    {
-      icon: Mail,
-      label: t("Email"),
-      value: l?.contact_email ? (
-        <a
-          href={`mailto:${l.contact_email}`}
-          className="text-reset text-decoration-none"
-        >
-          {l.contact_email}
-        </a>
-      ) : null,
-    },
-    {
-      icon: Phone,
-      label: t("Phone"),
-      value: phone ? (
-        <a
-          href={`tel:${phone.replace(/\s/g, "")}`}
-          className="text-reset text-decoration-none"
-        >
-          {phone}
-        </a>
-      ) : null,
-    },
-    { icon: Globe, label: t("Website"), value: l?.website_url },
-    { icon: Tag, label: t("Source"), value: sourceLabel },
-    {
-      icon: UserCheck,
-      label: t("Assigned To"),
-      value: l?.assigned_to_name || l?.assigned_to || null,
-    },
-    { icon: MapPin, label: t("Address"), value: addressFull || cityLine || null },
-  ];
-
-  const oppFields = [
-    {
-      icon: DollarSign,
-      label: t("Expected Value"),
-      value: budget,
-    },
-    { icon: Layers, label: t("Quantity"), value: l?.quantity },
-    {
-      icon: Truck,
-      label: t("Delivery Expectation"),
-      value: l?.delivery_expectation,
-    },
-    {
-      icon: Calendar,
-      label: t("Follow-up Date"),
-      value: l?.follow_up_date ? formatDate(l.follow_up_date) : null,
-    },
+  // ── Summary field pairs ──
+  // Three side-by-side rows: Contact Person | Email, Phone | Website,
+  // Source | Address. Opportunity is rendered as its own block below.
+  const pairs = [
+    [
+      { icon: User, label: t("Contact Person"), value: l?.contact_name },
+      {
+        icon: Mail,
+        label: t("Email"),
+        value: l?.contact_email ? (
+          <a
+            href={`mailto:${l.contact_email}`}
+            className="text-reset text-decoration-none"
+          >
+            {l.contact_email}
+          </a>
+        ) : null,
+      },
+    ],
+    [
+      {
+        icon: Phone,
+        label: t("Phone"),
+        value: phone ? (
+          <a
+            href={`tel:${phone.replace(/\s/g, "")}`}
+            className="text-reset text-decoration-none"
+          >
+            {phone}
+          </a>
+        ) : null,
+      },
+      { icon: Globe, label: t("Website"), value: l?.website_url },
+    ],
+    [
+      { icon: Tag, label: t("Source"), value: sourceLabel },
+      {
+        icon: MapPin,
+        label: t("Address"),
+        value: addressFull || cityLine || null,
+      },
+    ],
   ];
 
   return (
@@ -347,40 +335,112 @@ const ViewLead = () => {
           ratio="9-3"
           left={
             <Fragment>
-              <DetailSummaryCard
-                title={t("Lead Summary")}
-                split={{ md: 6, lg: 6 }}
-                left={
-                  <DetailFieldList title={t("About")} items={aboutFields} />
-                }
-                right={
-                  <Fragment>
+              <QuotationsPanel />
+              <DetailPanel title={t("Lead Summary")}>
+                {pairs.map((row, idx) => (
+                  <Row key={idx} className="g-2">
+                    {row.map((f) => (
+                      <Col md="6" key={f.label}>
+                        <DetailFieldList items={[f]} />
+                      </Col>
+                    ))}
+                  </Row>
+                ))}
+
+                <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
+                  {t("Opportunity")}
+                </h5>
+                <Row className="g-2">
+                  <Col md="6">
                     <DetailFieldList
-                      title={t("Opportunity")}
-                      items={oppFields}
+                      items={[
+                        {
+                          icon: DollarSign,
+                          label: t("Expected Value"),
+                          value: budget,
+                        },
+                      ]}
                     />
+                  </Col>
+                  <Col md="6">
                     <DetailChips
                       title={t("Interested Categories")}
                       items={categoryChips}
                       bg="#eef0f3"
                       fg="#1a2238"
                     />
+                  </Col>
+                </Row>
+                <Row className="g-2">
+                  <Col md="6">
+                    <DetailFieldList
+                      items={[
+                        {
+                          icon: Calendar,
+                          label: t("Follow-up Date"),
+                          value: l?.follow_up_date
+                            ? formatDate(l.follow_up_date)
+                            : null,
+                        },
+                      ]}
+                    />
+                  </Col>
+                  <Col md="6">
                     <DetailChips
                       title={t("Interested Products")}
                       items={productChips}
                       bg="#eef0f3"
                       fg="#1a2238"
                     />
-                    <DetailSocials
-                      title={t("Social")}
-                      urls={l?.social_media_urls || {}}
+                  </Col>
+                </Row>
+                <Row className="g-2">
+                  <Col md="6">
+                    <DetailFieldList
+                      items={[
+                        {
+                          icon: Layers,
+                          label: t("Quantity"),
+                          value: l?.quantity,
+                        },
+                      ]}
                     />
-                  </Fragment>
-                }
-                brief={l?.description}
-                briefLabel={t("Brief / Description")}
-              />
-              <QuotationsPanel />
+                  </Col>
+                  <Col md="6">
+                    <DetailFieldList
+                      items={[
+                        {
+                          icon: Truck,
+                          label: t("Delivery Expectation"),
+                          value: l?.delivery_expectation,
+                        },
+                      ]}
+                    />
+                  </Col>
+                </Row>
+
+                <DetailSocials
+                  title={t("Social")}
+                  urls={l?.social_media_urls || {}}
+                />
+
+                {l?.description ? (
+                  <div className="mt-1 pt-1 border-top">
+                    <div className="text-muted small mb-50">
+                      {t("Brief / Description")}
+                    </div>
+                    <div
+                      className="text-break"
+                      style={{
+                        whiteSpace: "pre-line",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {l.description}
+                    </div>
+                  </div>
+                ) : null}
+              </DetailPanel>
             </Fragment>
           }
           right={

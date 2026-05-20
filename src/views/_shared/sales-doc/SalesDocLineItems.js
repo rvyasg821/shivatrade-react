@@ -387,11 +387,11 @@ const SalesDocLineItems = ({
                   <Fragment key={field.id}>
                     <tr>
                       <td className="text-muted">{idx + 1}</td>
-                      <td>
-                        <span>{productLabel}</span>
+                      <td className="text-start">
+                        <div>{productLabel}</div>
                         {vendorLabel && vendorLabel !== "-" ? (
                           <span
-                            className="badge ms-1"
+                            className="badge d-inline-block mt-50"
                             style={{
                               background: "#eef0f3",
                               color: "#1a2238",

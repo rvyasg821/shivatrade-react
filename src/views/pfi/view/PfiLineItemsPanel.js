@@ -33,7 +33,6 @@ const PfiLineItemsPanel = ({ bare = false }) => {
           <tr>
             <th>#</th>
             <th>{t("Product")}</th>
-            <th>{t("HS Code")}</th>
             <th className="text-end">{t("Qty")}</th>
             <th className="text-end">{t("Price")}</th>
             <th className="text-end">{t("Net Wt")}</th>
@@ -45,7 +44,7 @@ const PfiLineItemsPanel = ({ bare = false }) => {
         <tbody>
           {lines.length === 0 ? (
             <tr>
-              <td colSpan={9} className="text-center text-muted py-3">
+              <td colSpan={8} className="text-center text-muted py-3">
                 {t("No line items.")}
               </td>
             </tr>
@@ -59,13 +58,6 @@ const PfiLineItemsPanel = ({ bare = false }) => {
                   </div>
                   {l.description && (
                     <small className="text-muted d-block">{l.description}</small>
-                  )}
-                </td>
-                <td>
-                  {l.hs_code ? (
-                    <code className="text-primary">{l.hs_code}</code>
-                  ) : (
-                    <span className="text-muted">-</span>
                   )}
                 </td>
                 <td className="text-end">
