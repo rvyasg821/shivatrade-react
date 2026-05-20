@@ -30,6 +30,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { getLead, cleanLeadMessage, convertLead } from "@src/views/leads/store";
+import { formatMoney } from "@src/utility/currency";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getVendorDropdown } from "@src/views/vendors/store";
@@ -162,9 +163,7 @@ const ViewLead = () => {
   const statusLabel = labelize(l?.status, LEAD_STATUS_OPTIONS);
 
   const budget = l?.expected_value
-    ? `${l?.currency ? l.currency + " " : ""}${Number(
-        l.expected_value
-      ).toLocaleString()}`.trim()
+    ? formatMoney(l.expected_value, l?.currency)
     : null;
 
   const followUp = useFollowUpStatus(l?.follow_up_date);
@@ -289,7 +288,24 @@ const ViewLead = () => {
           </a>
         ) : null,
       },
-      { icon: Globe, label: t("Website"), value: l?.website_url },
+      {
+        icon: Globe,
+        label: t("Website"),
+        value: l?.website_url ? (
+          <a
+            href={
+              /^https?:\/\//i.test(l.website_url)
+                ? l.website_url
+                : `https://${l.website_url}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-reset text-decoration-none"
+          >
+            {l.website_url}
+          </a>
+        ) : null,
+      },
     ],
     [
       { icon: Tag, label: t("Source"), value: sourceLabel },

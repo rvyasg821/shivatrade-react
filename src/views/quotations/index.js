@@ -42,6 +42,7 @@ import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
 import { Edit, Eye, Trash2, PlusCircle, FileText } from "react-feather";
+import { formatMoney } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
 
 // ** PFI conversion
@@ -235,12 +236,7 @@ const QuotationView = () => {
     [customerStore?.customerDropdown]
   );
 
-  const formatTotal = (row) => {
-    const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "-";
-    const code = row?.currency_code ? ` ${row.currency_code}` : "";
-    return `${Number(v).toLocaleString()}${code}`;
-  };
+  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
 
   const columns = [
     {

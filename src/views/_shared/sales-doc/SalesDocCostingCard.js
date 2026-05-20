@@ -1,6 +1,12 @@
 import { Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { fmt, num, round2 } from "./_helpers";
+import { getCurrencySymbol } from "@src/utility/currency";
+
+// All breakdown lines are in the base currency (INR by default). Render
+// the ₹ prefix so a quick scan tells the user "this is rupees", with the
+// foreign-currency Grand Total only at the bottom.
+const inr = (v) => `₹${fmt(v)}`;
 
 /**
  * Costing card - shared by Quotation / PFI / PO forms and detail pages.
@@ -17,6 +23,7 @@ const SalesDocCostingCard = ({
   sticky = true,
 }) => {
   const { t } = useTranslation();
+  const currencySym = getCurrencySymbol(currencyCode);
 
   return (
     <Card style={sticky ? { position: "sticky", top: 80 } : undefined}>
@@ -30,53 +37,53 @@ const SalesDocCostingCard = ({
           <>
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>{t("Gross")}</span>
-              <span>{fmt(totals.gross_total)}</span>
+              <span>{inr(totals.gross_total)}</span>
             </div>
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>− {t("Discount")}</span>
-              <span>{fmt(totals.discount_total)}</span>
+              <span>{inr(totals.discount_total)}</span>
             </div>
           </>
         )}
         <div className="d-flex justify-content-between mb-1">
           <span>{t("Subtotal")}</span>
-          <strong>{fmt(totals.subtotal)}</strong>
+          <strong>{inr(totals.subtotal)}</strong>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>+ {t("Expenses")}</span>
-          <strong>{fmt(totals.product_expenses_total)}</strong>
+          <strong>{inr(totals.product_expenses_total)}</strong>
         </div>
         {num(totals.expenses_pct_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Rate-based")}</span>
-            <span>{fmt(totals.expenses_pct_total)}</span>
+            <span>{inr(totals.expenses_pct_total)}</span>
           </div>
         )}
         {num(totals.expenses_fixed_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Flat amount")}</span>
-            <span>{fmt(totals.expenses_fixed_total)}</span>
+            <span>{inr(totals.expenses_fixed_total)}</span>
           </div>
         )}
         <div className="d-flex justify-content-between mb-1">
           <span>− {t("Rebates")}</span>
-          <strong>{fmt(totals.product_rebates_total)}</strong>
+          <strong>{inr(totals.product_rebates_total)}</strong>
         </div>
         {num(totals.rebates_pct_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Rate-based")}</span>
-            <span>{fmt(totals.rebates_pct_total)}</span>
+            <span>{inr(totals.rebates_pct_total)}</span>
           </div>
         )}
         {num(totals.rebates_fixed_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Flat amount")}</span>
-            <span>{fmt(totals.rebates_fixed_total)}</span>
+            <span>{inr(totals.rebates_fixed_total)}</span>
           </div>
         )}
         <div className="d-flex justify-content-between mb-1 text-muted">
           <span>= {t("Net")}</span>
-          <span>{fmt(totals.net)}</span>
+          <span>{inr(totals.net)}</span>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>
@@ -85,7 +92,7 @@ const SalesDocCostingCard = ({
               ? ` (${round2(num(totals.margin_pct))}%)`
               : ""}
           </span>
-          <strong>{fmt(totals.margin_amount)}</strong>
+          <strong>{inr(totals.margin_amount)}</strong>
         </div>
         {totals.margin_uniform ? (
           <div className="d-flex justify-content-between mb-1 text-muted small">
@@ -100,7 +107,7 @@ const SalesDocCostingCard = ({
                 className="d-flex justify-content-between mb-1 ps-2 small text-muted"
               >
                 <span>· {round2(num(rate))}%</span>
-                <span>{fmt(amt)}</span>
+                <span>{inr(amt)}</span>
               </div>
             ))
         )}
@@ -111,7 +118,7 @@ const SalesDocCostingCard = ({
               ? ` (${round2(num(totals.gst_pct))}%)`
               : ""}
           </span>
-          <strong>{fmt(totals.tax_total)}</strong>
+          <strong>{inr(totals.tax_total)}</strong>
         </div>
         {!totals.gst_uniform &&
           Object.entries(totals.gst_by_rate || {})
@@ -122,7 +129,7 @@ const SalesDocCostingCard = ({
                 className="d-flex justify-content-between mb-1 ps-2 small text-muted"
               >
                 <span>· {round2(num(rate))}%</span>
-                <span>{fmt(amt)}</span>
+                <span>{inr(amt)}</span>
               </div>
             ))}
         <hr className="my-2" />
@@ -154,10 +161,10 @@ const SalesDocCostingCard = ({
         >
           <span className="fw-bold">
             {t("Grand Total")}
-            {currencyCode ? ` (${currencyCode})` : ""}
+            {currencySym ? ` (${currencySym})` : currencyCode ? ` (${currencyCode})` : ""}
           </span>
           <span className="fw-bold">
-            {currencyCode ? `${currencyCode} ` : ""}
+            {currencySym || (currencyCode ? `${currencyCode} ` : "")}
             {fmt(totals.grand_currency)}
           </span>
         </div>
