@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Badge, Button, Table, UncontrolledTooltip } from "reactstrap";
+import { Button, Table, UncontrolledTooltip } from "reactstrap";
 import { Edit, PlusCircle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -12,7 +12,6 @@ import {
   cleanQuotationMessage,
 } from "@src/views/quotations/store";
 import { appsRoot } from "@constant/defaultValues";
-import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 
 const QuotationsTab = () => {
   const { id } = useParams();
@@ -72,10 +71,9 @@ const QuotationsTab = () => {
         <Table responsive bordered className="mb-0">
           <thead>
             <tr>
-              <th>{t("Voucher #")}</th>
               <th>{t("Date")}</th>
+              <th>{t("Quote #")}</th>
               <th>{t("Valid Until")}</th>
-              <th>{t("Currency")}</th>
               <th>{t("Grand Total")}</th>
               <th>{t("Status")}</th>
               <th className="text-center">{t("Action")}</th>
@@ -86,25 +84,17 @@ const QuotationsTab = () => {
               const sym = row?.currency_symbol || row?.currency_code || "";
               return (
                 <tr key={row?._id}>
-                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
                   <td>{(row?.quotation_date || "").slice(0, 10) || "-"}</td>
+                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
                   <td>{(row?.valid_until || "").slice(0, 10) || "-"}</td>
-                  <td>{row?.currency_code || "-"}</td>
                   <td>
                     {row?.grand_total !== null &&
                     row?.grand_total !== undefined
                       ? `${sym}${row.grand_total}`
                       : "-"}
                   </td>
-                  <td>
-                    <Badge
-                      color={
-                        QUOTATION_STATUS_BADGE_COLOR[row?.status] || "secondary"
-                      }
-                      className="text-capitalize"
-                    >
-                      {row?.status || "-"}
-                    </Badge>
+                  <td className="text-capitalize">
+                    {row?.status || "-"}
                   </td>
                   <td className="text-center">
                     <Link

@@ -16,6 +16,8 @@ import {
   priceListModuleSlug,
   quotationsModuleSlug,
   pfiModuleSlug,
+  purchaseOrdersModuleSlug,
+  poVendorsModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -68,6 +70,12 @@ const AddPfi = lazy(() => import('@src/views/pfi/add'));
 const EditPfi = lazy(() => import('@src/views/pfi/add'));
 const ViewPfi = lazy(() => import('@src/views/pfi/view'));
 const PfiPublicView = lazy(() => import('@src/views/pfi/public'));
+const PurchaseOrderList = lazy(() => import('@src/views/purchase-orders'));
+const AddPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
+const EditPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
+const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
+const PoVendorList = lazy(() => import('@src/views/po-vendors'));
+const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
@@ -677,6 +685,54 @@ const AppRoutes = [
     meta: {
       publicRoute: true,
       layout: 'blank',
+    },
+  },
+  {
+    path: `${appsRoot}/purchase-orders`,
+    element: <PurchaseOrderList />,
+    meta: {
+      permissionId: purchaseOrdersModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/purchase-orders/add`,
+    element: <AddPurchaseOrder />,
+    meta: {
+      permissionId: purchaseOrdersModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/purchase-orders/edit/:id`,
+    element: <EditPurchaseOrder />,
+    meta: {
+      permissionId: purchaseOrdersModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/purchase-orders/view/:id`,
+    element: <ViewPurchaseOrder />,
+    meta: {
+      permissionId: purchaseOrdersModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/po-vendors`,
+    element: <PoVendorList />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/po-vendors/view/:id`,
+    element: <ViewPoVendor />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'list',
     },
   },
   {

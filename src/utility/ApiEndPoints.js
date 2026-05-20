@@ -222,6 +222,29 @@ export const API_ENDPOINTS = {
     pdf: `/admin/pfi`, // append /:id/pdf
     publicPdf: `/public/pfi`, // append /:token/pdf
   },
+  purchaseOrders: {
+    list: `/admin/purchase-order/list`,
+    get: `/admin/purchase-order/get`,
+    create: `/admin/purchase-order/create`,
+    update: `/admin/purchase-order/update`,
+    delete: `/admin/purchase-order/delete`,
+    fromPfi: `/admin/purchase-order/from-pfi`, // append /:pfiId
+    fromQuotation: `/admin/purchase-order/from-quotation`, // append /:quotationId
+    previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
+    previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
+    pdf: `/admin/purchase-order`, // append /:id/pdf
+    coverage: `/admin/purchase-order`, // append /:id/coverage
+  },
+  poVendors: {
+    list: `/admin/po-vendor/list`,
+    get: `/admin/po-vendor/get`,
+    update: `/admin/po-vendor/update`,
+    delete: `/admin/po-vendor/delete`,
+    fromPo: `/admin/po-vendor/from-po`, // append /:poId
+    dispatch: `/admin/po-vendor`, // append /:id/dispatch
+    receive: `/admin/po-vendor`, // append /:id/receive
+    cancel: `/admin/po-vendor`, // append /:id/cancel
+  },
   customers: {
     list: `/admin/customer/list`,
     get: `/admin/customer/get`,

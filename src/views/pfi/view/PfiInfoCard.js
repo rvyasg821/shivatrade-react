@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import {
   Card,
   CardBody,
@@ -17,6 +18,7 @@ import {
   ExternalLink,
   Download,
   Clock,
+  Truck,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -69,6 +71,7 @@ const PfiInfoCard = () => {
   const isExpired = validUntil && validUntil < today;
 
   const [downloading, setDownloading] = useState(false);
+  const [poModalOpen, setPoModalOpen] = useState(false);
   const onDownloadPdf = async () => {
     if (!id || downloading) return;
     setDownloading(true);
@@ -246,9 +249,33 @@ const PfiInfoCard = () => {
             <UncontrolledTooltip target="pfi-edit-from-view" placement="top">
               {t("Edit PFI")}
             </UncontrolledTooltip>
+            {(p?.status || "").toLowerCase() === "approved" && (
+              <>
+                <Button
+                  color="success"
+                  onClick={() => setPoModalOpen(true)}
+                  id="pfi-generate-pos"
+                >
+                  <Truck size={14} className="me-50" /> {t("Generate POs")}
+                </Button>
+                <UncontrolledTooltip
+                  target="pfi-generate-pos"
+                  placement="top"
+                >
+                  {t("Split this PFI into vendor Purchase Orders")}
+                </UncontrolledTooltip>
+              </>
+            )}
           </div>
         </CardBody>
       </Card>
+      <PoGeneratePreviewModal
+        isOpen={poModalOpen}
+        toggle={() => setPoModalOpen((s) => !s)}
+        sourceType="pfi"
+        sourceId={id}
+        sourceVoucherNo={p?.voucher_no}
+      />
     </Fragment>
   );
 };

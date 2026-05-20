@@ -36,6 +36,7 @@ import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
 import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
+import { formatDate } from "@src/utility/dateFormat";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -306,36 +307,6 @@ const LeadList = () => {
           : "-",
     },
     {
-      name: t("Last Activity"),
-      sortable: false,
-      selector: (row) => {
-        const iso = row?.last_activity_at;
-        if (!iso) return <span className="text-muted">-</span>;
-        const d = new Date(iso);
-        const s = Math.floor((Date.now() - d.getTime()) / 1000);
-        let label;
-        if (s < 60) label = `${s}s ago`;
-        else if (s < 3600) label = `${Math.floor(s / 60)}m ago`;
-        else if (s < 86400) label = `${Math.floor(s / 3600)}h ago`;
-        else if (s < 2592000) label = `${Math.floor(s / 86400)}d ago`;
-        else label = d.toLocaleDateString();
-        const openStatus =
-          row?.status !== "won" && row?.status !== "lost";
-        const stale = openStatus && s > 7 * 86400;
-        return (
-          <span
-            className={stale ? "fw-bold" : ""}
-            ref={(el) => {
-              if (el && stale)
-                el.style.setProperty("color", "#dc3545", "important");
-            }}
-          >
-            {label}
-          </span>
-        );
-      },
-    },
-    {
       name: t("Follow-up"),
       sortField: "follow_up_date",
       sortable: true,
@@ -353,7 +324,7 @@ const LeadList = () => {
                 el.style.setProperty("color", "#dc3545", "important");
             }}
           >
-            {raw}
+            {formatDate(raw)}
             {overdue && (
               <small className="ms-1">({t("overdue")})</small>
             )}

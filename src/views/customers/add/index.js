@@ -499,26 +499,46 @@ const CustomerForm = () => {
               <h4 className="mt-3 mb-2">{t("Tax & Compliance")}</h4>
               <Row>
                 <Col md="4" className="mb-2">
-                  <Label className="form-label" for="gstin">{t("GSTIN")}</Label>
+                  <Label className="form-label" for="gstin">
+                    {t("Tax / VAT Number")}
+                  </Label>
                   <Controller
                     name="gstin"
                     control={control}
                     render={({ field }) => (
-                      <Input id="gstin" maxLength={15} placeholder="22AAAAA0000A1Z5"
-                        {...field} value={field.value || ""} />
+                      <Input
+                        id="gstin"
+                        maxLength={30}
+                        placeholder={t("GSTIN, VAT, TRN, etc.")}
+                        {...field}
+                        value={field.value || ""}
+                      />
                     )}
                   />
+                  <small className="text-muted">
+                    {t("GSTIN for India; VAT / TRN / Tax ID for overseas customers.")}
+                  </small>
                 </Col>
                 <Col md="4" className="mb-2">
-                  <Label className="form-label" for="pan">{t("PAN")}</Label>
+                  <Label className="form-label" for="pan">
+                    {t("Business Registration #")}
+                  </Label>
                   <Controller
                     name="pan"
                     control={control}
                     render={({ field }) => (
-                      <Input id="pan" maxLength={10} placeholder="AAAAA0000A"
-                        {...field} value={field.value || ""} />
+                      <Input
+                        id="pan"
+                        maxLength={30}
+                        placeholder={t("PAN, Trade License, CR, EIN, etc.")}
+                        {...field}
+                        value={field.value || ""}
+                      />
                     )}
                   />
+                  <small className="text-muted">
+                    {t("PAN for India; Trade License / CR / company registration for overseas.")}
+                  </small>
                 </Col>
                 <Col md="4" className="mb-2">
                   <Label className="form-label" for="iec">
@@ -704,12 +724,19 @@ const CustomerForm = () => {
                     </Col>
 
                     <Col md="6" className="mb-2">
-                      <Label className="form-label">{t("GSTIN (this address)")}</Label>
+                      <Label className="form-label">
+                        {t("Tax / VAT Number (this address)")}
+                      </Label>
                       <Controller
                         name={`addresses.${idx}.gstin`}
                         control={control}
                         render={({ field }) => (
-                          <Input maxLength={15} {...field} value={field.value || ""} />
+                          <Input
+                            maxLength={30}
+                            placeholder={t("GSTIN for India, VAT / TRN for overseas")}
+                            {...field}
+                            value={field.value || ""}
+                          />
                         )}
                       />
                     </Col>

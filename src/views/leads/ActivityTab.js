@@ -21,9 +21,11 @@ import {
   Trash2,
   X,
   Save,
+  Plus,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Notification from "@components/toast/notification";
+import { formatDate } from "@src/utility/dateFormat";
 
 import {
   getLeadActivities,
@@ -58,7 +60,7 @@ const relative = (iso) => {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   if (s < 2592000) return `${Math.floor(s / 86400)}d ago`;
-  return d.toLocaleDateString();
+  return formatDate(iso);
 };
 
 const renderRow = (row, t) => {
@@ -145,26 +147,39 @@ const ActivityTab = ({ leadId }) => {
 
   return (
     <Fragment>
-      <h4 className="mb-2">{t("Activity")}</h4>
-
       {/* Add-note composer */}
-      <div className="d-flex align-items-start gap-2 mb-3">
+      <div className="mb-3" style={{ position: "relative" }}>
         <Input
           type="textarea"
-          rows="2"
+          rows="3"
           placeholder={t("Add a note…")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          style={{ width: "100%", paddingRight: 48, resize: "vertical" }}
         />
         <Button
           color="primary"
           onClick={onAdd}
           disabled={!draft.trim()}
-          className="text-nowrap flex-shrink-0"
+          id="lead-add-note-btn"
+          style={{
+            position: "absolute",
+            right: 8,
+            bottom: 8,
+            width: 34,
+            height: 34,
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "50%",
+          }}
         >
-          <FileText size={14} className="me-50" />
-          {t("Add")}
+          <Plus size={16} />
         </Button>
+        <UncontrolledTooltip target="lead-add-note-btn" placement="top">
+          {t("Add note")}
+        </UncontrolledTooltip>
       </div>
 
       {store?.loading && <Spinner size="sm" className="me-1" />}

@@ -178,6 +178,40 @@ const QUOTATION_STATUS_BADGE_COLOR = {
   closed: "dark",
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Purchase Order module
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PURCHASE_ORDER_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "in_process", label: "In Process" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const PURCHASE_ORDER_STATUS_BADGE_COLOR = {
+  draft: "secondary",
+  confirmed: "info",
+  in_process: "warning",
+  completed: "success",
+  cancelled: "danger",
+};
+
+const PO_VENDOR_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "dispatched", label: "Dispatched" },
+  { value: "closed", label: "Closed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const PO_VENDOR_STATUS_BADGE_COLOR = {
+  draft: "secondary",
+  dispatched: "info",
+  closed: "success",
+  cancelled: "danger",
+};
+
 /**
  * ISO 4217 codes available as exchange-rate targets on the Currency module.
  * Kept static (not from the DB) - INR is the only currency stored as a real
@@ -247,6 +281,10 @@ export {
   LEAD_STATUS_BADGE_COLOR,
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
+  PURCHASE_ORDER_STATUS_OPTIONS,
+  PURCHASE_ORDER_STATUS_BADGE_COLOR,
+  PO_VENDOR_STATUS_OPTIONS,
+  PO_VENDOR_STATUS_BADGE_COLOR,
   EXCHANGE_TO_CURRENCY_OPTIONS,
   MODE_OF_SHIPMENT_OPTIONS,
   PACKING_TYPE_OPTIONS,

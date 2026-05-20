@@ -159,7 +159,9 @@ const navigationItems = [
         id: purchaseOrdersModuleSlug,
         title: rolePermissionName[purchaseOrdersModuleSlug],
         icon: <FileText size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/purchase-orders`,
+        permissionId: purchaseOrdersModuleSlug,
+        resource: purchaseOrdersModuleSlug,
         companyOnly: true,
       },
       {
@@ -269,7 +271,9 @@ const navigationItems = [
         id: poVendorsModuleSlug,
         title: rolePermissionName[poVendorsModuleSlug],
         icon: <CheckSquare size={20} />,
-        navLink: '',
+        navLink: `${appsRoot}/po-vendors`,
+        permissionId: poVendorsModuleSlug,
+        resource: poVendorsModuleSlug,
         companyOnly: true,
       },
       {
