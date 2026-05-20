@@ -1,16 +1,36 @@
-// Tracking tab — transporter, vehicle, LR, e-way bill, dates.
+// Tracking tab - transporter, vehicle, LR, e-way bill, dates.
 // Editable inline while POV is draft or dispatched (per edit lock §11).
 
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
+import {
+  Card,
+  CardBody,
+  Row,
+  Col,
+  Label,
+  Input,
+  Button,
+  UncontrolledTooltip,
+} from "reactstrap";
+import { Plus } from "react-feather";
 import { useTranslation } from "react-i18next";
 import { useForm, Controller } from "react-hook-form";
 
 import { updatePoVendor } from "@src/views/po-vendors/store";
+import {
+  getTrackingEventsByPov,
+  deleteTrackingEvent,
+  cleanTrackingEventMessage,
+} from "@src/views/tracking/store";
+import TrackingTimeline from "@src/views/_shared/tracking/TrackingTimeline";
+import AddTrackingEventModal from "@src/views/_shared/tracking/AddTrackingEventModal";
+import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import { isAdminUser } from "@constant/defaultValues";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 const TrackingTab = () => {
   const { id } = useParams();
@@ -18,15 +38,83 @@ const TrackingTab = () => {
   const { t } = useTranslation();
 
   const { poVendorItem } = useSelector((s) => s.poVendor);
+  const trackingStore = useSelector((s) => s.trackingEvent);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
   const p = poVendorItem || {};
   const status = (p?.status || "").toLowerCase();
+  const [addEventOpen, setAddEventOpen] = useState(false);
 
-  // Permission gate — po-vendors.can_update lets the user save changes.
+  // Tracking events: load whenever the POV id changes; refresh after
+  // each successful create (driven by the modal's onCreated callback).
+  useEffect(() => {
+    if (id) dispatch(getTrackingEventsByPov(id));
+  }, [id, dispatch]);
+
+  const canAddEvent =
+    status === "dispatched" || status === "closed";
+  const addEventTooltip =
+    status === "draft"
+      ? t("Available after dispatch.")
+      : status === "cancelled"
+      ? t("Cannot add events on cancelled POVs.")
+      : "";
+
+  // Permission gate - po-vendors.can_update lets the user save changes.
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
+
+  // Tracking-event retraction (Option D) — tracking.can_delete gates it.
+  const trackingPerms = authUserItem?.role?.permissions?.tracking;
+  const canRetractEvent =
+    isAdmin || trackingPerms?.can_all || trackingPerms?.can_delete;
+
+  // SweetAlert prompt + dispatch retract.
+  const mySwal = withReactContent(Swal);
+  const onRetractEvent = (event) => {
+    mySwal
+      .fire({
+        title: t("Retract this tracking event?"),
+        text: t(
+          "The event will stay in the audit log, shown struck through. Provide a reason."
+        ),
+        icon: "warning",
+        input: "textarea",
+        inputPlaceholder: t("Reason (required)"),
+        inputValidator: (v) =>
+          !v || !v.trim() ? t("A reason is required.") : undefined,
+        showCancelButton: true,
+        confirmButtonText: t("Yes, retract"),
+        cancelButtonText: t("Keep event"),
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (result.isConfirmed && result.value) {
+          dispatch(
+            deleteTrackingEvent({ id: event._id, reason: result.value.trim() })
+          );
+        }
+      });
+  };
+
+  // After retract finishes, refresh the timeline + show toast.
+  useEffect(() => {
+    if (trackingStore?.actionFlag === "TRACKING_DLT") {
+      if (trackingStore?.success)
+        Notification("Success", trackingStore.success, "success");
+      dispatch(cleanTrackingEventMessage());
+      if (id) dispatch(getTrackingEventsByPov(id));
+    }
+    if (trackingStore?.error) {
+      Notification("Error", trackingStore.error, "warning");
+      dispatch(cleanTrackingEventMessage());
+    }
+  }, [trackingStore?.actionFlag, trackingStore?.error]);
 
   // Editable in DRAFT or DISPATCHED, but only if user can update.
   const editable = canUpdate && (status === "draft" || status === "dispatched");
@@ -40,7 +128,6 @@ const TrackingTab = () => {
       eway_bill_no: "",
       eway_bill_date: "",
       expected_arrival_date: "",
-      notes: "",
       internal_notes: "",
     },
   });
@@ -55,7 +142,6 @@ const TrackingTab = () => {
         eway_bill_no: p.eway_bill_no || "",
         eway_bill_date: (p.eway_bill_date || "").slice(0, 10),
         expected_arrival_date: (p.expected_arrival_date || "").slice(0, 10),
-        notes: p.notes || "",
         internal_notes: p.internal_notes || "",
       });
     }
@@ -74,7 +160,6 @@ const TrackingTab = () => {
       expected_arrival_date: values.expected_arrival_date
         ? values.expected_arrival_date.slice(0, 10)
         : undefined,
-      notes: values.notes || undefined,
       internal_notes: values.internal_notes || undefined,
     };
     dispatch(updatePoVendor({ id, data }));
@@ -201,23 +286,7 @@ const TrackingTab = () => {
                 />
               </Col>
               <Col md="12" className="mb-1">
-                <Label className="form-label">{t("Notes (vendor-visible)")}</Label>
-                <Controller
-                  name="notes"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      type="textarea"
-                      rows="2"
-                      {...field}
-                      value={field.value || ""}
-                      disabled={!editable}
-                    />
-                  )}
-                />
-              </Col>
-              <Col md="12" className="mb-1">
-                <Label className="form-label">{t("Internal Notes")}</Label>
+                <Label className="form-label">{t("Notes")}</Label>
                 <Controller
                   name="internal_notes"
                   control={control}
@@ -227,7 +296,8 @@ const TrackingTab = () => {
                       rows="2"
                       {...field}
                       value={field.value || ""}
-                      placeholder={t("Hidden from any vendor-facing view")}
+                      disabled={!editable}
+                      placeholder={t("Internal ops notes for this shipment")}
                     />
                   )}
                 />
@@ -241,6 +311,45 @@ const TrackingTab = () => {
           </form>
         </CardBody>
       </Card>
+
+      <Card className="mt-2">
+        <CardBody>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h4 className="mb-0">{t("Event Timeline")}</h4>
+            <span id="pov-add-event-btn-wrap">
+              <Button
+                color="primary"
+                size="sm"
+                onClick={() => setAddEventOpen(true)}
+                disabled={!canAddEvent}
+              >
+                <Plus size={14} className="me-25" />
+                {t("Add Event")}
+              </Button>
+            </span>
+            {!canAddEvent && addEventTooltip ? (
+              <UncontrolledTooltip
+                placement="left"
+                target="pov-add-event-btn-wrap"
+              >
+                {addEventTooltip}
+              </UncontrolledTooltip>
+            ) : null}
+          </div>
+          <TrackingTimeline
+            events={trackingStore?.trackingEventTimeline || []}
+            emptyText={t("No tracking events yet - add the first one above.")}
+            onRetract={canRetractEvent ? onRetractEvent : undefined}
+          />
+        </CardBody>
+      </Card>
+
+      <AddTrackingEventModal
+        open={addEventOpen}
+        toggle={() => setAddEventOpen((v) => !v)}
+        poVendorId={id}
+        onCreated={() => dispatch(getTrackingEventsByPov(id))}
+      />
     </Fragment>
   );
 };
