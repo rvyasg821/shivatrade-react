@@ -9,10 +9,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  User,
   Calendar,
   DollarSign,
-  FileText,
   Edit,
   Eye,
   Truck,
@@ -44,8 +42,8 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
-  DetailSummaryCard,
   DetailFieldList,
+  DetailPanel,
   DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
@@ -183,33 +181,8 @@ const ViewQuotation = () => {
     },
   ];
 
-  // ── Summary card fields ──
-  const aboutFields = [
-    { icon: User, label: t("Customer"), value: q?.customer_name },
-    {
-      icon: FileText,
-      label: t("Source Lead"),
-      value: q?.lead_id ? (
-        <a
-          href={`${appsRoot}/leads/view/${q.lead_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "inherit" }}
-        >
-          {t("Open lead")}
-        </a>
-      ) : null,
-    },
-    {
-      icon: Calendar,
-      label: t("Quotation Date"),
-      value: q?.quotation_date ? formatDate(q.quotation_date) : null,
-    },
-    {
-      icon: Calendar,
-      label: t("Valid Until"),
-      value: q?.valid_until ? formatDate(q.valid_until) : null,
-    },
+  // ── Side panel field lists ──
+  const moneyFields = [
     { icon: Tag, label: t("Currency"), value: q?.currency_code },
     {
       icon: Percent,
@@ -232,7 +205,7 @@ const ViewQuotation = () => {
     {
       icon: DollarSign,
       label: t("Subtotal"),
-      value: q?.subtotal ? `${sym}${fmt(q.subtotal)}` : null,
+      value: q?.subtotal ? fmt(q.subtotal) : null,
     },
     {
       icon: DollarSign,
@@ -249,7 +222,7 @@ const ViewQuotation = () => {
       label: t("Margin"),
       value:
         q?.margin_amount
-          ? `${sym}${fmt(q.margin_amount)}${
+          ? `${fmt(q.margin_amount)}${
               q?.margin_pct ? ` (${q.margin_pct}%)` : ""
             }`
           : null,
@@ -257,7 +230,7 @@ const ViewQuotation = () => {
     {
       icon: DollarSign,
       label: t("Tax"),
-      value: q?.tax_total ? `${sym}${fmt(q.tax_total)}` : null,
+      value: q?.tax_total ? fmt(q.tax_total) : null,
     },
     {
       icon: DollarSign,
@@ -304,32 +277,35 @@ const ViewQuotation = () => {
 
         <DetailTwoPanel
           ratio="9-3"
-          left={
+          left={<RelatedDocsTabs />}
+          right={
             <Fragment>
-              <DetailSummaryCard
-                title={t("Quotation Summary")}
-                split={{ md: 6, lg: 6 }}
-                left={
-                  <DetailFieldList title={t("About")} items={aboutFields} />
-                }
-                right={
-                  <Fragment>
-                    <DetailFieldList title={t("Terms")} items={termsFields} />
-                    <DetailFieldList
-                      title={t("Costing")}
-                      items={costingFields}
-                    />
-                  </Fragment>
-                }
-                brief={q?.notes_to_client || q?.internal_notes}
-                briefLabel={
-                  q?.notes_to_client ? t("Notes to Client") : t("Internal Notes")
-                }
-              />
-              <RelatedDocsTabs />
+              <PublicLinkPanel />
+              <DetailPanel title={t("Details")}>
+                <DetailFieldList items={moneyFields} />
+                <DetailFieldList title={t("Terms")} items={termsFields} />
+                <DetailFieldList title={t("Costing")} items={costingFields} />
+                {(q?.notes_to_client || q?.internal_notes) && (
+                  <div className="mt-1 pt-1 border-top">
+                    <div className="text-muted small mb-50">
+                      {q?.notes_to_client
+                        ? t("Notes to Client")
+                        : t("Internal Notes")}
+                    </div>
+                    <div
+                      className="text-break small"
+                      style={{
+                        whiteSpace: "pre-line",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {q?.notes_to_client || q?.internal_notes}
+                    </div>
+                  </div>
+                )}
+              </DetailPanel>
             </Fragment>
           }
-          right={<PublicLinkPanel />}
         />
       </div>
 
