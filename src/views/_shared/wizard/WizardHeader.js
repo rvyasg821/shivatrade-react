@@ -7,7 +7,7 @@ const WizardHeader = ({ steps, activeStep, visited, onStepClick, isEdit }) => {
     <div className="wizard-stepper">
       {steps.map((s, i) => {
         const isActive = i === activeStep;
-        const isDone = visited.has(i) && i < activeStep;
+        const isDone = i < activeStep;
         // Edit mode: any step is clickable. Create mode: only visited ones.
         const isClickable = isEdit || visited.has(i);
         const Icon = s.icon;
@@ -32,7 +32,7 @@ const WizardHeader = ({ steps, activeStep, visited, onStepClick, isEdit }) => {
             {i < steps.length - 1 && (
               <div
                 className={classnames("step-connector", {
-                  done: visited.has(i + 1) || i < activeStep,
+                  done: i < activeStep,
                 })}
               />
             )}
