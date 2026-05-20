@@ -221,7 +221,7 @@ const ModulePermission = () => {
       title: t("Purchase"),
       children: [
         { title: "PO Vendors", slug: "po-vendors" },
-        // Tracking added when that module ships
+        { title: "Tracking", slug: "tracking" },
       ]
     },
     {
@@ -258,7 +258,7 @@ const ModulePermission = () => {
 
       {store?.roleItem?.isDefault && (
         <Alert color="info" className="mb-2">
-          <strong>{t("Default Role")}</strong> — {t("This is a system-defined role. You can configure its permissions, but the role name and type cannot be changed.")}
+          <strong>{t("Default Role")}</strong> - {t("This is a system-defined role. You can configure its permissions, but the role name and type cannot be changed.")}
         </Alert>
       )}
 
