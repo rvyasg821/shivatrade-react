@@ -45,6 +45,7 @@ import {
   LEAD_STATUS_OPTIONS,
   LEAD_STATUS_BADGE_COLOR,
 } from "@constant/options";
+import { formatMoney } from "@src/utility/currency";
 
 const LeadList = () => {
   const { t } = useTranslation();
@@ -302,9 +303,7 @@ const LeadList = () => {
       name: t("Budget"),
       sortable: false,
       selector: (row) =>
-        row?.expected_value
-          ? `${row?.currency || ""} ${Number(row.expected_value).toLocaleString()}`.trim()
-          : "-",
+        row?.expected_value ? formatMoney(row.expected_value, row?.currency) : "-",
     },
     {
       name: t("Follow-up"),

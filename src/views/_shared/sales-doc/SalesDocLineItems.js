@@ -89,6 +89,10 @@ const SalesDocLineItems = ({
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
+  // Sub-stepper inside the line-item modal:
+  //   0 → Product + vendor selection (radio cards w/ price)
+  //   1 → Qty / Price / Disc / Tax / Margin / Description + costing breakdown
+  const [modalStep, setModalStep] = useState(0);
   // Product picker mode: false = AsyncSelect server-side search (default),
   // true = browse the full client-side list (for "I don't know the name").
   const [browseAll, setBrowseAll] = useState(false);
@@ -147,13 +151,36 @@ const SalesDocLineItems = ({
         `${API_ENDPOINTS.priceList.byProduct}/${productId}`,
       );
       const rows = resp?.data?.data || [];
-      const vOpts = rows.map((r) => ({
+      // Sort vendors by unit price ascending so the cheapest seller surfaces
+      // first in the radio-card list (and in the auto-pick fallback below).
+      const sortedRows = [...rows].sort(
+        (a, b) => num(a?.unit_price) - num(b?.unit_price)
+      );
+      const vOpts = sortedRows.map((r) => ({
         value: r.vendor_id,
         label: formatVendorOption(r),
         raw: r,
       }));
       setVendorOptionsByLine((m) => ({ ...m, [idx]: vOpts }));
-      return rows;
+
+      // If the line doesn't have a vendor selected yet, default to the
+      // lowest-price one. Don't override a user's existing pick.
+      const currentVendorId = liveLines?.[idx]?.vendor_id;
+      if (!currentVendorId && sortedRows.length) {
+        const cheapest = sortedRows[0];
+        setValue(`lines.${idx}.vendor_id`, cheapest.vendor_id || "");
+        setValue(`lines.${idx}.unit_price`, String(cheapest.unit_price ?? ""));
+        if (
+          cheapest.discount_pct !== undefined &&
+          cheapest.discount_pct !== null
+        ) {
+          setValue(
+            `lines.${idx}.discount_pct`,
+            String(cheapest.discount_pct)
+          );
+        }
+      }
+      return sortedRows;
     } catch (_e) {
       setVendorOptionsByLine((m) => ({ ...m, [idx]: [] }));
       return [];
@@ -249,10 +276,12 @@ const SalesDocLineItems = ({
     lineFA.append({ ...initLineItem });
     const newIdx = lineFA.fields.length;
     setModal({ open: true, idx: newIdx, isNew: true });
+    setModalStep(0);
   };
 
   const openEdit = (idx) => {
     setModal({ open: true, idx, isNew: false });
+    setModalStep(0);
   };
 
   const closeModal = () => {
@@ -307,6 +336,11 @@ const SalesDocLineItems = ({
   // is_default flag in the Currency module). The converted row only shows
   // when the document currency differs from the home currency.
   const baseSym = currencySymbol(baseCurrencyCode);
+  // Symbol of the doc's own currency — same as the detail page uses, so the
+  // edit table reads in the foreign currency the user picked at Step 1.
+  const docSym = currencySymbol(currencyCode) || baseSym;
+  const docRate = num(exchangeRate) || 1;
+  const toDocCcy = (v) => num(v) * docRate;
   const showConverted =
     !!currencyCode && !!baseCurrencyCode && currencyCode !== baseCurrencyCode;
 
@@ -350,11 +384,6 @@ const SalesDocLineItems = ({
                 <th>{t("Product")}</th>
                 <th className="text-end">{t("Qty")}</th>
                 <th className="text-end">{t("Price")}</th>
-                <th className="text-end">{t("Disc %")}</th>
-                <th className="text-end">{t("Expenses")}</th>
-                <th className="text-end">{t("Rebates")}</th>
-                <th className="text-end">{t("GST %")}</th>
-                <th className="text-end">{t("Margin %")}</th>
                 <th className="text-end">{t("Total")}</th>
                 <th className="text-center" style={{ width: 90 }}>
                   {t("Actions")}
@@ -369,7 +398,6 @@ const SalesDocLineItems = ({
                 if (modal.isNew && modal.idx === idx) return null;
                 const l = liveLines[idx] || {};
                 const c = computeLineCosting(l);
-                const lineNet = c.taxable;
                 const productLabel =
                   productOptions.find((o) => o.value === l.product_id)?.label ||
                   (l.product_id ? "-" : t("(not set)"));
@@ -378,11 +406,6 @@ const SalesDocLineItems = ({
                   vendorOpts
                     .find((o) => o.value === l.vendor_id)
                     ?.label?.split(" - ")[0] || "-";
-                // Pull rebates/expenses from the line snapshot (which may
-                // be edited per-line), not from the product master.
-                const lineRebates = l?.product_rebates_snapshot || [];
-                const lineExpenses = l?.product_expenses_snapshot || [];
-                const hasChips = lineRebates.length || lineExpenses.length;
                 return (
                   <Fragment key={field.id}>
                     <tr>
@@ -408,20 +431,15 @@ const SalesDocLineItems = ({
                           : "-"}
                       </td>
                       <td className="text-end">
-                        {l.unit_price ? `${baseSym}${fmt(l.unit_price)}` : "-"}
+                        {num(l.qty) > 0
+                          ? `${docSym}${fmt(toDocCcy(c.lineTotal) / num(l.qty))}`
+                          : l.unit_price
+                          ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
+                          : "-"}
                       </td>
-                      <td className="text-end">{num(l.discount_pct) || 0}</td>
-                      <td className="text-end">
-                        {c.expenses > 0 ? `${baseSym}${fmt(c.expenses)}` : "-"}
-                      </td>
-                      <td className="text-end">
-                        {c.rebates > 0 ? `${baseSym}${fmt(c.rebates)}` : "-"}
-                      </td>
-                      <td className="text-end">{num(l.tax_pct) || 0}</td>
-                      <td className="text-end">{num(l.margin_pct) || 0}</td>
                       <td className="text-end fw-bold">
-                        {baseSym}
-                        {fmt(c.lineTotal)}
+                        {docSym}
+                        {fmt(toDocCcy(c.lineTotal))}
                       </td>
                       <td>
                         <div
@@ -449,49 +467,6 @@ const SalesDocLineItems = ({
                         </div>
                       </td>
                     </tr>
-                    {hasChips && (
-                      <tr className="bg-light">
-                        <td></td>
-                        <td colSpan={10} className="py-1">
-                          <small className="text-muted me-2">
-                            {t("Auto-applied:")}
-                          </small>
-                          {lineRebates.map((r) => {
-                            const isFixed = r.type === "fixed";
-                            const amt = isFixed
-                              ? num(r.pct)
-                              : (lineNet * num(r.pct)) / 100;
-                            return (
-                              <span
-                                key={`r-${idx}-${r.rebate_id}`}
-                                className="badge bg-success text-white me-1"
-                              >
-                                {r.code || r.name}{" "}
-                                {isFixed
-                                  ? fmt(num(r.pct))
-                                  : `${num(r.pct)}% = ${fmt(amt)}`}
-                              </span>
-                            );
-                          })}
-                          {lineExpenses.map((e) => {
-                            const amt =
-                              e.type === "percent"
-                                ? (lineNet * num(e.value)) / 100
-                                : num(e.value);
-                            return (
-                              <span
-                                key={`e-${idx}-${e.expense_id}`}
-                                className="badge bg-warning text-dark me-1"
-                              >
-                                {e.code || e.name}{" "}
-                                {e.type === "percent" ? `${num(e.value)}%` : ""}{" "}
-                                = {fmt(amt)}
-                              </span>
-                            );
-                          })}
-                        </td>
-                      </tr>
-                    )}
                   </Fragment>
                 );
               })}
@@ -515,6 +490,89 @@ const SalesDocLineItems = ({
         <ModalBody>
           {editingIdx != null && (
             <>
+              {/* ── Inline 2-step nav ─────────────────────────────────── */}
+              <div className="d-flex align-items-center justify-content-center mb-2">
+                {[
+                  { i: 0, label: t("Product & Vendor") },
+                  { i: 1, label: t("Pricing & Details") },
+                ].map((s, idx) => (
+                  <Fragment key={s.i}>
+                    {idx > 0 && (
+                      <div
+                        style={{
+                          width: 56,
+                          height: 2,
+                          background:
+                            modalStep > s.i - 1 ? "#28c76f" : "#dcdbe5",
+                          margin: "0 8px",
+                          borderRadius: 2,
+                        }}
+                      />
+                    )}
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        // Don't allow jumping forward without a product OR
+                        // when the product has no vendors on file.
+                        if (s.i > 0) {
+                          if (!editingLine.product_id) return;
+                          const hasFetched =
+                            editingIdx != null &&
+                            editingIdx in vendorOptionsByLine;
+                          if (
+                            hasFetched &&
+                            (vendorOptionsByLine[editingIdx] || []).length ===
+                              0
+                          ) {
+                            return;
+                          }
+                        }
+                        setModalStep(s.i);
+                      }}
+                    >
+                      <div
+                        className="d-flex align-items-center justify-content-center rounded-circle me-1"
+                        style={{
+                          width: 28,
+                          height: 28,
+                          background:
+                            modalStep === s.i
+                              ? "#7367f0"
+                              : modalStep > s.i
+                              ? "#28c76f"
+                              : "#fff",
+                          color:
+                            modalStep === s.i || modalStep > s.i
+                              ? "#fff"
+                              : "#8c8b97",
+                          border:
+                            modalStep === s.i || modalStep > s.i
+                              ? "none"
+                              : "1.5px solid #dcdbe5",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {s.i + 1}
+                      </div>
+                      <span
+                        className="fw-semibold"
+                        style={{
+                          color: modalStep === s.i ? "#1a2238" : "#6e6b7b",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {s.label}
+                      </span>
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
+
+              {/* ── Step 1: Product + Vendor selection ──────────────── */}
+              {modalStep === 0 && (
+              <>
               <Row>
                 <Col md="12" className="mb-2">
                   <Label className="form-label d-flex justify-content-between align-items-center">
@@ -587,27 +645,110 @@ const SalesDocLineItems = ({
                   <Controller
                     name={`lines.${editingIdx}.vendor_id`}
                     control={control}
-                    render={({ field: f }) => (
-                      <Select
-                        classNamePrefix="select"
-                        isClearable
-                        options={editingVendorOpts}
-                        value={
-                          editingVendorOpts.find((o) => o.value === f.value) ||
-                          null
+                    render={({ field: f }) => {
+                      if (!editingLine.product_id) {
+                        return (
+                          <div className="border rounded p-2 text-muted small">
+                            {t("Pick a product first to see its vendors.")}
+                          </div>
+                        );
+                      }
+                      if (!editingVendorOpts.length) {
+                        // Distinguish "still loading" from "no vendors at all".
+                        const hasFetched =
+                          editingIdx in vendorOptionsByLine;
+                        if (!hasFetched) {
+                          return (
+                            <div className="border rounded p-2 text-muted small">
+                              {t("Loading vendors…")}
+                            </div>
+                          );
                         }
-                        onChange={(opt) => onPickVendor(editingIdx, opt)}
-                        placeholder={
-                          editingVendorOpts.length
-                            ? t("Pick vendor")
-                            : t("No vendor prices")
-                        }
-                        isDisabled={!editingVendorOpts.length}
-                      />
-                    )}
+                        return (
+                          <div
+                            className="rounded p-2 small"
+                            style={{
+                              background: "#fff3e0",
+                              color: "#7a4a00",
+                              border: "1px solid #ffe0b2",
+                            }}
+                          >
+                            {t(
+                              "No vendor sells this product yet. Add this product to a vendor's price list before quoting it."
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="d-flex flex-column gap-1">
+                          {editingVendorOpts.map((opt) => {
+                            const r = opt.raw || {};
+                            const checked = f.value === opt.value;
+                            const id = `vendor-radio-${editingIdx}-${opt.value}`;
+                            return (
+                              <label
+                                key={opt.value}
+                                htmlFor={id}
+                                className="d-flex align-items-center justify-content-between rounded p-2 mb-0"
+                                style={{
+                                  cursor: "pointer",
+                                  border: checked
+                                    ? "1.5px solid #7367f0"
+                                    : "1px solid #dcdbe5",
+                                  background: checked ? "#f4f3ff" : "#fff",
+                                }}
+                              >
+                                <div className="d-flex align-items-center">
+                                  <input
+                                    id={id}
+                                    type="radio"
+                                    name={`vendor-radio-${editingIdx}`}
+                                    checked={checked}
+                                    onChange={() =>
+                                      onPickVendor(editingIdx, opt)
+                                    }
+                                    className="form-check-input me-2 mt-0"
+                                    style={{ cursor: "pointer" }}
+                                  />
+                                  <div>
+                                    <div className="fw-semibold" style={{ color: "#1a2238" }}>
+                                      {r.vendor_name ||
+                                        opt.label?.split(" - ")[0] ||
+                                        opt.label}
+                                    </div>
+                                    {r.vendor_code && (
+                                      <small className="text-muted">
+                                        [{r.vendor_code}]
+                                      </small>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-end">
+                                  <div className="fw-bold" style={{ color: "#1a2238" }}>
+                                    {baseSym}
+                                    {fmt(r.unit_price)}
+                                  </div>
+                                  {num(r.discount_pct) > 0 && (
+                                    <small className="text-muted">
+                                      − {num(r.discount_pct)}%
+                                    </small>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    }}
                   />
                 </Col>
               </Row>
+              </>
+              )}
+
+              {/* ── Step 2: Pricing & description ───────────────────── */}
+              {modalStep === 1 && (
+              <>
               <Row>
                 <Col md="4" sm="6" className="mb-2">
                   <Label className="form-label">
@@ -1375,13 +1516,13 @@ const SalesDocLineItems = ({
                   </ul>
                 </Col>
               </Row>
+              </>
+              )}
             </>
           )}
         </ModalBody>
         <ModalFooter>
           {(() => {
-            // Block "Done" when this line has data but qty / unit_price are
-            // missing or invalid. Empty rows still close (auto-removed).
             const q = num(editingLine.qty);
             const p = num(editingLine.unit_price);
             const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
@@ -1394,18 +1535,70 @@ const SalesDocLineItems = ({
             const priceInvalid = hasAnyData && p <= 0;
             const productMissing = hasAnyData && !editingLine.product_id;
             const blocked = qtyInvalid || priceInvalid || productMissing;
+            const onStep1 = modalStep === 0;
+            const hasFetchedVendors =
+              editingIdx != null && editingIdx in vendorOptionsByLine;
+            const noVendors =
+              !!editingLine.product_id &&
+              hasFetchedVendors &&
+              editingVendorOpts.length === 0;
+            const cannotAdvance =
+              onStep1 && (!editingLine.product_id || noVendors);
+            const step1Hint = onStep1
+              ? !editingLine.product_id
+                ? t("Pick a product to continue")
+                : !hasFetchedVendors
+                ? t("Loading vendors…")
+                : noVendors
+                ? t(
+                    "No vendor sells this product yet — add it to a vendor's price list first."
+                  )
+                : null
+              : null;
             return (
               <>
-                {blocked && (
+                {step1Hint && (
+                  <small
+                    className={
+                      noVendors ? "text-warning me-auto" : "text-muted me-auto"
+                    }
+                  >
+                    {step1Hint}
+                  </small>
+                )}
+                {blocked && !onStep1 && (
                   <small className="text-danger me-auto">
                     {productMissing
                       ? t("Pick a product")
                       : t("Fix the highlighted fields to continue")}
                   </small>
                 )}
-                <Button color="primary" onClick={closeModal} disabled={blocked}>
-                  {t("Done")}
-                </Button>
+                {!onStep1 && (
+                  <Button
+                    color="secondary"
+                    outline
+                    onClick={() => setModalStep(0)}
+                  >
+                    {t("Back")}
+                  </Button>
+                )}
+                {onStep1 ? (
+                  <Button
+                    color="primary"
+                    onClick={() => setModalStep(1)}
+                    disabled={cannotAdvance}
+                  >
+                    {t("Next")}
+                  </Button>
+                ) : (
+                  <Button
+                    color="primary"
+                    onClick={closeModal}
+                    disabled={blocked}
+                  >
+                    {t("Done")}
+                  </Button>
+                )}
               </>
             );
           })()}
