@@ -28,6 +28,11 @@ import {
   getQuotation,
   cleanQuotationMessage,
 } from "@src/views/quotations/store";
+import {
+  getExchangeRateOptions,
+  getCurrencyDropdown,
+} from "@src/views/currencies/store";
+import { getCurrencySymbol } from "@src/utility/currency";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
 import {
@@ -78,13 +83,51 @@ const ViewQuotation = () => {
   const { t } = useTranslation();
 
   const store = useSelector((s) => s.quotation);
+  const currencyStore = useSelector((s) => s.currency);
   const q = store?.quotationItem || {};
-  const sym = q?.currency_symbol || q?.currency_code || "";
   const [poModalOpen, setPoModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(getQuotation(id));
+    // Pull live currency master so symbols + base currency are dynamic.
+    dispatch(getExchangeRateOptions());
+    dispatch(getCurrencyDropdown());
   }, [id, dispatch]);
+
+  // Build a live { CODE: symbol } map from /admin/currency/exchange-rate/options
+  // so any currency added in the master is reflected here without code changes.
+  const liveSymbols = useMemo(() => {
+    const out = {};
+    (currencyStore?.exchangeOptions || []).forEach((c) => {
+      if (c?.code && c?.symbol) out[String(c.code).toUpperCase()] = c.symbol;
+    });
+    return out;
+  }, [currencyStore?.exchangeOptions]);
+
+  const baseCurrency = useMemo(() => {
+    const def =
+      (currencyStore?.currencyDropdown || []).find((c) => c.is_default) ||
+      (currencyStore?.exchangeOptions || []).find((c) => c.is_default);
+    return {
+      code: def?.code || "INR",
+      symbol:
+        def?.symbol ||
+        getCurrencySymbol(def?.code || "INR", liveSymbols) ||
+        "₹",
+    };
+  }, [
+    currencyStore?.currencyDropdown,
+    currencyStore?.exchangeOptions,
+    liveSymbols,
+  ]);
+
+  // Resolve the quotation's currency symbol live from the DB master first,
+  // then fall back to whatever the doc was snapshotted with.
+  const sym =
+    getCurrencySymbol(q?.currency_code, liveSymbols) ||
+    q?.currency_symbol ||
+    q?.currency_code ||
+    "";
 
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
@@ -182,12 +225,23 @@ const ViewQuotation = () => {
   ];
 
   // ── Side panel field lists ──
+  const rate = Number(q?.exchange_rate || 0);
+  const isBaseCurrency =
+    (q?.currency_code || "").toUpperCase() === baseCurrency.code.toUpperCase();
+  const inrConversionLine =
+    rate > 0 && !isBaseCurrency
+      ? `${baseCurrency.symbol}1 = ${sym}${rate.toLocaleString(undefined, {
+          maximumFractionDigits: 6,
+        })}`
+      : isBaseCurrency
+      ? t("Base currency — no conversion")
+      : null;
+
   const moneyFields = [
-    { icon: Tag, label: t("Currency"), value: q?.currency_code },
     {
       icon: Percent,
       label: t("Exchange Rate"),
-      value: q?.exchange_rate ? Number(q.exchange_rate).toString() : null,
+      value: inrConversionLine,
     },
   ];
 
@@ -198,44 +252,6 @@ const ViewQuotation = () => {
       icon: MapPin,
       label: t("Delivery Location"),
       value: q?.delivery_location,
-    },
-  ];
-
-  const costingFields = [
-    {
-      icon: DollarSign,
-      label: t("Subtotal"),
-      value: q?.subtotal ? fmt(q.subtotal) : null,
-    },
-    {
-      icon: DollarSign,
-      label: t("Expenses"),
-      value: q?.expenses_total ? `${sym}${fmt(q.expenses_total)}` : null,
-    },
-    {
-      icon: DollarSign,
-      label: t("Rebates"),
-      value: q?.rebates_total ? `${sym}${fmt(q.rebates_total)}` : null,
-    },
-    {
-      icon: Percent,
-      label: t("Margin"),
-      value:
-        q?.margin_amount
-          ? `${fmt(q.margin_amount)}${
-              q?.margin_pct ? ` (${q.margin_pct}%)` : ""
-            }`
-          : null,
-    },
-    {
-      icon: DollarSign,
-      label: t("Tax"),
-      value: q?.tax_total ? fmt(q.tax_total) : null,
-    },
-    {
-      icon: DollarSign,
-      label: t("Grand Total"),
-      value: q?.grand_total ? `${sym}${fmt(q.grand_total)}` : null,
     },
   ];
 
@@ -284,7 +300,6 @@ const ViewQuotation = () => {
               <DetailPanel title={t("Details")}>
                 <DetailFieldList items={moneyFields} />
                 <DetailFieldList title={t("Terms")} items={termsFields} />
-                <DetailFieldList title={t("Costing")} items={costingFields} />
                 {(q?.notes_to_client || q?.internal_notes) && (
                   <div className="mt-1 pt-1 border-top">
                     <div className="text-muted small mb-50">
