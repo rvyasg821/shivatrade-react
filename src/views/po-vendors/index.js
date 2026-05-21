@@ -236,10 +236,13 @@ const PoVendorView = () => {
 
   const vendorOptions = useMemo(
     () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.name,
-      })),
+      (vendorStore?.vendorDropdown || []).map((v) => {
+        const name = v.company_name || v.name || "";
+        return {
+          value: v._id,
+          label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
+        };
+      }),
     [vendorStore?.vendorDropdown]
   );
 
