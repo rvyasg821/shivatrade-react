@@ -167,27 +167,6 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
                     </span>
                   }
                 />
-                {p?.parent_po_vendor_id && (
-                  <InfoRow
-                    icon={ExternalLink}
-                    value={
-                      <span className="d-inline-flex align-items-center">
-                        {t("Parent POV")} ·{" "}
-                        {p?.parent_po_vendor_voucher_no ||
-                          p.parent_po_vendor_id}
-                        <a
-                          href={`${appsRoot}/po-vendors/view/${p.parent_po_vendor_id}`}
-                          title={t("Open parent POV in new tab")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-decoration-none ms-1"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      </span>
-                    }
-                  />
-                )}
               </ul>
             </Fragment>
           )}
