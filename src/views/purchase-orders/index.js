@@ -57,6 +57,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { PURCHASE_ORDER_STATUS_OPTIONS } from "@constant/options";
+import { formatDate } from "@src/utility/dateFormat";
 
 const STATUS_COLOR_MAP = {
   draft: "#6c757d",
@@ -272,37 +273,57 @@ const PurchaseOrderView = () => {
       name: t("PO #"),
       sortField: "voucher_no",
       sortable: false,
-      selector: (row) => (
-        <Link
-          to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
-          className="text-wrap"
-        >
-          {row?.voucher_no || "-"}
-        </Link>
-      ),
-    },
-    {
-      name: t("Vendor"),
-      sortable: false,
-      grow: 2,
+      minWidth: "240px",
+      grow: 1.8,
       selector: (row) => {
-        const phone = row?.vendor_contact_country_code?.formatted || "";
+        const c = STATUS_COLOR_MAP[row?.status] || "#6c757d";
+        const label = (row?.status || "-").replace(/_/g, " ");
+        const refVoucher = row?.pfi_voucher_no || row?.quotation_voucher_no;
+        const refTo = row?.pfi_id
+          ? `${appsRoot}/pfi/view/${row.pfi_id}`
+          : row?.quotation_id
+          ? `${appsRoot}/quotations/view/${row.quotation_id}`
+          : null;
         return (
           <div className="py-1">
-            <span className="fw-bold text-capitalize">
-              {row?.vendor_name || "-"}
-            </span>
-            {row?.vendor_contact_name && (
-              <div className="text-capitalize small">
-                {row.vendor_contact_name}
+            <Link
+              to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
+              className="text-nowrap d-block"
+            >
+              {row?.voucher_no || "-"}
+            </Link>
+            {refVoucher ? (
+              <div className="mt-1">
+                {refTo ? (
+                  <Link
+                    to={refTo}
+                    className="small text-muted text-nowrap d-inline-flex align-items-center"
+                  >
+                    PFI - {refVoucher}
+                    <ExternalLink size={12} className="ms-1" />
+                  </Link>
+                ) : (
+                  <span className="small text-muted text-nowrap">
+                    PFI - {refVoucher}
+                  </span>
+                )}
               </div>
-            )}
-            {row?.vendor_contact_email && (
-              <div className="small text-muted">
-                {row.vendor_contact_email}
-              </div>
-            )}
-            {phone && <div className="small text-muted">{phone}</div>}
+            ) : null}
+            <div>
+              <span
+                className="badge text-capitalize mt-1 d-inline-block"
+                style={{
+                  background: `${c}1a`,
+                  color: c,
+                  border: `1px solid ${c}33`,
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  fontSize: "0.7rem",
+                }}
+              >
+                {label}
+              </span>
+            </div>
           </div>
         );
       },
@@ -335,68 +356,29 @@ const PurchaseOrderView = () => {
       },
     },
     {
-      name: t("Source"),
-      sortable: false,
-      selector: (row) => {
-        if (row?.pfi_voucher_no && row?.pfi_id) {
-          return (
-            <Link
-              to={`${appsRoot}/pfi/view/${row.pfi_id}`}
-              className="text-wrap d-flex align-items-center"
-            >
-              {row.pfi_voucher_no}
-              <ExternalLink size={12} className="ms-1" />
-            </Link>
-          );
-        }
-        if (row?.quotation_voucher_no && row?.quotation_id) {
-          return (
-            <Link
-              to={`${appsRoot}/quotations/view/${row.quotation_id}`}
-              className="text-wrap d-flex align-items-center"
-            >
-              {row.quotation_voucher_no}
-              <ExternalLink size={12} className="ms-1" />
-            </Link>
-          );
-        }
-        return "-";
-      },
-    },
-    {
       name: t("Date"),
       sortField: "po_date",
       sortable: true,
-      selector: (row) => (row?.po_date || "").slice(0, 10),
-    },
-    {
-      name: t("Expected"),
-      sortable: false,
-      selector: (row) => (row?.expected_delivery_date || "").slice(0, 10) || "-",
+      minWidth: "200px",
+      selector: (row) => (
+        <div className="py-1">
+          <div className="text-nowrap">
+            <span className="text-muted me-50">{t("Created")} -</span>
+            {row?.po_date ? formatDate(row.po_date) : "-"}
+          </div>
+          <div className="small text-nowrap mt-25">
+            <span className="text-muted me-50">{t("Expected Date")} -</span>
+            {row?.expected_delivery_date
+              ? formatDate(row.expected_delivery_date)
+              : ""}
+          </div>
+        </div>
+      ),
     },
     {
       name: t("Total"),
       sortable: false,
       selector: formatTotal,
-    },
-    {
-      name: t("Status"),
-      center: true,
-      sortable: false,
-      selector: (row) => {
-        const c = STATUS_COLOR_MAP[row?.status] || "#6c757d";
-        const label = (row?.status || "-").replace(/_/g, " ");
-        return (
-          <span
-            className="text-capitalize text-nowrap fw-bold"
-            ref={(el) => {
-              if (el) el.style.setProperty("color", c, "important");
-            }}
-          >
-            {label}
-          </span>
-        );
-      },
     },
   ];
 

@@ -1,5 +1,5 @@
 // ** React Imports
-import { Fragment, useEffect, useMemo, useLayoutEffect } from "react";
+import { Fragment, useEffect, useMemo, useLayoutEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 // ** Store
@@ -39,7 +39,19 @@ import { useTranslation } from "react-i18next";
 import Select from "react-select";
 
 // ** Icons
-import { ArrowLeft, Plus, Trash2 } from "react-feather";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Briefcase,
+  Users,
+  MapPin,
+} from "react-feather";
+
+// ** Wizard scaffolding (shared with Quotation / PFI / PO wizards)
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import "@src/views/_shared/wizard/wizard.scss";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
@@ -49,6 +61,27 @@ import {
   initCustomerAddressItem,
 } from "@constant/reduxConstant";
 import { STATUS_OPTIONS, COUNTRY_OPTIONS } from "@constant/options";
+
+const STEPS = [
+  {
+    key: "company",
+    label: "Company & Contacts",
+    icon: Briefcase,
+    fields: ["company_name", "status", "contacts"],
+  },
+  {
+    key: "addresses",
+    label: "Addresses",
+    icon: MapPin,
+    fields: ["addresses"],
+  },
+  {
+    key: "tax",
+    label: "Tax & Social",
+    icon: Users,
+    fields: [],
+  },
+];
 
 const CustomerForm = () => {
   const { id } = useParams();
@@ -107,12 +140,44 @@ const CustomerForm = () => {
     reset,
     setValue,
     watch,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
     defaultValues: initCustomerItem,
   });
+
+  // ── Wizard navigation state ─────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+
+  const goTo = async (idx, { validate = true } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= STEPS.length) return;
+    if (idx > activeStep && validate) {
+      const fields = STEPS[activeStep].fields || [];
+      const ok = fields.length === 0 ? true : await trigger(fields);
+      if (!ok) {
+        Notification(
+          "Validation",
+          t("Please complete the highlighted fields first."),
+          "warning"
+        );
+        return;
+      }
+    }
+    setVisited((prev) => {
+      const n = new Set(prev);
+      n.add(idx);
+      return n;
+    });
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const next = () => goTo(activeStep + 1);
+  const back = () => goTo(activeStep - 1, { validate: false });
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -181,6 +246,8 @@ const CustomerForm = () => {
               }))
             : [{ ...initCustomerAddressItem, type: "bill_to", is_default: true }],
       });
+      // Mark every step as visited so the user can click any of them.
+      setVisited(new Set(STEPS.map((_, i) => i)));
     }
   }, [store?.customerItem?._id]);
 
@@ -201,27 +268,32 @@ const CustomerForm = () => {
   };
 
   const onSubmit = (data) => {
+    // Send "" (empty string) for cleared optional fields instead of dropping
+    // them — the backend's Object.assign overwrites the existing column value,
+    // so omitting a field on edit leaves the old value in place. Empty strings
+    // pass `@IsString() @IsOptional()` validation and explicitly clear it.
+    const optStr = (v) => (v == null ? "" : String(v).trim());
     const payload = {
       company_name: data.company_name.trim(),
-      website: data.website?.trim() || undefined,
+      website: optStr(data.website),
       social_media: {
-        linkedin: data.social_media?.linkedin?.trim() || undefined,
-        facebook: data.social_media?.facebook?.trim() || undefined,
-        instagram: data.social_media?.instagram?.trim() || undefined,
-        twitter: data.social_media?.twitter?.trim() || undefined,
-        other: data.social_media?.other?.trim() || undefined,
+        linkedin: optStr(data.social_media?.linkedin),
+        facebook: optStr(data.social_media?.facebook),
+        instagram: optStr(data.social_media?.instagram),
+        twitter: optStr(data.social_media?.twitter),
+        other: optStr(data.social_media?.other),
       },
-      gstin: data.gstin?.trim() || undefined,
-      pan: data.pan?.trim() || undefined,
-      iec: data.iec?.trim() || undefined,
+      gstin: optStr(data.gstin),
+      pan: optStr(data.pan),
+      iec: optStr(data.iec),
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
         name: c.name.trim(),
-        designation: c.designation?.trim() || undefined,
+        designation: optStr(c.designation),
         email: c.email.trim(),
-        phone: c.phone?.trim() || undefined,
-        country_code: c.country_code || undefined,
+        phone: optStr(c.phone),
+        country_code: c.country_code || null,
         is_primary: !!c.is_primary,
       })),
       addresses: (data.addresses || [])
@@ -235,15 +307,15 @@ const CustomerForm = () => {
         )
         .map((a) => ({
           type: a.type || "bill_to",
-          label: a.label?.trim() || undefined,
-          address_line1: a.address_line1?.trim() || undefined,
-          address_line2: a.address_line2?.trim() || undefined,
-          city: a.city?.trim() || undefined,
-          state: a.state?.trim() || undefined,
-          country: a.country?.trim() || undefined,
-          postcode: a.postcode?.trim() || undefined,
-          gstin: a.gstin?.trim() || undefined,
-          iec: a.iec?.trim() || undefined,
+          label: optStr(a.label),
+          address_line1: optStr(a.address_line1),
+          address_line2: optStr(a.address_line2),
+          city: optStr(a.city),
+          state: optStr(a.state),
+          country: optStr(a.country),
+          postcode: optStr(a.postcode),
+          gstin: optStr(a.gstin),
+          iec: optStr(a.iec),
           is_default: !!a.is_default,
         })),
     };
@@ -260,9 +332,43 @@ const CustomerForm = () => {
     else dispatch(stopLoading());
   }, [store?.loading]);
 
+  // Re-route Save → run full validation, jump to the first step containing
+  // errors if any, otherwise submit through react-hook-form's normal flow.
+  const findFirstErrorStep = () => {
+    const errs = errors || {};
+    const hasErr = (path) => !!errs[path.split(".")[0]];
+    for (let i = 0; i < STEPS.length; i++) {
+      if ((STEPS[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      Notification(
+        "Validation",
+        t("Please fix the highlighted fields."),
+        "warning"
+      );
+      return;
+    }
+    handleSubmit(onSubmit)();
+  };
+
   return (
     <Fragment>
-      <div className="main-content customers">
+      <div className="main-content customers quotation-wizard">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{isEditMode ? t("Edit Customer") : t("Add Customer")}</h3>
           <Button
@@ -274,9 +380,19 @@ const CustomerForm = () => {
           </Button>
         </div>
 
+        <WizardHeader
+          steps={STEPS}
+          activeStep={activeStep}
+          visited={visited}
+          onStepClick={(i) => goTo(i)}
+          isEdit={isEditMode}
+        />
+
         <Card>
           <CardBody>
-            <Form onSubmit={handleSubmit(onSubmit)}>
+            <Form onSubmit={(e) => e.preventDefault()}>
+              {activeStep === 0 && (
+                <Fragment>
               {/* ── Company Info ── */}
               <h4 className="mt-1 mb-2">{t("Company Information")}</h4>
               <Row>
@@ -349,8 +465,9 @@ const CustomerForm = () => {
                 </Col>
               </Row>
 
+
               {/* ── Contact Persons ── */}
-              <div className="d-flex align-items-center justify-content-between mt-3 mb-2">
+              <div className="d-flex align-items-center justify-content-between mt-1 mb-2">
                 <h4 className="mb-0">{t("Contact Persons")}</h4>
                 <Button
                   type="button"
@@ -494,69 +611,14 @@ const CustomerForm = () => {
                     {errors.contacts.message}
                   </FormFeedback>
                 )}
+                
+                </Fragment>
+              )}
 
-              {/* ── Tax & Compliance ── */}
-              <h4 className="mt-3 mb-2">{t("Tax & Compliance")}</h4>
-              <Row>
-                <Col md="4" className="mb-2">
-                  <Label className="form-label" for="gstin">
-                    {t("Tax / VAT Number")}
-                  </Label>
-                  <Controller
-                    name="gstin"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="gstin"
-                        maxLength={30}
-                        placeholder={t("GSTIN, VAT, TRN, etc.")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("GSTIN for India; VAT / TRN / Tax ID for overseas customers.")}
-                  </small>
-                </Col>
-                <Col md="4" className="mb-2">
-                  <Label className="form-label" for="pan">
-                    {t("Business Registration #")}
-                  </Label>
-                  <Controller
-                    name="pan"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="pan"
-                        maxLength={30}
-                        placeholder={t("PAN, Trade License, CR, EIN, etc.")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("PAN for India; Trade License / CR / company registration for overseas.")}
-                  </small>
-                </Col>
-                <Col md="4" className="mb-2">
-                  <Label className="form-label" for="iec">
-                    {t("IEC")} <small className="text-muted">({t("Importer Exporter Code")})</small>
-                  </Label>
-                  <Controller
-                    name="iec"
-                    control={control}
-                    render={({ field }) => (
-                      <Input id="iec" maxLength={20}
-                        {...field} value={field.value || ""} />
-                    )}
-                  />
-                </Col>
-              </Row>
-
+              {activeStep === 1 && (
+                <Fragment>
               {/* ── Addresses (multi) ── */}
-              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
+              <div className="d-flex justify-content-between align-items-center mt-1 mb-2">
                 <h4 className="mb-0">{t("Addresses")}</h4>
                 <Button
                   type="button" size="sm" color="primary" outline
@@ -762,6 +824,71 @@ const CustomerForm = () => {
                 );
               })}
 
+                
+                </Fragment>
+              )}
+
+              {activeStep === 2 && (
+                <Fragment>              {/* ── Tax & Compliance ── */}
+              <h4 className="mt-3 mb-2">{t("Tax & Compliance")}</h4>
+              <Row>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="gstin">
+                    {t("Tax / VAT Number")}
+                  </Label>
+                  <Controller
+                    name="gstin"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="gstin"
+                        maxLength={30}
+                        placeholder={t("GSTIN, VAT, TRN, etc.")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t("GSTIN for India; VAT / TRN / Tax ID for overseas customers.")}
+                  </small>
+                </Col>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="pan">
+                    {t("Business Registration #")}
+                  </Label>
+                  <Controller
+                    name="pan"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="pan"
+                        maxLength={30}
+                        placeholder={t("PAN, Trade License, CR, EIN, etc.")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t("PAN for India; Trade License / CR / company registration for overseas.")}
+                  </small>
+                </Col>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="iec">
+                    {t("IEC")} <small className="text-muted">({t("Importer Exporter Code")})</small>
+                  </Label>
+                  <Controller
+                    name="iec"
+                    control={control}
+                    render={({ field }) => (
+                      <Input id="iec" maxLength={20}
+                        {...field} value={field.value || ""} />
+                    )}
+                  />
+                </Col>
+              </Row>
+
               {/* ── Social Media ── */}
               <h4 className="mt-3 mb-2">{t("Social Media URLs")}</h4>
               <Row>
@@ -787,21 +914,20 @@ const CustomerForm = () => {
                   )
                 )}
               </Row>
+                
+                </Fragment>
+              )}
 
-              <div className="d-flex justify-content-end mt-3">
-                <Button
-                  type="button"
-                  color="secondary"
-                  outline
-                  className="me-1"
-                  onClick={() => navigate(`${appsRoot}/customers`)}
-                >
-                  {t("Cancel")}
-                </Button>
-                <Button type="submit" color="primary" disabled={isSubmitting}>
-                  {isEditMode ? t("Update") : t("Create")}
-                </Button>
-              </div>
+              <WizardFooter
+                isFirst={activeStep === 0}
+                isLast={activeStep === STEPS.length - 1}
+                isEdit={isEditMode}
+                onBack={back}
+                onNext={next}
+                onSubmit={onSave}
+                onCancel={() => navigate(`${appsRoot}/customers`)}
+                submitting={isSubmitting}
+              />
             </Form>
           </CardBody>
         </Card>

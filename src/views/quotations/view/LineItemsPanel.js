@@ -13,12 +13,23 @@ import {
 } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import { DetailPanel } from "@src/views/_shared/detail-page";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const LineItemsPanel = ({ bare = false }) => {
   const { t } = useTranslation();
   const { quotationItem } = useSelector((s) => s.quotation);
   const q = quotationItem || {};
   const lines = q?.lines || [];
+  const sym =
+    getCurrencySymbol(q?.currency_code) ||
+    q?.currency_symbol ||
+    q?.currency_code ||
+    "";
+  // line_total is stored in the base currency (INR). The doc Grand Total is
+  // grand_inr × exchange_rate — apply the same conversion per line so the
+  // table reads in the doc's currency to match the costing card.
+  const rate = num(q?.exchange_rate) || 1;
+  const toDocCcy = (v) => num(v) * rate;
 
   const totals = useMemo(
     () => computeDocTotals(lines, q?.exchange_rate),
@@ -34,36 +45,41 @@ const LineItemsPanel = ({ bare = false }) => {
             <th>{t("Product")}</th>
             <th className="text-end">{t("Qty")}</th>
             <th className="text-end">{t("Price")}</th>
-            <th className="text-end">{t("Disc%")}</th>
-            <th className="text-end">{t("Margin%")}</th>
             <th className="text-end">{t("Total")}</th>
           </tr>
         </thead>
         <tbody>
           {lines.length === 0 ? (
             <tr>
-              <td colSpan={7} className="text-center text-muted py-3">
+              <td colSpan={5} className="text-center text-muted py-3">
                 {t("No line items.")}
               </td>
             </tr>
           ) : (
-            lines.map((l, i) => (
-              <tr key={l._id || i}>
-                <td>{i + 1}</td>
-                <td className="text-wrap">
-                  {l.product_name || l.product_code || "-"}
-                </td>
-                <td className="text-end">
-                  {l.qty
-                    ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
-                    : "-"}
-                </td>
-                <td className="text-end">{fmt(l.unit_price)}</td>
-                <td className="text-end">{num(l.discount_pct)}</td>
-                <td className="text-end">{num(l.margin_pct)}</td>
-                <td className="text-end fw-bold">{fmt(l.line_total)}</td>
-              </tr>
-            ))
+            lines.map((l, i) => {
+              return (
+                <tr key={l._id || i}>
+                  <td>{i + 1}</td>
+                  <td className="text-wrap" style={{ minWidth: 220 }}>
+                    {l.product_name || l.product_code || "-"}
+                  </td>
+                  <td className="text-end">
+                    {l.qty
+                      ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                      : "-"}
+                  </td>
+                  <td className="text-end">
+                    {num(l.qty) > 0
+                      ? `${sym}${fmt(toDocCcy(l.line_total) / num(l.qty))}`
+                      : `${sym}${fmt(toDocCcy(l.unit_price))}`}
+                  </td>
+                  <td className="text-end fw-bold">
+                    {sym}
+                    {fmt(toDocCcy(l.line_total))}
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </Table>

@@ -25,6 +25,7 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import { formatDate } from "@src/utility/dateFormat";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -218,10 +219,12 @@ const PfiView = () => {
       name: t("PFI #"),
       sortField: "voucher_no",
       sortable: false,
+      minWidth: "200px",
+      grow: 1.5,
       selector: (row) => (
         <Link
           to={`${appsRoot}/pfi/view/${row?._id || ""}`}
-          className="text-wrap"
+          className="text-nowrap"
         >
           {row?.voucher_no || "-"}
         </Link>
@@ -230,13 +233,15 @@ const PfiView = () => {
     {
       name: t("Quote #"),
       sortable: false,
+      minWidth: "200px",
+      grow: 1.5,
       selector: (row) => {
         if (!row?.quotation_voucher_no) return "-";
         if (!row?.quotation_id) return row.quotation_voucher_no;
         return (
           <Link
             to={`${appsRoot}/quotations/view/${row.quotation_id}`}
-            className="text-wrap"
+            className="text-nowrap"
           >
             {row.quotation_voucher_no}
           </Link>
@@ -273,7 +278,7 @@ const PfiView = () => {
       name: t("Date"),
       sortField: "pfi_date",
       sortable: true,
-      selector: (row) => (row?.pfi_date || "").slice(0, 10),
+      selector: (row) => (row?.pfi_date ? formatDate(row.pfi_date) : "-"),
     },
     {
       name: t("Total"),
@@ -303,13 +308,6 @@ const PfiView = () => {
           </span>
         );
       },
-    },
-    {
-      name: t("Created"),
-      sortField: "createdAt",
-      sortable: true,
-      selector: (row) =>
-        row?.createdAt ? new Date(row.createdAt).toLocaleDateString() : "-",
     },
   ];
 

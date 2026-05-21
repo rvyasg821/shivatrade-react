@@ -245,6 +245,12 @@ export const API_ENDPOINTS = {
     receive: `/admin/po-vendor`, // append /:id/receive
     cancel: `/admin/po-vendor`, // append /:id/cancel
   },
+  trackingEvents: {
+    list: `/admin/tracking-event/list`,
+    byPov: `/admin/tracking-event/by-pov`, // append /:povId
+    create: `/admin/tracking-event`,
+    delete: `/admin/tracking-event`, // append /:id
+  },
   customers: {
     list: `/admin/customer/list`,
     get: `/admin/customer/get`,

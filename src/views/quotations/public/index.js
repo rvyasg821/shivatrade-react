@@ -174,7 +174,6 @@ const QuotationPublicView = () => {
                   <th>{t("Unit")}</th>
                   <th className="text-end">{t("Rate")}</th>
                   <th className="text-end">{t("Disc%")}</th>
-                  <th className="text-end">{t("GST%")}</th>
                   <th className="text-end">{t("Amount")}</th>
                 </tr>
               </thead>
@@ -194,7 +193,6 @@ const QuotationPublicView = () => {
                     <td>{l.unit || "-"}</td>
                     <td className="text-end">{money(l.unit_price)}</td>
                     <td className="text-end">{l.discount_pct || 0}</td>
-                    <td className="text-end">{l.tax_pct || 0}</td>
                     <td className="text-end fw-bold">
                       {money(l.line_total)}
                     </td>
@@ -202,7 +200,7 @@ const QuotationPublicView = () => {
                 ))}
                 {(q.lines || []).length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-3">
+                    <td colSpan={7} className="text-center text-muted py-3">
                       {t("No line items.")}
                     </td>
                   </tr>
@@ -213,15 +211,6 @@ const QuotationPublicView = () => {
             {/* Totals */}
             <div className="d-flex justify-content-end mb-3">
               <div style={{ minWidth: 260 }}>
-                <div className="d-flex justify-content-between mb-1">
-                  <span className="text-muted">{t("Subtotal")}</span>
-                  <span>{money(q.subtotal)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-1">
-                  <span className="text-muted">{t("GST")}</span>
-                  <span>{money(q.gst_total)}</span>
-                </div>
-                <hr className="my-1" />
                 <div className="d-flex justify-content-between fw-bold fs-5">
                   <span>{t("Grand Total")}</span>
                   <span>{money(q.grand_total)}</span>

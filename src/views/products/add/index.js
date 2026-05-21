@@ -699,220 +699,6 @@ const ProductForm = () => {
                 </Col>
               </Row>
 
-              {/* ── Identification (extra) + Logistics ── */}
-              <h4 className="mt-3 mb-2">{t("Logistics")}</h4>
-              <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="part_no">
-                    {t("Part No / OEM No")}
-                  </Label>
-                  <Controller
-                    name="part_no"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="part_no"
-                        placeholder={t("e.g. F002A0Z234")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="pack_size">
-                    {t("Pack Size")}
-                  </Label>
-                  <Controller
-                    name="pack_size"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="pack_size"
-                        type="number"
-                        min="1"
-                        invalid={!!errors.pack_size}
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                  {errors.pack_size && (
-                    <FormFeedback className="d-block">
-                      {errors.pack_size.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="country_of_origin">
-                    {t("Country of Origin")}
-                  </Label>
-                  <Controller
-                    name="country_of_origin"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="country_of_origin"
-                        classNamePrefix="select"
-                        isClearable
-                        options={COUNTRY_OPTIONS}
-                        value={
-                          COUNTRY_OPTIONS.find(
-                            (o) => o.value === field.value
-                          ) || null
-                        }
-                        onChange={(opt) =>
-                          field.onChange(opt ? opt.value : "")
-                        }
-                        placeholder={t("Select country")}
-                        menuPortalTarget={document.body}
-                        styles={{
-                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
-                        }}
-                      />
-                    )}
-                  />
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="net_weight_per_unit">
-                    {t("Net Weight per Unit (Kg)")}
-                  </Label>
-                  <Controller
-                    name="net_weight_per_unit"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="net_weight_per_unit"
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        invalid={!!errors.net_weight_per_unit}
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                  {errors.net_weight_per_unit && (
-                    <FormFeedback className="d-block">
-                      {errors.net_weight_per_unit.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="gross_weight_per_unit">
-                    {t("Gross Weight per Unit (Kg)")}
-                  </Label>
-                  <Controller
-                    name="gross_weight_per_unit"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="gross_weight_per_unit"
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        invalid={!!errors.gross_weight_per_unit}
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                  {errors.gross_weight_per_unit && (
-                    <FormFeedback className="d-block">
-                      {errors.gross_weight_per_unit.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-              </Row>
-
-              <Row>
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="description">
-                    {t("Description")}
-                  </Label>
-                  <Controller
-                    name="description"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="description"
-                        type="textarea"
-                        rows="2"
-                        placeholder={t("Optional description")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="specifications">
-                    {t("Specifications")}
-                  </Label>
-                  <Controller
-                    name="specifications"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="specifications"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. Weight: 50kg, Grade: A, Material: Stainless Steel 304"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="packaging_details">
-                    {t("Packaging Details")}
-                  </Label>
-                  <Controller
-                    name="packaging_details"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="packaging_details"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. 25 kg PP bags, 40 bags per pallet, 20 pallets per 20ft container"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-                <Col md="12" className="mb-2">
-                  <Label className="form-label" for="quality_parameters">
-                    {t("Quality Parameters")}
-                  </Label>
-                  <Controller
-                    name="quality_parameters"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="quality_parameters"
-                        type="textarea"
-                        rows="3"
-                        placeholder={t(
-                          "e.g. Moisture ≤ 14%, Impurity ≤ 2%, As per ISO 9001"
-                        )}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-              </Row>
-
               {/* ── Applicable Rebates ── */}
               <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
                 <h4 className="mb-0">{t("Rebates")}</h4>
@@ -1170,6 +956,220 @@ const ProductForm = () => {
                   </Row>
                 );
               })}
+              {/* ── Identification (extra) + Logistics ── */}
+              <h4 className="mt-3 mb-2">{t("Logistics")}</h4>
+              <Row>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="part_no">
+                    {t("Part No / OEM No")}
+                  </Label>
+                  <Controller
+                    name="part_no"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="part_no"
+                        placeholder={t("e.g. F002A0Z234")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="pack_size">
+                    {t("Pack Size")}
+                  </Label>
+                  <Controller
+                    name="pack_size"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="pack_size"
+                        type="number"
+                        min="1"
+                        invalid={!!errors.pack_size}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.pack_size && (
+                    <FormFeedback className="d-block">
+                      {errors.pack_size.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="country_of_origin">
+                    {t("Country of Origin")}
+                  </Label>
+                  <Controller
+                    name="country_of_origin"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        inputId="country_of_origin"
+                        classNamePrefix="select"
+                        isClearable
+                        options={COUNTRY_OPTIONS}
+                        value={
+                          COUNTRY_OPTIONS.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        placeholder={t("Select country")}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="net_weight_per_unit">
+                    {t("Net Weight per Unit (Kg)")}
+                  </Label>
+                  <Controller
+                    name="net_weight_per_unit"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="net_weight_per_unit"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        invalid={!!errors.net_weight_per_unit}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.net_weight_per_unit && (
+                    <FormFeedback className="d-block">
+                      {errors.net_weight_per_unit.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="gross_weight_per_unit">
+                    {t("Gross Weight per Unit (Kg)")}
+                  </Label>
+                  <Controller
+                    name="gross_weight_per_unit"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="gross_weight_per_unit"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        invalid={!!errors.gross_weight_per_unit}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
+                  />
+                  {errors.gross_weight_per_unit && (
+                    <FormFeedback className="d-block">
+                      {errors.gross_weight_per_unit.message}
+                    </FormFeedback>
+                  )}
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="description">
+                    {t("Description")}
+                  </Label>
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="description"
+                        type="textarea"
+                        rows="2"
+                        placeholder={t("Optional description")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="specifications">
+                    {t("Specifications")}
+                  </Label>
+                  <Controller
+                    name="specifications"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="specifications"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. Weight: 50kg, Grade: A, Material: Stainless Steel 304"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="packaging_details">
+                    {t("Packaging Details")}
+                  </Label>
+                  <Controller
+                    name="packaging_details"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="packaging_details"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. 25 kg PP bags, 40 bags per pallet, 20 pallets per 20ft container"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="12" className="mb-2">
+                  <Label className="form-label" for="quality_parameters">
+                    {t("Quality Parameters")}
+                  </Label>
+                  <Controller
+                    name="quality_parameters"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="quality_parameters"
+                        type="textarea"
+                        rows="3"
+                        placeholder={t(
+                          "e.g. Moisture ≤ 14%, Impurity ≤ 2%, As per ISO 9001"
+                        )}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+              </Row>
+
 
               <div className="d-flex justify-content-end mt-3">
                 <Button
