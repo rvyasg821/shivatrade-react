@@ -351,24 +351,22 @@ const PurchaseOrderView = () => {
       },
     },
     {
-      name: t("Date"),
+      name: t("Created"),
       sortField: "po_date",
       sortable: true,
-      minWidth: "200px",
-      selector: (row) => (
-        <div className="py-1">
-          <div className="text-nowrap">
-            <span className="text-muted me-50">{t("Created")} -</span>
-            {row?.po_date ? formatDate(row.po_date) : "-"}
-          </div>
-          <div className="small text-nowrap mt-25">
-            <span className="text-muted me-50">{t("Expected Date")} -</span>
-            {row?.expected_delivery_date
-              ? formatDate(row.expected_delivery_date)
-              : ""}
-          </div>
-        </div>
-      ),
+      minWidth: "130px",
+      selector: (row) =>
+        row?.po_date ? formatDate(row.po_date) : "-",
+    },
+    {
+      name: t("Expected Date"),
+      sortField: "expected_delivery_date",
+      sortable: true,
+      minWidth: "150px",
+      selector: (row) =>
+        row?.expected_delivery_date
+          ? formatDate(row.expected_delivery_date)
+          : "-",
     },
     {
       name: t("Total"),

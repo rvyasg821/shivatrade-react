@@ -308,11 +308,9 @@ const PoLineItems = ({
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th>{t("Product")}</th>
-                  <th style={{ width: 80 }}>{t("HSN")}</th>
-                  <th style={{ width: 80 }} className="text-end">
+                  <th style={{ width: 110 }} className="text-end">
                     {t("Qty")}
                   </th>
-                  <th style={{ width: 70 }}>{t("Unit")}</th>
                   <th style={{ width: 110 }} className="text-end">
                     {t("Rate")}
                   </th>
@@ -357,29 +355,31 @@ const PoLineItems = ({
                     <tr key={field.id}>
                       <td className="text-muted">{idx + 1}</td>
                       <td>{productLabel}</td>
-                      <td>{l.hsn_code || "-"}</td>
-                      <td className="text-end">{fmt(l.qty)}</td>
-                      <td>{l.unit || "-"}</td>
                       <td className="text-end">
-                        {l.unit_price ? fmt(l.unit_price) : "-"}
+                        {l.qty
+                          ? `${fmt(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
+                          : "-"}
+                      </td>
+                      <td className="text-end">
+                        {l.unit_price ? `₹ ${fmt(l.unit_price)}` : "-"}
                       </td>
                       <td className="text-end">{num(l.discount_pct) || 0}</td>
                       <td className="text-end">{num(l.tax_pct) || 0}</td>
-                      <td className="text-end">{fmt(live.taxable)}</td>
+                      <td className="text-end">₹ {fmt(live.taxable)}</td>
                       <td className="text-end">
-                        {fmt(live.total_tax)}
+                        ₹ {fmt(live.total_tax)}
                         {intraState ? (
                           <div className="small text-muted">
-                            C {live.cgst} / S {live.sgst}
+                            C ₹{live.cgst} / S ₹{live.sgst}
                           </div>
                         ) : (
                           <div className="small text-muted">
-                            IGST {live.igst}
+                            IGST ₹{live.igst}
                           </div>
                         )}
                       </td>
                       <td className="text-end fw-bold">
-                        {fmt(live.line_total)}
+                        ₹ {fmt(live.line_total)}
                       </td>
                       <td>
                         <div
