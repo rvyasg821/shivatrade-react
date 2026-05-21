@@ -14,12 +14,21 @@ import {
 } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import { DetailPanel } from "@src/views/_shared/detail-page";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const PfiLineItemsPanel = ({ bare = false }) => {
   const { t } = useTranslation();
   const { pfiItem } = useSelector((s) => s.pfi);
   const p = pfiItem || {};
   const lines = p?.lines || [];
+  const sym =
+    getCurrencySymbol(p?.currency_code) ||
+    p?.currency_symbol ||
+    p?.currency_code ||
+    "";
+  // line_total is stored in INR base; convert to doc currency for display.
+  const rate = num(p?.exchange_rate) || 1;
+  const toDocCcy = (v) => num(v) * rate;
 
   const totals = useMemo(
     () => computeDocTotals(lines, p?.exchange_rate),
@@ -35,16 +44,13 @@ const PfiLineItemsPanel = ({ bare = false }) => {
             <th>{t("Product")}</th>
             <th className="text-end">{t("Qty")}</th>
             <th className="text-end">{t("Price")}</th>
-            <th className="text-end">{t("Net Wt")}</th>
-            <th className="text-end">{t("Gross Wt")}</th>
-            <th className="text-end">{t("Pkgs")}</th>
             <th className="text-end">{t("Total")}</th>
           </tr>
         </thead>
         <tbody>
           {lines.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center text-muted py-3">
+              <td colSpan={5} className="text-center text-muted py-3">
                 {t("No line items.")}
               </td>
             </tr>
@@ -52,26 +58,21 @@ const PfiLineItemsPanel = ({ bare = false }) => {
             lines.map((l, i) => (
               <tr key={l._id || i}>
                 <td>{i + 1}</td>
-                <td className="text-wrap" style={{ minWidth: 180 }}>
-                  <div className="fw-semibold">
-                    {l.product_name || l.product_code || "-"}
-                  </div>
-                  {l.description && (
-                    <small className="text-muted d-block">{l.description}</small>
-                  )}
+                <td className="text-wrap" style={{ minWidth: 220 }}>
+                  {l.product_name || l.product_code || "-"}
                 </td>
                 <td className="text-end">
                   {l.qty ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}` : "-"}
                 </td>
-                <td className="text-end">{fmt(l.unit_price)}</td>
-                <td className="text-end text-muted">
-                  {fmt(l.net_weight_kg || 0)}
+                <td className="text-end">
+                  {num(l.qty) > 0
+                    ? `${sym}${fmt(toDocCcy(l.line_total) / num(l.qty))}`
+                    : `${sym}${fmt(toDocCcy(l.unit_price))}`}
                 </td>
-                <td className="text-end text-muted">
-                  {fmt(l.gross_weight_kg || 0)}
+                <td className="text-end fw-bold">
+                  {sym}
+                  {fmt(toDocCcy(l.line_total))}
                 </td>
-                <td className="text-end">{num(l.package_count) || 0}</td>
-                <td className="text-end fw-bold">{fmt(l.line_total)}</td>
               </tr>
             ))
           )}

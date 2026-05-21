@@ -90,18 +90,28 @@ const PoLineItemsPanel = ({ bare = false }) => {
                 <td className="text-end">
                   {l.qty ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}` : "-"}
                 </td>
-                <td className="text-end">{fmt(l.unit_price)}</td>
+                <td className="text-end">
+                  {sym} {fmt(l.unit_price)}
+                </td>
                 <td className="text-end">{num(l.discount_pct) || 0}</td>
                 <td className="text-end">{num(l.tax_pct) || 0}</td>
                 {intraState ? (
                   <Fragment>
-                    <td className="text-end">{fmt(l.cgst)}</td>
-                    <td className="text-end">{fmt(l.sgst)}</td>
+                    <td className="text-end">
+                      {sym} {fmt(l.cgst)}
+                    </td>
+                    <td className="text-end">
+                      {sym} {fmt(l.sgst)}
+                    </td>
                   </Fragment>
                 ) : (
-                  <td className="text-end">{fmt(l.igst)}</td>
+                  <td className="text-end">
+                    {sym} {fmt(l.igst)}
+                  </td>
                 )}
-                <td className="text-end fw-bold">{fmt(l.line_total)}</td>
+                <td className="text-end fw-bold">
+                  {sym} {fmt(l.line_total)}
+                </td>
               </tr>
             ))}
           </tbody>
