@@ -56,16 +56,11 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
-import { PURCHASE_ORDER_STATUS_OPTIONS } from "@constant/options";
+import {
+  PURCHASE_ORDER_STATUS_OPTIONS,
+  PURCHASE_ORDER_STATUS_COLOR_MAP as STATUS_COLOR_MAP,
+} from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
-
-const STATUS_COLOR_MAP = {
-  draft: "#6c757d",
-  confirmed: "#0dcaf0",
-  in_process: "#fd7e14",
-  completed: "#198754",
-  cancelled: "#dc3545",
-};
 
 const PurchaseOrderView = () => {
   const { t } = useTranslation();
