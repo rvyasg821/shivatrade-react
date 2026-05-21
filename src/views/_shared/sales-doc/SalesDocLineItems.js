@@ -66,6 +66,11 @@ const SalesDocLineItems = ({
    *  weight / package fields in the modal and auto-fill them from the
    *  product master. Off for Quotation / PO. */
   showExportFields = false,
+  /** Table column layout. "compact" (default) → 6-col table used in the
+   *  Quotation/PFI/PO wizards' edit step. "detailed" → 10-col breakdown
+   *  (qty / price / disc% / expenses / rebates / GST% / margin% / total)
+   *  shown on the Review step. */
+  tableLayout = "compact",
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -382,12 +387,29 @@ const SalesDocLineItems = ({
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>{t("Product")}</th>
-                <th className="text-end">{t("Qty")}</th>
-                <th className="text-end">{t("Price")}</th>
-                <th className="text-end">{t("Total")}</th>
-                <th className="text-center" style={{ width: 90 }}>
-                  {t("Actions")}
-                </th>
+                {tableLayout === "detailed" ? (
+                  <>
+                    <th className="text-end">{t("Qty")}</th>
+                    <th className="text-end">{t("Price")}</th>
+                    <th className="text-end">{t("Disc%")}</th>
+                    <th className="text-end">{t("Expenses")}</th>
+                    <th className="text-end">{t("Rebates")}</th>
+                    <th className="text-end">{t("GST%")}</th>
+                    <th className="text-end">{t("Margin%")}</th>
+                    <th className="text-end">{t("Total")}</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="text-end">{t("Qty")}</th>
+                    <th className="text-end">{t("Price")}</th>
+                    <th className="text-end">{t("Total")}</th>
+                  </>
+                )}
+                {!readOnly && (
+                  <th className="text-center" style={{ width: 90 }}>
+                    {t("Actions")}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -425,47 +447,79 @@ const SalesDocLineItems = ({
                           </span>
                         ) : null}
                       </td>
-                      <td className="text-end">
-                        {l.qty
-                          ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
-                          : "-"}
-                      </td>
-                      <td className="text-end">
-                        {num(l.qty) > 0
-                          ? `${docSym}${fmt(toDocCcy(c.lineTotal) / num(l.qty))}`
-                          : l.unit_price
-                          ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
-                          : "-"}
-                      </td>
-                      <td className="text-end fw-bold">
-                        {docSym}
-                        {fmt(toDocCcy(c.lineTotal))}
-                      </td>
-                      <td>
-                        <div
-                          className="d-flex justify-content-center align-items-center"
-                          style={{ gap: "2px" }}
-                        >
-                          <Edit
-                            size={16}
-                            className={
-                              readOnly
-                                ? "text-muted opacity-50"
-                                : "cursor-pointer text-primary"
-                            }
-                            onClick={() => !readOnly && openEdit(idx)}
-                          />
-                          <Trash2
-                            size={16}
-                            className={
-                              readOnly
-                                ? "text-muted opacity-50"
-                                : "cursor-pointer text-danger"
-                            }
-                            onClick={() => !readOnly && removeLine(idx)}
-                          />
-                        </div>
-                      </td>
+                      {tableLayout === "detailed" ? (
+                        <>
+                          <td className="text-end">
+                            {l.qty
+                              ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                              : "-"}
+                          </td>
+                          <td className="text-end">
+                            {l.unit_price
+                              ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
+                              : "-"}
+                          </td>
+                          <td className="text-end">
+                            {num(l.discount_pct) || 0}
+                          </td>
+                          <td className="text-end">
+                            {c.expenses > 0
+                              ? `${docSym}${fmt(toDocCcy(c.expenses))}`
+                              : "-"}
+                          </td>
+                          <td className="text-end">
+                            {c.rebates > 0
+                              ? `${docSym}${fmt(toDocCcy(c.rebates))}`
+                              : "-"}
+                          </td>
+                          <td className="text-end">{l.tax_pct || 0}</td>
+                          <td className="text-end">{l.margin_pct || 0}</td>
+                          <td className="text-end fw-bold">
+                            {docSym}
+                            {fmt(toDocCcy(c.lineTotal))}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="text-end">
+                            {l.qty
+                              ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                              : "-"}
+                          </td>
+                          <td className="text-end">
+                            {num(l.qty) > 0
+                              ? `${docSym}${fmt(
+                                  toDocCcy(c.lineTotal) / num(l.qty)
+                                )}`
+                              : l.unit_price
+                              ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
+                              : "-"}
+                          </td>
+                          <td className="text-end fw-bold">
+                            {docSym}
+                            {fmt(toDocCcy(c.lineTotal))}
+                          </td>
+                        </>
+                      )}
+                      {!readOnly && (
+                        <td>
+                          <div
+                            className="d-flex justify-content-center align-items-center"
+                            style={{ gap: "2px" }}
+                          >
+                            <Edit
+                              size={16}
+                              className="cursor-pointer text-primary"
+                              onClick={() => openEdit(idx)}
+                            />
+                            <Trash2
+                              size={16}
+                              className="cursor-pointer text-danger"
+                              onClick={() => removeLine(idx)}
+                            />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   </Fragment>
                 );
@@ -479,8 +533,9 @@ const SalesDocLineItems = ({
       <Modal
         isOpen={modal.open}
         toggle={closeModal}
-        size="xl"
+        size="lg"
         backdrop="static"
+        style={{ maxWidth: 960 }}
       >
         <ModalHeader toggle={closeModal}>
           {modal.isNew
