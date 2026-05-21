@@ -600,6 +600,26 @@ const initPoVendorItem = {
   lines: [],
 };
 
+const initTrackingEventItem = {
+  _id: "",
+  po_vendor_id: "",
+  po_vendor_voucher_no: "",
+  purchase_order_id: "",
+  purchase_order_voucher_no: "",
+  vendor_id: "",
+  vendor_name: "",
+  event_at: "",
+  event_type: "",
+  event_type_other: "",
+  event_type_label: "",
+  location: "",
+  notes: "",
+  attachment_url: "",
+  is_post_closure: false,
+  created_by: "",
+  created_by_name: "",
+};
+
 const initCustomerContactItem = {
   name: "",
   designation: "",
@@ -1005,6 +1025,7 @@ export {
   initPurchaseOrderLineItem,
   initPoVendorItem,
   initPoVendorLineItem,
+  initTrackingEventItem,
   initCompanyItem,
   initCompanyAddressItem,
   initCompanyBankAccountItem,

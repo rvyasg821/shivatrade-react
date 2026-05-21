@@ -202,7 +202,7 @@ const PurchaseOrderWizard = () => {
 
   // Pre-fill delivery_address is now handled by CompanyAddressSelect
   // (auto-picks the first warehouse/corporate address). No legacy
-  // company.default_po_delivery_address fallback — that field has
+  // company.default_po_delivery_address fallback - that field has
   // been retired in this refactor.
 
   // Load vendor details (for vendor addresses dropdown).
@@ -322,7 +322,7 @@ const PurchaseOrderWizard = () => {
     [vendorStore?.vendorDropdown]
   );
 
-  // Customer options — inject a synthetic option for the currently
+  // Customer options - inject a synthetic option for the currently
   // linked customer when it's missing from the dropdown (inactive /
   // soft-deleted / not on current page). Ensures the Select still
   // renders the correct label in edit mode.
@@ -388,8 +388,11 @@ const PurchaseOrderWizard = () => {
     const action = isEdit
       ? dispatch(updatePurchaseOrder({ id, data: payload }))
       : dispatch(createPurchaseOrder(payload));
-    action.unwrap?.().finally(() => setSubmitting(false)) ||
-      action.finally?.(() => setSubmitting(false));
+    // Don't `.unwrap()` - it re-throws on rejectWithValue and surfaces as
+    // an uncaught runtime error overlay in dev. The thunk's rejection is
+    // already captured into store.error and shown as a toast by the
+    // useEffect below.
+    action.finally?.(() => setSubmitting(false));
   };
 
   const findFirstErrorStep = () => {
@@ -434,7 +437,7 @@ const PurchaseOrderWizard = () => {
       dispatch(cleanPurchaseOrderMessage());
       navigate(`${appsRoot}/purchase-orders`, { replace: true });
     }
-    if (store?.error && !submitting) {
+    if (store?.error) {
       Notification("Error", store.error, "warning");
       dispatch(cleanPurchaseOrderMessage());
     }
