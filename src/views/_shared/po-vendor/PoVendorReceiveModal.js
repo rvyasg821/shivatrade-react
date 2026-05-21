@@ -1,9 +1,9 @@
 // ── PoVendor Receive Modal ──────────────────────────────────────────
-// Captures per-line received_qty, shows damage notice + spawn-child
-// radio, and flips POV status dispatched → closed.
+// Captures per-line received_qty and flips POV status dispatched → closed.
+// Follow-up POVs for any remaining qty are created manually from the
+// PO detail page (industry-standard flat-siblings model — SAP / Tally / Zoho).
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
@@ -17,7 +17,6 @@ import {
   Input,
   Table,
   Spinner,
-  FormGroup,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Info } from "react-feather";
@@ -25,7 +24,6 @@ import { AlertTriangle, Info } from "react-feather";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
 import { receivePoVendor } from "@src/views/po-vendors/store";
-import { appsRoot } from "@constant/defaultValues";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -34,14 +32,12 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const PoVendorReceiveModal = ({ isOpen, toggle }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const p = poVendorItem || {};
   const lines = useMemo(() => p?.lines || [], [p?.lines]);
 
   const [arrivalDate, setArrivalDate] = useState(todayISO());
   const [notes, setNotes] = useState("");
-  const [spawn, setSpawn] = useState(true);
   const [qtyByLine, setQtyByLine] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -55,7 +51,6 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
     setQtyByLine(seed);
     setArrivalDate(todayISO());
     setNotes(p?.notes || "");
-    setSpawn(true);
   }, [isOpen, lines, p]);
 
   // Live computed warnings.
@@ -128,13 +123,12 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
 
     setSubmitting(true);
     try {
-      const result = await dispatch(
+      await dispatch(
         receivePoVendor({
           id: p._id,
           data: {
             actual_arrival_date: arrivalDate,
             notes: notes || undefined,
-            spawn_remainder: !!spawn,
             lines: lines.map((l) => ({
               _id: l._id,
               received_qty: String(num(qtyByLine[l._id])),
@@ -142,21 +136,6 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
           },
         })
       ).unwrap();
-
-      // If backend spawned a child POV, surface it.
-      const child = result?.spawnedChild;
-      if (child?._id) {
-        Notification(
-          "Child POV created",
-          t(
-            `${p.voucher_no} closed. ${child.voucher_no} opened for the remaining quantities.`
-          ),
-          "success"
-        );
-        toggle?.();
-        navigate(`${appsRoot}/po-vendors/view/${child._id}`);
-        return;
-      }
       toggle?.();
     } catch (err) {
       // Page-level effect shows the error toast.
@@ -173,7 +152,7 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
       <ModalBody>
         <p className="small text-muted mb-2">
           {t(
-            "Record received quantities. Short receipts (dispatched − received) are booked as a loss; undispatched balance (ordered − dispatched) can spawn a follow-up POV."
+            "Record received quantities. Short receipts (dispatched − received) are booked as a loss. Any undispatched balance can be shipped via a new POV created from the PO detail page."
           )}
         </p>
 
@@ -300,7 +279,8 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
           </div>
         )}
 
-        {/* Spawn-child decision — visible only when undispatched > 0. */}
+        {/* Undispatched notice — informational only. Follow-up POVs are
+            created manually from the PO detail page. */}
         {summary.hasUndispatched && (
           <div className="alert alert-info small mb-2">
             <Info size={14} className="me-1" />
@@ -308,31 +288,9 @@ const PoVendorReceiveModal = ({ isOpen, toggle }) => {
             {summary.totalUndispatched.toLocaleString()}{" "}
             {t("units across")} {summary.undispatchedRows.length}{" "}
             {t("line(s).")}{" "}
-            {t("Create a follow-up POV for the remaining quantities?")}
-            <div className="mt-1">
-              <FormGroup check inline>
-                <Input
-                  type="radio"
-                  id="spawn-yes"
-                  checked={spawn}
-                  onChange={() => setSpawn(true)}
-                />
-                <Label check for="spawn-yes" className="ms-50">
-                  {t("Yes, spawn child POV")}
-                </Label>
-              </FormGroup>
-              <FormGroup check inline className="ms-2">
-                <Input
-                  type="radio"
-                  id="spawn-no"
-                  checked={!spawn}
-                  onChange={() => setSpawn(false)}
-                />
-                <Label check for="spawn-no" className="ms-50">
-                  {t("No, write off remaining")}
-                </Label>
-              </FormGroup>
-            </div>
+            {t(
+              "After closing this POV, create a new POV from the PO detail page to ship the remainder."
+            )}
           </div>
         )}
       </ModalBody>
