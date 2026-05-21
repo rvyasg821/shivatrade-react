@@ -34,6 +34,7 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import { formatDate } from "@src/utility/dateFormat";
 
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -42,7 +43,10 @@ import withReactContent from "sweetalert2-react-content";
 import { Eye, Trash2, X, ExternalLink } from "react-feather";
 
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
-import { PO_VENDOR_STATUS_OPTIONS } from "@constant/options";
+import {
+  PO_VENDOR_STATUS_OPTIONS,
+  PO_VENDOR_STATUS_COLOR_MAP,
+} from "@constant/options";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -259,29 +263,52 @@ const PoVendorView = () => {
       name: t("POV #"),
       sortField: "voucher_no",
       sortable: false,
-      selector: (row) => (
-        <Link
-          to={`${appsRoot}/po-vendors/view/${row?._id || ""}`}
-          className="text-wrap"
-        >
-          {row?.voucher_no || "-"}
-        </Link>
-      ),
-    },
-    {
-      name: t("PO #"),
-      sortable: false,
+      minWidth: "240px",
+      grow: 1.8,
       selector: (row) => {
-        if (!row?.purchase_order_voucher_no) return "-";
-        if (!row?.purchase_order_id) return row.purchase_order_voucher_no;
+        const c = PO_VENDOR_STATUS_COLOR_MAP[row?.status] || "#6c757d";
+        const label = (row?.status || "-").replace(/_/g, " ");
         return (
-          <Link
-            to={`${appsRoot}/purchase-orders/view/${row.purchase_order_id}`}
-            className="text-wrap d-inline-flex align-items-center"
-          >
-            <span>{row.purchase_order_voucher_no}</span>
-            <ExternalLink size={12} className="ms-50" />
-          </Link>
+          <div className="py-1">
+            <Link
+              to={`${appsRoot}/po-vendors/view/${row?._id || ""}`}
+              className="text-nowrap d-block"
+            >
+              {row?.voucher_no || "-"}
+            </Link>
+            {row?.purchase_order_voucher_no ? (
+              <div className="mt-1">
+                {row?.purchase_order_id ? (
+                  <Link
+                    to={`${appsRoot}/purchase-orders/view/${row.purchase_order_id}`}
+                    className="small text-muted text-nowrap d-inline-flex align-items-center"
+                  >
+                    PO - {row.purchase_order_voucher_no}
+                    <ExternalLink size={12} className="ms-1" />
+                  </Link>
+                ) : (
+                  <span className="small text-muted text-nowrap">
+                    PO - {row.purchase_order_voucher_no}
+                  </span>
+                )}
+              </div>
+            ) : null}
+            <div>
+              <span
+                className="badge text-capitalize mt-1 d-inline-block"
+                style={{
+                  background: `${c}1a`,
+                  color: c,
+                  border: `1px solid ${c}33`,
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  fontSize: "0.7rem",
+                }}
+              >
+                {label}
+              </span>
+            </div>
+          </div>
         );
       },
     },
@@ -291,9 +318,18 @@ const PoVendorView = () => {
       grow: 2,
       selector: (row) => (
         <div className="py-1">
-          <span className="fw-bold text-capitalize">
-            {row?.vendor_name || "-"}
-          </span>
+          {row?.vendor_id ? (
+            <Link
+              to={`${appsRoot}/vendors/view/${row.vendor_id}`}
+              className="fw-bold text-capitalize"
+            >
+              {row?.vendor_name || "-"}
+            </Link>
+          ) : (
+            <span className="fw-bold text-capitalize">
+              {row?.vendor_name || "-"}
+            </span>
+          )}
           {row?.vendor_contact_name && (
             <div className="text-capitalize small">
               {row.vendor_contact_name}
@@ -309,45 +345,29 @@ const PoVendorView = () => {
       ),
     },
     {
-      name: t("Dispatch Date"),
+      name: t("Date"),
       sortField: "dispatch_date",
       sortable: true,
-      selector: (row) => (row?.dispatch_date || "").slice(0, 10) || "-",
-    },
-    {
-      name: t("Expected Arrival"),
-      sortable: false,
-      selector: (row) =>
-        (row?.expected_arrival_date || "").slice(0, 10) || "-",
+      minWidth: "200px",
+      selector: (row) => (
+        <div className="py-1">
+          <div className="text-nowrap">
+            <span className="text-muted me-50">{t("Dispatch")} -</span>
+            {row?.dispatch_date ? formatDate(row.dispatch_date) : "-"}
+          </div>
+          <div className="small text-nowrap mt-25">
+            <span className="text-muted me-50">{t("Expected Arrival")} -</span>
+            {row?.expected_arrival_date
+              ? formatDate(row.expected_arrival_date)
+              : ""}
+          </div>
+        </div>
+      ),
     },
     {
       name: t("Qty (recv / ord)"),
       sortable: false,
       selector: renderQtyProgress,
-    },
-    {
-      name: t("Status"),
-      center: true,
-      sortable: false,
-      selector: (row) => {
-        const colorMap = {
-          draft: "#6c757d",
-          dispatched: "#0dcaf0",
-          closed: "#198754",
-          cancelled: "#dc3545",
-        };
-        const c = colorMap[row?.status] || "#6c757d";
-        return (
-          <span
-            className="text-capitalize text-nowrap fw-bold"
-            ref={(el) => {
-              if (el) el.style.setProperty("color", c, "important");
-            }}
-          >
-            {row?.status || "-"}
-          </span>
-        );
-      },
     },
     {
       name: t("Action"),
