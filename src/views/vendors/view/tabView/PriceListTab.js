@@ -6,7 +6,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Row, Col, Button, UncontrolledTooltip } from "reactstrap";
 import Select from "react-select";
-import { Edit, PlusCircle } from "react-feather";
+import { Edit, PlusCircle, Upload, Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -17,6 +17,10 @@ import { getProductDropdown } from "@src/views/products/store";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import Notification from "@components/toast/notification";
+import ImportModal from "@src/views/price-list/components/ImportModal";
 
 const PriceListTab = () => {
   const { id } = useParams();
@@ -38,6 +42,29 @@ const PriceListTab = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [productFilter, setProductFilter] = useState("");
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!id) return;
+    setExporting(true);
+    try {
+      const res = await instance.get(
+        `${API_ENDPOINTS.priceList.export}?vendor_id=${id}`,
+        { responseType: "blob" },
+      );
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `price-list-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export price list"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleList = useCallback(
     (
@@ -178,19 +205,41 @@ const PriceListTab = () => {
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-between align-items-center mb-2">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
         <h4 className="mb-0">{t("Price List")}</h4>
-        {canAdd && (
+        <div className="d-flex gap-1 flex-nowrap">
           <Button
-            color="primary"
+            color="outline-secondary"
             size="sm"
-            onClick={() =>
-              navigate(`${appsRoot}/price-list/add?vendor_id=${id}`)
-            }
+            className="text-nowrap"
+            onClick={handleExport}
+            disabled={exporting}
           >
-            <PlusCircle size={14} /> {t("Add Price")}
+            {t("Export")} <Download size={14} />
           </Button>
-        )}
+          {(canAdd || canEdit) && (
+            <Button
+              color="outline-secondary"
+              size="sm"
+              className="text-nowrap"
+              onClick={() => setImportModalOpen(true)}
+            >
+              {t("Import")} <Upload size={14} />
+            </Button>
+          )}
+          {canAdd && (
+            <Button
+              color="primary"
+              size="sm"
+              className="text-nowrap"
+              onClick={() =>
+                navigate(`${appsRoot}/price-list/add?vendor_id=${id}`)
+              }
+            >
+              <PlusCircle size={14} /> {t("Add Price")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Row className="mb-1">
@@ -217,6 +266,13 @@ const PriceListTab = () => {
         handleSort={handleSort}
         handleRowPerPage={handlePerPage}
         handlePagination={handlePagination}
+      />
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        vendorId={id}
+        onSuccess={() => handleList()}
       />
     </Fragment>
   );
