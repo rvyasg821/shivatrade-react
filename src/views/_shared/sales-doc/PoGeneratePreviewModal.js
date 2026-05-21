@@ -5,7 +5,7 @@
 // before POs are created.
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Modal,
   ModalHeader,
@@ -18,7 +18,7 @@ import {
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle } from "react-feather";
+import { AlertTriangle, ExternalLink } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -81,10 +81,14 @@ const PoGeneratePreviewModal = ({
         const lines = resp?.data?.data?.lines || [];
         setPreviewLines(lines);
         const seeded = {};
+        const seedDropped = {};
         for (const l of lines) {
           seeded[l.source_line_id] = l.suggested_vendor_id || "";
+          // Auto-drop fully covered lines so they don't re-book by default.
+          if (l.fully_covered) seedDropped[l.source_line_id] = true;
         }
         setAssignment(seeded);
+        setDropped(seedDropped);
       })
       .catch((err) => {
         Notification(
@@ -265,9 +269,17 @@ const PoGeneratePreviewModal = ({
           <>
             <p className="text-muted small mb-2">
               {t(
-                "Each source line is pre-assigned to the cheapest active vendor. Change the vendor per line or drop a line from this batch. One PO is created per unique vendor."
+                "Each source line is pre-assigned to the cheapest active vendor. Change the vendor per line or drop a line from this batch. One PO is created per unique vendor. Lines already fully covered by existing POs are dropped automatically — restore to add another PO for the same line."
               )}
             </p>
+            {previewLines.every((l) => l.fully_covered) && (
+              <div className="alert alert-info small mb-2">
+                <AlertTriangle size={14} className="me-1" />
+                {t(
+                  "All lines are already covered by existing POs. To add another, restore a line below."
+                )}
+              </div>
+            )}
 
             <div className="table-responsive">
               <Table bordered size="sm" className="align-middle">
@@ -329,6 +341,43 @@ const PoGeneratePreviewModal = ({
                           {l.hsn_code && (
                             <div className="small text-muted">
                               HSN: {l.hsn_code}
+                            </div>
+                          )}
+                          {(l.existing_pos || []).length > 0 && (
+                            <div className="mt-1">
+                              {l.fully_covered ? (
+                                <Badge color="light-success" className="me-50">
+                                  {t("Fully covered")}
+                                </Badge>
+                              ) : (
+                                <Badge color="light-info" className="me-50">
+                                  {t("Partially covered")}:{" "}
+                                  {fmt(l.covered_qty)} / {fmt(l.ordered_qty)}
+                                </Badge>
+                              )}
+                              <div className="small text-muted mt-25">
+                                {l.existing_pos.map((p, i) => (
+                                  <span key={p.purchase_order_id}>
+                                    {i > 0 ? ", " : ""}
+                                    <Link
+                                      to={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="d-inline-flex align-items-center"
+                                    >
+                                      {p.voucher_no}
+                                      <ExternalLink
+                                        size={10}
+                                        className="ms-25"
+                                      />
+                                    </Link>
+                                    <span className="text-muted">
+                                      {" "}
+                                      ({fmt(p.qty)})
+                                    </span>
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </td>
