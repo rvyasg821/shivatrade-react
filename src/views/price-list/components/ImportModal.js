@@ -16,7 +16,12 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 
-const ImportModal = ({ isOpen, toggle, onSuccess }) => {
+const ImportModal = ({ isOpen, toggle, onSuccess, vendorId }) => {
+  // Vendor-scoped imports (vendor detail page) skip the vendor_code column —
+  // the vendor is already known from page context. The backend mirrors this
+  // by treating vendor_code as optional when vendor_id is supplied.
+  const vendorQS = vendorId ? `&vendor_id=${vendorId}` : "";
+  const vendorQSStart = vendorId ? `?vendor_id=${vendorId}` : "";
   const { t } = useTranslation();
   const [step, setStep] = useState(1); // 1=upload, 2=preview
   const [file, setFile] = useState(null);
@@ -51,7 +56,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       const formData = new FormData();
       formData.append("file", file);
       const res = await instance.post(
-        `${API_ENDPOINTS.priceList.import}?preview=true`,
+        `${API_ENDPOINTS.priceList.import}?preview=true${vendorQS}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
@@ -81,7 +86,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       const formData = new FormData();
       formData.append("file", file);
       const res = await instance.post(
-        `${API_ENDPOINTS.priceList.import}`,
+        `${API_ENDPOINTS.priceList.import}${vendorQSStart}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
@@ -111,9 +116,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
 
   const handleDownloadSample = async () => {
     try {
-      const res = await instance.get(API_ENDPOINTS.priceList.sampleExcel, {
-        responseType: "blob",
-      });
+      const res = await instance.get(
+        `${API_ENDPOINTS.priceList.sampleExcel}${vendorQSStart}`,
+        { responseType: "blob" },
+      );
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement("a");
       a.href = url;
@@ -147,12 +153,20 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
                   )}
                 </li>
                 <li>
-                  {t("Required columns: vendor_code, product_code, unit_price")}
+                  {vendorId
+                    ? t("Required columns: product_code, unit_price")
+                    : t(
+                        "Required columns: vendor_code, product_code, unit_price",
+                      )}
                 </li>
                 <li>
-                  {t(
-                    "A row is skipped if its vendor_code, product_code or unit_price is missing or not found",
-                  )}
+                  {vendorId
+                    ? t(
+                        "A row is skipped if its product_code or unit_price is missing or not found",
+                      )
+                    : t(
+                        "A row is skipped if its vendor_code, product_code or unit_price is missing or not found",
+                      )}
                 </li>
                 <li>
                   {t(
