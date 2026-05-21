@@ -32,6 +32,7 @@ const Step2Items = ({
       baseCurrencyCode={baseCurrencyCode}
       exchangeRate={exchangeRate}
       readOnly={isLocked}
+      tableLayout="detailed"
     />
   );
 };
