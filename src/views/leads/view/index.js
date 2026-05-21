@@ -5,7 +5,7 @@
 //   3. Summary card     — About + Opportunity (chips + brief)
 //   4. Two-panel row    — Activity (left) + Quotations (right)
 
-import { Fragment, useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -26,6 +26,7 @@ import {
   Truck,
   Layers,
   Hash,
+  X,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -43,7 +44,7 @@ import {
   LEAD_SOURCE_OPTIONS,
 } from "@constant/options";
 
-import { Row, Col } from "reactstrap";
+import { Row, Col, Button } from "reactstrap";
 
 import {
   DetailHeader,
@@ -96,6 +97,10 @@ const ViewLead = () => {
   const categoryStore = useSelector((s) => s.category);
   const productStore = useSelector((s) => s.product);
   const vendorStore = useSelector((s) => s.vendor);
+
+  // Activity composer visibility — collapsed by default. The header "+"
+  // action opens it; submitting a note auto-collapses it again.
+  const [showActivityComposer, setShowActivityComposer] = useState(false);
 
   const l = store?.leadItem || {};
 
@@ -366,74 +371,92 @@ const ViewLead = () => {
                 <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
                   {t("Opportunity")}
                 </h5>
-                <Row className="g-2">
-                  <Col md="6">
-                    <DetailFieldList
-                      items={[
-                        {
-                          icon: DollarSign,
-                          label: t("Expected Value"),
-                          value: budget,
-                        },
-                      ]}
-                    />
-                  </Col>
-                  <Col md="6">
-                    <DetailChips
-                      title={t("Interested Categories")}
-                      items={categoryChips}
-                      bg="#eef0f3"
-                      fg="#1a2238"
-                    />
-                  </Col>
-                </Row>
-                <Row className="g-2">
-                  <Col md="6">
-                    <DetailFieldList
-                      items={[
-                        {
-                          icon: Calendar,
-                          label: t("Follow-up Date"),
-                          value: l?.follow_up_date
-                            ? formatDate(l.follow_up_date)
-                            : null,
-                        },
-                      ]}
-                    />
-                  </Col>
-                  <Col md="6">
-                    <DetailChips
-                      title={t("Interested Products")}
-                      items={productChips}
-                      bg="#eef0f3"
-                      fg="#1a2238"
-                    />
-                  </Col>
-                </Row>
-                <Row className="g-2">
-                  <Col md="6">
-                    <DetailFieldList
-                      items={[
-                        {
-                          icon: Layers,
-                          label: t("Quantity"),
-                          value: l?.quantity,
-                        },
-                      ]}
-                    />
-                  </Col>
-                  <Col md="6">
-                    <DetailFieldList
-                      items={[
-                        {
-                          icon: Truck,
-                          label: t("Delivery Expectation"),
-                          value: l?.delivery_expectation,
-                        },
-                      ]}
-                    />
-                  </Col>
-                </Row>
+                {/* Render only fields/chips that actually have a value so
+                    empty columns don't reserve grid space and leave gaps. */}
+                {(() => {
+                  const opportunityBlocks = [];
+                  if (budget) {
+                    opportunityBlocks.push(
+                      <DetailFieldList
+                        items={[
+                          {
+                            icon: DollarSign,
+                            label: t("Expected Value"),
+                            value: budget,
+                          },
+                        ]}
+                      />
+                    );
+                  }
+                  if (categoryChips.length) {
+                    opportunityBlocks.push(
+                      <DetailChips
+                        title={t("Interested Categories")}
+                        items={categoryChips}
+                        bg="#eef0f3"
+                        fg="#1a2238"
+                      />
+                    );
+                  }
+                  if (l?.follow_up_date) {
+                    opportunityBlocks.push(
+                      <DetailFieldList
+                        items={[
+                          {
+                            icon: Calendar,
+                            label: t("Follow-up Date"),
+                            value: formatDate(l.follow_up_date),
+                          },
+                        ]}
+                      />
+                    );
+                  }
+                  if (productChips.length) {
+                    opportunityBlocks.push(
+                      <DetailChips
+                        title={t("Interested Products")}
+                        items={productChips}
+                        bg="#eef0f3"
+                        fg="#1a2238"
+                      />
+                    );
+                  }
+                  if (l?.quantity) {
+                    opportunityBlocks.push(
+                      <DetailFieldList
+                        items={[
+                          {
+                            icon: Layers,
+                            label: t("Quantity"),
+                            value: l.quantity,
+                          },
+                        ]}
+                      />
+                    );
+                  }
+                  if (l?.delivery_expectation) {
+                    opportunityBlocks.push(
+                      <DetailFieldList
+                        items={[
+                          {
+                            icon: Truck,
+                            label: t("Delivery Expectation"),
+                            value: l.delivery_expectation,
+                          },
+                        ]}
+                      />
+                    );
+                  }
+                  return (
+                    <Row className="g-2">
+                      {opportunityBlocks.map((block, idx) => (
+                        <Col md="6" key={idx}>
+                          {block}
+                        </Col>
+                      ))}
+                    </Row>
+                  );
+                })()}
 
                 <DetailSocials
                   title={t("Social")}
@@ -460,8 +483,47 @@ const ViewLead = () => {
             </Fragment>
           }
           right={
-            <DetailPanel title={t("Activity")}>
-              <ActivityTab leadId={id} />
+            <DetailPanel
+              title={t("Activity")}
+              action={
+                <Button
+                  color={showActivityComposer ? "secondary" : "primary"}
+                  outline={showActivityComposer}
+                  size="sm"
+                  onClick={() => setShowActivityComposer((v) => !v)}
+                  id="lead-activity-add-btn"
+                >
+                  {showActivityComposer ? (
+                    <>
+                      <X size={14} className="me-50" />
+                      {t("Close")}
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle size={14} className="me-50" />
+                      {t("Add")}
+                    </>
+                  )}
+                </Button>
+              }
+            >
+              {/* Cap height so a busy activity feed scrolls inside its own
+                  panel instead of stretching the column and pushing the
+                  Quotations / Lead Summary sections off-screen. */}
+              <div
+                className="lead-activity-scroll"
+                style={{
+                  maxHeight: 520,
+                  overflowY: "auto",
+                  paddingRight: 12,
+                }}
+              >
+                <ActivityTab
+                  leadId={id}
+                  showComposer={showActivityComposer}
+                  onComposerClose={() => setShowActivityComposer(false)}
+                />
+              </div>
             </DetailPanel>
           }
         />
