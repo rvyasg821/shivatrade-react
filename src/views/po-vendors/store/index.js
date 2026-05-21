@@ -165,7 +165,7 @@ export const dispatchPoVendor = createAsyncThunk(
   }
 );
 
-// ─── Action: Receive (may return spawned child) ─────────────────────────
+// ─── Action: Receive ────────────────────────────────────────────────────
 
 export const receivePoVendor = createAsyncThunk(
   "appPoVendor/receivePoVendor",
@@ -179,7 +179,6 @@ export const receivePoVendor = createAsyncThunk(
       if (body?.statusCode && body?.data) {
         return {
           poVendorItem: body.data.parent,
-          spawnedChild: body.data.child || null,
           actionFlag: "POV_CLOSED",
           success: body?.message || "",
           error: "",
@@ -265,7 +264,6 @@ export const appPoVendorSlice = createSlice({
     poVendorItems: [],
     pagination: null,
     poVendorItem: initPoVendorItem,
-    spawnedChild: null,
     actionFlag: "",
     loading: true,
     success: "",
@@ -279,7 +277,6 @@ export const appPoVendorSlice = createSlice({
     },
     cleanPoVendorState: (state) => {
       state.poVendorItem = initPoVendorItem;
-      state.spawnedChild = null;
     },
   },
   extraReducers: (builder) => {
@@ -363,7 +360,6 @@ export const appPoVendorSlice = createSlice({
       .addCase(receivePoVendor.fulfilled, (state, action) => {
         state.poVendorItem =
           action.payload?.poVendorItem || initPoVendorItem;
-        state.spawnedChild = action.payload?.spawnedChild || null;
         state.loading = true;
         state.actionFlag = action.payload?.actionFlag;
         state.success = action.payload?.success;
