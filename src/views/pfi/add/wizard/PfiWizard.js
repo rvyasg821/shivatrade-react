@@ -93,27 +93,32 @@ const PfiWizard = () => {
         consignee_address: yup.string().nullable().max(2000),
         port_of_loading: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Port of Loading is required"))
           .max(150),
         port_of_discharge: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Port of Discharge is required"))
           .max(150),
         final_destination: yup.string().nullable().max(150),
         country_of_origin: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Country of Origin is required"))
           .max(100),
         country_of_final_destination: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Country of Final Destination is required"))
           .max(100),
         mode_of_shipment: yup
           .string()
+          .nullable()
           .required(t("Mode of Shipment is required"))
           .oneOf(["sea", "air", "road"], t("Mode of Shipment is required")),
         container_details: yup.string().nullable().max(200),
@@ -122,6 +127,7 @@ const PfiWizard = () => {
         packing_marks: yup.string().nullable().max(200),
         packing_type: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Packing Type is required"))
           .max(50),
@@ -133,16 +139,19 @@ const PfiWizard = () => {
           .min(0),
         payment_terms_text: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Payment Terms are required"))
           .max(2000),
         declaration_text: yup
           .string()
+          .nullable()
           .transform((v) => (typeof v === "string" ? v.trim() : v))
           .required(t("Declaration is required"))
           .max(4000),
         bank_account_id: yup
           .string()
+          .nullable()
           .required(t("Bank Account is required")),
         lines: yup
           .array()
