@@ -97,7 +97,7 @@ const renderRow = (row, t) => {
   return md.label;
 };
 
-const ActivityTab = ({ leadId }) => {
+const ActivityTab = ({ leadId, showComposer = true, onComposerClose }) => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const store = useSelector((s) => s.leadActivity);
@@ -129,6 +129,9 @@ const ActivityTab = ({ leadId }) => {
     if (!draft.trim()) return;
     await dispatch(addLeadNote({ leadId, body: draft.trim() }));
     setDraft("");
+    // Auto-collapse the composer after a successful add when the parent
+    // is controlling visibility (header "+" toggle pattern).
+    if (onComposerClose) onComposerClose();
   };
 
   const onSaveEdit = async () => {
@@ -147,7 +150,9 @@ const ActivityTab = ({ leadId }) => {
 
   return (
     <Fragment>
-      {/* Add-note composer */}
+      {/* Add-note composer — hidden by default; the parent toggles it via
+          the header "+" action. */}
+      {showComposer && (
       <div className="mb-3" style={{ position: "relative" }}>
         <Input
           type="textarea"
@@ -181,6 +186,7 @@ const ActivityTab = ({ leadId }) => {
           {t("Add note")}
         </UncontrolledTooltip>
       </div>
+      )}
 
       {store?.loading && <Spinner size="sm" className="me-1" />}
 
@@ -253,26 +259,16 @@ const ActivityTab = ({ leadId }) => {
                       {renderRow(row, t)}
                     </div>
                   )}
-                  <small className="text-muted">
-                    {row?.created_by_name || t("System")} ·{" "}
+                  <small className="text-muted d-block">
+                    {row?.created_by_name || t("System")}
+                  </small>
+                  <small className="text-muted d-block">
                     {relative(row?.createdAt)}
                   </small>
                 </div>
 
                 {isOwnNote && !isEditing && (
                   <div className="d-flex align-items-center">
-                    <Edit
-                      size={16}
-                      className="cursor-pointer me-2 text-muted"
-                      id={`note-edit-${row._id}`}
-                      onClick={() => {
-                        setEditId(row._id);
-                        setEditDraft(row.body || "");
-                      }}
-                    />
-                    <UncontrolledTooltip target={`note-edit-${row._id}`}>
-                      {t("Edit")}
-                    </UncontrolledTooltip>
                     <Trash2
                       size={16}
                       className="cursor-pointer text-danger"

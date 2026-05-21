@@ -79,16 +79,6 @@ const QuotationsPanel = () => {
               ? t("Create the first quotation from this lead.")
               : t("This lead is closed.")
           }
-          cta={
-            canCreate
-              ? {
-                  label: t("Create Quotation"),
-                  icon: PlusCircle,
-                  onClick: () =>
-                    navigate(`${appsRoot}/quotations/add?lead_id=${id}`),
-                }
-              : null
-          }
         />
       ) : (
         <div className="table-responsive">

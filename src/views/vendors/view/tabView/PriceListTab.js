@@ -205,44 +205,9 @@ const PriceListTab = () => {
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
-        <h4 className="mb-0">{t("Price List")}</h4>
-        <div className="d-flex gap-1 flex-nowrap">
-          <Button
-            color="outline-secondary"
-            size="sm"
-            className="text-nowrap"
-            onClick={handleExport}
-            disabled={exporting}
-          >
-            {t("Export")} <Download size={14} />
-          </Button>
-          {(canAdd || canEdit) && (
-            <Button
-              color="outline-secondary"
-              size="sm"
-              className="text-nowrap"
-              onClick={() => setImportModalOpen(true)}
-            >
-              {t("Import")} <Upload size={14} />
-            </Button>
-          )}
-          {canAdd && (
-            <Button
-              color="primary"
-              size="sm"
-              className="text-nowrap"
-              onClick={() =>
-                navigate(`${appsRoot}/price-list/add?vendor_id=${id}`)
-              }
-            >
-              <PlusCircle size={14} /> {t("Add Price")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Row className="mb-1">
+      {/* Single header row: product filter on the left (where the title
+          used to sit), action buttons on the right. */}
+      <Row className="mb-2 align-items-center g-1">
         <Col md="4" sm="6">
           <Select
             classNamePrefix="select"
@@ -253,7 +218,44 @@ const PriceListTab = () => {
               productOptions.find((o) => o.value === productFilter) || null
             }
             onChange={(opt) => setProductFilter(opt ? opt.value : "")}
+            menuPortalTarget={document.body}
+            styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
           />
+        </Col>
+        <Col md="8" sm="6">
+          <div className="d-flex gap-1 flex-nowrap justify-content-end">
+            <Button
+              color="outline-secondary"
+              size="sm"
+              className="text-nowrap"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              {t("Export")} <Download size={14} />
+            </Button>
+            {(canAdd || canEdit) && (
+              <Button
+                color="outline-secondary"
+                size="sm"
+                className="text-nowrap"
+                onClick={() => setImportModalOpen(true)}
+              >
+                {t("Import")} <Upload size={14} />
+              </Button>
+            )}
+            {canAdd && (
+              <Button
+                color="primary"
+                size="sm"
+                className="text-nowrap"
+                onClick={() =>
+                  navigate(`${appsRoot}/price-list/add?vendor_id=${id}`)
+                }
+              >
+                <PlusCircle size={14} /> {t("Add Price")}
+              </Button>
+            )}
+          </div>
         </Col>
       </Row>
 
