@@ -7,7 +7,6 @@ import { appsRoot } from "@constant/defaultValues";
 import Tabs from "./tabs";
 import OverviewTab from "./OverviewTab";
 import TrackingTab from "./TrackingTab";
-import ChainTab from "./ChainTab";
 
 const PoVendorTabView = () => {
   const navigate = useNavigate();
@@ -27,7 +26,6 @@ const PoVendorTabView = () => {
       </div>
       {active === "overview" && <OverviewTab />}
       {active === "tracking" && <TrackingTab />}
-      {active === "chain" && <ChainTab />}
     </Fragment>
   );
 };
