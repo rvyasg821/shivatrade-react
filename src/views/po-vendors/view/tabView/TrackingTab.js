@@ -51,24 +51,28 @@ const TrackingTab = () => {
     if (id) dispatch(getTrackingEventsByPov(id));
   }, [id, dispatch]);
 
-  const canAddEvent =
-    status === "dispatched" || status === "closed";
-  const addEventTooltip =
-    status === "draft"
-      ? t("Available after dispatch.")
-      : status === "cancelled"
-      ? t("Cannot add events on cancelled POVs.")
-      : "";
-
-  // Permission gate - po-vendors.can_update lets the user save changes.
+  // Permission gates.
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
-
-  // Tracking-event retraction (Option D) — tracking.can_delete gates it.
   const trackingPerms = authUserItem?.role?.permissions?.tracking;
+  const canAddTrackingEvent =
+    isAdmin || trackingPerms?.can_all || trackingPerms?.can_add;
   const canRetractEvent =
     isAdmin || trackingPerms?.can_all || trackingPerms?.can_delete;
+
+  // "Add Event" enabled only when BOTH (a) POV status allows it AND
+  // (b) the user has tracking.can_add. Tooltip explains the blocker.
+  const statusAllowsAdd =
+    status === "dispatched" || status === "closed";
+  const canAddEvent = statusAllowsAdd && canAddTrackingEvent;
+  const addEventTooltip = !canAddTrackingEvent
+    ? t("You don't have permission to add tracking events.")
+    : status === "draft"
+    ? t("Available after dispatch.")
+    : status === "cancelled"
+    ? t("Cannot add events on cancelled POVs.")
+    : "";
 
   // SweetAlert prompt + dispatch retract.
   const mySwal = withReactContent(Swal);
