@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Nav, NavItem, NavLink } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FileText, MapPin, CreditCard, Users } from "react-feather";
+import { FileText, Truck } from "react-feather";
 
 const Tabs = ({ active, toggleTab }) => {
   const { t } = useTranslation();
@@ -20,29 +20,11 @@ const Tabs = ({ active, toggleTab }) => {
         </NavItem>
         <NavItem>
           <NavLink
-            active={active === "addresses"}
-            onClick={() => toggleTab("addresses")}
+            active={active === "purchase_orders"}
+            onClick={() => toggleTab("purchase_orders")}
           >
-            <MapPin className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("Addresses")}</span>
-          </NavLink>
-        </NavItem>
-        <NavItem>
-          <NavLink
-            active={active === "banks"}
-            onClick={() => toggleTab("banks")}
-          >
-            <CreditCard className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("Bank Accounts")}</span>
-          </NavLink>
-        </NavItem>
-        <NavItem>
-          <NavLink
-            active={active === "contacts"}
-            onClick={() => toggleTab("contacts")}
-          >
-            <Users className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("Contacts")}</span>
+            <Truck className="font-medium-3 me-50" />
+            <span className="fw-bold">{t("Purchase Orders")}</span>
           </NavLink>
         </NavItem>
       </Nav>
