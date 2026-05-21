@@ -198,6 +198,14 @@ const PURCHASE_ORDER_STATUS_BADGE_COLOR = {
   cancelled: "danger",
 };
 
+const PURCHASE_ORDER_STATUS_COLOR_MAP = {
+  draft: "#6c757d",
+  confirmed: "#0dcaf0",
+  in_process: "#fd7e14",
+  completed: "#198754",
+  cancelled: "#dc3545",
+};
+
 const PO_VENDOR_STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "dispatched", label: "Dispatched" },
@@ -210,6 +218,13 @@ const PO_VENDOR_STATUS_BADGE_COLOR = {
   dispatched: "info",
   closed: "success",
   cancelled: "danger",
+};
+
+const PO_VENDOR_STATUS_COLOR_MAP = {
+  draft: "#6c757d",
+  dispatched: "#0dcaf0",
+  closed: "#198754",
+  cancelled: "#dc3545",
 };
 
 /**
@@ -309,8 +324,10 @@ export {
   QUOTATION_STATUS_BADGE_COLOR,
   PURCHASE_ORDER_STATUS_OPTIONS,
   PURCHASE_ORDER_STATUS_BADGE_COLOR,
+  PURCHASE_ORDER_STATUS_COLOR_MAP,
   PO_VENDOR_STATUS_OPTIONS,
   PO_VENDOR_STATUS_BADGE_COLOR,
+  PO_VENDOR_STATUS_COLOR_MAP,
   TRACKING_EVENT_TYPE_OPTIONS,
   TRACKING_EVENT_TYPE_LABEL,
   EXCHANGE_TO_CURRENCY_OPTIONS,
