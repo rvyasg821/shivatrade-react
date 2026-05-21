@@ -4,12 +4,13 @@
 
 import { useState } from "react";
 import { Card, CardBody, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
-import { FileText, Layers } from "react-feather";
+import { FileText, Layers, BarChart2 } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import LineItemsPanel from "./LineItemsPanel";
 import PfisPanel from "./PfisPanel";
+import SourceCoveragePanel from "@src/views/_shared/sales-doc/SourceCoveragePanel";
 
 const RelatedDocsTabs = () => {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ const RelatedDocsTabs = () => {
   const pfiItems = useSelector((s) => s.pfi?.pfiItems || []);
   const linesCount = (quotationItem?.lines || []).length;
   const pfisCount = pfiItems.length;
+  const quotationId = quotationItem?._id;
 
   return (
     <Card className="mb-1">
@@ -83,6 +85,22 @@ const RelatedDocsTabs = () => {
               ) : null}
             </NavLink>
           </NavItem>
+          <NavItem>
+            <NavLink
+              active={active === "coverage"}
+              onClick={() => setActive("coverage")}
+              style={{
+                color: active === "coverage" ? "#fff" : "#1a2238",
+                display: "inline-flex",
+                alignItems: "center",
+                height: 38,
+                padding: "0 14px",
+              }}
+            >
+              <BarChart2 size={16} className="me-50" />
+              {t("PO Coverage")}
+            </NavLink>
+          </NavItem>
         </Nav>
 
         <TabContent activeTab={active}>
@@ -91,6 +109,14 @@ const RelatedDocsTabs = () => {
           </TabPane>
           <TabPane tabId="pfis">
             <PfisPanel bare />
+          </TabPane>
+          <TabPane tabId="coverage">
+            {active === "coverage" && quotationId && (
+              <SourceCoveragePanel
+                sourceType="quotation"
+                sourceId={quotationId}
+              />
+            )}
           </TabPane>
         </TabContent>
       </CardBody>

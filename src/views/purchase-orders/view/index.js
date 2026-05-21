@@ -119,7 +119,6 @@ const ViewPurchaseOrder = () => {
       key: "total",
       label: t("Grand Total"),
       value: p?.grand_total !== undefined ? `${sym} ${fmt(p.grand_total)}` : "-",
-      sub: p?.currency_code || null,
       icon: DollarSign,
       tone: "secondary",
     },

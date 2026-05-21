@@ -228,7 +228,10 @@ export const computeDocTotals = (lines, exchangeRate) => {
     grand_inr_raw,
     round_off,
     grand_inr,
-    grand_currency: grand_inr * rate,
+    // Use the unrounded INR for foreign-currency conversion so the
+    // costing card's Grand Total matches the per-line totals (which also
+    // use the raw line_total × rate). Round-off only applies to INR.
+    grand_currency: grand_inr_raw * rate,
     rate,
   };
 };

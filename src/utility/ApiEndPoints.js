@@ -234,6 +234,8 @@ export const API_ENDPOINTS = {
     previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
     pdf: `/admin/purchase-order`, // append /:id/pdf
     coverage: `/admin/purchase-order`, // append /:id/coverage
+    pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId
+    quotationCoverage: `/admin/purchase-order/quotation-coverage`, // append /:quotationId
   },
   poVendors: {
     list: `/admin/po-vendor/list`,
