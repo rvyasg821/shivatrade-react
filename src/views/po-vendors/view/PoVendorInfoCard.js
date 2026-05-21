@@ -298,23 +298,6 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
                 </UncontrolledTooltip>
               </Fragment>
             )}
-            {canEditTracking && (
-              <Fragment>
-                <Button
-                  color="primary"
-                  outline
-                  onClick={() =>
-                    navigate(`${appsRoot}/po-vendors/view/${id}#edit`)
-                  }
-                  id="pov-edit"
-                >
-                  {t("Edit Tracking")}
-                </Button>
-                <UncontrolledTooltip target="pov-edit" placement="top">
-                  {t("Inline edit happens on the detail tabs.")}
-                </UncontrolledTooltip>
-              </Fragment>
-            )}
             {canCancel && (
               <Fragment>
                 <Button color="danger" outline onClick={handleCancel} id="pov-cancel">
