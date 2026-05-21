@@ -14,6 +14,7 @@ import {
   PAYMENT_TERMS_OPTIONS,
 } from "@constant/options";
 import DateInput from "@components/date-input";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const required = <span className="text-danger">*</span>;
 
@@ -206,17 +207,17 @@ const Step1Customer = ({
                 : ""}
               .{" "}
               <span>
-                1 {rateMeta.fromCode} ={" "}
+                {getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode}1 ={" "}
+                {getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}
                 {Number(rateMeta.rate).toLocaleString(undefined, {
                   maximumFractionDigits: 6,
-                })}{" "}
-                {rateMeta.toCode}
+                })}
                 {rateMeta.rate > 0
-                  ? ` · 1 ${rateMeta.toCode} = ${(
-                      1 / rateMeta.rate
-                    ).toLocaleString(undefined, {
+                  ? ` · ${getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}1 = ${
+                      getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode
+                    }${(1 / rateMeta.rate).toLocaleString(undefined, {
                       maximumFractionDigits: 4,
-                    })} ${rateMeta.fromCode}`
+                    })}`
                   : ""}
               </span>
             </>
