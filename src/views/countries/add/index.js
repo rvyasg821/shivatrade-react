@@ -147,7 +147,7 @@ const AddCountry = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/countries`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>

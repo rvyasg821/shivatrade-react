@@ -22,7 +22,7 @@ const PurchaseOrderTabView = () => {
         <Button
           type="button"
           color="primary"
-          onClick={() => navigate(`${appsRoot}/purchase-orders`)}
+          onClick={() => navigate(-1)}
         >
           <ArrowLeft size={17} />
         </Button>

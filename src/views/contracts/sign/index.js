@@ -504,7 +504,7 @@ const ContractSign = () => {
             <Button
               type="button"
               color="secondary"
-              onClick={() => navigate(`${appsRoot}/contracts`)}
+              onClick={() => navigate(-1)}
             >
               {t("Back")}
             </Button>

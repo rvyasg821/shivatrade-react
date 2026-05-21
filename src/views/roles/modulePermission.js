@@ -251,7 +251,7 @@ const ModulePermission = () => {
         <h3 className="mb-0">
           {t("Module Permissions")} {store?.roleItem?.name ? ` - ${store.roleItem.name}` : null}
         </h3>
-        <Button type="button" className="ms-2 btn-primary" onClick={() => navigate(`${appsRoot}/roles`)}>
+        <Button type="button" className="ms-2 btn-primary" onClick={() => navigate(-1)}>
           <ArrowLeft size={17} color="white" />
         </Button>
       </div>
@@ -353,7 +353,7 @@ const ModulePermission = () => {
               </Button>
             </div>
             <div className="form-btn">
-              <Button type="button" color="secondary" onClick={() => navigate(`${appsRoot}/roles`)}>
+              <Button type="button" color="secondary" onClick={() => navigate(-1)}>
                 {t("Cancel")}
               </Button>
             </div>

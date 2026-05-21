@@ -218,7 +218,7 @@ const ViewLead = () => {
     {
       icon: ArrowLeft,
       label: t("Back to Leads"),
-      onClick: () => navigate(`${appsRoot}/leads`),
+      onClick: () => navigate(-1),
     },
   ];
 

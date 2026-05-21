@@ -24,7 +24,7 @@ const LeadTabView = () => {
         <Button
           type="button"
           color="primary"
-          onClick={() => navigate(`${appsRoot}/leads`)}
+          onClick={() => navigate(-1)}
         >
           <ArrowLeft size={17} />
         </Button>

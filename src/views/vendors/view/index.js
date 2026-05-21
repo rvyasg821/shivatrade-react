@@ -114,7 +114,7 @@ const ViewVendor = () => {
     {
       icon: ArrowLeft,
       label: t("Back to Vendors"),
-      onClick: () => navigate(`${appsRoot}/vendors`),
+      onClick: () => navigate(-1),
     },
   ];
 

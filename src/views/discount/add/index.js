@@ -208,7 +208,7 @@ const DiscountForm = () => {
 
 
   const handleCancel = () => {
-    navigate(`${appsRoot}/discount`);
+    navigate(-1);
   };
 
   const addLocationRule = () => {

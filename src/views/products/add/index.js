@@ -410,7 +410,7 @@ const ProductForm = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/products`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>
@@ -1177,7 +1177,7 @@ const ProductForm = () => {
                   color="secondary"
                   outline
                   className="me-1"
-                  onClick={() => navigate(`${appsRoot}/products`)}
+                  onClick={() => navigate(-1)}
                 >
                   {t("Cancel")}
                 </Button>
