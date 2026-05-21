@@ -26,6 +26,7 @@ import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
 import { formatDate } from "@src/utility/dateFormat";
+import { formatMoney } from "@src/utility/currency";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -207,12 +208,7 @@ const PfiView = () => {
     [customerStore?.customerDropdown]
   );
 
-  const formatTotal = (row) => {
-    const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "-";
-    const code = row?.currency_code ? ` ${row.currency_code}` : "";
-    return `${Number(v).toLocaleString()}${code}`;
-  };
+  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
 
   const columns = [
     {

@@ -12,7 +12,7 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { Layers, Truck } from "react-feather";
+import { Layers, Truck, BarChart2 } from "react-feather";
 import { useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
@@ -22,6 +22,7 @@ import {
 } from "@src/views/purchase-orders/store";
 import PfiLineItemsPanel from "./PfiLineItemsPanel";
 import PfiPosPanel from "./PfiPosPanel";
+import SourceCoveragePanel from "@src/views/_shared/sales-doc/SourceCoveragePanel";
 
 const PfiRelatedDocsTabs = () => {
   const { t } = useTranslation();
@@ -93,6 +94,7 @@ const PfiRelatedDocsTabs = () => {
         <Nav pills className="mb-2">
           {tabBtn("lines", t("Line Items"), Layers, linesCount)}
           {tabBtn("pos", t("Purchase Orders"), Truck, posCount)}
+          {tabBtn("coverage", t("PO Coverage"), BarChart2, 0)}
         </Nav>
 
         <TabContent activeTab={active}>
@@ -101,6 +103,11 @@ const PfiRelatedDocsTabs = () => {
           </TabPane>
           <TabPane tabId="pos">
             {active === "pos" && <PfiPosPanel bare />}
+          </TabPane>
+          <TabPane tabId="coverage">
+            {active === "coverage" && (
+              <SourceCoveragePanel sourceType="pfi" sourceId={id} />
+            )}
           </TabPane>
         </TabContent>
       </CardBody>
