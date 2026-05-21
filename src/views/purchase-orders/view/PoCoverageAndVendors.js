@@ -260,28 +260,14 @@ export const PoVendorsPanel = ({ data }) => {
   const { t } = useTranslation();
   const { povs, loading } = data;
 
+  // Flat-siblings model — all POVs are peers. Show in creation order.
   const orderedPovs = useMemo(() => {
     if (!povs.length) return [];
-    const byId = new Map(povs.map((p) => [p._id, p]));
-    const result = [];
-    const placed = new Set();
-    const visit = (p, depth) => {
-      if (placed.has(p._id)) return;
-      placed.add(p._id);
-      result.push({ ...p, _depth: depth });
-      povs
-        .filter((c) => c.parent_po_vendor_id === p._id)
-        .forEach((c) => visit(c, depth + 1));
-    };
-    povs
-      .filter(
-        (p) => !p.parent_po_vendor_id || !byId.has(p.parent_po_vendor_id)
+    return [...povs].sort((a, b) =>
+      String(a.createdAt || a.voucher_no || "").localeCompare(
+        String(b.createdAt || b.voucher_no || "")
       )
-      .forEach((p) => visit(p, 0));
-    povs.forEach((p) => {
-      if (!placed.has(p._id)) visit(p, 0);
-    });
-    return result;
+    );
   }, [povs]);
 
   const summarizeQty = (lines = []) => {
@@ -331,19 +317,12 @@ export const PoVendorsPanel = ({ data }) => {
           return (
             <tr key={p._id}>
               <td>
-                <span
-                  style={{ paddingLeft: `${(p._depth || 0) * 20}px` }}
+                <Link
+                  to={`${appsRoot}/po-vendors/view/${p._id}`}
+                  className="fw-bold"
                 >
-                  {p._depth > 0 && (
-                    <span className="text-muted me-50">↳</span>
-                  )}
-                  <Link
-                    to={`${appsRoot}/po-vendors/view/${p._id}`}
-                    className="fw-bold"
-                  >
-                    {p.voucher_no}
-                  </Link>
-                </span>
+                  {p.voucher_no}
+                </Link>
               </td>
               <td>
                 <Badge
