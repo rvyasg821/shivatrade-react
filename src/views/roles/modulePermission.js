@@ -214,7 +214,14 @@ const ModulePermission = () => {
         { title: "Quotations", slug: "quotations" },
         { title: "PFI", slug: "pfi" },
         { title: "Purchase Order", slug: "purchase-orders" },
-        // Invoices, PO Vendors, Tracking, GRN added when those modules ship
+        // Invoices added when that module ships
+      ]
+    },
+    {
+      title: t("Purchase"),
+      children: [
+        { title: "PO Vendors", slug: "po-vendors" },
+        { title: "Tracking", slug: "tracking" },
       ]
     },
     {
@@ -251,7 +258,7 @@ const ModulePermission = () => {
 
       {store?.roleItem?.isDefault && (
         <Alert color="info" className="mb-2">
-          <strong>{t("Default Role")}</strong> — {t("This is a system-defined role. You can configure its permissions, but the role name and type cannot be changed.")}
+          <strong>{t("Default Role")}</strong> - {t("This is a system-defined role. You can configure its permissions, but the role name and type cannot be changed.")}
         </Alert>
       )}
 
@@ -261,14 +268,25 @@ const ModulePermission = () => {
           {navigation.map((navGroup, index) => {
             const groupTitle = navGroup.title;
             const children = navGroup.children || [];
-            // Convert children titles → module slugs
-            const expectedSlugs = children.length
-              ? children.map((c) => c.slug || c.title.toLowerCase().replace(/\s+/g, "_"))
-              : [groupTitle.toLowerCase().replace(/\s+/g, "_")]; // ensure matching
-            // Filter modules that belong to this group
-            const modulesInGroup = rolePermissions
-              .map((mod, idx) => ({ ...mod, originalIndex: idx })) // attach originalIndex
-              .filter((mod) => expectedSlugs.includes(mod.module_slug));
+            // Index rolePermissions by slug so we can look up while preserving
+            // the declared children[] order (matches the sidebar).
+            const indexedRolePerms = rolePermissions
+              .map((mod, idx) => ({ ...mod, originalIndex: idx }))
+              .reduce((acc, mod) => {
+                acc[mod.module_slug] = mod;
+                return acc;
+              }, {});
+            // Walk children in declared order; pick up each one's stored
+            // permissions (or skip if not present in the role).
+            const modulesInGroup = children
+              .map((child) => {
+                const slug =
+                  child.slug || child.title.toLowerCase().replace(/\s+/g, "_");
+                const mod = indexedRolePerms[slug];
+                if (!mod) return null;
+                return { ...mod, displayTitle: child.title };
+              })
+              .filter(Boolean);
             // Skip empty groups
             if (!modulesInGroup.length) return null;
             const isOpen = selectedAccordion === index;
@@ -304,11 +322,7 @@ const ModulePermission = () => {
                         {modulesInGroup.map((module) => (
                           <tr key={module.module_slug}>
                             <td className="fw-bolder">
-                              {t(
-                                module.module_slug
-                                  .replace(/_/g, " ")
-                                  .replace(/\b\w/g, (c) => c.toUpperCase())
-                              )}
+                              {t(module.displayTitle || module.module_slug)}
                             </td>
                             {permissionKeys.map((key) => (
                               <td key={key} className="text-center">

@@ -6,7 +6,7 @@ import { ArrowLeft } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import Tabs from "./tabs";
 import OverviewTab from "./OverviewTab";
-import GrnTab from "./GrnTab";
+import VendorTrackingTab from "./VendorTrackingTab";
 
 const PurchaseOrderTabView = () => {
   const navigate = useNavigate();
@@ -33,8 +33,8 @@ const PurchaseOrderTabView = () => {
             <TabPane tabId="overview">
               <OverviewTab />
             </TabPane>
-            <TabPane tabId="grn">
-              <GrnTab />
+            <TabPane tabId="vendor-tracking">
+              {active === "vendor-tracking" && <VendorTrackingTab />}
             </TabPane>
           </TabContent>
         </CardBody>

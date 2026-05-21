@@ -174,7 +174,7 @@ const QUOTATION_STATUS_BADGE_COLOR = {
   sent: "info",
   approved: "success",
   rejected: "danger",
-  // PFI-only terminal state — set when a Commercial Invoice is generated.
+  // PFI-only terminal state - set when a Commercial Invoice is generated.
   closed: "dark",
 };
 
@@ -197,6 +197,46 @@ const PURCHASE_ORDER_STATUS_BADGE_COLOR = {
   completed: "success",
   cancelled: "danger",
 };
+
+const PO_VENDOR_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "dispatched", label: "Dispatched" },
+  { value: "closed", label: "Closed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const PO_VENDOR_STATUS_BADGE_COLOR = {
+  draft: "secondary",
+  dispatched: "info",
+  closed: "success",
+  cancelled: "danger",
+};
+
+/**
+ * Tracking event types - append-only event log on POVs (Tracking plan §5).
+ * Stored on the BE as `varchar(40)`; this is the source of truth for the
+ * dropdown order + display labels. `other` reveals a free-text field.
+ * Keep in sync with `ENUM_TRACKING_EVENT_TYPE` on the backend.
+ */
+const TRACKING_EVENT_TYPE_OPTIONS = [
+  { value: "vehicle_loaded", label: "Vehicle Loaded" },
+  { value: "left_vendor", label: "Left Vendor" },
+  { value: "in_transit_update", label: "In-transit Update" },
+  { value: "reached_checkpoint", label: "Reached Checkpoint" },
+  { value: "customs_clearance", label: "Customs / Border Cleared" },
+  { value: "near_destination", label: "Near Destination" },
+  { value: "arrived_destination", label: "Arrived at Destination" },
+  { value: "unloading_started", label: "Unloading Started" },
+  { value: "unloading_complete", label: "Unloading Complete" },
+  { value: "delay_reported", label: "Delay Reported" },
+  { value: "damage_reported", label: "Damage Reported" },
+  { value: "other", label: "Other (free text)" },
+];
+
+const TRACKING_EVENT_TYPE_LABEL = TRACKING_EVENT_TYPE_OPTIONS.reduce(
+  (acc, o) => ((acc[o.value] = o.label), acc),
+  {}
+);
 
 /**
  * ISO 4217 codes available as exchange-rate targets on the Currency module.
@@ -269,6 +309,10 @@ export {
   QUOTATION_STATUS_BADGE_COLOR,
   PURCHASE_ORDER_STATUS_OPTIONS,
   PURCHASE_ORDER_STATUS_BADGE_COLOR,
+  PO_VENDOR_STATUS_OPTIONS,
+  PO_VENDOR_STATUS_BADGE_COLOR,
+  TRACKING_EVENT_TYPE_OPTIONS,
+  TRACKING_EVENT_TYPE_LABEL,
   EXCHANGE_TO_CURRENCY_OPTIONS,
   MODE_OF_SHIPMENT_OPTIONS,
   PACKING_TYPE_OPTIONS,

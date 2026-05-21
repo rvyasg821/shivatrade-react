@@ -19,11 +19,11 @@ const Tabs = ({ active, toggleTab }) => {
         </NavItem>
         <NavItem>
           <NavLink
-            active={active === "grn"}
-            onClick={() => toggleTab("grn")}
+            active={active === "vendor-tracking"}
+            onClick={() => toggleTab("vendor-tracking")}
           >
             <Truck className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("GRN")}</span>
+            <span className="fw-bold">{t("Vendor Tracking")}</span>
           </NavLink>
         </NavItem>
       </Nav>

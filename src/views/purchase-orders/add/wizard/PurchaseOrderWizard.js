@@ -19,6 +19,7 @@ import {
 } from "../../store";
 import { getVendorDropdown, getVendor } from "../../../vendors/store";
 import { getProductDropdown } from "../../../products/store";
+import { getCustomerDropdown } from "../../../customers/store";
 import { startLoading, stopLoading } from "../../../loadingstore";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 
@@ -52,6 +53,7 @@ const PurchaseOrderWizard = () => {
   const store = useSelector((s) => s.purchaseOrder);
   const vendorStore = useSelector((s) => s.vendor);
   const productStore = useSelector((s) => s.product);
+  const customerStore = useSelector((s) => s.customer);
   const companyStore = useSelector((s) => s.company);
 
   const [submitting, setSubmitting] = useState(false);
@@ -61,11 +63,16 @@ const PurchaseOrderWizard = () => {
     () =>
       yup.object().shape({
         vendor_id: yup.string().trim().required(t("Vendor is required")),
-        po_date: yup.string().trim().required(t("PO date is required")),
-        delivery_address: yup
+        customer_id: yup
           .string()
           .trim()
-          .required(t("Delivery address is required")),
+          .required(t("Customer is required")),
+        po_date: yup.string().trim().required(t("PO date is required")),
+        // delivery_address is now derived from a picked company address.
+        // We require EITHER delivery_address_id OR delivery_address (text
+        // override). Cross-field rule enforced below.
+        delivery_address: yup.string().nullable(),
+        delivery_address_id: yup.string().nullable(),
         expected_delivery_date: yup.string().nullable(),
         payment_terms: yup.string().nullable().max(100),
         delivery_terms: yup.string().nullable().max(100),
@@ -150,6 +157,7 @@ const PurchaseOrderWizard = () => {
   useEffect(() => {
     dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
+    dispatch(getCustomerDropdown());
     dispatch(getCompanyDetails());
     if (isEdit) {
       dispatch(getPurchaseOrder(id));
@@ -192,18 +200,10 @@ const PurchaseOrderWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.purchaseOrderItem?._id]);
 
-  // Pre-fill delivery_address from company default on NEW PO only.
-  useEffect(() => {
-    if (isEdit) return;
-    const ci = companyStore?.companyItem;
-    if (!ci || !ci._id) return;
-    if (!watch("delivery_address") && ci.default_po_delivery_address) {
-      setValue("delivery_address", ci.default_po_delivery_address, {
-        shouldDirty: false,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyStore?.companyItem?._id, isEdit]);
+  // Pre-fill delivery_address is now handled by CompanyAddressSelect
+  // (auto-picks the first warehouse/corporate address). No legacy
+  // company.default_po_delivery_address fallback - that field has
+  // been retired in this refactor.
 
   // Load vendor details (for vendor addresses dropdown).
   useEffect(() => {
@@ -322,6 +322,27 @@ const PurchaseOrderWizard = () => {
     [vendorStore?.vendorDropdown]
   );
 
+  // Customer options - inject a synthetic option for the currently
+  // linked customer when it's missing from the dropdown (inactive /
+  // soft-deleted / not on current page). Ensures the Select still
+  // renders the correct label in edit mode.
+  const customerOptions = useMemo(() => {
+    const base = (customerStore?.customerDropdown || []).map((c) => ({
+      value: c._id,
+      label: c.company_name,
+    }));
+    const linkedId = store?.purchaseOrderItem?.customer_id;
+    const linkedName = store?.purchaseOrderItem?.customer_name;
+    if (linkedId && linkedName && !base.find((o) => o.value === linkedId)) {
+      return [{ value: linkedId, label: `${linkedName} (linked)` }, ...base];
+    }
+    return base;
+  }, [
+    customerStore?.customerDropdown,
+    store?.purchaseOrderItem?.customer_id,
+    store?.purchaseOrderItem?.customer_name,
+  ]);
+
   // ── Submit ──
   const buildPayload = (values) => {
     if (isLocked) {
@@ -338,7 +359,8 @@ const PurchaseOrderWizard = () => {
       pfi_id: values.pfi_id || undefined,
       po_date: values.po_date,
       expected_delivery_date: values.expected_delivery_date || undefined,
-      delivery_address: values.delivery_address?.trim(),
+      delivery_address: values.delivery_address?.trim() || undefined,
+      delivery_address_id: values.delivery_address_id || undefined,
       payment_terms: values.payment_terms?.trim() || undefined,
       delivery_terms: values.delivery_terms?.trim() || undefined,
       notes_to_vendor: values.notes_to_vendor?.trim() || undefined,
@@ -366,8 +388,11 @@ const PurchaseOrderWizard = () => {
     const action = isEdit
       ? dispatch(updatePurchaseOrder({ id, data: payload }))
       : dispatch(createPurchaseOrder(payload));
-    action.unwrap?.().finally(() => setSubmitting(false)) ||
-      action.finally?.(() => setSubmitting(false));
+    // Don't `.unwrap()` - it re-throws on rejectWithValue and surfaces as
+    // an uncaught runtime error overlay in dev. The thunk's rejection is
+    // already captured into store.error and shown as a toast by the
+    // useEffect below.
+    action.finally?.(() => setSubmitting(false));
   };
 
   const findFirstErrorStep = () => {
@@ -412,7 +437,7 @@ const PurchaseOrderWizard = () => {
       dispatch(cleanPurchaseOrderMessage());
       navigate(`${appsRoot}/purchase-orders`, { replace: true });
     }
-    if (store?.error && !submitting) {
+    if (store?.error) {
       Notification("Error", store.error, "warning");
       dispatch(cleanPurchaseOrderMessage());
     }
@@ -428,6 +453,7 @@ const PurchaseOrderWizard = () => {
     isEdit,
     isLocked,
     vendorOptions,
+    customerOptions,
     vendorAddressOptions,
     productById,
     priceByProduct,

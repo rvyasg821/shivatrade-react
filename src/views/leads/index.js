@@ -36,6 +36,7 @@ import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
 import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
+import { formatDate } from "@src/utility/dateFormat";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -44,6 +45,7 @@ import {
   LEAD_STATUS_OPTIONS,
   LEAD_STATUS_BADGE_COLOR,
 } from "@constant/options";
+import { formatMoney } from "@src/utility/currency";
 
 const LeadList = () => {
   const { t } = useTranslation();
@@ -301,39 +303,7 @@ const LeadList = () => {
       name: t("Budget"),
       sortable: false,
       selector: (row) =>
-        row?.expected_value
-          ? `${row?.currency || ""} ${Number(row.expected_value).toLocaleString()}`.trim()
-          : "-",
-    },
-    {
-      name: t("Last Activity"),
-      sortable: false,
-      selector: (row) => {
-        const iso = row?.last_activity_at;
-        if (!iso) return <span className="text-muted">-</span>;
-        const d = new Date(iso);
-        const s = Math.floor((Date.now() - d.getTime()) / 1000);
-        let label;
-        if (s < 60) label = `${s}s ago`;
-        else if (s < 3600) label = `${Math.floor(s / 60)}m ago`;
-        else if (s < 86400) label = `${Math.floor(s / 3600)}h ago`;
-        else if (s < 2592000) label = `${Math.floor(s / 86400)}d ago`;
-        else label = d.toLocaleDateString();
-        const openStatus =
-          row?.status !== "won" && row?.status !== "lost";
-        const stale = openStatus && s > 7 * 86400;
-        return (
-          <span
-            className={stale ? "fw-bold" : ""}
-            ref={(el) => {
-              if (el && stale)
-                el.style.setProperty("color", "#dc3545", "important");
-            }}
-          >
-            {label}
-          </span>
-        );
-      },
+        row?.expected_value ? formatMoney(row.expected_value, row?.currency) : "-",
     },
     {
       name: t("Follow-up"),
@@ -353,7 +323,7 @@ const LeadList = () => {
                 el.style.setProperty("color", "#dc3545", "important");
             }}
           >
-            {raw}
+            {formatDate(raw)}
             {overdue && (
               <small className="ms-1">({t("overdue")})</small>
             )}

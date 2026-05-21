@@ -116,7 +116,7 @@ export const createQuotation = createAsyncThunk(
           payload,
           quotationItem: response.data || null,
           actionFlag: "QT_CRTD",
-          success: response?.message || "",
+          success: "Quotation created successfully",
           error: "",
         };
       }
@@ -152,7 +152,7 @@ export const updateQuotation = createAsyncThunk(
           payload,
           quotationItem: response.data || null,
           actionFlag: "QT_UPDT",
-          success: response?.message || "",
+          success: "Quotation updated successfully",
           error: "",
         };
       }
@@ -187,7 +187,7 @@ export const deleteQuotation = createAsyncThunk(
         return {
           id,
           actionFlag: "QT_DLT",
-          success: response?.message || "",
+          success: "Quotation deleted successfully",
           error: "",
         };
       }
@@ -262,6 +262,12 @@ export const getQuotationPreview = createAsyncThunk(
 );
 
 // Admin: publish / rotate / unpublish - all return the updated quotation.
+const PUBLISH_SUCCESS = {
+  QT_PUBLISHED: "Quotation published successfully",
+  QT_TOKEN_ROTATED: "Public link rotated successfully",
+  QT_UNPUBLISHED: "Quotation unpublished successfully",
+};
+
 const publishLikeThunk = (name, endpointKey, flag) =>
   createAsyncThunk(`appQuotation/${name}`, async (id) => {
     try {
@@ -273,7 +279,7 @@ const publishLikeThunk = (name, endpointKey, flag) =>
         return {
           quotationItem: response.data,
           actionFlag: flag,
-          success: response?.message || "",
+          success: PUBLISH_SUCCESS[flag] || "Action completed successfully",
           error: "",
         };
       }

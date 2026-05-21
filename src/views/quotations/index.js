@@ -42,6 +42,8 @@ import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
 import { Edit, Eye, Trash2, PlusCircle, FileText } from "react-feather";
+import { formatMoney } from "@src/utility/currency";
+import { formatDate } from "@src/utility/dateFormat";
 
 // ** PFI conversion
 import { createPfiFromQuotation } from "../pfi/store";
@@ -234,22 +236,19 @@ const QuotationView = () => {
     [customerStore?.customerDropdown]
   );
 
-  const formatTotal = (row) => {
-    const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "-";
-    const code = row?.currency_code ? ` ${row.currency_code}` : "";
-    return `${Number(v).toLocaleString()}${code}`;
-  };
+  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
 
   const columns = [
     {
       name: t("Quote #"),
       sortField: "voucher_no",
       sortable: false,
+      minWidth: "200px",
+      grow: 1.5,
       selector: (row) => (
         <Link
           to={`${appsRoot}/quotations/view/${row?._id || ""}`}
-          className="text-wrap"
+          className="text-nowrap"
         >
           {row?.voucher_no || "-"}
         </Link>
@@ -291,7 +290,7 @@ const QuotationView = () => {
       name: t("Date"),
       sortField: "quotation_date",
       sortable: true,
-      selector: (row) => (row?.quotation_date || "").slice(0, 10),
+      selector: (row) => (row?.quotation_date ? formatDate(row.quotation_date) : "-"),
     },
     {
       name: t("Total"),

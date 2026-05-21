@@ -109,6 +109,7 @@ const StepShipping = ({
             <Input
               placeholder="e.g. Mundra Port, India"
               disabled={isLocked}
+              invalid={!!errors.port_of_loading}
               {...field}
               value={field.value || ""}
               maxLength={150}
@@ -133,6 +134,7 @@ const StepShipping = ({
             <Input
               placeholder="e.g. Jebel Ali, UAE"
               disabled={isLocked}
+              invalid={!!errors.port_of_discharge}
               {...field}
               value={field.value || ""}
               maxLength={150}
@@ -186,6 +188,11 @@ const StepShipping = ({
             />
           )}
         />
+        {errors.country_of_origin && (
+          <FormFeedback className="d-block">
+            {errors.country_of_origin.message}
+          </FormFeedback>
+        )}
       </Col>
 
       <Col md="4" className="mb-2">
@@ -211,6 +218,11 @@ const StepShipping = ({
             />
           )}
         />
+        {errors.country_of_final_destination && (
+          <FormFeedback className="d-block">
+            {errors.country_of_final_destination.message}
+          </FormFeedback>
+        )}
       </Col>
 
       <Col md="4" className="mb-2">
@@ -234,6 +246,11 @@ const StepShipping = ({
             />
           )}
         />
+        {errors.mode_of_shipment && (
+          <FormFeedback className="d-block">
+            {errors.mode_of_shipment.message}
+          </FormFeedback>
+        )}
       </Col>
 
       <Col md="4" className="mb-2">
@@ -313,6 +330,11 @@ const StepShipping = ({
             />
           )}
         />
+        {errors.packing_type && (
+          <FormFeedback className="d-block">
+            {errors.packing_type.message}
+          </FormFeedback>
+        )}
       </Col>
 
       <Col md="4" className="mb-2">
@@ -406,11 +428,17 @@ const StepShipping = ({
               type="textarea"
               rows="2"
               disabled={isLocked}
+              invalid={!!errors.payment_terms_text}
               {...field}
               value={field.value || ""}
             />
           )}
         />
+        {errors.payment_terms_text && (
+          <FormFeedback className="d-block">
+            {errors.payment_terms_text.message}
+          </FormFeedback>
+        )}
         <small className="text-muted">
           {t("Default: 100% advance via T/T. Editable per PFI.")}
         </small>
@@ -428,11 +456,17 @@ const StepShipping = ({
               type="textarea"
               rows="2"
               disabled={isLocked}
+              invalid={!!errors.declaration_text}
               {...field}
               value={field.value || ""}
             />
           )}
         />
+        {errors.declaration_text && (
+          <FormFeedback className="d-block">
+            {errors.declaration_text.message}
+          </FormFeedback>
+        )}
         <small className="text-muted">
           {t("Pre-filled from Company Profile default; editable here.")}
         </small>
