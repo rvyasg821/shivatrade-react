@@ -22,7 +22,7 @@ import {
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { Paperclip, ExternalLink } from "react-feather";
+import { ExternalLink } from "react-feather";
 
 import {
   getTrackingEventList,
@@ -34,18 +34,10 @@ import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import { formatDate } from "@src/utility/dateFormat";
 
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { TRACKING_EVENT_TYPE_OPTIONS } from "@constant/options";
-
-const fmtWhen = (iso) => {
-  if (!iso) return "-";
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return String(iso).slice(0, 16);
-  }
-};
 
 const TrackingFeedView = () => {
   const { t } = useTranslation();
@@ -150,81 +142,127 @@ const TrackingFeedView = () => {
 
   const vendorOptions = useMemo(
     () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.name,
-      })),
+      (vendorStore?.vendorDropdown || []).map((v) => {
+        const name = v.company_name || v.name || "";
+        return {
+          value: v._id,
+          label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
+        };
+      }),
     [vendorStore?.vendorDropdown]
   );
+
+  const selectMenuPortalProps = {
+    menuPortalTarget: typeof document !== "undefined" ? document.body : null,
+    styles: { menuPortal: (b) => ({ ...b, zIndex: 9999 }) },
+  };
 
   const columns = [
     {
       name: t("When"),
       sortable: false,
-      selector: (row) => (
-        <span className="text-nowrap small">{fmtWhen(row?.event_at)}</span>
-      ),
-    },
-    {
-      name: t("POV #"),
-      sortable: false,
+      minWidth: "170px",
       selector: (row) => {
-        if (!row?.po_vendor_voucher_no) return "-";
+        if (!row?.event_at) return "-";
+        const d = new Date(row.event_at);
+        const time = isNaN(d) ? "" : d.toLocaleTimeString();
         return (
-          <Link
-            to={`${appsRoot}/po-vendors/view/${row.po_vendor_id}#tracking-event-${row._id}`}
-            className="text-wrap d-inline-flex align-items-center"
-          >
-            <span>{row.po_vendor_voucher_no}</span>
-            <ExternalLink size={12} className="ms-50" />
-          </Link>
+          <div className="py-1">
+            <div className="text-nowrap">{formatDate(row.event_at)}</div>
+            {time ? (
+              <div className="small text-muted text-nowrap mt-25">{time}</div>
+            ) : null}
+          </div>
         );
       },
     },
     {
-      name: t("PO #"),
+      name: t("POV #"),
       sortable: false,
-      selector: (row) =>
-        row?.purchase_order_voucher_no ? (
-          <Link
-            to={`${appsRoot}/purchase-orders/view/${row.purchase_order_id}`}
-            className="text-wrap"
-          >
-            {row.purchase_order_voucher_no}
-          </Link>
-        ) : (
-          "-"
-        ),
+      minWidth: "220px",
+      grow: 1.6,
+      selector: (row) => (
+        <div className="py-1">
+          {row?.po_vendor_voucher_no ? (
+            <Link
+              to={`${appsRoot}/po-vendors/view/${row.po_vendor_id}#tracking-event-${row._id}`}
+              className="text-nowrap d-block"
+            >
+              {row.po_vendor_voucher_no}
+            </Link>
+          ) : (
+            "-"
+          )}
+          {row?.purchase_order_voucher_no ? (
+            <div className="mt-1">
+              {row?.purchase_order_id ? (
+                <Link
+                  to={`${appsRoot}/purchase-orders/view/${row.purchase_order_id}`}
+                  className="small text-muted text-nowrap d-inline-flex align-items-center"
+                >
+                  PO - {row.purchase_order_voucher_no}
+                  <ExternalLink size={12} className="ms-1" />
+                </Link>
+              ) : (
+                <span className="small text-muted text-nowrap">
+                  PO - {row.purchase_order_voucher_no}
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ),
     },
     {
       name: t("Vendor"),
       sortable: false,
+      grow: 2,
       selector: (row) => (
-        <span className="text-capitalize">{row?.vendor_name || "-"}</span>
+        <div className="py-1">
+          {row?.vendor_id ? (
+            <Link
+              to={`${appsRoot}/vendors/view/${row.vendor_id}`}
+              className="fw-bold text-capitalize"
+            >
+              {row?.vendor_name || "-"}
+            </Link>
+          ) : (
+            <span className="fw-bold text-capitalize">
+              {row?.vendor_name || "-"}
+            </span>
+          )}
+          {row?.vendor_code && (
+            <div className="small text-muted">{row.vendor_code}</div>
+          )}
+        </div>
       ),
     },
     {
       name: t("Event"),
       sortable: false,
+      minWidth: "170px",
       selector: (row) => {
         const retracted = !!row?.soft_delete;
         return (
-          <span
-            className="text-nowrap"
-            id={retracted ? `feed-retracted-${row._id}` : undefined}
-            style={
-              retracted ? { textDecoration: "line-through", opacity: 0.6 } : undefined
-            }
-          >
-            {row?.event_type_label || row?.event_type || "-"}
+          <div className="py-1" id={retracted ? `feed-retracted-${row._id}` : undefined}>
+            <div
+              className="text-wrap"
+              style={
+                retracted
+                  ? { textDecoration: "line-through", opacity: 0.6 }
+                  : undefined
+              }
+            >
+              {row?.event_type_label || row?.event_type || "-"}
+            </div>
             {row?.is_post_closure && !retracted && (
-              <Badge color="light-warning" className="ms-50">
+              <Badge color="light-warning" className="mt-25 d-inline-block">
                 {t("Post-closure")}
               </Badge>
             )}
             {retracted && (
               <Fragment>
-                <Badge color="light-secondary" className="ms-50">
+                <Badge color="light-secondary" className="mt-25 d-inline-block">
                   {t("Retracted")}
                 </Badge>
                 <UncontrolledTooltip
@@ -237,7 +275,7 @@ const TrackingFeedView = () => {
                 </UncontrolledTooltip>
               </Fragment>
             )}
-          </span>
+          </div>
         );
       },
     },
@@ -288,30 +326,6 @@ const TrackingFeedView = () => {
       sortable: false,
       selector: (row) => row?.created_by_name || "-",
     },
-    {
-      name: t("File"),
-      center: true,
-      sortable: false,
-      selector: (row) =>
-        row?.attachment_url ? (
-          <a
-            href={row.attachment_url}
-            target="_blank"
-            rel="noreferrer"
-            id={`tev-att-${row._id}`}
-          >
-            <Paperclip size={16} />
-            <UncontrolledTooltip
-              placement="top"
-              target={`tev-att-${row._id}`}
-            >
-              {t("Open attachment")}
-            </UncontrolledTooltip>
-          </a>
-        ) : (
-          ""
-        ),
-    },
   ];
 
   return (
@@ -324,64 +338,73 @@ const TrackingFeedView = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="6" md="3" className="mb-2 mb-md-0">
-                <Input
-                  type="text"
-                  id="search-tracking"
-                  value={searchInput}
-                  className="w-100"
-                  placeholder={t("Search location / notes")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
-                />
-              </Col>
-              <Col sm="6" md="3" className="mb-2 mb-md-0">
-                <Select
-                  isClearable
-                  classNamePrefix="select"
-                  placeholder={t("Filter by Vendor")}
-                  options={vendorOptions}
-                  value={
-                    vendorOptions.find((o) => o.value === vendorFilter) || null
-                  }
-                  onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-2 mb-md-0">
-                <Select
-                  isClearable
-                  classNamePrefix="select"
-                  placeholder={t("Event Type")}
-                  options={TRACKING_EVENT_TYPE_OPTIONS}
-                  value={
-                    TRACKING_EVENT_TYPE_OPTIONS.find(
-                      (o) => o.value === eventTypeFilter
-                    ) || null
-                  }
-                  onChange={(opt) =>
-                    setEventTypeFilter(opt ? opt.value : "")
-                  }
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-2 mb-md-0">
-                <DateInput
-                  id="tracking-date-from"
-                  value={dateFrom}
-                  onChange={(dates, str, iso) => setDateFrom(iso)}
-                  placeholder={t("From")}
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-2 mb-md-0">
-                <DateInput
-                  id="tracking-date-to"
-                  value={dateTo}
-                  onChange={(dates, str, iso) => setDateTo(iso)}
-                  placeholder={t("To")}
-                />
+              <Col sm="12" md="12">
+                <Row>
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                    <Input
+                      type="text"
+                      id="search-tracking"
+                      value={searchInput}
+                      className="w-100"
+                      placeholder={t("Search location / notes")}
+                      onChange={(e) => setSearchInput(e?.target?.value)}
+                    />
+                  </Col>
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                    <Select
+                      isClearable
+                      classNamePrefix="select"
+                      placeholder={t("Filter by Vendor")}
+                      options={vendorOptions}
+                      value={
+                        vendorOptions.find((o) => o.value === vendorFilter) ||
+                        null
+                      }
+                      onChange={(opt) =>
+                        setVendorFilter(opt ? opt.value : "")
+                      }
+                      {...selectMenuPortalProps}
+                    />
+                  </Col>
+                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                    <Select
+                      isClearable
+                      classNamePrefix="select"
+                      placeholder={t("Event Type")}
+                      options={TRACKING_EVENT_TYPE_OPTIONS}
+                      value={
+                        TRACKING_EVENT_TYPE_OPTIONS.find(
+                          (o) => o.value === eventTypeFilter
+                        ) || null
+                      }
+                      onChange={(opt) =>
+                        setEventTypeFilter(opt ? opt.value : "")
+                      }
+                      {...selectMenuPortalProps}
+                    />
+                  </Col>
+                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                    <DateInput
+                      id="tracking-date-from"
+                      value={dateFrom}
+                      onChange={(dates, str, iso) => setDateFrom(iso)}
+                      placeholder={t("From")}
+                    />
+                  </Col>
+                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                    <DateInput
+                      id="tracking-date-to"
+                      value={dateTo}
+                      onChange={(dates, str, iso) => setDateTo(iso)}
+                      placeholder={t("To")}
+                    />
+                  </Col>
+                </Row>
               </Col>
             </Row>
 
             <Row className="mt-2">
-              <Col md="12" className="tracking-feed-table">
+              <Col md="12" className="pov-tables tracking-feed-table">
                 <DatatablePagination
                   columns={columns}
                   data={store?.trackingEventItems || []}
