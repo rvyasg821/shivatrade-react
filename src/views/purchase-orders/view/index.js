@@ -157,7 +157,7 @@ const ViewPurchaseOrder = () => {
     {
       icon: ArrowLeft,
       label: t("Back to POs"),
-      onClick: () => navigate(`${appsRoot}/purchase-orders`),
+      onClick: () => navigate(-1),
     },
   ];
 

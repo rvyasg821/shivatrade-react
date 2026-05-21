@@ -377,7 +377,7 @@ const LeadForm = () => {
             <Button
               color="secondary"
               outline
-              onClick={() => navigate(`${appsRoot}/leads`)}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft size={14} /> {t("Back")}
             </Button>

@@ -22,7 +22,7 @@ const QuotationTabView = () => {
         <Button
           type="button"
           color="primary"
-          onClick={() => navigate(`${appsRoot}/quotations`)}
+          onClick={() => navigate(-1)}
         >
           <ArrowLeft size={17} />
         </Button>

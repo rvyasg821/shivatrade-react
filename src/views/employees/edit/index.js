@@ -197,7 +197,7 @@ const EmployeeEdit = () => {
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              onClick={() => navigate(`${appsRoot}/employees`)}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft size={17} />
             </button>

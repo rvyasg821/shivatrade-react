@@ -162,7 +162,7 @@ const ViewPfi = () => {
     {
       icon: ArrowLeft,
       label: t("Back to PFIs"),
-      onClick: () => navigate(`${appsRoot}/pfi`),
+      onClick: () => navigate(-1),
     },
   ];
 

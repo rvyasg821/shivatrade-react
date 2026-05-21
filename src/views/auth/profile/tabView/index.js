@@ -40,7 +40,7 @@ const ProfileTabView = () => {
               />
               {isCompanyAdmin && (
                 <Button type="button" color="primary" className="d-flex align-items-center"
-                  onClick={() => navigate(`${appsRoot}/profile`)}>
+                  onClick={() => navigate(-1)}>
                   <ArrowLeft size={17} />
                 </Button>
               )}

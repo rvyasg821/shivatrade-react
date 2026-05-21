@@ -107,7 +107,7 @@ const RebateForm = () => {
       <div className="main-content rebate-form">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{isEditMode ? t("Edit Rebate") : t("Add Rebate")}</h3>
-          <Button color="secondary" outline onClick={() => navigate(`${appsRoot}/rebates`)}>
+          <Button color="secondary" outline onClick={() => navigate(-1)}>
             <ArrowLeft size={14} /> {t("Back")}
           </Button>
         </div>
@@ -175,7 +175,7 @@ const RebateForm = () => {
               </Row>
               <div className="d-flex justify-content-end mt-3">
                 <Button type="button" color="secondary" outline className="me-1"
-                  onClick={() => navigate(`${appsRoot}/rebates`)}>
+                  onClick={() => navigate(-1)}>
                   {t("Cancel")}
                 </Button>
                 <Button type="submit" color="primary" disabled={isSubmitting}>

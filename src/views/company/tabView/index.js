@@ -46,7 +46,7 @@ const CompanyTabView = () => {
                             <Button
                                 type="button"
                                 color="primary"
-                                onClick={() => navigate(`${appsRoot}/company`)}
+                                onClick={() => navigate(-1)}
                             >
                                 <ArrowLeft size={17} />
                             </Button>

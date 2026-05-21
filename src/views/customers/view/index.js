@@ -110,7 +110,7 @@ const ViewCustomer = () => {
     {
       icon: ArrowLeft,
       label: t("Back to Customers"),
-      onClick: () => navigate(`${appsRoot}/customers`),
+      onClick: () => navigate(-1),
     },
   ];
 
