@@ -23,7 +23,7 @@ import { useTranslation } from "react-i18next";
 
 import { getPfi, cleanPfiMessage } from "@src/views/pfi/store";
 import Notification from "@components/toast/notification";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
@@ -70,6 +70,13 @@ const ViewPfi = () => {
 
   const store = useSelector((s) => s.pfi);
   const p = store?.pfiItem || {};
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
+  const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canEdit = isAdmin || pfiPerms?.can_all || pfiPerms?.can_update;
+  const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
   const sym = p?.currency_symbol || p?.currency_code || "";
   const [poModalOpen, setPoModalOpen] = useState(false);
 
@@ -151,15 +158,19 @@ const ViewPfi = () => {
       icon: Truck,
       label: t("Generate POs"),
       onClick: () => setPoModalOpen(true),
-      hidden: !isApproved,
+      hidden: !isApproved || !canGeneratePo,
       outline: false,
       color: "success",
     },
-    {
-      icon: Edit,
-      label: t("Edit"),
-      onClick: () => navigate(`${appsRoot}/pfi/edit/${id}`),
-    },
+    ...(canEdit
+      ? [
+          {
+            icon: Edit,
+            label: t("Edit"),
+            onClick: () => navigate(`${appsRoot}/pfi/edit/${id}`),
+          },
+        ]
+      : []),
     {
       icon: ArrowLeft,
       label: t("Back to PFIs"),

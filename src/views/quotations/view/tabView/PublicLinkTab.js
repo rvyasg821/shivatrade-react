@@ -14,7 +14,7 @@ import {
   rotateQuotationToken,
   unpublishQuotation,
 } from "@src/views/quotations/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import Notification from "@components/toast/notification";
 
 const PublicLinkTab = () => {
@@ -26,7 +26,13 @@ const PublicLinkTab = () => {
   const q = quotationItem || {};
   const [copied, setCopied] = useState(false);
 
-  const canPublish = q?.status === "sent" || q?.status === "approved";
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.quotations;
+  const canManage = isAdmin || perms?.can_all || perms?.can_update;
+
+  const canPublish =
+    canManage && (q?.status === "sent" || q?.status === "approved");
   const token = q?.public_token;
   const publicUrl = token ? `${window.location.origin}/q/${token}` : "";
 
@@ -108,23 +114,27 @@ const PublicLinkTab = () => {
               </Button>
             </CopyToClipboard>
           </InputGroup>
-          <Button
-            color="secondary"
-            outline
-            size="sm"
-            className="me-1"
-            onClick={() => dispatch(rotateQuotationToken(id))}
-          >
-            <RefreshCw size={14} className="me-50" /> {t("Rotate link")}
-          </Button>
-          <Button
-            color="danger"
-            outline
-            size="sm"
-            onClick={() => dispatch(unpublishQuotation(id))}
-          >
-            <X size={14} className="me-50" /> {t("Unpublish")}
-          </Button>
+          {canManage && (
+            <>
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                className="me-1"
+                onClick={() => dispatch(rotateQuotationToken(id))}
+              >
+                <RefreshCw size={14} className="me-50" /> {t("Rotate link")}
+              </Button>
+              <Button
+                color="danger"
+                outline
+                size="sm"
+                onClick={() => dispatch(unpublishQuotation(id))}
+              >
+                <X size={14} className="me-50" /> {t("Unpublish")}
+              </Button>
+            </>
+          )}
           <p className="text-muted small mt-1 mb-0">
             {t(
               "Rotating issues a fresh link - the old URL stops working immediately."
