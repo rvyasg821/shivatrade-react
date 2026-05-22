@@ -14,7 +14,7 @@ import {
   rotatePfiToken,
   unpublishPfi,
 } from "@src/views/pfi/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import Notification from "@components/toast/notification";
 
 const PublicLinkTab = () => {
@@ -26,7 +26,13 @@ const PublicLinkTab = () => {
   const p = pfiItem || {};
   const [copied, setCopied] = useState(false);
 
-  const canPublish = p?.status === "sent" || p?.status === "approved";
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.pfi;
+  const canManage = isAdmin || perms?.can_all || perms?.can_update;
+
+  const canPublish =
+    canManage && (p?.status === "sent" || p?.status === "approved");
   const token = p?.public_token;
   const publicUrl = token ? `${window.location.origin}/p/${token}` : "";
 
@@ -105,23 +111,27 @@ const PublicLinkTab = () => {
               </Button>
             </CopyToClipboard>
           </InputGroup>
-          <Button
-            color="secondary"
-            outline
-            size="sm"
-            className="me-1"
-            onClick={() => dispatch(rotatePfiToken(id))}
-          >
-            <RefreshCw size={14} className="me-50" /> {t("Rotate link")}
-          </Button>
-          <Button
-            color="danger"
-            outline
-            size="sm"
-            onClick={() => dispatch(unpublishPfi(id))}
-          >
-            <X size={14} className="me-50" /> {t("Unpublish")}
-          </Button>
+          {canManage && (
+            <>
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                className="me-1"
+                onClick={() => dispatch(rotatePfiToken(id))}
+              >
+                <RefreshCw size={14} className="me-50" /> {t("Rotate link")}
+              </Button>
+              <Button
+                color="danger"
+                outline
+                size="sm"
+                onClick={() => dispatch(unpublishPfi(id))}
+              >
+                <X size={14} className="me-50" /> {t("Unpublish")}
+              </Button>
+            </>
+          )}
           <p className="text-muted small mt-1 mb-0">
             {t(
               "Rotating issues a fresh link - the old URL stops working immediately."

@@ -14,7 +14,7 @@ import {
   rotatePfiToken,
   unpublishPfi,
 } from "@src/views/pfi/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
@@ -30,7 +30,13 @@ const PfiPublicLinkPanel = () => {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const canPublish = p?.status === "sent" || p?.status === "approved";
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.pfi;
+  const canManage = isAdmin || perms?.can_all || perms?.can_update;
+
+  const canPublish =
+    canManage && (p?.status === "sent" || p?.status === "approved");
   const token = p?.public_token;
   const publicUrl = token ? `${window.location.origin}/p/${token}` : "";
 
@@ -149,6 +155,7 @@ const PfiPublicLinkPanel = () => {
               </Button>
             </CopyToClipboard>
           </InputGroup>
+          {canManage && (
           <div className="d-flex gap-1">
             <Button
               color="secondary"
@@ -169,6 +176,7 @@ const PfiPublicLinkPanel = () => {
               <X size={14} className="me-50" /> {t("Unpublish")}
             </Button>
           </div>
+          )}
         </Fragment>
       )}
     </DetailPanel>
