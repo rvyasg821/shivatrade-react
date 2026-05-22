@@ -31,6 +31,7 @@ import StatsCard from './StatsCard';
 import RecentActivity from './RecentActivity';
 import DashboardCharts from './DashboardCharts';
 import CompanyQuickList from './CompanyQuickList';
+import OperationsStatsRows from './OperationsStatsRows';
 
 // Styles
 import './SubscriptionCard.scss';
@@ -581,10 +582,7 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} showSetupChecklist onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} />
-                    <div className="mt-1">
-                        <SubscriptionCard />
-                    </div> */}
+                    <OperationsStatsRows />
                 </div>
             );
         }
@@ -592,7 +590,7 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    {/* <CompanyDashboard stats={companyStats} loading={companyStatsLoading} onRefresh={() => dispatch(fetchCompanyDashboardStats())} currentUser={authStore?.authUserItem} /> */}
+                    <OperationsStatsRows />
                 </div>
             );
         }

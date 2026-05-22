@@ -541,6 +541,7 @@ export const API_ENDPOINTS = {
     chartData: '/admin/dashboard/chart-data',
     companies: '/admin/dashboard/companies',
     companyStats: '/admin/dashboard/company-stats',
+    operationsStats: '/admin/dashboard/operations-stats',
   },
   assessmentForms: {
     list: '/admin/assessment/list',

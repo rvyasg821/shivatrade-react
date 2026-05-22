@@ -442,7 +442,7 @@ const PoVendorView = () => {
     <Fragment>
       <div className="main-content po-vendor">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <h3 className="mb-0">{t("PO Vendors")}</h3>
+          <h3 className="mb-0">{t("Purchase Order Vendors")}</h3>
         </div>
 
         <Card className="overflow-hidden">
