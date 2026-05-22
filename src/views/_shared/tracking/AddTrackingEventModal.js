@@ -260,9 +260,7 @@ const AddTrackingEventModal = ({ open, toggle, poVendorId, onCreated }) => {
             <Col md="12" className="mb-1">
               <Label className="form-label">
                 {t("Attachment")}{" "}
-                <span className="text-muted">
-                  ({t("optional - image or PDF, max 15MB")})
-                </span>
+                <span className="text-muted">({t("optional")})</span>
               </Label>
               <Controller
                 name="attachment"
