@@ -578,8 +578,6 @@ const initPoVendorItem = {
   voucher_no: "",
   purchase_order_id: "",
   purchase_order_voucher_no: "",
-  parent_po_vendor_id: "",
-  parent_po_vendor_voucher_no: "",
   vendor_id: "",
   vendor_name: "",
   vendor_contact_name: "",
