@@ -97,7 +97,12 @@ const renderRow = (row, t) => {
   return md.label;
 };
 
-const ActivityTab = ({ leadId, showComposer = true, onComposerClose }) => {
+const ActivityTab = ({
+  leadId,
+  showComposer = true,
+  onComposerClose,
+  canManage = true,
+}) => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const store = useSelector((s) => s.leadActivity);
@@ -267,7 +272,7 @@ const ActivityTab = ({ leadId, showComposer = true, onComposerClose }) => {
                   </small>
                 </div>
 
-                {isOwnNote && !isEditing && (
+                {canManage && isOwnNote && !isEditing && (
                   <div className="d-flex align-items-center">
                     <Trash2
                       size={16}
