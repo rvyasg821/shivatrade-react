@@ -22,6 +22,9 @@ const PoLineItemsPanel = ({ bare = false }) => {
   const p = purchaseOrderItem || {};
   const lines = p?.lines || [];
   const sym = p?.currency_symbol || "₹";
+  const rate = Number(p?.exchange_rate) || 1;
+  const toCcy = (v) =>
+    v === null || v === undefined || v === "" ? v : Number(v) * rate;
 
   const intraState =
     num(p?.cgst_total) + num(p?.sgst_total) > 0 && num(p?.igst_total) === 0;
@@ -91,26 +94,26 @@ const PoLineItemsPanel = ({ bare = false }) => {
                   {l.qty ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}` : "-"}
                 </td>
                 <td className="text-end">
-                  {sym} {fmt(l.unit_price)}
+                  {sym} {fmt(toCcy(l.unit_price))}
                 </td>
                 <td className="text-end">{num(l.discount_pct) || 0}</td>
                 <td className="text-end">{num(l.tax_pct) || 0}</td>
                 {intraState ? (
                   <Fragment>
                     <td className="text-end">
-                      {sym} {fmt(l.cgst)}
+                      {sym} {fmt(toCcy(l.cgst))}
                     </td>
                     <td className="text-end">
-                      {sym} {fmt(l.sgst)}
+                      {sym} {fmt(toCcy(l.sgst))}
                     </td>
                   </Fragment>
                 ) : (
                   <td className="text-end">
-                    {sym} {fmt(l.igst)}
+                    {sym} {fmt(toCcy(l.igst))}
                   </td>
                 )}
                 <td className="text-end fw-bold">
-                  {sym} {fmt(l.line_total)}
+                  {sym} {fmt(toCcy(l.line_total))}
                 </td>
               </tr>
             ))}
@@ -125,7 +128,7 @@ const PoLineItemsPanel = ({ bare = false }) => {
               <tr>
                 <td className="text-muted">{t("Subtotal")}</td>
                 <td className="text-end">
-                  {sym} {fmt(p?.subtotal)}
+                  {sym} {fmt(toCcy(p?.subtotal))}
                 </td>
               </tr>
               {intraState ? (
@@ -133,13 +136,13 @@ const PoLineItemsPanel = ({ bare = false }) => {
                   <tr>
                     <td className="text-muted">{t("CGST")}</td>
                     <td className="text-end">
-                      {sym} {fmt(p?.cgst_total)}
+                      {sym} {fmt(toCcy(p?.cgst_total))}
                     </td>
                   </tr>
                   <tr>
                     <td className="text-muted">{t("SGST")}</td>
                     <td className="text-end">
-                      {sym} {fmt(p?.sgst_total)}
+                      {sym} {fmt(toCcy(p?.sgst_total))}
                     </td>
                   </tr>
                 </Fragment>
@@ -147,7 +150,7 @@ const PoLineItemsPanel = ({ bare = false }) => {
                 <tr>
                   <td className="text-muted">{t("IGST")}</td>
                   <td className="text-end">
-                    {sym} {fmt(p?.igst_total)}
+                    {sym} {fmt(toCcy(p?.igst_total))}
                   </td>
                 </tr>
               )}
@@ -155,14 +158,14 @@ const PoLineItemsPanel = ({ bare = false }) => {
                 <tr>
                   <td className="text-muted">{t("Round-off")}</td>
                   <td className="text-end">
-                    {sym} {fmt(p?.round_off)}
+                    {sym} {fmt(toCcy(p?.round_off))}
                   </td>
                 </tr>
               )}
               <tr className="border-top">
                 <td className="fw-bold">{t("Grand Total")}</td>
                 <td className="text-end fw-bold">
-                  {sym} {fmt(p?.grand_total)}
+                  {sym} {fmt(toCcy(p?.grand_total))}
                 </td>
               </tr>
             </tbody>

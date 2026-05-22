@@ -34,7 +34,15 @@ const Step3Review = ({ isLocked, intraState }) => {
   const { control } = useFormContext();
   const lines = useWatch({ control, name: "lines" }) || [];
   const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
+  const exchangeRate = useWatch({ control, name: "exchange_rate" });
   const sym = getCurrencySymbol(currencyCode);
+  const rate = Number(exchangeRate) || 1;
+  const toCcy = (v) => num(v) * rate;
+  const fmt2 = (v) =>
+    toCcy(v).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   let subtotal = 0;
   let cgst_total = 0;
@@ -117,32 +125,32 @@ const Step3Review = ({ isLocked, intraState }) => {
           <tbody>
             <tr>
               <td>{t("Subtotal")}</td>
-              <td className="text-end">{sym} {subtotal.toLocaleString()}</td>
+              <td className="text-end">{sym} {fmt2(subtotal)}</td>
             </tr>
             {intraState ? (
               <>
                 <tr>
                   <td>{t("CGST")}</td>
-                  <td className="text-end">{sym} {cgst_total.toLocaleString()}</td>
+                  <td className="text-end">{sym} {fmt2(cgst_total)}</td>
                 </tr>
                 <tr>
                   <td>{t("SGST")}</td>
-                  <td className="text-end">{sym} {sgst_total.toLocaleString()}</td>
+                  <td className="text-end">{sym} {fmt2(sgst_total)}</td>
                 </tr>
               </>
             ) : (
               <tr>
                 <td>{t("IGST")}</td>
-                <td className="text-end">{sym} {igst_total.toLocaleString()}</td>
+                <td className="text-end">{sym} {fmt2(igst_total)}</td>
               </tr>
             )}
             <tr>
               <td>{t("Round-off")}</td>
-              <td className="text-end">{sym} {round_off.toLocaleString()}</td>
+              <td className="text-end">{sym} {fmt2(round_off)}</td>
             </tr>
             <tr className="border-top">
               <td className="fw-bold">{t("Grand Total")}</td>
-              <td className="text-end fw-bold">{sym} {grand.toLocaleString()}</td>
+              <td className="text-end fw-bold">{sym} {fmt2(grand)}</td>
             </tr>
           </tbody>
         </Table>
