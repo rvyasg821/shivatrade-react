@@ -55,7 +55,7 @@ const PosTab = () => {
             <tr>
               <th>{t("Date")}</th>
               <th>{t("PO #")}</th>
-              <th>{t("Vendor")}</th>
+              <th>{t("Vendors")}</th>
               <th>{t("Expected Delivery")}</th>
               <th>{t("Total")}</th>
               <th>{t("Status")}</th>
@@ -69,8 +69,24 @@ const PosTab = () => {
                 <tr key={row?._id}>
                   <td>{(row?.po_date || "").slice(0, 10) || "-"}</td>
                   <td className="text-wrap">{row?.voucher_no || "-"}</td>
-                  <td className="text-capitalize">
-                    {row?.vendor_name || "-"}
+                  <td className="text-capitalize small">
+                    {(() => {
+                      const seen = new Set();
+                      const list = [];
+                      for (const ln of row?.lines || []) {
+                        const vid = ln?.vendor_id;
+                        if (!vid || seen.has(vid)) continue;
+                        seen.add(vid);
+                        list.push(ln?.vendor_name || vid);
+                      }
+                      if (list.length === 0 && row?.vendor_name) {
+                        list.push(row.vendor_name);
+                      }
+                      if (list.length === 0) return "-";
+                      return list.map((name, i) => (
+                        <div key={i}>{name}</div>
+                      ));
+                    })()}
                   </td>
                   <td>
                     {(row?.expected_delivery_date || "").slice(0, 10) || "-"}

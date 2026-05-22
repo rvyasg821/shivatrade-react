@@ -97,6 +97,14 @@ const Step1CompanyDetails = () => {
     website: yup.string().url(t("Please enter a valid URL")).nullable(),
     license_number: yup.string().max(50, t("License number is too long")).nullable(),
     tax_number: yup.string().max(50, t("Tax number is too long")).nullable(),
+    pan: yup
+      .string()
+      .nullable()
+      .transform((v) => (v ? v.toUpperCase() : v))
+      .matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {
+        message: t("PAN must match the format AAAAA0000A"),
+        excludeEmptyString: true,
+      }),
     company_code: yup.string().nullable(),
     paye_reference: yup.string().nullable(),
     mname: yup.string().nullable(),
@@ -130,6 +138,7 @@ const Step1CompanyDetails = () => {
       company_code: "",
       license_number: "",
       tax_number: "",
+      pan: "",
       paye_reference: "",
       mname: "",
       pension_provider: "",
@@ -222,6 +231,7 @@ const Step1CompanyDetails = () => {
         company_code: company.company_code || "",
         license_number: company.license_number || "",
         tax_number: company.tax_number || "",
+        pan: company.pan || "",
         paye_reference: company.paye_reference || "",
         pension_provider: company.pension_provider || "",
         is_sponsor_licence: company.is_sponsor_licence || false,
@@ -300,6 +310,7 @@ const Step1CompanyDetails = () => {
       company_code: values.company_code,
       license_number: values.license_number,
       tax_number: values.tax_number,
+      pan: values.pan || undefined,
       paye_reference: values.paye_reference,
       pension_provider: values.pension_provider,
       is_sponsor_licence: values.is_sponsor_licence || false,
@@ -458,30 +469,27 @@ const Step1CompanyDetails = () => {
                   render={({ field }) => <Input {...field} disabled={isReadOnly} />} />
               </div>
               <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("Tax / VAT Number")}</Label>
-                <Controller name="tax_number" control={control}
-                  render={({ field }) => <Input {...field} disabled={isReadOnly} />} />
-              </div>
-
-              <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("PAYE Reference Number")}</Label>
-                <Controller name="paye_reference" control={control}
-                  render={({ field }) => <Input {...field} disabled={isReadOnly} />} />
-              </div>
-              <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("Pension Provider")}</Label>
-                <Controller name="pension_provider" control={control}
-                  render={({ field }) => <Input {...field} disabled={isReadOnly} />} />
-              </div>
-
-              <div className="mb-2 col-lg-6 col-md-6 d-flex align-items-center pt-2">
-                <Controller name="is_sponsor_licence" control={control}
+                <Label>{t("PAN")}</Label>
+                <Controller
+                  name="pan"
+                  control={control}
                   render={({ field }) => (
-                    <Input type="checkbox" id="is_sponsor_licence" checked={!!field.value}
-                      onChange={(e) => field.onChange(e.target.checked)} className="me-1" disabled={isReadOnly} />
-                  )} />
-                <Label for="is_sponsor_licence" className="mb-0">{t("Does business hold a sponsor licence?")}</Label>
+                    <Input
+                      {...field}
+                      value={(field.value || "").toUpperCase()}
+                      onChange={(e) =>
+                        field.onChange((e.target.value || "").toUpperCase())
+                      }
+                      maxLength={10}
+                      placeholder="AAAAA0000A"
+                      disabled={isReadOnly}
+                      invalid={!!errors.pan}
+                    />
+                  )}
+                />
+                <FormFeedback>{errors.pan?.message}</FormFeedback>
               </div>
+
               <div className="mb-2 col-lg-6 col-md-6">
                 <Label>{t("Website")}</Label>
                 <Controller name="website" control={control}
@@ -646,7 +654,7 @@ const Step1CompanyDetails = () => {
                     <Input
                       id="authorised_signatory_name"
                       maxLength={150}
-                      placeholder="e.g. Rakesh Patel"
+                      placeholder="e.g. Rakesh"
                       disabled={isReadOnly}
                       {...field}
                       value={field.value || ""}

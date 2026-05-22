@@ -5,7 +5,7 @@
 // before POs are created.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Modal,
   ModalHeader,
@@ -37,6 +37,8 @@ const fmt = (v) =>
  *   sourceType: 'pfi' | 'quotation'
  *   sourceId: uuid
  *   sourceVoucherNo: string (header text only)
+ *   onCreated: optional callback fired after successful create (passed
+ *     `{purchase_order, po_vendors[]}` so the parent can refresh).
  */
 const PoGeneratePreviewModal = ({
   isOpen,
@@ -44,9 +46,9 @@ const PoGeneratePreviewModal = ({
   sourceType,
   sourceId,
   sourceVoucherNo,
+  onCreated,
 }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -183,39 +185,33 @@ const PoGeneratePreviewModal = ({
         assignments,
         delivery_address_id: deliveryAddressId,
       });
-      const created = resp?.data?.data?.created || [];
-      const skipped = resp?.data?.data?.skipped || [];
+      const purchaseOrder = resp?.data?.data?.purchase_order;
+      const povs = resp?.data?.data?.po_vendors || [];
 
-      if (created.length === 0) {
-        // Nothing got created — surface the first failure reason loud.
-        const reason =
-          skipped[0]?.reason ||
-          t("No POs were created. Check vendor / company settings.");
-        Notification("Error", reason, "warning");
-        return; // stay in the modal so the user can act
-      }
-
-      if (skipped.length > 0) {
+      if (!purchaseOrder) {
         Notification(
-          "Partial success",
-          t(
-            `${created.length} PO(s) created, ${skipped.length} skipped. Reason: ${skipped[0]?.reason || ""}`
-          ),
+          "Error",
+          t("PO creation failed. Please try again."),
           "warning"
         );
-      } else {
-        Notification(
-          "Success",
-          t(`${created.length} PO(s) created.`),
-          "success"
-        );
+        return;
       }
+
+      Notification(
+        "Success",
+        t(
+          `PO ${purchaseOrder.voucher_no || ""} + ${povs.length} POV(s) created.`
+        ),
+        "success"
+      );
+      onCreated?.({ purchase_order: purchaseOrder, po_vendors: povs });
       toggle?.();
-      navigate(`${appsRoot}/purchase-orders`);
+      // Stay on the calling page (PFI / Quotation detail). The parent's
+      // onCreated callback is expected to refresh coverage if needed.
     } catch (err) {
       Notification(
         "Error",
-        err?.response?.data?.message || t("Failed to create POs"),
+        err?.response?.data?.message || t("Failed to create PO"),
         "warning"
       );
     } finally {
@@ -226,7 +222,7 @@ const PoGeneratePreviewModal = ({
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
       <ModalHeader toggle={toggle}>
-        {t("Generate Purchase Orders from")}{" "}
+        {t("Generate PO & POVs from")}{" "}
         {sourceType === "pfi" ? "PFI" : "Quotation"}{" "}
         <code>{sourceVoucherNo || ""}</code>
       </ModalHeader>
@@ -454,7 +450,10 @@ const PoGeneratePreviewModal = ({
             {/* Vendor summary */}
             {vendorSummary.length > 0 && (
               <div className="mt-3">
-                <h6 className="mb-1">{t("Will create")}:</h6>
+                <h6 className="mb-1">
+                  {t("Will create")}: 1 PO + {vendorSummary.length}{" "}
+                  POV(s)
+                </h6>
                 <ul className="mb-0">
                   {vendorSummary.map((v) => (
                     <li key={v.vendor_id} className="small">
@@ -493,10 +492,10 @@ const PoGeneratePreviewModal = ({
           }
         >
           {creating ? <Spinner size="sm" /> : null}{" "}
-          {t("Create POs")}{" "}
+          {t("Create PO & POVs")}{" "}
           {vendorSummary.length > 0 && (
             <Badge color="light" className="ms-1 text-dark">
-              {vendorSummary.length}
+              1 + {vendorSummary.length}
             </Badge>
           )}
         </Button>

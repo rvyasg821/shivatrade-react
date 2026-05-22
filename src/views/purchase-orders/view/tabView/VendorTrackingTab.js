@@ -299,6 +299,8 @@ const VendorTrackingTab = () => {
                       <td>
                         <Link
                           to={`${appsRoot}/po-vendors/view/${p._id}`}
+                          target="_blank"
+                          rel="noreferrer"
                           className="fw-bold"
                         >
                           {p.voucher_no}
@@ -332,6 +334,8 @@ const VendorTrackingTab = () => {
                       <td className="text-center">
                         <Link
                           to={`${appsRoot}/po-vendors/view/${p._id}`}
+                          target="_blank"
+                          rel="noreferrer"
                           id={`pov-open-${p._id}`}
                         >
                           <ExternalLink size={16} />

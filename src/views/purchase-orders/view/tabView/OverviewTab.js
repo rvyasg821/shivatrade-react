@@ -112,19 +112,32 @@ const OverviewTab = () => {
         </Col>
         <Col md="6">
           <div className={CARD_BASE} style={CARD_PAD}>
-            <SectionHeader icon={User} label={t("Vendor")} color="info" />
+            <SectionHeader icon={User} label={t("Vendors")} color="info" />
             <div className="mt-1">
-              <div className="fw-bolder mb-25">{p?.vendor_name || "-"}</div>
-              <div className="small text-muted lh-base">
-                {p?.vendor_contact_name && <div>{p.vendor_contact_name}</div>}
-                {p?.vendor_contact_email && <div>{p.vendor_contact_email}</div>}
-                {p?.vendor_contact_phone && (
-                  <div>
-                    {p?.vendor_contact_country_code?.formatted ||
-                      p.vendor_contact_phone}
+              {(() => {
+                const seen = new Set();
+                const list = [];
+                for (const ln of p?.lines || []) {
+                  const vid = ln?.vendor_id;
+                  if (!vid || seen.has(vid)) continue;
+                  seen.add(vid);
+                  list.push({
+                    id: vid,
+                    name: ln?.vendor_name || vid,
+                  });
+                }
+                if (list.length === 0 && p?.vendor_name) {
+                  list.push({ id: p?.vendor_id, name: p.vendor_name });
+                }
+                if (list.length === 0) {
+                  return <div className="text-muted small">-</div>;
+                }
+                return list.map((v) => (
+                  <div key={v.id} className="fw-bolder mb-25">
+                    • {v.name}
                   </div>
-                )}
-              </div>
+                ));
+              })()}
             </div>
           </div>
         </Col>
@@ -161,6 +174,7 @@ const OverviewTab = () => {
             <tr>
               <th style={{ width: 30 }}>#</th>
               <th>{t("Product")}</th>
+              <th style={{ width: 140 }}>{t("Vendor")}</th>
               <th style={{ width: 80 }}>{t("HSN")}</th>
               <th style={{ width: 70 }} className="text-end">
                 {t("Qty")}
@@ -197,7 +211,7 @@ const OverviewTab = () => {
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td colSpan="11" className="text-center text-muted py-3">
+                <td colSpan="12" className="text-center text-muted py-3">
                   {t("No line items.")}
                 </td>
               </tr>
@@ -214,6 +228,7 @@ const OverviewTab = () => {
                     <div className="small text-muted">{l.description}</div>
                   )}
                 </td>
+                <td className="small">{l.vendor_name || "-"}</td>
                 <td>{l.hsn_code || "-"}</td>
                 <td className="text-end">{fmt(l.qty)}</td>
                 <td>{l.unit || "-"}</td>

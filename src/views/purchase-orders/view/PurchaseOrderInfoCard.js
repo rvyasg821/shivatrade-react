@@ -136,10 +136,33 @@ const PurchaseOrderInfoCard = () => {
             </div>
           )}
 
-          {/* Vendor & Dates */}
+          {/* Vendor & Dates — PO is multi-vendor at line level. List
+              every unique vendor across the line items. */}
           <SectionLabel>{t("Vendor & Dates")}</SectionLabel>
           <ul className="list-unstyled mb-1">
-            <InfoRow icon={User} value={p?.vendor_name} />
+            {(() => {
+              const seen = new Set();
+              const list = [];
+              for (const ln of p?.lines || []) {
+                const vid = ln?.vendor_id;
+                if (!vid || seen.has(vid)) continue;
+                seen.add(vid);
+                list.push(ln?.vendor_name || vid);
+              }
+              if (list.length === 0 && p?.vendor_name) {
+                list.push(p.vendor_name);
+              }
+              if (list.length === 0) {
+                return <InfoRow icon={User} value="-" />;
+              }
+              return list.map((name, idx) => (
+                <InfoRow
+                  key={`vendor-${idx}`}
+                  icon={idx === 0 ? User : undefined}
+                  value={name}
+                />
+              ));
+            })()}
             <InfoRow
               icon={Calendar}
               value={

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { getQuotation } from "@src/views/quotations/store";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import {
   Card,
@@ -44,6 +45,7 @@ const InfoRow = ({ icon: Icon, value }) => {
 const QuotationInfoCard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { t } = useTranslation();
 
   const { quotationItem } = useSelector((s) => s.quotation);
@@ -175,6 +177,7 @@ const QuotationInfoCard = () => {
         sourceType="quotation"
         sourceId={id}
         sourceVoucherNo={q?.voucher_no}
+        onCreated={() => dispatch(getQuotation(id))}
       />
     </Fragment>
   );
