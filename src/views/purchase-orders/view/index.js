@@ -76,6 +76,9 @@ const ViewPurchaseOrder = () => {
   const store = useSelector((s) => s.purchaseOrder);
   const p = store?.purchaseOrderItem || {};
   const sym = p?.currency_symbol || "₹";
+  const rate = Number(p?.exchange_rate) || 1;
+  const toCcy = (v) =>
+    v === null || v === undefined || v === "" ? v : Number(v) * rate;
 
   useEffect(() => {
     if (id) dispatch(getPurchaseOrder(id));
@@ -118,7 +121,10 @@ const ViewPurchaseOrder = () => {
     {
       key: "total",
       label: t("Grand Total"),
-      value: p?.grand_total !== undefined ? `${sym} ${fmt(p.grand_total)}` : "-",
+      value:
+        p?.grand_total !== undefined
+          ? `${sym} ${fmt(toCcy(p.grand_total))}`
+          : "-",
       icon: DollarSign,
       tone: "secondary",
     },
