@@ -27,6 +27,7 @@ const Step2Items = ({
       exchangeRate={exchangeRate}
       readOnly={isLocked}
       showExportFields
+      tableLayout="detailed"
     />
   );
 };
