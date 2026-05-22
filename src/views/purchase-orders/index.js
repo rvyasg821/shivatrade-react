@@ -255,12 +255,7 @@ const PurchaseOrderView = () => {
     [vendorStore?.vendorDropdown]
   );
 
-  const formatTotal = (row) => {
-    const v = row?.grand_total;
-    if (v === null || v === undefined || v === "") return "-";
-    const rate = Number(row?.exchange_rate) || 1;
-    return formatMoney(Number(v) * rate, row?.currency_code);
-  };
+  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
 
   const columns = [
     {

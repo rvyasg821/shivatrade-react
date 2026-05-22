@@ -135,8 +135,7 @@ const PurchaseOrderInfoCard = () => {
             <div className="text-center py-1 my-1 border-top border-bottom">
               <SectionLabel>{t("Grand Total")}</SectionLabel>
               <div className="fw-bolder" style={{ fontSize: "1.5rem" }}>
-                {p?.currency_symbol || "₹"}{" "}
-                {fmt(Number(p.grand_total) * (Number(p?.exchange_rate) || 1))}
+                {p?.currency_symbol || "₹"} {fmt(p.grand_total)}
               </div>
               <small className="text-muted">{p?.currency_code || "INR"}</small>
             </div>

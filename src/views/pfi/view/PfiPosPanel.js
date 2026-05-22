@@ -71,10 +71,7 @@ const PfiPosPanel = ({ bare = false }) => {
                 </td>
                 <td className="text-end fw-bold">
                   {row?.grand_total !== null && row?.grand_total !== undefined
-                    ? `${sym}${fmt(
-                        Number(row.grand_total) *
-                          (Number(row?.exchange_rate) || 1)
-                      )}`
+                    ? `${sym}${fmt(row.grand_total)}`
                     : "-"}
                 </td>
                 <td className="text-capitalize">{row?.status || "-"}</td>
