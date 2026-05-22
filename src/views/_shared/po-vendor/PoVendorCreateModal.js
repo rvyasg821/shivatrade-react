@@ -28,7 +28,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { createPoVendorFromPo } from "@src/views/po-vendors/store";
 import { appsRoot } from "@constant/defaultValues";
-import CompanyAddressSelect from "@src/views/_shared/CompanyAddressSelect";
+import LocationSelect from "@src/views/_shared/LocationSelect";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -311,7 +311,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
           )}
 
           {addressMode === "pick" && (
-            <CompanyAddressSelect
+            <LocationSelect
               value={pickedAddressId}
               onChange={setPickedAddressId}
               autoSelectDefault={false}

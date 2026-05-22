@@ -6,9 +6,11 @@ import { Fragment, useState } from "react";
 import { useSelector } from "react-redux";
 import { Card, CardBody, Table, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { Edit } from "react-feather";
+import { Edit, Truck } from "react-feather";
 
 import PoVendorLineEditModal from "@src/views/_shared/po-vendor/PoVendorLineEditModal";
+import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
+import { DetailPanel } from "@src/views/_shared/detail-page";
 import { isAdminUser } from "@constant/defaultValues";
 
 const num = (v) =>
@@ -29,8 +31,74 @@ const OverviewTab = () => {
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canEditLines =
     isDraft && (isAdmin || perms?.can_all || perms?.can_update);
+  const canEditDelivery =
+    isDraft && (isAdmin || perms?.can_all || perms?.can_update);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
+
+  const deliverPanel = (p?.delivery_address || canEditDelivery) && (() => {
+    const addr = (p?.delivery_address || "").trim();
+    const addrLines = addr
+      ? addr.split("\n").map((l) => l.trim()).filter(Boolean)
+      : [];
+    const heading = addrLines[0] || "";
+    const rest = addrLines.slice(1);
+    return (
+      <div className="mt-3">
+        <DetailPanel
+          title={
+            <span className="d-inline-flex align-items-center">
+              <Truck size={16} className="me-50 text-primary" />
+              {t("Deliver To")}
+            </span>
+          }
+          action={
+            canEditDelivery && (
+              <Button
+                color="primary"
+                outline
+                size="sm"
+                onClick={() => setEditDeliveryOpen(true)}
+              >
+                <Edit size={14} className="me-50" /> {t("Edit")}
+              </Button>
+            )
+          }
+        >
+          {addr ? (
+            <div
+              className="rounded-3 border"
+              style={{
+                padding: "1rem 1.25rem",
+                backgroundColor: "#f8f9fa",
+              }}
+            >
+              {heading && (
+                <div
+                  className="fw-bolder mb-25"
+                  style={{ color: "#212529", fontSize: "1rem" }}
+                >
+                  {heading}
+                </div>
+              )}
+              <div className="small text-muted lh-base">
+                {rest.length ? (
+                  rest.map((ln, idx) => <div key={idx}>{ln}</div>)
+                ) : !heading ? (
+                  <span>—</span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted small fst-italic">
+              {t("No delivery address set yet.")}
+            </div>
+          )}
+        </DetailPanel>
+      </div>
+    );
+  })();
 
   return (
     <Fragment>
@@ -152,9 +220,15 @@ const OverviewTab = () => {
         </CardBody>
       </Card>
 
+      {deliverPanel}
+
       <PoVendorLineEditModal
         isOpen={editOpen}
         toggle={() => setEditOpen((s) => !s)}
+      />
+      <PoVendorEditDeliveryModal
+        isOpen={editDeliveryOpen}
+        toggle={() => setEditDeliveryOpen((s) => !s)}
       />
     </Fragment>
   );

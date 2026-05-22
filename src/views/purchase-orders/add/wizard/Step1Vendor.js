@@ -13,7 +13,7 @@ import { ChevronDown, ChevronRight } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
-import CompanyAddressSelect from "@src/views/_shared/CompanyAddressSelect";
+import LocationSelect from "@src/views/_shared/LocationSelect";
 
 const required = <span className="text-danger">*</span>;
 
@@ -240,12 +240,12 @@ const Step1Vendor = ({
           name="delivery_address_id"
           control={control}
           render={({ field }) => (
-            <CompanyAddressSelect
+            <LocationSelect
               value={field.value || ""}
               onChange={(id) => {
                 field.onChange(id);
                 // Clear any manual override when switching to a saved
-                // address — the snapshot text will come from the BE.
+                // location — the snapshot text will come from the BE.
                 setValue("delivery_address", "", { shouldDirty: true });
               }}
               isDisabled={isLocked}
@@ -254,7 +254,7 @@ const Step1Vendor = ({
         />
         <small className="text-muted">
           {t(
-            "Pick a saved company address. Vendors will deliver here. Manage addresses in Profile → Addresses."
+            "Pick a delivery location. Vendors will deliver here. Manage locations under the Locations menu."
           )}
         </small>
 

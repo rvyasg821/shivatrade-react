@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import {
   appsRoot,
   hostRestApiUrl,
+  isAdminUser,
 } from "@constant/defaultValues";
 
 // ** Redux
@@ -42,6 +43,10 @@ const EmployeeInfoCard = () => {
   const { t } = useTranslation();
 
   const { employeeItem } = useSelector((state) => state.employee);
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.employee;
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
 
   useEffect(() => {
     if (id) dispatch(getEmployee(id));
@@ -261,14 +266,16 @@ const EmployeeInfoCard = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="d-flex mt-2 align-items-center justify-content-center gap-1">
-            <Button
-              color="primary"
-              onClick={() => navigate(`${appsRoot}/employees/edit/${id}`)}
-            >
-              {t("Edit")}
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="d-flex mt-2 align-items-center justify-content-center gap-1">
+              <Button
+                color="primary"
+                onClick={() => navigate(`${appsRoot}/employees/edit/${id}`)}
+              >
+                {t("Edit")}
+              </Button>
+            </div>
+          )}
         </CardBody>
       </Card>
     </Fragment>
