@@ -24,7 +24,7 @@ const Tabs = ({ active, toggleTab }) => {
             onClick={() => toggleTab("purchase_orders")}
           >
             <Truck className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("Purchase Orders")}</span>
+            <span className="fw-bold">{t("PO Vendors")}</span>
           </NavLink>
         </NavItem>
       </Nav>

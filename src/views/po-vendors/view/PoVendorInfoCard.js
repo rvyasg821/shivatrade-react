@@ -3,7 +3,8 @@
 // contextual to status. Modal flows for dispatch/receive ship in
 // Phase 8; cancel uses an inline SweetAlert now.
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
+import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -22,6 +23,7 @@ import {
   ExternalLink,
   Send,
   Inbox,
+  Edit,
   X as XIcon,
   Phone,
   Mail,
@@ -78,6 +80,8 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
+  const canEditDelivery = canUpdate && (p?.status || "").toLowerCase() === "draft";
+  const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
 
   const canDispatch = canUpdate && status === "draft";
   const canReceive = canUpdate && status === "dispatched";
@@ -231,9 +235,19 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
           )}
 
           {/* Delivery address */}
-          {p?.delivery_address && (
+          {(p?.delivery_address || canEditDelivery) && (
             <Fragment>
-              <SectionLabel>{t("Deliver To")}</SectionLabel>
+              <div className="d-flex align-items-center justify-content-between">
+                <SectionLabel>{t("Deliver To")}</SectionLabel>
+                {canEditDelivery && (
+                  <Edit
+                    size={14}
+                    className="cursor-pointer text-primary mb-50"
+                    id="pov-edit-delivery"
+                    onClick={() => setEditDeliveryOpen(true)}
+                  />
+                )}
+              </div>
               <ul className="list-unstyled mb-2">
                 <InfoRow
                   icon={Truck}
@@ -245,7 +259,7 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
                         fontFamily: "inherit",
                       }}
                     >
-                      {p.delivery_address}
+                      {p?.delivery_address || "-"}
                     </pre>
                   }
                 />
@@ -298,6 +312,10 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
           </div>
         </CardBody>
       </Card>
+      <PoVendorEditDeliveryModal
+        isOpen={editDeliveryOpen}
+        toggle={() => setEditDeliveryOpen((s) => !s)}
+      />
     </Fragment>
   );
 };
