@@ -21,6 +21,7 @@ const OverviewTab = () => {
   const authUserItem = authStore?.authUserItem || null;
   const p = poVendorItem || {};
   const lines = p?.lines || [];
+  const sym = p?.currency_symbol || "₹";
   const isDraft = (p?.status || "").toLowerCase() === "draft";
 
   // Edit Lines permission gate — po-vendors.can_update.
@@ -101,7 +102,7 @@ const OverviewTab = () => {
                     <td>{l?.hsn_code || "-"}</td>
                     <td>{l?.unit || "-"}</td>
                     <td className="text-end">
-                      {num(l?.unit_price).toLocaleString()}
+                      {sym} {num(l?.unit_price).toLocaleString()}
                     </td>
                     <td className="text-end fw-semibold">
                       {num(l?.ordered_qty).toLocaleString()}
@@ -123,7 +124,7 @@ const OverviewTab = () => {
                         : "-"}
                     </td>
                     <td className="text-end fw-bold">
-                      {num(l?.line_total).toLocaleString()}
+                      {sym} {num(l?.line_total).toLocaleString()}
                     </td>
                   </tr>
                 ))}
