@@ -93,11 +93,6 @@ const OverviewTab = () => {
                       {l?.product_code && (
                         <small className="text-muted">{l.product_code}</small>
                       )}
-                      {l?.description && (
-                        <div className="small text-muted text-wrap">
-                          {l.description}
-                        </div>
-                      )}
                     </td>
                     <td>{l?.hsn_code || "-"}</td>
                     <td>{l?.unit || "-"}</td>

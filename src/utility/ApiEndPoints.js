@@ -232,6 +232,12 @@ export const API_ENDPOINTS = {
     fromQuotation: `/admin/purchase-order/from-quotation`, // append /:quotationId
     previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
     previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
+    publicPreview: `/admin/purchase-order/public-preview`, // append /:id
+    publish: `/admin/purchase-order/publish`, // append /:id
+    rotateToken: `/admin/purchase-order/rotate-token`, // append /:id
+    unpublish: `/admin/purchase-order/unpublish`, // append /:id
+    public: `/public/purchase-order`, // append /:token
+    publicPdf: `/public/purchase-order`, // append /:token/pdf
     pdf: `/admin/purchase-order`, // append /:id/pdf
     coverage: `/admin/purchase-order`, // append /:id/coverage
     pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId
