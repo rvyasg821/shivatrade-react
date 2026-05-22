@@ -61,6 +61,7 @@ import {
   PURCHASE_ORDER_STATUS_COLOR_MAP as STATUS_COLOR_MAP,
 } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
+import { formatMoney } from "@src/utility/currency";
 
 const PurchaseOrderView = () => {
   const { t } = useTranslation();
@@ -257,10 +258,8 @@ const PurchaseOrderView = () => {
   const formatTotal = (row) => {
     const v = row?.grand_total;
     if (v === null || v === undefined || v === "") return "-";
-    return `₹ ${Number(v).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    const rate = Number(row?.exchange_rate) || 1;
+    return formatMoney(Number(v) * rate, row?.currency_code);
   };
 
   const columns = [
@@ -359,7 +358,7 @@ const PurchaseOrderView = () => {
         row?.po_date ? formatDate(row.po_date) : "-",
     },
     {
-      name: t("Expected Date"),
+      name: t("Expected"),
       sortField: "expected_delivery_date",
       sortable: true,
       minWidth: "150px",
@@ -369,7 +368,7 @@ const PurchaseOrderView = () => {
           : "-",
     },
     {
-      name: t("Total"),
+      name: t("Amount"),
       sortable: false,
       selector: formatTotal,
     },

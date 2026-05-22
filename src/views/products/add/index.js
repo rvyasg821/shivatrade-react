@@ -47,10 +47,50 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, Loader, Plus, Trash2 } from "react-feather";
+import { ArrowLeft, Loader, Plus, Trash2, Package, DollarSign, Truck } from "react-feather";
+
+// ** Wizard scaffolding (shared with Customer / Lead / Quotation wizards)
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import "@src/views/_shared/wizard/wizard.scss";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
+
+const STEPS = [
+  {
+    key: "basic",
+    label: "Basic Info",
+    icon: Package,
+    fields: ["name", "code", "category_id", "unit_of_measure", "status"],
+  },
+  {
+    key: "pricing",
+    label: "Pricing & Tax",
+    icon: DollarSign,
+    fields: [
+      "hsn_code",
+      "tax_pct",
+      "selling_price",
+      "margin_pct",
+      "currency_id",
+      "rebates",
+      "expenses",
+    ],
+  },
+  {
+    key: "logistics",
+    label: "Logistics",
+    icon: Truck,
+    fields: [
+      "part_no",
+      "pack_size",
+      "country_of_origin",
+      "net_weight_per_unit",
+      "gross_weight_per_unit",
+    ],
+  },
+];
 import { initProductItem } from "@constant/reduxConstant";
 import {
   STATUS_OPTIONS,
@@ -197,12 +237,44 @@ const ProductForm = () => {
     reset,
     watch,
     setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
     defaultValues: initProductItem,
   });
+
+  // ── Wizard navigation state ─────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+
+  const goTo = async (idx, { validate = true } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= STEPS.length) return;
+    if (idx > activeStep && validate) {
+      const fields = STEPS[activeStep].fields || [];
+      const ok = fields.length === 0 ? true : await trigger(fields);
+      if (!ok) {
+        Notification(
+          "Validation",
+          t("Please complete the highlighted fields first."),
+          "warning"
+        );
+        return;
+      }
+    }
+    setVisited((prev) => {
+      const n = new Set(prev);
+      n.add(idx);
+      return n;
+    });
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const next = () => goTo(activeStep + 1);
+  const back = () => goTo(activeStep - 1, { validate: false });
 
   const rebatesField = useFieldArray({ control, name: "rebates", keyName: "_key" });
   const expensesField = useFieldArray({ control, name: "expenses", keyName: "_key" });
@@ -293,6 +365,8 @@ const ProductForm = () => {
         status: p.status || (p.is_active ? "active" : "inactive"),
         is_active: p.is_active,
       });
+      // Mark every step as visited so the user can click any of them.
+      setVisited(new Set(STEPS.map((_, i) => i)));
     }
   }, [store?.productItem?._id]);
 
@@ -345,6 +419,40 @@ const ProductForm = () => {
     () => PRODUCT_UOM_OPTIONS.find((o) => o.value === watch("unit_of_measure")) || null,
     [watch("unit_of_measure")]
   );
+
+  // Re-route Save → run full validation, jump to the first step containing
+  // errors if any, otherwise submit through react-hook-form's normal flow.
+  const findFirstErrorStep = () => {
+    const errs = errors || {};
+    const hasErr = (path) => !!errs[path.split(".")[0]];
+    for (let i = 0; i < STEPS.length; i++) {
+      if ((STEPS[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      Notification(
+        "Validation",
+        t("Please fix the highlighted fields."),
+        "warning"
+      );
+      return;
+    }
+    handleSubmit(onSubmit)();
+  };
 
   const onSubmit = (data) => {
     const numOrUndef = (v) =>
@@ -402,7 +510,7 @@ const ProductForm = () => {
 
   return (
     <Fragment>
-      <div className="main-content products">
+      <div className="main-content products quotation-wizard">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">
             {isEditMode ? t("Edit Product") : t("Add Product")}
@@ -410,15 +518,25 @@ const ProductForm = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/products`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>
         </div>
 
+        <WizardHeader
+          steps={STEPS}
+          activeStep={activeStep}
+          visited={visited}
+          onStepClick={(i) => goTo(i)}
+          isEdit={isEditMode}
+        />
+
         <Card>
           <CardBody>
-            <Form onSubmit={handleSubmit(onSubmit)}>
+            <Form onSubmit={(e) => e.preventDefault()}>
+              {activeStep === 0 && (
+                <Fragment>
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="name">
@@ -566,8 +684,13 @@ const ProductForm = () => {
                 </Col>
               </Row>
 
+                </Fragment>
+              )}
+
+              {activeStep === 1 && (
+                <Fragment>
               {/* ── Pricing ── */}
-              <h4 className="mt-3 mb-2">{t("Pricing")}</h4>
+              <h4 className="mt-1 mb-2">{t("Pricing")}</h4>
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="hsn_code">
@@ -956,8 +1079,13 @@ const ProductForm = () => {
                   </Row>
                 );
               })}
+                </Fragment>
+              )}
+
+              {activeStep === 2 && (
+                <Fragment>
               {/* ── Identification (extra) + Logistics ── */}
-              <h4 className="mt-3 mb-2">{t("Logistics")}</h4>
+              <h4 className="mt-1 mb-2">{t("Logistics")}</h4>
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="part_no">
@@ -1171,24 +1299,19 @@ const ProductForm = () => {
               </Row>
 
 
-              <div className="d-flex justify-content-end mt-3">
-                <Button
-                  type="button"
-                  color="secondary"
-                  outline
-                  className="me-1"
-                  onClick={() => navigate(`${appsRoot}/products`)}
-                >
-                  {t("Cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  color="primary"
-                  disabled={isSubmitting || codeChecking || codeExists}
-                >
-                  {isEditMode ? t("Update") : t("Create")}
-                </Button>
-              </div>
+                </Fragment>
+              )}
+
+              <WizardFooter
+                isFirst={activeStep === 0}
+                isLast={activeStep === STEPS.length - 1}
+                isEdit={isEditMode}
+                onBack={back}
+                onNext={next}
+                onSubmit={onSave}
+                onCancel={() => navigate(-1)}
+                submitting={isSubmitting || codeChecking || codeExists}
+              />
             </Form>
           </CardBody>
         </Card>

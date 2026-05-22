@@ -13,6 +13,22 @@ import { Badge, UncontrolledTooltip } from "reactstrap";
 import { Paperclip, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
+import { assessmentReportPdfUrl } from "@constant/defaultValues";
+
+// Backend stores `attachment_url` as a relative path (new rows:
+// "files/tracking/x.pdf"; legacy rows: "/assets/files/tracking/x.pdf").
+// Resolve against REACT_APP_BACKEND_REST_API_URL_PDF, which already
+// terminates at `/assets`, so the legacy prefix is stripped here.
+const resolveAttachmentHref = (rel) => {
+  if (!rel) return "";
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const base = (assessmentReportPdfUrl || "").replace(/\/$/, "");
+  const path = rel
+    .replace(/^\//, "")
+    .replace(/^assets\//, "");
+  return `${base}/${path}`;
+};
+
 const fmtWhen = (iso) => {
   if (!iso) return "-";
   try {
@@ -120,7 +136,7 @@ const TrackingTimeline = ({
                 </span>
                 {e.attachment_url ? (
                   <a
-                    href={e.attachment_url}
+                    href={resolveAttachmentHref(e.attachment_url)}
                     target="_blank"
                     rel="noreferrer"
                     className="ms-1 small d-inline-flex align-items-center"

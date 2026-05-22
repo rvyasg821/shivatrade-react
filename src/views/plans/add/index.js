@@ -320,7 +320,7 @@ const PlanForm = () => {
                     <Button
                         type="button"
                         className="ms-2 btn-primary"
-                        onClick={() => navigate(`${appsRoot}/plans`)}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft size={17} />
                     </Button>

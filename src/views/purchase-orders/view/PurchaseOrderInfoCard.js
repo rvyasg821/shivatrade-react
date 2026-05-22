@@ -130,16 +130,40 @@ const PurchaseOrderInfoCard = () => {
             <div className="text-center py-1 my-1 border-top border-bottom">
               <SectionLabel>{t("Grand Total")}</SectionLabel>
               <div className="fw-bolder" style={{ fontSize: "1.5rem" }}>
-                ₹ {fmt(p.grand_total)}
+                {p?.currency_symbol || "₹"}{" "}
+                {fmt(Number(p.grand_total) * (Number(p?.exchange_rate) || 1))}
               </div>
               <small className="text-muted">{p?.currency_code || "INR"}</small>
             </div>
           )}
 
-          {/* Vendor & Dates */}
+          {/* Vendor & Dates — PO is multi-vendor at line level. List
+              every unique vendor across the line items. */}
           <SectionLabel>{t("Vendor & Dates")}</SectionLabel>
           <ul className="list-unstyled mb-1">
-            <InfoRow icon={User} value={p?.vendor_name} />
+            {(() => {
+              const seen = new Set();
+              const list = [];
+              for (const ln of p?.lines || []) {
+                const vid = ln?.vendor_id;
+                if (!vid || seen.has(vid)) continue;
+                seen.add(vid);
+                list.push(ln?.vendor_name || vid);
+              }
+              if (list.length === 0 && p?.vendor_name) {
+                list.push(p.vendor_name);
+              }
+              if (list.length === 0) {
+                return <InfoRow icon={User} value="-" />;
+              }
+              return list.map((name, idx) => (
+                <InfoRow
+                  key={`vendor-${idx}`}
+                  icon={idx === 0 ? User : undefined}
+                  value={name}
+                />
+              ));
+            })()}
             <InfoRow
               icon={Calendar}
               value={

@@ -174,7 +174,7 @@ const CategoryForm = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/categories`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>

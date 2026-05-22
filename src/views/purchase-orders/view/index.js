@@ -76,6 +76,9 @@ const ViewPurchaseOrder = () => {
   const store = useSelector((s) => s.purchaseOrder);
   const p = store?.purchaseOrderItem || {};
   const sym = p?.currency_symbol || "₹";
+  const rate = Number(p?.exchange_rate) || 1;
+  const toCcy = (v) =>
+    v === null || v === undefined || v === "" ? v : Number(v) * rate;
 
   useEffect(() => {
     if (id) dispatch(getPurchaseOrder(id));
@@ -118,7 +121,10 @@ const ViewPurchaseOrder = () => {
     {
       key: "total",
       label: t("Grand Total"),
-      value: p?.grand_total !== undefined ? `${sym} ${fmt(p.grand_total)}` : "-",
+      value:
+        p?.grand_total !== undefined
+          ? `${sym} ${fmt(toCcy(p.grand_total))}`
+          : "-",
       icon: DollarSign,
       tone: "secondary",
     },
@@ -157,7 +163,7 @@ const ViewPurchaseOrder = () => {
     {
       icon: ArrowLeft,
       label: t("Back to POs"),
-      onClick: () => navigate(`${appsRoot}/purchase-orders`),
+      onClick: () => navigate(-1),
     },
   ];
 
@@ -196,9 +202,13 @@ const ViewPurchaseOrder = () => {
     </span>
   );
 
-  const subtitleParts = [p?.vendor_name, p?.vendor_contact_email].filter(
-    Boolean
-  );
+  // PO is multi-vendor at line level; show customer in subtitle, fall back
+  // to legacy header vendor for older POs.
+  const subtitleParts = [
+    p?.customer_name,
+    p?.customer_contact_email,
+    !p?.customer_name ? p?.vendor_name : null,
+  ].filter(Boolean);
 
   return (
     <Fragment>

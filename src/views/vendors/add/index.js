@@ -156,11 +156,7 @@ const VendorForm = () => {
           .required(t("Company name is required"))
           .max(200, t("Company name must be at most 200 characters")),
         website: yup.string().trim().nullable().notRequired(),
-        category_ids: yup
-          .array()
-          .of(yup.string())
-          .min(1, t("At least one category is required"))
-          .required(t("Category is required")),
+        category_ids: yup.array().of(yup.string()).nullable().notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
         incoterms: yup.string().nullable().notRequired(),
         status: yup
@@ -525,7 +521,7 @@ const VendorForm = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/vendors`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>
@@ -590,7 +586,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="category_ids">
-                        {t("Categories")} <span className="text-danger">*</span>
+                        {t("Categories")}
                       </Label>
                       <Controller
                         name="category_ids"

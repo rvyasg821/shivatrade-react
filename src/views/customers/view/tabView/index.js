@@ -24,7 +24,7 @@ const CustomerTabView = () => {
         <Button
           type="button"
           color="primary"
-          onClick={() => navigate(`${appsRoot}/customers`)}
+          onClick={() => navigate(-1)}
         >
           <ArrowLeft size={17} />
         </Button>

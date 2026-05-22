@@ -23,7 +23,7 @@ const PfiTabView = () => {
         <Button
           type="button"
           color="primary"
-          onClick={() => navigate(`${appsRoot}/pfi`)}
+          onClick={() => navigate(-1)}
         >
           <ArrowLeft size={17} />
         </Button>

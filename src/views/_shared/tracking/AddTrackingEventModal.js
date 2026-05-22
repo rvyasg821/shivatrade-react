@@ -41,13 +41,15 @@ const ALLOWED_ATTACHMENT_EXTS = [
 ];
 
 const schema = yup.object({
-  event_at: yup.string().required("Event time is required"),
-  event_type: yup.string().required("Event type is required"),
+  event_at: yup.string().required("When is required"),
+  event_type: yup.string().required("Event is required"),
   event_type_other: yup
     .string()
     .when("event_type", (event_type, s) =>
       event_type === "other"
-        ? s.required("Custom label is required").max(100, "Max 100 chars")
+        ? s
+            .required("Custom Event Label is required")
+            .max(100, "Max 100 chars")
         : s.nullable()
     ),
   location: yup.string().max(200, "Max 200 chars").nullable(),
@@ -147,7 +149,9 @@ const AddTrackingEventModal = ({ open, toggle, poVendorId, onCreated }) => {
         <form id="add-tracking-event-form" onSubmit={handleSubmit(onSubmit)}>
           <Row>
             <Col md="12" className="mb-1">
-              <Label className="form-label">{t("When")}</Label>
+              <Label className="form-label">
+                {t("When")} <span className="text-danger">*</span>
+              </Label>
               <Controller
                 name="event_at"
                 control={control}
@@ -167,7 +171,9 @@ const AddTrackingEventModal = ({ open, toggle, poVendorId, onCreated }) => {
             </Col>
 
             <Col md="12" className="mb-1">
-              <Label className="form-label">{t("Event")}</Label>
+              <Label className="form-label">
+                {t("Event")} <span className="text-danger">*</span>
+              </Label>
               <Controller
                 name="event_type"
                 control={control}
@@ -196,7 +202,10 @@ const AddTrackingEventModal = ({ open, toggle, poVendorId, onCreated }) => {
 
             {eventType === "other" && (
               <Col md="12" className="mb-1">
-                <Label className="form-label">{t("Custom Label")}</Label>
+                <Label className="form-label">
+                  {t("Custom Event Label")}{" "}
+                  <span className="text-danger">*</span>
+                </Label>
                 <Controller
                   name="event_type_other"
                   control={control}
@@ -251,9 +260,7 @@ const AddTrackingEventModal = ({ open, toggle, poVendorId, onCreated }) => {
             <Col md="12" className="mb-1">
               <Label className="form-label">
                 {t("Attachment")}{" "}
-                <span className="text-muted">
-                  ({t("optional - image or PDF, max 15MB")})
-                </span>
+                <span className="text-muted">({t("optional")})</span>
               </Label>
               <Controller
                 name="attachment"

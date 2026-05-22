@@ -57,14 +57,9 @@ const PriceListForm = () => {
   const urlVendorId = searchParams.get("vendor_id") || "";
 
   // Single source of truth for "where to go when leaving this page".
-  // If we arrived from a vendor's detail page (?vendor_id=<id>), return
-  // there; otherwise fall back to the global price-list listing.
-  const goBack = () =>
-    navigate(
-      urlVendorId
-        ? `${appsRoot}/vendors/view/${urlVendorId}`
-        : `${appsRoot}/price-list`
-    );
+  // Uses the browser history so the user lands on the exact previous
+  // location they came from (filtered list, vendor detail, etc.).
+  const goBack = () => navigate(-1);
 
   const store = useSelector((state) => state.priceList);
   const vendorStore = useSelector((state) => state.vendor);

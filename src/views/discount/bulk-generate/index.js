@@ -388,7 +388,7 @@ const BulkGenerateDiscount = () => {
     <div className="main-content">
       <div className="d-flex align-items-center justify-content-between mb-2">
         <h3 className="mb-0">{t("Bulk Generate Discount Codes")}</h3>
-        <Button color="secondary" outline onClick={() => navigate(`${appsRoot}/discount`)}>
+        <Button color="secondary" outline onClick={() => navigate(-1)}>
           <ArrowLeft size={16} className="me-1" />
           {t("Back to List")}
         </Button>
@@ -688,7 +688,7 @@ const BulkGenerateDiscount = () => {
                 <Eye size={16} className="me-1" />
                 {isGenerating ? t("Generating...") : t("Generate & Preview")}
               </Button>
-              <Button color="secondary" outline onClick={() => navigate(`${appsRoot}/discount`)}>
+              <Button color="secondary" outline onClick={() => navigate(-1)}>
                 {t("Cancel")}
               </Button>
             </div>

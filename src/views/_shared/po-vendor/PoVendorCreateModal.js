@@ -21,6 +21,7 @@ import {
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "react-feather";
+import Select from "react-select";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -61,6 +62,35 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Vendor select — PO is multi-vendor at line level. The chosen vendor
+  // filters which PO lines are eligible for this POV.
+  const [vendorId, setVendorId] = useState("");
+
+  // Vendor options derived from PO lines (unique line-level vendor_ids).
+  // Falls back to header vendor for legacy POs.
+  const vendorOptions = useMemo(() => {
+    const seen = new Map();
+    for (const ln of po?.lines || []) {
+      const vid = ln?.vendor_id;
+      if (!vid || seen.has(vid)) continue;
+      seen.set(vid, ln?.vendor_name || vid);
+    }
+    if (!seen.size && po?.vendor_id) {
+      seen.set(po.vendor_id, po?.vendor_name || po.vendor_id);
+    }
+    return Array.from(seen.entries()).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  }, [po?.lines, po?.vendor_id, po?.vendor_name]);
+
+  // Auto-pick the single vendor when only one exists.
+  useEffect(() => {
+    if (vendorOptions.length === 1 && !vendorId) {
+      setVendorId(vendorOptions[0].value);
+    }
+  }, [vendorOptions, vendorId]);
+
   // Load coverage when opening.
   useEffect(() => {
     if (!isOpen || !po?._id) return;
@@ -72,6 +102,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
     setPickedAddressId("");
     setManualText("");
     setNotes("");
+    setVendorId("");
 
     instance
       .get(`${API_ENDPOINTS.purchaseOrders.coverage}/${po._id}/coverage`)
@@ -108,28 +139,55 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
     };
   }, [isOpen, po?._id, t]);
 
+  // Map PO line _id → vendor_id (so we can filter coverage by chosen vendor).
+  const vendorByLineId = useMemo(() => {
+    const m = new Map();
+    for (const ln of po?.lines || []) {
+      m.set(ln._id, ln?.vendor_id || po?.vendor_id || null);
+    }
+    return m;
+  }, [po?.lines, po?.vendor_id]);
+
+  // Coverage rows belonging to the chosen vendor.
+  const filteredLines = useMemo(() => {
+    if (!coverage?.lines) return [];
+    if (!vendorId) return coverage.lines; // before vendor picked: show all (preview)
+    return coverage.lines.filter(
+      (l) => vendorByLineId.get(l.purchase_order_line_id) === vendorId
+    );
+  }, [coverage, vendorId, vendorByLineId]);
+
   const setAll = (mode) => {
-    const next = {};
-    for (const l of coverage?.lines || []) {
-      next[l.purchase_order_line_id] = mode === "full" ? String(num(l.pending)) : "0";
+    const next = { ...coverByLine };
+    for (const l of filteredLines) {
+      next[l.purchase_order_line_id] =
+        mode === "full" ? String(num(l.pending)) : "0";
     }
     setCoverByLine(next);
   };
 
   const totalCover = useMemo(() => {
     let s = 0;
-    for (const l of coverage?.lines || []) {
+    for (const l of filteredLines) {
       s += num(coverByLine[l.purchase_order_line_id]);
     }
     return s;
-  }, [coverage, coverByLine]);
+  }, [filteredLines, coverByLine]);
 
   const onSubmit = async () => {
     if (!coverage) return;
+    if (!vendorId) {
+      Notification(
+        "Validation",
+        t("Pick a vendor for this POV."),
+        "warning"
+      );
+      return;
+    }
 
-    // Build line payload — drop lines with 0 cover.
+    // Build line payload — only lines for the chosen vendor; drop zero qty.
     const lines = [];
-    for (const l of coverage.lines) {
+    for (const l of filteredLines) {
       const v = num(coverByLine[l.purchase_order_line_id]);
       const max = num(l.pending);
       if (v < 0 || v > max + 1e-6) {
@@ -175,6 +233,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
         createPoVendorFromPo({
           purchase_order_id: po._id,
           payload: {
+            vendor_id: vendorId,
             lines,
             delivery_address: deliveryAddressOverride,
             delivery_address_id: deliveryAddressIdOverride,
@@ -209,24 +268,32 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
         {t("Create PO Vendor against PO")} <code>{po?.voucher_no || ""}</code>
       </ModalHeader>
       <ModalBody>
-        {/* Vendor info block */}
-        <div className="mb-2 p-2 border rounded bg-light">
-          <div className="text-muted text-uppercase fw-bold small mb-50">
-            {t("Vendor")}
-          </div>
-          <div className="fw-bold">{po?.vendor_name || "-"}</div>
-          {po?.vendor_contact_name && (
-            <div className="small">
-              {po.vendor_contact_name}
-              {po?.vendor_contact_phone && ` · ${po.vendor_contact_phone}`}
-            </div>
+        {/* Vendor select — pick which vendor this POV is for. PO is
+            multi-vendor at line level; only lines matching this vendor
+            appear in the per-line table below. */}
+        <div className="mb-2">
+          <Label className="form-label">
+            {t("Vendor")} <span className="text-danger">*</span>
+          </Label>
+          <Select
+            classNamePrefix="select"
+            menuPortalTarget={
+              typeof document !== "undefined" ? document.body : null
+            }
+            styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+            options={vendorOptions}
+            value={
+              vendorOptions.find((o) => o.value === vendorId) || null
+            }
+            onChange={(opt) => setVendorId(opt ? opt.value : "")}
+            placeholder={t("Select vendor for this POV")}
+            isDisabled={vendorOptions.length === 0}
+          />
+          {vendorOptions.length === 0 && (
+            <small className="text-warning">
+              {t("This PO has no vendor on any line. Edit the PO to assign vendors.")}
+            </small>
           )}
-          {po?.vendor_contact_email && (
-            <div className="small text-muted">{po.vendor_contact_email}</div>
-          )}
-          <small className="text-muted d-block mt-50">
-            {t("Inherited from PO — cannot change here.")}
-          </small>
         </div>
 
         {/* Delivery address — inherit / pick / manual.
@@ -335,6 +402,11 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
             <AlertTriangle size={14} className="me-1" />
             {t("All quantities on this PO are already covered by existing POVs.")}
           </div>
+        ) : vendorId && filteredLines.length === 0 ? (
+          <div className="alert alert-info small">
+            <AlertTriangle size={14} className="me-1" />
+            {t("No PO lines are assigned to the selected vendor.")}
+          </div>
         ) : (
           <Table bordered size="sm" className="align-middle mb-2">
             <thead className="table-light">
@@ -357,7 +429,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
               </tr>
             </thead>
             <tbody>
-              {coverage.lines.map((l, idx) => {
+              {filteredLines.map((l, idx) => {
                 const max = num(l.pending);
                 const cur = num(coverByLine[l.purchase_order_line_id]);
                 const tooHigh = cur > max + 1e-6;
@@ -444,7 +516,11 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
           color="primary"
           onClick={onSubmit}
           disabled={
-            submitting || loading || !hasPending || totalCover <= 1e-6
+            submitting ||
+            loading ||
+            !hasPending ||
+            !vendorId ||
+            totalCover <= 1e-6
           }
         >
           {submitting ? <Spinner size="sm" /> : null} {t("Create POV")}

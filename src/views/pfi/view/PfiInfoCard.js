@@ -1,6 +1,8 @@
 import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { getPfi } from "@src/views/pfi/store";
+import { getPurchaseOrderList } from "@src/views/purchase-orders/store";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import {
   Card,
@@ -56,6 +58,7 @@ const SectionLabel = ({ children }) => (
 const PfiInfoCard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { t } = useTranslation();
 
   const { pfiItem } = useSelector((s) => s.pfi);
@@ -275,6 +278,19 @@ const PfiInfoCard = () => {
         sourceType="pfi"
         sourceId={id}
         sourceVoucherNo={p?.voucher_no}
+        onCreated={() => {
+          dispatch(getPfi(id));
+          dispatch(
+            getPurchaseOrderList({
+              orderBy: "po_date",
+              orderDirection: "desc",
+              page: 1,
+              perPage: 50,
+              search: "",
+              pfi_id: id,
+            })
+          );
+        }}
       />
     </Fragment>
   );

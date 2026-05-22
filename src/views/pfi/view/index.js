@@ -27,6 +27,7 @@ import { appsRoot } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
+import { getPurchaseOrderList } from "@src/views/purchase-orders/store";
 import { formatDate } from "@src/utility/dateFormat";
 
 import {
@@ -162,7 +163,7 @@ const ViewPfi = () => {
     {
       icon: ArrowLeft,
       label: t("Back to PFIs"),
-      onClick: () => navigate(`${appsRoot}/pfi`),
+      onClick: () => navigate(-1),
     },
   ];
 
@@ -238,6 +239,19 @@ const ViewPfi = () => {
         sourceType="pfi"
         sourceId={id}
         sourceVoucherNo={p?.voucher_no}
+        onCreated={() => {
+          dispatch(getPfi(id));
+          dispatch(
+            getPurchaseOrderList({
+              orderBy: "po_date",
+              orderDirection: "desc",
+              page: 1,
+              perPage: 50,
+              search: "",
+              pfi_id: id,
+            })
+          );
+        }}
       />
     </Fragment>
   );

@@ -19,7 +19,11 @@ import {
 } from "../../store";
 import { getVendorDropdown, getVendor } from "../../../vendors/store";
 import { getProductDropdown } from "../../../products/store";
-import { getCustomerDropdown } from "../../../customers/store";
+import { getCustomerDropdown, getCustomer } from "../../../customers/store";
+import {
+  getExchangeRateOptions,
+  getCurrencyDropdown,
+} from "../../../currencies/store";
 import { startLoading, stopLoading } from "../../../loadingstore";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 
@@ -55,22 +59,45 @@ const PurchaseOrderWizard = () => {
   const productStore = useSelector((s) => s.product);
   const customerStore = useSelector((s) => s.customer);
   const companyStore = useSelector((s) => s.company);
+  const currencyStore = useSelector((s) => s.currency);
 
   const [submitting, setSubmitting] = useState(false);
   const [vendorPriceList, setVendorPriceList] = useState([]);
+  const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  const [rateMeta, setRateMeta] = useState(null);
+  const [hasExistingPovs, setHasExistingPovs] = useState(false);
+
+  // On edit, check if ANY non-cancelled POV exists for this PO — even
+  // a draft POV references the PO lines via purchase_order_line_id, so
+  // changing the line set risks orphaning those references.
+  useEffect(() => {
+    if (!isEdit || !id) {
+      setHasExistingPovs(false);
+      return;
+    }
+    instance
+      .get(API_ENDPOINTS.poVendors.list, {
+        params: { purchase_order_id: id, page: 1, perPage: 200 },
+      })
+      .then((resp) => {
+        const items = resp?.data?.data || [];
+        const blocking = items.some((p) => p?.status !== "cancelled");
+        setHasExistingPovs(blocking);
+      })
+      .catch(() => setHasExistingPovs(false));
+  }, [id, isEdit]);
 
   const schema = useMemo(
     () =>
       yup.object().shape({
-        vendor_id: yup.string().trim().required(t("Vendor is required")),
+        // Header vendor_id is legacy / optional. PO is multi-vendor at
+        // line level — each line carries its own vendor_id.
+        vendor_id: yup.string().nullable(),
         customer_id: yup
           .string()
           .trim()
           .required(t("Customer is required")),
         po_date: yup.string().trim().required(t("PO date is required")),
-        // delivery_address is now derived from a picked company address.
-        // We require EITHER delivery_address_id OR delivery_address (text
-        // override). Cross-field rule enforced below.
         delivery_address: yup.string().nullable(),
         delivery_address_id: yup.string().nullable(),
         expected_delivery_date: yup.string().nullable(),
@@ -84,6 +111,9 @@ const PurchaseOrderWizard = () => {
           .array()
           .of(
             yup.object().shape({
+              vendor_id: yup
+                .string()
+                .required(t("Vendor is required")),
               product_id: yup.string().required(t("Product is required")),
               qty: yup.string().required(t("Qty is required")),
               unit_price: yup.string().required(t("Unit price is required")),
@@ -150,6 +180,12 @@ const PurchaseOrderWizard = () => {
 
   const watchedVendor = watch("vendor_id");
   const watchedVendorAddr = watch("vendor_address_id");
+  const watchedCustomer = useWatch({ control, name: "customer_id" });
+  const watchedCustomerAddr = useWatch({
+    control,
+    name: "customer_address_id",
+  });
+  const liveCurrencyCode = useWatch({ control, name: "currency_code" });
   const liveStatus = useWatch({ control, name: "status" });
   const isLocked = isEdit && liveStatus && liveStatus !== "draft";
 
@@ -158,6 +194,8 @@ const PurchaseOrderWizard = () => {
     dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
     dispatch(getCustomerDropdown());
+    dispatch(getExchangeRateOptions());
+    dispatch(getCurrencyDropdown());
     dispatch(getCompanyDetails());
     if (isEdit) {
       dispatch(getPurchaseOrder(id));
@@ -210,6 +248,62 @@ const PurchaseOrderWizard = () => {
     if (!watchedVendor) return;
     dispatch(getVendor(watchedVendor));
   }, [watchedVendor, dispatch]);
+
+  // Customer master → addresses for the bill-to dropdown.
+  useEffect(() => {
+    if (!watchedCustomer) {
+      setCustomerAddressOptions([]);
+      return;
+    }
+    dispatch(getCustomer(watchedCustomer));
+  }, [watchedCustomer, dispatch]);
+
+  useEffect(() => {
+    const cust = customerStore?.customerItem;
+    if (cust && cust._id === watchedCustomer) {
+      const opts = (cust.addresses || []).map((a) => ({
+        value: a._id,
+        label: [a.label, a.address_line1, a.city, a.country]
+          .filter(Boolean)
+          .join(", "),
+      }));
+      setCustomerAddressOptions(opts);
+    }
+  }, [customerStore?.customerItem, watchedCustomer]);
+
+  // Fetch live exchange rate when the currency changes (skip on edit
+  // when currency matches the persisted PO — preserve the snapshot rate).
+  useEffect(() => {
+    if (!liveCurrencyCode) {
+      setRateMeta(null);
+      return;
+    }
+    if (
+      isEdit &&
+      store?.purchaseOrderItem?.currency_code === liveCurrencyCode
+    )
+      return;
+    const options = currencyStore?.exchangeOptions || [];
+    const defaultOpt = options.find((o) => o.is_default);
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, {
+        params: { to: liveCurrencyCode },
+      })
+      .then((resp) => {
+        const data = resp?.data?.data;
+        if (!data) return setRateMeta({ missing: true });
+        setValue("exchange_rate", String(Number(data.rate)));
+        setRateMeta({
+          rate: Number(data.rate),
+          effective_date: data.effective_date,
+          same: !!data.same,
+          fromCode: data.from_currency_code || defaultOpt?.code,
+          toCode: liveCurrencyCode,
+        });
+      })
+      .catch(() => setRateMeta({ missing: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveCurrencyCode, currencyStore?.exchangeOptions]);
 
   // Load vendor price list whenever vendor changes.
   useEffect(() => {
@@ -343,6 +437,15 @@ const PurchaseOrderWizard = () => {
     store?.purchaseOrderItem?.customer_name,
   ]);
 
+  const currencyOptions = useMemo(
+    () =>
+      (currencyStore?.exchangeOptions || []).map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
+      })),
+    [currencyStore?.exchangeOptions]
+  );
+
   // ── Submit ──
   const buildPayload = (values) => {
     if (isLocked) {
@@ -352,9 +455,11 @@ const PurchaseOrderWizard = () => {
       };
     }
     return {
-      vendor_id: values.vendor_id,
+      // Header vendor_id intentionally omitted — PO is multi-vendor at
+      // line level (each line carries its own vendor_id).
       vendor_address_id: values.vendor_address_id || undefined,
       customer_id: values.customer_id || undefined,
+      customer_address_id: values.customer_address_id || undefined,
       quotation_id: values.quotation_id || undefined,
       pfi_id: values.pfi_id || undefined,
       po_date: values.po_date,
@@ -369,7 +474,11 @@ const PurchaseOrderWizard = () => {
       exchange_rate: values.exchange_rate || "1",
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
+        // Preserve _id on existing lines — backend keys upsert by it,
+        // and POV lines reference PO lines via purchase_order_line_id.
+        _id: l._id || undefined,
         product_id: l.product_id,
+        vendor_id: l.vendor_id,
         source_quotation_line_id: l.source_quotation_line_id || undefined,
         source_pfi_line_id: l.source_pfi_line_id || undefined,
         description: l.description || "",
@@ -454,11 +563,15 @@ const PurchaseOrderWizard = () => {
     isLocked,
     vendorOptions,
     customerOptions,
+    customerAddressOptions,
+    currencyOptions,
+    rateMeta,
     vendorAddressOptions,
     productById,
     priceByProduct,
     vendorProductOptions,
     intraState,
+    hasExistingPovs,
     sourcePfiVoucher: store?.purchaseOrderItem?.pfi_voucher_no,
     sourcePfiId: store?.purchaseOrderItem?.pfi_id,
     sourceQuotationVoucher: store?.purchaseOrderItem?.quotation_voucher_no,
@@ -482,7 +595,7 @@ const PurchaseOrderWizard = () => {
           <Button
             type="button"
             className="ms-2 btn-primary"
-            onClick={() => navigate(`${appsRoot}/purchase-orders`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={17} />
           </Button>

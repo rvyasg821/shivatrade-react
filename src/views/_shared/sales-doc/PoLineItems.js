@@ -11,7 +11,7 @@
 // Backed by `useFieldArray({ name: "lines" })` — identical underlying
 // shape to the old inline-grid Step2Items, so no DTO change needed.
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   Controller,
   useFieldArray,
@@ -90,12 +90,14 @@ const PoLineItems = ({
   priceByProduct,
   intraState,
   initLineItem,
+  vendorOptions = [],
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
   const {
     control,
     setValue,
+    getValues,
     formState: { errors },
   } = useFormContext();
 
@@ -106,6 +108,69 @@ const PoLineItems = ({
   const formCurrencyCode = useWatch({ control, name: "currency_code" });
   const sym = currencySymbol(formCurrencyCode);
 
+  // Per-line vendor options — fetched from price-list/by-product when
+  // a product is picked. Matches the Quotation / PFI flow: product
+  // first, then vendor with auto-fill of unit_price + tax_pct.
+  const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
+
+  // On hydrate/edit: fetch vendor options for any line that has a
+  // product set but no vendor options loaded yet. This makes the
+  // modal's Vendor select usable when editing an existing line.
+  useEffect(() => {
+    (liveLines || []).forEach((l, idx) => {
+      if (l?.product_id && !vendorOptionsByLine[idx]) {
+        fetchVendorPrices(idx, l.product_id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveLines.length]);
+
+  const fetchVendorPrices = async (idx, productId) => {
+    if (!productId) {
+      setVendorOptionsByLine((m) => ({ ...m, [idx]: [] }));
+      return [];
+    }
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.priceList.byProduct}/${productId}`
+      );
+      const rows = resp?.data?.data || [];
+      const sorted = [...rows].sort(
+        (a, b) => num(a?.unit_price) - num(b?.unit_price)
+      );
+      const opts = sorted.map((r) => ({
+        value: r.vendor_id,
+        label: `${r.vendor_name || r.vendor_id} — ₹${num(
+          r.unit_price
+        ).toLocaleString()}`,
+        raw: r,
+      }));
+      setVendorOptionsByLine((m) => ({ ...m, [idx]: opts }));
+      // If no vendor picked yet, default to cheapest + stamp price/tax.
+      const lines = getValues("lines") || [];
+      const cur = lines[idx]?.vendor_id;
+      if (!cur && sorted.length) {
+        const cheap = sorted[0];
+        setValue(`lines.${idx}.vendor_id`, cheap.vendor_id || "", {
+          shouldDirty: true,
+        });
+        setValue(
+          `lines.${idx}.unit_price`,
+          String(cheap.unit_price ?? "0"),
+          { shouldDirty: true }
+        );
+      }
+      return sorted;
+    } catch {
+      setVendorOptionsByLine((m) => ({ ...m, [idx]: [] }));
+      return [];
+    }
+  };
+
+  // Modal sub-stepper — 0 = Product & Vendor, 1 = Pricing & Details.
+  // Mirrors the PFI / Quotation add-line modal flow.
+  const [modalStep, setModalStep] = useState(0);
+
   const [modal, setModal] = useState({
     open: false,
     idx: null,
@@ -113,7 +178,10 @@ const PoLineItems = ({
   });
   // Product picker mode: false = vendor price list (default),
   // true = global async search (no price auto-fill).
-  const [browseAll, setBrowseAll] = useState(false);
+  // PO is multi-vendor at line level: product first, vendor second. So
+  // browse-all (server-side AsyncSelect search) is the only sensible
+  // mode — the legacy "vendor's price list" filter doesn't apply.
+  const [browseAll, setBrowseAll] = useState(true);
   const productSearchTimer = useRef(null);
 
   const confirmDelete = () =>
@@ -160,11 +228,12 @@ const PoLineItems = ({
       }, 300);
     });
 
-  // Apply product picked from the vendor price list — also auto-fills
-  // unit_price from the vendor's quoted rate.
+  // Apply product picked from the vendor price list. Vendor is then
+  // chosen separately in the Vendor select (fetched per product).
   const onPickFromVendorList = (idx, productId) => {
     const p = productById.get(productId);
     setValue(`lines.${idx}.product_id`, productId, { shouldDirty: true });
+    setValue(`lines.${idx}.vendor_id`, "", { shouldDirty: true });
     if (p) {
       setValue(`lines.${idx}.description`, p.description || "", {
         shouldDirty: true,
@@ -179,20 +248,16 @@ const PoLineItems = ({
         shouldDirty: true,
       });
     }
-    const priceRow = priceByProduct.get(productId);
-    if (priceRow) {
-      setValue(`lines.${idx}.unit_price`, String(priceRow.unit_price ?? "0"), {
-        shouldDirty: true,
-      });
-    }
+    // Fetch the cross-vendor price list for this product → populates
+    // the Vendor select with options + price.
+    fetchVendorPrices(idx, productId);
   };
 
-  // Apply product picked via Browse-all — does NOT auto-fill price
-  // (product isn't in this vendor's price list).
+  // Apply product picked via Browse-all.
   const onPickFromAll = (idx, opt) => {
-    setValue(`lines.${idx}.product_id`, opt?.value || "", {
-      shouldDirty: true,
-    });
+    const pid = opt?.value || "";
+    setValue(`lines.${idx}.product_id`, pid, { shouldDirty: true });
+    setValue(`lines.${idx}.vendor_id`, "", { shouldDirty: true });
     if (opt?.raw) {
       const p = opt.raw;
       setValue(`lines.${idx}.description`, p.description || "", {
@@ -207,19 +272,23 @@ const PoLineItems = ({
       setValue(`lines.${idx}.tax_pct`, String(p.tax_pct ?? "0"), {
         shouldDirty: true,
       });
-      // unit_price intentionally left untouched — user must enter manually.
     }
+    fetchVendorPrices(idx, pid);
   };
 
   const openAdd = () => {
+    // PO is multi-vendor at line level — vendor is chosen inside the
+    // modal after a product is picked (cheapest pre-selected).
     lineFA.append({ ...initLineItem });
     const newIdx = lineFA.fields.length;
-    setBrowseAll(false);
+    setBrowseAll(true);
+    setModalStep(0);
     setModal({ open: true, idx: newIdx, isNew: true });
   };
 
   const openEdit = (idx) => {
-    setBrowseAll(false);
+    setBrowseAll(true);
+    setModalStep(0);
     setModal({ open: true, idx, isNew: false });
   };
 
@@ -260,11 +329,11 @@ const PoLineItems = ({
     return row?.unit_price != null ? num(row.unit_price) : null;
   })();
 
-  // Has the user picked a product that's NOT in the vendor's price list?
-  // Used to show the "no list price" warning under the Rate field.
-  const isOutOfVendorList =
-    editingLine?.product_id &&
-    !vendorProductOptions.find((o) => o.value === editingLine.product_id);
+  // PO is now multi-vendor at line level — vendor is picked per line
+  // from price-list/by-product, so any vendor in the modal's Vendor
+  // dropdown is guaranteed to have a price for this product. The
+  // legacy "out of vendor's list" warning no longer applies.
+  const isOutOfVendorList = false;
 
   const isIntegerUnit = UOM_INTEGER_ONLY.has(editingLine.unit);
 
@@ -308,6 +377,7 @@ const PoLineItems = ({
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th>{t("Product")}</th>
+                  <th style={{ width: 140 }}>{t("Vendor")}</th>
                   <th style={{ width: 110 }} className="text-end">
                     {t("Qty")}
                   </th>
@@ -351,10 +421,14 @@ const PoLineItems = ({
                     )?.label ||
                     productById?.get?.(l.product_id)?.name ||
                     (l.product_id ? "-" : t("(not set)"));
+                  const vendorLabel =
+                    vendorOptions.find((o) => o.value === l.vendor_id)
+                      ?.label || (l.vendor_id ? l.vendor_id : "-");
                   return (
                     <tr key={field.id}>
                       <td className="text-muted">{idx + 1}</td>
                       <td>{productLabel}</td>
+                      <td className="small">{vendorLabel}</td>
                       <td className="text-end">
                         {l.qty
                           ? `${fmt(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
@@ -431,27 +505,82 @@ const PoLineItems = ({
           <ModalBody>
             {editingIdx != null && (
               <Fragment>
+                {/* ── Inline 2-step nav ─────────────────────────────── */}
+                <div className="d-flex align-items-center justify-content-center mb-2">
+                  {[
+                    { i: 0, label: t("Product & Vendor") },
+                    { i: 1, label: t("Pricing & Details") },
+                  ].map((s, idx) => (
+                    <Fragment key={s.i}>
+                      {idx > 0 && (
+                        <div
+                          style={{
+                            width: 56,
+                            height: 2,
+                            background:
+                              modalStep > s.i - 1 ? "#28c76f" : "#dcdbe5",
+                            margin: "0 8px",
+                            borderRadius: 2,
+                          }}
+                        />
+                      )}
+                      <div
+                        className="d-flex align-items-center"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => {
+                          if (s.i > 0) {
+                            if (!editingLine.product_id) return;
+                            if (!editingLine.vendor_id) return;
+                          }
+                          setModalStep(s.i);
+                        }}
+                      >
+                        <div
+                          className="d-flex align-items-center justify-content-center rounded-circle me-1"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            background:
+                              modalStep === s.i
+                                ? "#7367f0"
+                                : modalStep > s.i
+                                ? "#28c76f"
+                                : "#fff",
+                            color:
+                              modalStep === s.i || modalStep > s.i
+                                ? "#fff"
+                                : "#8c8b97",
+                            border:
+                              modalStep === s.i || modalStep > s.i
+                                ? "none"
+                                : "1.5px solid #dcdbe5",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          {s.i + 1}
+                        </div>
+                        <span
+                          className="fw-semibold"
+                          style={{
+                            color: modalStep === s.i ? "#1a2238" : "#6e6b7b",
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          {s.label}
+                        </span>
+                      </div>
+                    </Fragment>
+                  ))}
+                </div>
+
+                {modalStep === 0 && (
+                <>
                 {/* Product picker — vendor-list ↔ browse-all toggle */}
                 <Row>
                   <Col md="12" className="mb-2">
-                    <Label className="form-label d-flex justify-content-between align-items-center">
-                      <span>
-                        {t("Product")} <span className="text-danger">*</span>
-                      </span>
-                      <small>
-                        <a
-                          href="#"
-                          className="text-decoration-none"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setBrowseAll((s) => !s);
-                          }}
-                        >
-                          {browseAll
-                            ? t("Use vendor's price list")
-                            : t("Not in vendor's list? Browse all")}
-                        </a>
-                      </small>
+                    <Label className="form-label">
+                      {t("Product")} <span className="text-danger">*</span>
                     </Label>
                     <Controller
                       name={`lines.${editingIdx}.product_id`}
@@ -533,6 +662,143 @@ const PoLineItems = ({
                   </Col>
                 </Row>
 
+                {/* Vendor picker — radio-card list populated from
+                    price-list/by-product after a product is chosen
+                    (mirrors PFI / Quotation flow). Cheapest is
+                    pre-selected; user can pick another row. */}
+                <Row>
+                  <Col md="12" className="mb-2">
+                    <Label className="form-label">
+                      {t("Vendor")} <span className="text-danger">*</span>
+                    </Label>
+                    <Controller
+                      name={`lines.${editingIdx}.vendor_id`}
+                      control={control}
+                      render={({ field }) => {
+                        const opts = vendorOptionsByLine[editingIdx] || [];
+                        if (!editingLine?.product_id) {
+                          return (
+                            <div
+                              className="alert alert-light border small mb-0"
+                              style={{ color: "#6e6b7b" }}
+                            >
+                              {t(
+                                "Pick a product first — vendor options appear here."
+                              )}
+                            </div>
+                          );
+                        }
+                        if (opts.length === 0) {
+                          return (
+                            <div className="alert alert-warning small mb-0">
+                              {t(
+                                "No vendor sells this product yet. Add it to a vendor's price list first."
+                              )}
+                            </div>
+                          );
+                        }
+                        const onPickVendor = (opt) => {
+                          field.onChange(opt?.value || "");
+                          if (opt?.raw?.unit_price !== undefined) {
+                            setValue(
+                              `lines.${editingIdx}.unit_price`,
+                              String(opt.raw.unit_price ?? "0"),
+                              { shouldDirty: true }
+                            );
+                          }
+                          if (
+                            opt?.raw?.discount_pct !== undefined &&
+                            opt?.raw?.discount_pct !== null
+                          ) {
+                            setValue(
+                              `lines.${editingIdx}.discount_pct`,
+                              String(opt.raw.discount_pct ?? "0"),
+                              { shouldDirty: true }
+                            );
+                          }
+                        };
+                        return (
+                          <div className="d-flex flex-column gap-1">
+                            {opts.map((opt) => {
+                              const r = opt.raw || {};
+                              const checked = field.value === opt.value;
+                              const id = `po-vendor-radio-${editingIdx}-${opt.value}`;
+                              return (
+                                <label
+                                  key={opt.value}
+                                  htmlFor={id}
+                                  className="d-flex align-items-center justify-content-between rounded p-2 mb-0"
+                                  style={{
+                                    cursor: isLocked ? "default" : "pointer",
+                                    border: checked
+                                      ? "1.5px solid #7367f0"
+                                      : "1px solid #dcdbe5",
+                                    background: checked ? "#f4f3ff" : "#fff",
+                                  }}
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <input
+                                      id={id}
+                                      type="radio"
+                                      name={`po-vendor-radio-${editingIdx}`}
+                                      checked={checked}
+                                      disabled={isLocked}
+                                      onChange={() => onPickVendor(opt)}
+                                      className="form-check-input me-2 mt-0"
+                                      style={{
+                                        cursor: isLocked
+                                          ? "default"
+                                          : "pointer",
+                                      }}
+                                    />
+                                    <div>
+                                      <div
+                                        className="fw-semibold"
+                                        style={{ color: "#1a2238" }}
+                                      >
+                                        {r.vendor_name ||
+                                          opt.label?.split(" — ")[0] ||
+                                          opt.label}
+                                      </div>
+                                      {r.vendor_code && (
+                                        <small className="text-muted">
+                                          [{r.vendor_code}]
+                                        </small>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-end">
+                                    <div
+                                      className="fw-bold"
+                                      style={{ color: "#1a2238" }}
+                                    >
+                                      ₹ {num(r.unit_price).toLocaleString()}
+                                    </div>
+                                    {num(r.discount_pct) > 0 && (
+                                      <small className="text-muted">
+                                        − {num(r.discount_pct)}%
+                                      </small>
+                                    )}
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      }}
+                    />
+                    {errors?.lines?.[editingIdx]?.vendor_id && (
+                      <small className="text-danger d-block mt-50">
+                        {errors.lines[editingIdx].vendor_id.message}
+                      </small>
+                    )}
+                  </Col>
+                </Row>
+                </>
+                )}
+
+                {modalStep === 1 && (
+                <>
                 {/* HSN + UOM (UOM Select with integer-coercion) */}
                 <Row>
                   <Col md="6" className="mb-2">
@@ -826,6 +1092,8 @@ const PoLineItems = ({
                     </ul>
                   </Col>
                 </Row>
+                </>
+                )}
               </Fragment>
             )}
           </ModalBody>
@@ -833,9 +1101,31 @@ const PoLineItems = ({
             <Button color="secondary" outline onClick={closeModal}>
               {t("Cancel")}
             </Button>
-            <Button color="primary" onClick={closeModal}>
-              {t("Save")}
-            </Button>
+            {modalStep === 0 && (
+              <Button
+                color="primary"
+                onClick={() => setModalStep(1)}
+                disabled={
+                  !editingLine?.product_id || !editingLine?.vendor_id
+                }
+              >
+                {t("Next")}
+              </Button>
+            )}
+            {modalStep === 1 && (
+              <Button
+                color="secondary"
+                outline
+                onClick={() => setModalStep(0)}
+              >
+                {t("Back")}
+              </Button>
+            )}
+            {modalStep === 1 && (
+              <Button color="primary" onClick={closeModal}>
+                {t("Save")}
+              </Button>
+            )}
           </ModalFooter>
         </Modal>
       </CardBody>

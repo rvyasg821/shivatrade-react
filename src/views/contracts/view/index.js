@@ -345,7 +345,7 @@ const ContractView = () => {
         {/* ── Back Button ── */}
         <div className="main-form-btn">
           <div className="form-btn mt-2">
-            <Button type="button" color="secondary" onClick={() => navigate(`${appsRoot}/contracts`)}>
+            <Button type="button" color="secondary" onClick={() => navigate(-1)}>
               {t("Back")}
             </Button>
           </div>

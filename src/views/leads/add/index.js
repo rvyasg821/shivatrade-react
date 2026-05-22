@@ -48,10 +48,41 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { ArrowLeft, UserCheck, FileText } from "react-feather";
+import { ArrowLeft, UserCheck, FileText, Briefcase, Target, MapPin } from "react-feather";
+
+// ** Wizard scaffolding (shared with Customer / Quotation / PFI / PO wizards)
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import "@src/views/_shared/wizard/wizard.scss";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
+
+const STEPS = [
+  {
+    key: "basic",
+    label: "Lead & Contact",
+    icon: Briefcase,
+    fields: [
+      "source",
+      "company_name",
+      "contact_name",
+      "contact_email",
+    ],
+  },
+  {
+    key: "opportunity",
+    label: "Opportunity",
+    icon: Target,
+    fields: ["status", "expected_value"],
+  },
+  {
+    key: "address",
+    label: "Address & Social",
+    icon: MapPin,
+    fields: [],
+  },
+];
 import { initLeadItem } from "@constant/reduxConstant";
 import {
   LEAD_SOURCE_OPTIONS,
@@ -119,12 +150,44 @@ const LeadForm = () => {
     reset,
     setValue,
     watch,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
     defaultValues: initLeadItem,
   });
+
+  // ── Wizard navigation state ─────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+
+  const goTo = async (idx, { validate = true } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= STEPS.length) return;
+    if (idx > activeStep && validate) {
+      const fields = STEPS[activeStep].fields || [];
+      const ok = fields.length === 0 ? true : await trigger(fields);
+      if (!ok) {
+        Notification(
+          "Validation",
+          t("Please complete the highlighted fields first."),
+          "warning"
+        );
+        return;
+      }
+    }
+    setVisited((prev) => {
+      const n = new Set(prev);
+      n.add(idx);
+      return n;
+    });
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const next = () => goTo(activeStep + 1);
+  const back = () => goTo(activeStep - 1, { validate: false });
 
   const watchCustomerId = watch("customer_id");
 
@@ -154,6 +217,8 @@ const LeadForm = () => {
         preferred_vendors: store.leadItem.preferred_vendors || [],
         follow_up_date: (store.leadItem.follow_up_date || "").slice(0, 10),
       });
+      // Mark every step as visited so the user can click any of them.
+      setVisited(new Set(STEPS.map((_, i) => i)));
     }
   }, [store?.leadItem?._id]);
 
@@ -256,6 +321,40 @@ const LeadForm = () => {
     else dispatch(stopLoading());
   }, [store?.loading]);
 
+  // Re-route Save → run full validation, jump to the first step containing
+  // errors if any, otherwise submit through react-hook-form's normal flow.
+  const findFirstErrorStep = () => {
+    const errs = errors || {};
+    const hasErr = (path) => !!errs[path.split(".")[0]];
+    for (let i = 0; i < STEPS.length; i++) {
+      if ((STEPS[i].fields || []).some(hasErr)) return i;
+    }
+    return activeStep;
+  };
+
+  const onSave = async () => {
+    const ok = await trigger();
+    if (!ok) {
+      const firstBad = findFirstErrorStep();
+      if (firstBad !== activeStep) {
+        setVisited((prev) => {
+          const n = new Set(prev);
+          n.add(firstBad);
+          return n;
+        });
+        setActiveStep(firstBad);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      Notification(
+        "Validation",
+        t("Please fix the highlighted fields."),
+        "warning"
+      );
+      return;
+    }
+    handleSubmit(onSubmit)();
+  };
+
   const onSubmit = (data) => {
     // Strip empty _id (init value "") so TypeORM doesn't treat it as
     // "save existing entity" and query LeadEntity._id IN ('') (invalid UUID).
@@ -347,7 +446,7 @@ const LeadForm = () => {
 
   return (
     <Fragment>
-      <div className="main-content leads-form">
+      <div className="main-content leads-form quotation-wizard">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">
             {isEditMode ? t("Edit Lead") : t("Add Lead")}
@@ -377,7 +476,7 @@ const LeadForm = () => {
             <Button
               color="secondary"
               outline
-              onClick={() => navigate(`${appsRoot}/leads`)}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft size={14} /> {t("Back")}
             </Button>
@@ -422,9 +521,19 @@ const LeadForm = () => {
           </div>
         )}
 
+        <WizardHeader
+          steps={STEPS}
+          activeStep={activeStep}
+          visited={visited}
+          onStepClick={(i) => goTo(i)}
+          isEdit={isEditMode}
+        />
+
         <Card>
           <CardBody>
-            <Form onSubmit={handleSubmit(onSubmit)}>
+            <Form onSubmit={(e) => e.preventDefault()}>
+              {activeStep === 0 && (
+                <Fragment>
               {/* ── Lead Source / Existing Customer link ── */}
               <h4 className="mb-2">{t("Lead Information")}</h4>
               <Row>
@@ -590,8 +699,13 @@ const LeadForm = () => {
                 </Col>
               </Row>
 
+                </Fragment>
+              )}
+
+              {activeStep === 1 && (
+                <Fragment>
               {/* ── Opportunity ── */}
-              <h4 className="mt-3 mb-2">
+              <h4 className="mt-1 mb-2">
                 {t("Opportunity")}{" "}
                 <small className="text-muted fw-normal">({t("Optional")})</small>
               </h4>
@@ -859,8 +973,13 @@ const LeadForm = () => {
                 </Col>
               </Row>
 
+                </Fragment>
+              )}
+
+              {activeStep === 2 && (
+                <Fragment>
               {/* ── Address ── */}
-              <h4 className="mt-3 mb-2">{t("Address Information")}</h4>
+              <h4 className="mt-1 mb-2">{t("Address Information")}</h4>
               <Row>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="address_line1">
@@ -977,20 +1096,19 @@ const LeadForm = () => {
                 )}
               </Row>
 
-              <div className="d-flex justify-content-end mt-3">
-                <Button
-                  type="button"
-                  color="secondary"
-                  outline
-                  className="me-1"
-                  onClick={() => navigate(`${appsRoot}/leads`)}
-                >
-                  {t("Cancel")}
-                </Button>
-                <Button type="submit" color="primary" disabled={isSubmitting}>
-                  {isEditMode ? t("Update Lead") : t("Create Lead")}
-                </Button>
-              </div>
+                </Fragment>
+              )}
+
+              <WizardFooter
+                isFirst={activeStep === 0}
+                isLast={activeStep === STEPS.length - 1}
+                isEdit={isEditMode}
+                onBack={back}
+                onNext={next}
+                onSubmit={onSave}
+                onCancel={() => navigate(-1)}
+                submitting={isSubmitting}
+              />
             </Form>
           </CardBody>
         </Card>

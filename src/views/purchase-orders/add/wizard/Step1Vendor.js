@@ -1,4 +1,7 @@
-// ── Step 1: Vendor & Reference (PO) ─────────────────────────────────
+// ── Step 1: Customer & Reference (PO) ───────────────────────────────
+// PO is multi-vendor at line level — vendor selection happens in Step 2
+// per line. This step only collects customer + dates + delivery + terms.
+
 import { Controller, useFormContext } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
@@ -16,9 +19,10 @@ const required = <span className="text-danger">*</span>;
 
 const Step1Vendor = ({
   isLocked,
-  vendorOptions,
   customerOptions = [],
-  vendorAddressOptions,
+  customerAddressOptions = [],
+  currencyOptions = [],
+  rateMeta,
   sourcePfiVoucher,
   sourcePfiId,
   sourceQuotationVoucher,
@@ -28,70 +32,12 @@ const Step1Vendor = ({
   const {
     control,
     setValue,
-    watch,
     formState: { errors },
   } = useFormContext();
-  const watchedVendor = watch("vendor_id");
   const [showAddressOverride, setShowAddressOverride] = useState(false);
 
   return (
     <Row>
-      <Col md="6" className="mb-2">
-        <Label className="form-label">
-          {t("Vendor")} {required}
-        </Label>
-        <Controller
-          name="vendor_id"
-          control={control}
-          render={({ field }) => (
-            <Select
-              classNamePrefix="select"
-              isDisabled={isLocked}
-              options={vendorOptions}
-              value={vendorOptions.find((o) => o.value === field.value) || null}
-              onChange={(opt) => {
-                field.onChange(opt ? opt.value : "");
-                setValue("vendor_address_id", "");
-                // Reset lines — different vendor has different price list.
-                setValue("lines", []);
-              }}
-            />
-          )}
-        />
-        {errors.vendor_id && (
-          <FormFeedback className="d-block">
-            {errors.vendor_id.message}
-          </FormFeedback>
-        )}
-      </Col>
-
-      <Col md="6" className="mb-2">
-        <Label className="form-label">{t("Vendor Address")}</Label>
-        <Controller
-          name="vendor_address_id"
-          control={control}
-          render={({ field }) => (
-            <Select
-              classNamePrefix="select"
-              isClearable
-              options={vendorAddressOptions}
-              value={
-                vendorAddressOptions.find((o) => o.value === field.value) ||
-                null
-              }
-              onChange={(opt) => field.onChange(opt ? opt.value : "")}
-              placeholder={
-                watchedVendor ? t("Select address") : t("Pick a vendor first")
-              }
-              isDisabled={!watchedVendor || isLocked}
-            />
-          )}
-        />
-        <small className="text-muted">
-          {t("Defaults to vendor's primary address. Drives intra/inter-state GST split.")}
-        </small>
-      </Col>
-
       <Col md="6" className="mb-2">
         <Label className="form-label">
           {t("Customer")} {required}
@@ -165,6 +111,82 @@ const Step1Vendor = ({
             />
           )}
         />
+      </Col>
+
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("Bill-to Address")}</Label>
+        <Controller
+          name="customer_address_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked}
+              options={customerAddressOptions}
+              value={
+                customerAddressOptions.find((o) => o.value === field.value) ||
+                null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={
+                customerAddressOptions.length
+                  ? t("Select address")
+                  : t("Pick a customer first")
+              }
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="3" className="mb-2">
+        <Label className="form-label">{t("Currency")} {required}</Label>
+        <Controller
+          name="currency_code"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isDisabled={isLocked}
+              options={currencyOptions}
+              value={
+                currencyOptions.find((o) => o.value === field.value) || null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="3" className="mb-2">
+        <Label className="form-label">{t("Exchange Rate")}</Label>
+        <Controller
+          name="exchange_rate"
+          control={control}
+          render={({ field }) => (
+            <Input
+              type="number"
+              step="0.000001"
+              min="0"
+              disabled={isLocked}
+              {...field}
+              value={field.value ?? ""}
+            />
+          )}
+        />
+        <small className="text-muted d-block">
+          {rateMeta?.same
+            ? t("Same currency - rate fixed at 1.")
+            : rateMeta?.rate
+            ? `${t("Auto-filled")}${
+                rateMeta.effective_date
+                  ? ` (${t("as of")} ${rateMeta.effective_date})`
+                  : ""
+              }`
+            : rateMeta?.missing
+            ? t("No rate in master. Enter manually.")
+            : ""}
+        </small>
       </Col>
 
       <Col md="3" className="mb-2">

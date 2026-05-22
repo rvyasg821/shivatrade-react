@@ -159,7 +159,7 @@ const PayRunDetail = () => {
         <CardBody>
           <Row className="align-items-center">
             <Col md={1}>
-              <Button color="link" onClick={() => navigate(`${appsRoot}/payroll/runs`)} className="p-0">
+              <Button color="link" onClick={() => navigate(-1)} className="p-0">
                 <ArrowLeft size={20} />
               </Button>
             </Col>
