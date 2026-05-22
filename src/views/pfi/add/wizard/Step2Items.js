@@ -28,6 +28,7 @@ const Step2Items = ({
       readOnly={isLocked}
       showExportFields
       tableLayout="detailed"
+      displayInBase
     />
   );
 };

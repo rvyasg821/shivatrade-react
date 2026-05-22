@@ -248,6 +248,41 @@ html body.swal2-height-auto {
   }
 }
 
+// ── Compact / dense table utility ────────────────────────────────────
+// Use on any wide reactstrap <Table> that risks a horizontal scrollbar
+// on small screens. Shrinks cell padding + font size at the lg
+// breakpoint and below, leaving the desktop layout unchanged.
+//
+//   <Table className="table-dense">…</Table>
+//
+// Combine with `align-top` if cells contain multi-line content (e.g.
+// qty + unit on two lines).
+.table.table-dense {
+  th,
+  td {
+    padding: 0.5rem 0.6rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  @media (max-width: 1199.98px) {
+    th,
+    td {
+      padding: 0.35rem 0.4rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    th,
+    td {
+      padding: 0.3rem 0.3rem;
+      font-size: 0.75rem;
+    }
+  }
+}
+
 .datatable {
   svg {
     color: #000 !important;

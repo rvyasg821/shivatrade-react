@@ -31,7 +31,6 @@ const PfiPosPanel = ({ bare = false }) => {
           <tr>
             <th>{t("Date")}</th>
             <th>{t("PO #")}</th>
-            <th>{t("Vendors")}</th>
             <th>{t("Expected Delivery")}</th>
             <th className="text-end">{t("Total")}</th>
             <th>{t("Status")}</th>
@@ -41,30 +40,29 @@ const PfiPosPanel = ({ bare = false }) => {
         <tbody>
           {rows.map((row) => {
             const sym = row?.currency_symbol || row?.currency_code || "";
+            // PO is multi-vendor at line level. Derive unique vendors
+            // from line items; fall back to legacy header vendor.
+            const seen = new Set();
+            const vendorList = [];
+            for (const ln of row?.lines || []) {
+              const vid = ln?.vendor_id;
+              if (!vid || seen.has(vid)) continue;
+              seen.add(vid);
+              vendorList.push(ln?.vendor_name || vid);
+            }
+            if (vendorList.length === 0 && row?.vendor_name) {
+              vendorList.push(row.vendor_name);
+            }
             return (
               <tr key={row?._id}>
                 <td>{row?.po_date ? formatDate(row.po_date) : "-"}</td>
-                <td className="text-wrap">{row?.voucher_no || "-"}</td>
-                <td className="text-capitalize small">
-                  {(() => {
-                    // PO is multi-vendor at line level. Derive unique vendors
-                    // from line items; fall back to legacy header vendor.
-                    const seen = new Set();
-                    const list = [];
-                    for (const ln of row?.lines || []) {
-                      const vid = ln?.vendor_id;
-                      if (!vid || seen.has(vid)) continue;
-                      seen.add(vid);
-                      list.push(ln?.vendor_name || vid);
-                    }
-                    if (list.length === 0 && row?.vendor_name) {
-                      list.push(row.vendor_name);
-                    }
-                    if (list.length === 0) return "-";
-                    return list.map((name, i) => (
-                      <div key={i}>{i === 0 ? "" : "• "}{name}</div>
-                    ));
-                  })()}
+                <td className="text-wrap">
+                  <div>{row?.voucher_no || "-"}</div>
+                  {vendorList.length > 0 && (
+                    <small className="text-muted text-capitalize d-block">
+                      {vendorList.join(", ")}
+                    </small>
+                  )}
                 </td>
                 <td>
                   {row?.expected_delivery_date
@@ -73,7 +71,10 @@ const PfiPosPanel = ({ bare = false }) => {
                 </td>
                 <td className="text-end fw-bold">
                   {row?.grand_total !== null && row?.grand_total !== undefined
-                    ? `${sym}${fmt(row.grand_total)}`
+                    ? `${sym}${fmt(
+                        Number(row.grand_total) *
+                          (Number(row?.exchange_rate) || 1)
+                      )}`
                     : "-"}
                 </td>
                 <td className="text-capitalize">{row?.status || "-"}</td>

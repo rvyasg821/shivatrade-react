@@ -13,7 +13,6 @@ import {
   DollarSign,
   Layers,
   Edit,
-  Eye,
   Truck,
   ArrowLeft,
   Hash,
@@ -119,7 +118,6 @@ const ViewPfi = () => {
       key: "total",
       label: t("Grand Total"),
       value: p?.grand_total ? `${sym}${fmt(p.grand_total)}` : "-",
-      sub: p?.currency_code || null,
       icon: DollarSign,
       tone: "secondary",
     },
@@ -148,12 +146,6 @@ const ViewPfi = () => {
   ];
 
   const headerActions = [
-    {
-      icon: Eye,
-      label: t("Preview"),
-      onClick: () => window.open(`${appsRoot}/pfi/preview/${id}`, "_blank"),
-      outline: true,
-    },
     {
       icon: Truck,
       label: t("Generate POs"),

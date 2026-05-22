@@ -12,10 +12,8 @@ import {
   Calendar,
   DollarSign,
   Edit,
-  Eye,
   Truck,
   ArrowLeft,
-  Tag,
   Layers,
   CreditCard,
   MapPin,
@@ -172,10 +170,7 @@ const ViewQuotation = () => {
     {
       key: "total",
       label: t("Grand Total"),
-      value: q?.grand_total
-        ? `${sym}${fmt(q.grand_total)}`
-        : "-",
-      sub: q?.currency_code || null,
+      value: q?.grand_total ? `${sym}${fmt(q.grand_total)}` : "-",
       icon: DollarSign,
       tone: "secondary",
     },
@@ -206,13 +201,6 @@ const ViewQuotation = () => {
   // ── Header actions ──
   const headerActions = [
     {
-      icon: Eye,
-      label: t("Preview"),
-      onClick: () =>
-        window.open(`${appsRoot}/quotations/preview/${id}`, "_blank"),
-      outline: true,
-    },
-    {
       icon: Truck,
       label: t("Generate POs"),
       onClick: () => setPoModalOpen(true),
@@ -240,11 +228,14 @@ const ViewQuotation = () => {
   const rate = Number(q?.exchange_rate || 0);
   const isBaseCurrency =
     (q?.currency_code || "").toUpperCase() === baseCurrency.code.toUpperCase();
+  // Show quote currency → base (e.g. "$1 = ₹83.33") so the customer sees
+  // how much of the home currency one unit of their currency buys.
   const inrConversionLine =
     rate > 0 && !isBaseCurrency
-      ? `${baseCurrency.symbol}1 = ${sym}${rate.toLocaleString(undefined, {
-          maximumFractionDigits: 6,
-        })}`
+      ? `${sym}1 = ${baseCurrency.symbol}${(1 / rate).toLocaleString(
+          undefined,
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        )}`
       : isBaseCurrency
       ? t("Base currency — no conversion")
       : null;
