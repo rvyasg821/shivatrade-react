@@ -34,6 +34,7 @@ const PriceListTab = () => {
 
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["price-list"];
+  const canRead = isAdmin || perms?.can_all || perms?.can_read;
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
 
@@ -224,15 +225,17 @@ const PriceListTab = () => {
         </Col>
         <Col md="8" sm="6">
           <div className="d-flex gap-1 flex-nowrap justify-content-end">
-            <Button
-              color="outline-secondary"
-              size="sm"
-              className="text-nowrap"
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              {t("Export")} <Download size={14} />
-            </Button>
+            {canRead && (
+              <Button
+                color="outline-secondary"
+                size="sm"
+                className="text-nowrap"
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                {t("Export")} <Download size={14} />
+              </Button>
+            )}
             {(canAdd || canEdit) && (
               <Button
                 color="outline-secondary"

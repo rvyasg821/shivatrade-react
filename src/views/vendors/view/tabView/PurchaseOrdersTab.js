@@ -1,6 +1,6 @@
-// Vendor's purchase orders tab. Reuses /admin/purchase-order/list with
-// vendor_id filter — server-side pagination + sort identical to the
-// PO listing page.
+// Vendor's procurement tab. PO is multi-vendor at line level (2026-05-21)
+// so a "POs for this vendor" view is really a list of POVs whose
+// `vendor_id` matches. The parent PO is shown as a reference link.
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
@@ -10,30 +10,37 @@ import { Eye } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
-  getPurchaseOrderList,
-  cleanPurchaseOrderMessage,
-} from "@src/views/purchase-orders/store";
+  getPoVendorList,
+  cleanPoVendorMessage,
+} from "@src/views/po-vendors/store";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
-import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
+import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 
-const fmt = (v) =>
-  v === null || v === undefined || v === ""
-    ? "-"
-    : Number(v).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+const num = (v) =>
+  v === null || v === undefined || v === "" ? 0 : Number(v);
+
+const summarizeQty = (lines = []) => {
+  let ordered = 0;
+  let dispatched = 0;
+  let received = 0;
+  for (const l of lines) {
+    ordered += num(l.ordered_qty);
+    dispatched += num(l.dispatched_qty);
+    received += num(l.received_qty);
+  }
+  return { ordered, dispatched, received };
+};
 
 const PurchaseOrdersTab = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { t } = useTranslation();
-  const store = useSelector((s) => s.purchaseOrder);
+  const store = useSelector((s) => s.poVendor);
 
   const [sort, setSort] = useState("desc");
-  const [sortColumn, setSortColumn] = useState("po_date");
+  const [sortColumn, setSortColumn] = useState("createdAt");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
 
@@ -46,7 +53,7 @@ const PurchaseOrdersTab = () => {
     ) => {
       if (!id) return;
       dispatch(
-        getPurchaseOrderList({
+        getPoVendorList({
           orderBy: sortCol,
           orderDirection: sorting,
           page,
@@ -62,12 +69,12 @@ const PurchaseOrdersTab = () => {
   useEffect(() => {
     handleList();
     return () => {
-      dispatch(cleanPurchaseOrderMessage(null));
+      dispatch(cleanPoVendorMessage(null));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const rows = store?.purchaseOrderItems || [];
+  const rows = store?.poVendorItems || [];
 
   const handleSort = (column, sortDirection) => {
     setSort(sortDirection);
@@ -90,44 +97,74 @@ const PurchaseOrdersTab = () => {
 
   const columns = [
     {
-      name: t("PO #"),
+      name: t("POV #"),
       sortField: "voucher_no",
       sortable: false,
-      minWidth: "160px",
+      minWidth: "180px",
       selector: (row) => (
         <Link
-          to={`${appsRoot}/purchase-orders/view/${row?._id}`}
-          className="text-nowrap"
+          to={`${appsRoot}/po-vendors/view/${row?._id}`}
+          className="text-nowrap fw-semibold"
         >
           {row?.voucher_no || "-"}
         </Link>
       ),
     },
     {
-      name: t("Created"),
-      sortField: "po_date",
-      sortable: true,
-      selector: (row) => (row?.po_date ? formatDate(row.po_date) : "-"),
+      name: t("PO #"),
+      sortable: false,
+      minWidth: "160px",
+      selector: (row) =>
+        row?.purchase_order_id ? (
+          <Link
+            to={`${appsRoot}/purchase-orders/view/${row.purchase_order_id}`}
+            className="text-nowrap"
+          >
+            {row?.purchase_order_voucher_no || "-"}
+          </Link>
+        ) : (
+          "-"
+        ),
     },
     {
-      name: t("Expected"),
-      sortField: "expected_delivery_date",
+      name: t("Dispatch"),
+      sortField: "dispatch_date",
       sortable: true,
       selector: (row) =>
-        row?.expected_delivery_date
-          ? formatDate(row.expected_delivery_date)
-          : "-",
+        row?.dispatch_date ? formatDate(row.dispatch_date) : "-",
     },
     {
-      name: t("Total"),
-      sortField: "grand_total",
-      sortable: true,
-      right: true,
+      name: t("Arrival"),
+      sortable: false,
       selector: (row) => {
-        const sym = row?.currency_symbol || row?.currency_code || "₹";
-        return row?.grand_total !== null && row?.grand_total !== undefined
-          ? `${sym} ${fmt(row.grand_total)}`
+        const arrived = row?.actual_arrival_date;
+        const expected = row?.expected_arrival_date;
+        return arrived
+          ? formatDate(arrived)
+          : expected
+          ? formatDate(expected)
           : "-";
+      },
+    },
+    {
+      name: t("Qty Summary"),
+      sortable: false,
+      minWidth: "200px",
+      selector: (row) => {
+        const { ordered, dispatched, received } = summarizeQty(row?.lines);
+        return (
+          <div className="small">
+            <div>
+              {t("Ordered")}: <b>{ordered.toLocaleString()}</b>
+            </div>
+            <div>
+              {t("Dispatched")}: {dispatched.toLocaleString()}
+            </div>
+            <div>
+              {t("Received")}: {received.toLocaleString()}
+            </div>
+          </div>
+        );
       },
     },
     {
@@ -136,8 +173,7 @@ const PurchaseOrdersTab = () => {
       sortable: true,
       selector: (row) => {
         const status = (row?.status || "").toLowerCase();
-        const color =
-          PURCHASE_ORDER_STATUS_BADGE_COLOR[status] || "secondary";
+        const color = PO_VENDOR_STATUS_BADGE_COLOR[status] || "secondary";
         return (
           <Badge
             color={`light-${color}`}
@@ -155,16 +191,16 @@ const PurchaseOrdersTab = () => {
       selector: (row) => (
         <Fragment>
           <Link
-            to={`${appsRoot}/purchase-orders/view/${row?._id}`}
-            id={`vendor-po-view-${row?._id}`}
+            to={`${appsRoot}/po-vendors/view/${row?._id}`}
+            id={`vendor-pov-view-${row?._id}`}
           >
             <Eye size={18} />
           </Link>
           <UncontrolledTooltip
             placement="top"
-            target={`vendor-po-view-${row?._id}`}
+            target={`vendor-pov-view-${row?._id}`}
           >
-            {t("View")}
+            {t("Open POV")}
           </UncontrolledTooltip>
         </Fragment>
       ),
@@ -173,10 +209,6 @@ const PurchaseOrdersTab = () => {
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h4 className="mb-0">{t("Purchase Orders")}</h4>
-      </div>
-
       <DatatablePagination
         columns={columns}
         data={rows}

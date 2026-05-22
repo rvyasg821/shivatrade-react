@@ -24,7 +24,7 @@ import {
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 import instance from "@src/utility/AxiosConfig";
@@ -64,6 +64,13 @@ const PfiInfoCard = () => {
   const { pfiItem } = useSelector((s) => s.pfi);
   const p = pfiItem || {};
   const sym = p?.currency_symbol || p?.currency_code || "";
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
+  const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canEdit = isAdmin || pfiPerms?.can_all || pfiPerms?.can_update;
+  const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
 
   const statusColor =
     QUOTATION_STATUS_BADGE_COLOR[(p?.status || "").toLowerCase()] ||
@@ -241,18 +248,22 @@ const PfiInfoCard = () => {
             <UncontrolledTooltip target="pfi-pdf-from-view" placement="top">
               {t("Download PFI as PDF")}
             </UncontrolledTooltip>
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/pfi/edit/${id}`)}
-              id="pfi-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="pfi-edit-from-view" placement="top">
-              {t("Edit PFI")}
-            </UncontrolledTooltip>
-            {(p?.status || "").toLowerCase() === "approved" && (
+            {canEdit && (
+              <>
+                <Button
+                  color="primary"
+                  outline
+                  onClick={() => navigate(`${appsRoot}/pfi/edit/${id}`)}
+                  id="pfi-edit-from-view"
+                >
+                  <Edit size={14} className="me-50" /> {t("Edit")}
+                </Button>
+                <UncontrolledTooltip target="pfi-edit-from-view" placement="top">
+                  {t("Edit PFI")}
+                </UncontrolledTooltip>
+              </>
+            )}
+            {canGeneratePo && (p?.status || "").toLowerCase() === "approved" && (
               <>
                 <Button
                   color="success"
