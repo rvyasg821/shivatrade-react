@@ -180,6 +180,12 @@ const PoVendorInfoCard = ({ onOpenDispatch, onOpenReceive }) => {
             <InfoRow icon={Phone} value={p?.vendor_contact_phone} />
           </ul>
 
+          {p?.currency_code && (
+            <div className="text-center small text-muted mb-1">
+              {p.currency_symbol || ""} {p.currency_code}
+            </div>
+          )}
+
           {/* Dates */}
           <SectionLabel>{t("Dates")}</SectionLabel>
           <ul className="list-unstyled mb-1">
