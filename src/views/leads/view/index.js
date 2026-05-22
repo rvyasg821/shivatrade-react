@@ -5,7 +5,7 @@
 //   3. Summary card     — About + Opportunity (chips + brief)
 //   4. Two-panel row    — Activity (left) + Quotations (right)
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -114,6 +114,19 @@ const ViewLead = () => {
   // action opens it; submitting a note auto-collapses it again.
   const [showActivityComposer, setShowActivityComposer] = useState(false);
 
+  // Right-side Activity panel height tracks the left column's rendered
+  // height so the two columns visually match. Excess feed scrolls inside.
+  const leftColRef = useRef(null);
+  const [leftHeight, setLeftHeight] = useState(null);
+  useEffect(() => {
+    const el = leftColRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setLeftHeight(el.offsetHeight));
+    ro.observe(el);
+    setLeftHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
   const l = store?.leadItem || {};
 
   useEffect(() => {
@@ -212,13 +225,6 @@ const ViewLead = () => {
   };
 
   const headerActions = [
-    {
-      icon: PlusCircle,
-      label: t("Quotation"),
-      onClick: () => navigate(`${appsRoot}/quotations/add?lead_id=${id}`),
-      hidden: isLost || !canAddQuotation,
-      outline: false,
-    },
     {
       icon: UserPlus,
       label: t("Convert to Customer"),
@@ -371,7 +377,7 @@ const ViewLead = () => {
         <DetailTwoPanel
           ratio="9-3"
           left={
-            <Fragment>
+            <div ref={leftColRef}>
               <QuotationsPanel />
               <DetailPanel title={t("Lead Summary")}>
                 {pairs.map((row, idx) => (
@@ -496,10 +502,13 @@ const ViewLead = () => {
                   </div>
                 ) : null}
               </DetailPanel>
-            </Fragment>
+            </div>
           }
           right={
+            <div style={{ height: leftHeight ? `${leftHeight}px` : undefined }}>
             <DetailPanel
+              fill
+              className="lead-activity-panel"
               title={t("Activity")}
               action={
                 canEditLead && (
@@ -525,13 +534,14 @@ const ViewLead = () => {
                 )
               }
             >
-              {/* Cap height so a busy activity feed scrolls inside its own
-                  panel instead of stretching the column and pushing the
-                  Quotations / Lead Summary sections off-screen. */}
+              {/* Pinned to the left column's measured height (set on the
+                  wrapper div around this panel) so the two sides match;
+                  feed scrolls internally when it exceeds that height. */}
               <div
                 className="lead-activity-scroll"
                 style={{
-                  maxHeight: 520,
+                  flex: 1,
+                  minHeight: 0,
                   overflowY: "auto",
                   paddingRight: 12,
                 }}
@@ -544,6 +554,7 @@ const ViewLead = () => {
                 />
               </div>
             </DetailPanel>
+            </div>
           }
         />
       </div>
