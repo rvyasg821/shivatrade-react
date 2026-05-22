@@ -171,6 +171,8 @@ const TrackingTab = () => {
 
   return (
     <Fragment>
+      <Row className="mb-3">
+        <Col xl="8" lg="7">
       <Card>
         <CardBody>
           <h4 className="mb-2">{t("Tracking")}</h4>
@@ -317,38 +319,44 @@ const TrackingTab = () => {
           </form>
         </CardBody>
       </Card>
+        </Col>
 
-      <Card className="mt-2">
-        <CardBody>
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h4 className="mb-0">{t("Event Timeline")}</h4>
-            <span id="pov-add-event-btn-wrap">
-              <Button
-                color="primary"
-                size="sm"
-                onClick={() => setAddEventOpen(true)}
-                disabled={!canAddEvent}
-              >
-                <Plus size={14} className="me-25" />
-                {t("Add Event")}
-              </Button>
-            </span>
-            {!canAddEvent && addEventTooltip ? (
-              <UncontrolledTooltip
-                placement="left"
-                target="pov-add-event-btn-wrap"
-              >
-                {addEventTooltip}
-              </UncontrolledTooltip>
-            ) : null}
-          </div>
-          <TrackingTimeline
-            events={trackingStore?.trackingEventTimeline || []}
-            emptyText={t("No tracking events yet - add the first one above.")}
-            onRetract={canRetractEvent ? onRetractEvent : undefined}
-          />
-        </CardBody>
-      </Card>
+        <Col xl="4" lg="5">
+          <Card className="h-100">
+            <CardBody>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h4 className="mb-0">{t("Event Timeline")}</h4>
+                <span id="pov-add-event-btn-wrap">
+                  <Button
+                    color="primary"
+                    size="sm"
+                    onClick={() => setAddEventOpen(true)}
+                    disabled={!canAddEvent}
+                  >
+                    <Plus size={14} className="me-25" />
+                    {t("Add Event")}
+                  </Button>
+                </span>
+                {!canAddEvent && addEventTooltip ? (
+                  <UncontrolledTooltip
+                    placement="left"
+                    target="pov-add-event-btn-wrap"
+                  >
+                    {addEventTooltip}
+                  </UncontrolledTooltip>
+                ) : null}
+              </div>
+              <TrackingTimeline
+                events={trackingStore?.trackingEventTimeline || []}
+                emptyText={t(
+                  "No tracking events yet - add the first one above."
+                )}
+                onRetract={canRetractEvent ? onRetractEvent : undefined}
+              />
+            </CardBody>
+          </Card>
+        </Col>
+      </Row>
 
       <AddTrackingEventModal
         open={addEventOpen}

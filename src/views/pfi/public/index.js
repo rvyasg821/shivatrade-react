@@ -2,21 +2,31 @@
 // One renderer, two entry points:
 //   /p/:token              → public, no auth (getPublicPfi)
 //   /apps/pfi/preview/:id  → admin "preview as client" (getPfiPreview)
-// Both feed `publicItem` - the sanitized, customer-currency projection.
+// Both feed `publicItem` — the sanitized, customer-currency projection.
 // Never renders margin / expenses / rebates / internal notes.
 
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Card, CardBody, Table, Badge, Spinner, Button } from "reactstrap";
-import { Download } from "react-feather";
+import { Table, Spinner, Button } from "reactstrap";
+import { Download, Printer, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPublicPfi, getPfiPreview } from "@src/views/pfi/store";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import { formatDate } from "@src/utility/dateFormat";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import appLogo from "@src/assets/images/logo/login-logo.png";
+
+const Label = ({ children }) => (
+  <div
+    className="text-uppercase fw-bold text-muted mb-1"
+    style={{ fontSize: "0.7rem", letterSpacing: "0.6px" }}
+  >
+    {children}
+  </div>
+);
 
 const PfiPublicView = () => {
   const { token, id } = useParams();
@@ -25,7 +35,7 @@ const PfiPublicView = () => {
 
   const store = useSelector((s) => s.pfi);
   const p = store?.publicItem;
-  const loading = !store?.loading; // store.loading is inverted across this slice
+  const loading = !store?.loading;
   const isPreview = !!id;
 
   useEffect(() => {
@@ -54,8 +64,7 @@ const PfiPublicView = () => {
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch {
-      // user-visible Notification is heavy here; the public page should
-      // degrade gracefully — silent failure is acceptable.
+      /* silent — public page should degrade gracefully */
     } finally {
       setDownloading(false);
     }
@@ -75,399 +84,559 @@ const PfiPublicView = () => {
   if (!p) {
     return (
       <div className="text-center py-5">
-        <h4 className="text-muted">{store?.error || t("PFI not found")}</h4>
+        <AlertTriangle size={36} className="text-muted mb-2" />
+        <h5 className="text-muted">{store?.error || t("PFI not found")}</h5>
       </div>
     );
   }
 
+  const shippingRows = [
+    ["Port of Loading", p.port_of_loading],
+    ["Port of Discharge", p.port_of_discharge],
+    ["Final Destination", p.final_destination],
+    ["Mode", p.mode_of_shipment],
+    ["Country of Origin", p.country_of_origin],
+    ["Country of Destination", p.country_of_final_destination],
+    ["Container", p.container_details],
+    [
+      "Est. Shipment",
+      p.est_shipment_date ? formatDate(p.est_shipment_date) : "",
+    ],
+    [
+      "Est. Delivery",
+      p.est_delivery_date ? formatDate(p.est_delivery_date) : "",
+    ],
+  ].filter((r) => !!r[1]);
+
+  const hasShipping = shippingRows.length > 0;
+  const hasPacking =
+    (p.total_packages || 0) > 0 ||
+    !!p.net_weight_kg ||
+    !!p.gross_weight_kg ||
+    !!p.packing_marks;
+
   return (
     <Fragment>
-      <div className="pfi-public-view mx-auto py-3" style={{ maxWidth: 960 }}>
-        {isPreview && (
-          <div className="alert alert-info py-1 mb-2">
-            {t("Preview - this is what the client sees. Not yet shared.")}
-          </div>
-        )}
-        {p.is_expired && (
-          <div className="alert alert-warning py-1 mb-2">
-            {t("This PFI has expired.")}
-          </div>
-        )}
+      <style>{`
+        .pfi-public-wrap {
+          background: #f4f5f7;
+          min-height: 100vh;
+          padding: 32px 16px;
+        }
+        .pfi-doc {
+          max-width: 960px;
+          margin: 0 auto;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+        }
+        .pfi-doc .qd-header {
+          padding: 28px 36px 20px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .pfi-doc .qd-title {
+          font-size: 1.5rem;
+          font-weight: 600;
+          letter-spacing: 2px;
+          margin: 0;
+          color: #1f2937;
+        }
+        .pfi-doc .qd-body { padding: 24px 36px; }
+        .pfi-doc .qd-footer {
+          padding: 16px 36px;
+          border-top: 1px solid #e5e7eb;
+          color: #6b7280;
+          font-size: 0.8rem;
+          text-align: center;
+        }
+        .pfi-doc .party-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 28px;
+          margin-bottom: 24px;
+        }
+        @media (max-width: 768px) {
+          .pfi-doc .party-grid { grid-template-columns: 1fr; gap: 18px; }
+          .pfi-doc .qd-header, .pfi-doc .qd-body, .pfi-doc .qd-footer { padding-left: 20px; padding-right: 20px; }
+        }
+        .pfi-doc .party-name { font-weight: 600; color: #1f2937; margin-bottom: 6px; }
+        .pfi-doc .party-line { font-size: 0.83rem; color: #4b5563; line-height: 1.5; }
+        .pfi-doc .party-muted { color: #6b7280; }
+        .pfi-doc table.items { width: 100%; margin: 0; }
+        .pfi-doc table.items thead th {
+          background: #f9fafb;
+          color: #4b5563;
+          font-weight: 600;
+          font-size: 0.72rem;
+          letter-spacing: 0.3px;
+          text-transform: uppercase;
+          border-bottom: 1px solid #e5e7eb !important;
+          border-top: 1px solid #e5e7eb !important;
+          padding: 10px;
+        }
+        .pfi-doc table.items td {
+          vertical-align: top;
+          padding: 10px;
+          border-bottom: 1px solid #f1f2f4;
+          font-size: 0.85rem;
+        }
+        .pfi-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
+        .pfi-doc .totals { width: 340px; margin-left: auto; margin-top: 18px; }
+        .pfi-doc .totals .row-grand {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 0 4px;
+          border-top: 2px solid #1f2937;
+          font-weight: 700;
+          font-size: 1rem;
+          color: #1f2937;
+        }
+        .pfi-doc .section {
+          margin-top: 24px;
+          padding-top: 18px;
+          border-top: 1px solid #e5e7eb;
+        }
+        .pfi-doc .section .body { font-size: 0.85rem; color: #4b5563; line-height: 1.6; white-space: pre-line; }
+        .pfi-doc .kv-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px 24px;
+          font-size: 0.83rem;
+          color: #4b5563;
+        }
+        @media (max-width: 600px) {
+          .pfi-doc .kv-grid { grid-template-columns: 1fr; }
+        }
+        .pfi-doc .kv-grid .kv-key { color: #6b7280; }
+        .pfi-doc .banner {
+          padding: 8px 14px;
+          border-radius: 4px;
+          font-size: 0.82rem;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .pfi-doc .banner-info { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+        .pfi-doc .banner-warn { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+        .pfi-doc .status-badge {
+          background: #f3f4f6;
+          color: #374151;
+          border: 1px solid #e5e7eb;
+          padding: 3px 10px;
+          border-radius: 999px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          text-transform: capitalize;
+          letter-spacing: 0.2px;
+        }
+        @media print {
+          .pfi-public-wrap { background: #fff; padding: 0; }
+          .pfi-doc { border: none; }
+          .pfi-doc .no-print { display: none !important; }
+        }
+      `}</style>
 
-        <div className="d-flex justify-content-end mb-2">
-          <Button
-            color="primary"
-            outline
-            size="sm"
-            onClick={onDownloadPdf}
-            disabled={downloading}
-          >
-            <Download size={14} className="me-50" />
-            {downloading ? t("Generating…") : t("Download PDF")}
-          </Button>
-        </div>
+      <div className="pfi-public-wrap">
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          {isPreview && (
+            <div className="banner banner-info no-print">
+              {t("Preview - this is what the client sees. Not yet shared.")}
+            </div>
+          )}
+          {p.is_expired && (
+            <div className="banner banner-warn">
+              <AlertTriangle size={14} />
+              {t("This PFI has expired.")}
+            </div>
+          )}
 
-        <Card>
-          <CardBody>
-            {/* Letterhead */}
-            <div className="d-flex justify-content-between align-items-start mb-3">
+          <div className="d-flex justify-content-end mb-2 no-print gap-2">
+            <Button
+              color="secondary"
+              outline
+              size="sm"
+              onClick={() => window.print()}
+            >
+              <Printer size={14} className="me-50" />
+              {t("Print")}
+            </Button>
+            <Button
+              color="secondary"
+              outline
+              size="sm"
+              onClick={onDownloadPdf}
+              disabled={downloading}
+            >
+              <Download size={14} className="me-50" />
+              {downloading ? t("Generating…") : t("Download PDF")}
+            </Button>
+          </div>
+
+          <div className="pfi-doc">
+            {/* Header */}
+            <div className="qd-header d-flex justify-content-between align-items-start flex-wrap gap-2">
               <div>
                 <img
                   src={appLogo}
                   alt="Logo"
-                  style={{ height: 38 }}
-                  className="mb-1 d-block"
+                  style={{ height: 32, marginBottom: 8 }}
                 />
-                {p.company_name && <h4 className="mb-0">{p.company_name}</h4>}
+                {p.company_name && (
+                  <div className="party-name" style={{ fontSize: "1.05rem" }}>
+                    {p.company_name}
+                  </div>
+                )}
               </div>
               <div className="text-end">
-                <h3 className="mb-0 text-uppercase">{t("Proforma Invoice")}</h3>
-                <div className="fw-bold">{p.voucher_no || "-"}</div>
-                <Badge color="light-primary" className="text-capitalize">
+                <h1 className="qd-title">{t("PROFORMA INVOICE")}</h1>
+                <div className="party-muted" style={{ fontSize: "0.85rem" }}>
+                  #{p.voucher_no || "-"}
+                </div>
+                <span className="status-badge mt-1 d-inline-block">
                   {p.status || "-"}
-                </Badge>
+                </span>
               </div>
             </div>
 
-            {/* Exporter / Buyer / Meta */}
-            <div className="d-flex justify-content-between flex-wrap mb-3">
-              <div style={{ maxWidth: 280 }}>
-                <div className="text-muted small">{t("Exporter")}</div>
-                <div className="fw-bold">{p.company_name || "-"}</div>
-                {p.company_address && (
-                  <div
-                    className="small text-muted"
-                    style={{ whiteSpace: "pre-line" }}
-                  >
-                    {p.company_address}
-                  </div>
-                )}
-                {p.company_phone && (
-                  <div className="small">{p.company_phone}</div>
-                )}
-                {p.company_email && (
-                  <div className="small">{p.company_email}</div>
-                )}
-                {p.company_iec && (
-                  <div className="small">
-                    <span className="text-muted">{t("IEC")}: </span>
-                    {p.company_iec}
-                  </div>
-                )}
-              </div>
-              <div style={{ maxWidth: 280 }}>
-                <div className="text-muted small">{t("Buyer")}</div>
-                <div className="fw-bold">{p.customer_name || "-"}</div>
-                {p.customer_contact_name && (
-                  <div className="small">{p.customer_contact_name}</div>
-                )}
-                {p.customer_address && (
-                  <div
-                    className="small text-muted"
-                    style={{ whiteSpace: "pre-line" }}
-                  >
-                    {p.customer_address}
-                  </div>
-                )}
-                {p.customer_phone && (
-                  <div className="small">{p.customer_phone}</div>
-                )}
-                {p.customer_email && (
-                  <div className="small">{p.customer_email}</div>
-                )}
-              </div>
-              <div className="text-end">
-                <div className="small">
-                  <span className="text-muted">{t("Date")}: </span>
-                  {(p.pfi_date || "").slice(0, 10) || "-"}
+            {/* Body */}
+            <div className="qd-body">
+              {/* Exporter / Buyer / Meta */}
+              <div className="party-grid">
+                <div>
+                  <Label>{t("Exporter")}</Label>
+                  <div className="party-name">{p.company_name || "-"}</div>
+                  {p.company_address && (
+                    <div
+                      className="party-line"
+                      style={{ whiteSpace: "pre-line" }}
+                    >
+                      {p.company_address}
+                    </div>
+                  )}
+                  {p.company_phone && (
+                    <div className="party-line">{p.company_phone}</div>
+                  )}
+                  {p.company_email && (
+                    <div className="party-line">{p.company_email}</div>
+                  )}
+                  {p.company_iec && (
+                    <div className="party-line party-muted">
+                      {t("IEC")}: {p.company_iec}
+                    </div>
+                  )}
                 </div>
-                {p.valid_until && (
-                  <div className="small">
-                    <span className="text-muted">{t("Valid Until")}: </span>
-                    {p.valid_until.slice(0, 10)}
-                  </div>
-                )}
-                <div className="small">
-                  <span className="text-muted">{t("Currency")}: </span>
-                  {p.currency_code || "-"}
-                </div>
-              </div>
-            </div>
 
-            {/* Consignee block (only render if different from buyer block) */}
-            {(p.consignee_name || p.consignee_address) && (
-              <div className="border-top pt-2 mb-3" style={{ maxWidth: 380 }}>
-                <div className="text-muted small">{t("Consignee")}</div>
-                <div className="fw-bold">{p.consignee_name || "-"}</div>
-                {p.consignee_address && (
-                  <div
-                    className="small text-muted"
-                    style={{ whiteSpace: "pre-line" }}
-                  >
-                    {p.consignee_address}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Shipping */}
-            {(p.port_of_loading ||
-              p.port_of_discharge ||
-              p.mode_of_shipment) && (
-              <div className="border-top pt-2 mb-3">
-                <div className="text-muted small mb-1 text-uppercase">
-                  {t("Shipping")}
+                <div>
+                  <Label>{t("Buyer")}</Label>
+                  <div className="party-name">{p.customer_name || "-"}</div>
+                  {p.customer_contact_name && (
+                    <div className="party-line">{p.customer_contact_name}</div>
+                  )}
+                  {p.customer_address && (
+                    <div
+                      className="party-line"
+                      style={{ whiteSpace: "pre-line" }}
+                    >
+                      {p.customer_address}
+                    </div>
+                  )}
+                  {p.customer_phone && (
+                    <div className="party-line">{p.customer_phone}</div>
+                  )}
+                  {p.customer_email && (
+                    <div className="party-line">{p.customer_email}</div>
+                  )}
                 </div>
-                <div className="d-flex flex-wrap gap-4">
-                  {p.port_of_loading && (
-                    <div className="small">
-                      <span className="text-muted">
-                        {t("Port of Loading")}:{" "}
+
+                <div>
+                  <Label>{t("PFI Details")}</Label>
+                  <div className="party-line">
+                    <span className="party-muted">{t("Date")}: </span>
+                    <span className="fw-semibold">
+                      {p.pfi_date ? formatDate(p.pfi_date) : "-"}
+                    </span>
+                  </div>
+                  {p.valid_until && (
+                    <div className="party-line">
+                      <span className="party-muted">{t("Valid Until")}: </span>
+                      <span className="fw-semibold">
+                        {formatDate(p.valid_until)}
                       </span>
-                      {p.port_of_loading}
                     </div>
                   )}
-                  {p.port_of_discharge && (
-                    <div className="small">
-                      <span className="text-muted">
-                        {t("Port of Discharge")}:{" "}
-                      </span>
-                      {p.port_of_discharge}
-                    </div>
-                  )}
-                  {p.final_destination && (
-                    <div className="small">
-                      <span className="text-muted">
-                        {t("Final Destination")}:{" "}
-                      </span>
-                      {p.final_destination}
-                    </div>
-                  )}
-                  {p.mode_of_shipment && (
-                    <div className="small text-capitalize">
-                      <span className="text-muted">{t("Mode")}: </span>
-                      {p.mode_of_shipment}
-                    </div>
-                  )}
-                  {p.country_of_origin && (
-                    <div className="small">
-                      <span className="text-muted">
-                        {t("Country of Origin")}:{" "}
-                      </span>
-                      {p.country_of_origin}
-                    </div>
-                  )}
-                  {p.country_of_final_destination && (
-                    <div className="small">
-                      <span className="text-muted">
-                        {t("Country of Destination")}:{" "}
-                      </span>
-                      {p.country_of_final_destination}
-                    </div>
-                  )}
-                  {p.container_details && (
-                    <div className="small">
-                      <span className="text-muted">{t("Container")}: </span>
-                      {p.container_details}
-                    </div>
-                  )}
-                  {p.est_shipment_date && (
-                    <div className="small">
-                      <span className="text-muted">{t("Est. Shipment")}: </span>
-                      {p.est_shipment_date.slice(0, 10)}
-                    </div>
-                  )}
-                  {p.est_delivery_date && (
-                    <div className="small">
-                      <span className="text-muted">{t("Est. Delivery")}: </span>
-                      {p.est_delivery_date.slice(0, 10)}
-                    </div>
-                  )}
+                  <div className="party-line">
+                    <span className="party-muted">{t("Currency")}: </span>
+                    <span className="fw-semibold">
+                      {sym} {p.currency_code || "-"}
+                    </span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Line items */}
-            <Table bordered responsive size="sm" className="mb-3">
-              <thead className="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>{t("Product")}</th>
-                  <th className="text-end">{t("Qty")}</th>
-                  <th>{t("Unit")}</th>
-                  <th className="text-end">{t("Rate")}</th>
-                  <th className="text-end">{t("Net Wt")}</th>
-                  <th className="text-end">{t("Gross Wt")}</th>
-                  <th className="text-end">{t("Pkgs")}</th>
-                  <th className="text-end">{t("Amount")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(p.lines || []).map((l, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>
-                      <div className="fw-bold">{l.product_name || "-"}</div>
-                      {l.description && (
-                        <div className="small text-muted">{l.description}</div>
-                      )}
-                    </td>
-                    <td className="text-end">{l.qty || "-"}</td>
-                    <td>{l.unit || "-"}</td>
-                    <td className="text-end">{money(l.unit_price)}</td>
-                    <td className="text-end">{fmt(l.net_weight_kg || 0)}</td>
-                    <td className="text-end">{fmt(l.gross_weight_kg || 0)}</td>
-                    <td className="text-end">{l.package_count || 0}</td>
-                    <td className="text-end fw-bold">{money(l.line_total)}</td>
-                  </tr>
-                ))}
-                {(p.lines || []).length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="text-center text-muted py-3">
-                      {t("No line items.")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-
-            {/* Packing summary */}
-            {(p.total_packages > 0 || p.gross_weight_kg || p.packing_marks) && (
-              <div className="border-top pt-2 mb-3 small">
-                <div className="text-muted text-uppercase mb-1">
-                  {t("Packing")}
+              {/* Consignee */}
+              {(p.consignee_name || p.consignee_address) && (
+                <div className="section">
+                  <Label>{t("Consignee")}</Label>
+                  <div className="party-name">{p.consignee_name || "-"}</div>
+                  {p.consignee_address && (
+                    <div
+                      className="party-line"
+                      style={{ whiteSpace: "pre-line" }}
+                    >
+                      {p.consignee_address}
+                    </div>
+                  )}
                 </div>
-                <div className="d-flex flex-wrap gap-4">
-                  <div>
-                    <span className="text-muted">{t("Total Packages")}: </span>
-                    {p.total_packages || 0}
-                    {p.packing_type ? ` × ${p.packing_type}` : ""}
+              )}
+
+              {/* Shipping */}
+              {hasShipping && (
+                <div className="section">
+                  <Label>{t("Shipping")}</Label>
+                  <div className="kv-grid">
+                    {shippingRows.map(([k, v]) => (
+                      <div key={k}>
+                        <span className="kv-key">{t(k)}: </span>
+                        <span className="fw-semibold text-capitalize">{v}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <span className="text-muted">{t("Net Wt")}: </span>
-                    {fmt(p.net_weight_kg || 0)} kg
-                  </div>
-                  <div>
-                    <span className="text-muted">{t("Gross Wt")}: </span>
-                    {fmt(p.gross_weight_kg || 0)} kg
-                  </div>
-                  {p.packing_marks && (
+                </div>
+              )}
+
+              {/* Line items */}
+              <div
+                className="section"
+                style={{ borderTop: "none", paddingTop: 0, marginTop: 24 }}
+              >
+                <Table className="items">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>#</th>
+                      <th>{t("Product / Description")}</th>
+                      <th className="text-end" style={{ width: 80 }}>
+                        {t("Qty")}
+                      </th>
+                      <th style={{ width: 60 }}>{t("Unit")}</th>
+                      <th className="text-end" style={{ width: 100 }}>
+                        {t("Rate")}
+                      </th>
+                      <th className="text-end" style={{ width: 85 }}>
+                        {t("Net Wt")}
+                      </th>
+                      <th className="text-end" style={{ width: 90 }}>
+                        {t("Gross Wt")}
+                      </th>
+                      <th className="text-end" style={{ width: 70 }}>
+                        {t("Pkgs")}
+                      </th>
+                      <th className="text-end" style={{ width: 120 }}>
+                        {t("Amount")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(p.lines || []).map((l, i) => (
+                      <tr key={i}>
+                        <td className="party-muted">{i + 1}</td>
+                        <td>
+                          <div className="fw-semibold">
+                            {l.product_name || "-"}
+                          </div>
+                          {l.description && (
+                            <div
+                              className="small party-muted"
+                              style={{ whiteSpace: "pre-line" }}
+                            >
+                              {l.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-end">{l.qty || "-"}</td>
+                        <td>{l.unit || "-"}</td>
+                        <td className="text-end">{money(l.unit_price)}</td>
+                        <td className="text-end">
+                          {fmt(l.net_weight_kg || 0)}
+                        </td>
+                        <td className="text-end">
+                          {fmt(l.gross_weight_kg || 0)}
+                        </td>
+                        <td className="text-end">{l.package_count || 0}</td>
+                        <td className="text-end fw-semibold">
+                          {money(l.line_total)}
+                        </td>
+                      </tr>
+                    ))}
+                    {(p.lines || []).length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="text-center party-muted py-3"
+                        >
+                          {t("No line items.")}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+
+              {/* Packing summary */}
+              {hasPacking && (
+                <div className="section">
+                  <Label>{t("Packing")}</Label>
+                  <div className="kv-grid">
                     <div>
-                      <span className="text-muted">{t("Marks")}: </span>
-                      {p.packing_marks}
+                      <span className="kv-key">{t("Total Packages")}: </span>
+                      <span className="fw-semibold">
+                        {p.total_packages || 0}
+                        {p.packing_type ? ` × ${p.packing_type}` : ""}
+                      </span>
                     </div>
-                  )}
+                    <div>
+                      <span className="kv-key">{t("Net Wt")}: </span>
+                      <span className="fw-semibold">
+                        {fmt(p.net_weight_kg || 0)} kg
+                      </span>
+                    </div>
+                    <div>
+                      <span className="kv-key">{t("Gross Wt")}: </span>
+                      <span className="fw-semibold">
+                        {fmt(p.gross_weight_kg || 0)} kg
+                      </span>
+                    </div>
+                    {p.packing_marks && (
+                      <div>
+                        <span className="kv-key">{t("Marks")}: </span>
+                        <span className="fw-semibold">{p.packing_marks}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Totals */}
-            <div className="d-flex justify-content-end mb-3">
-              <div style={{ minWidth: 280 }}>
-                <div className="d-flex justify-content-between fw-bold fs-5">
+              {/* Totals */}
+              <div className="totals">
+                <div className="row-grand">
                   <span>{t("Grand Total")}</span>
                   <span>{money(p.grand_total)}</span>
                 </div>
               </div>
+
+              {/* Bank */}
+              {p.bank && (
+                <div className="section">
+                  <Label>{t("Beneficiary Bank Details")}</Label>
+                  <div className="kv-grid">
+                    {p.bank.beneficiary_name && (
+                      <div>
+                        <span className="kv-key">{t("Beneficiary")}: </span>
+                        <span className="fw-semibold">
+                          {p.bank.beneficiary_name}
+                        </span>
+                      </div>
+                    )}
+                    {p.bank.bank_name && (
+                      <div>
+                        <span className="kv-key">{t("Bank")}: </span>
+                        <span className="fw-semibold">{p.bank.bank_name}</span>
+                      </div>
+                    )}
+                    {p.bank.account_number && (
+                      <div>
+                        <span className="kv-key">{t("Account No.")}: </span>
+                        <span className="fw-semibold">
+                          {p.bank.account_number}
+                        </span>
+                      </div>
+                    )}
+                    {p.bank.swift_code && (
+                      <div>
+                        <span className="kv-key">{t("SWIFT")}: </span>
+                        <span className="fw-semibold">{p.bank.swift_code}</span>
+                      </div>
+                    )}
+                    {p.bank.ifsc && (
+                      <div>
+                        <span className="kv-key">{t("IFSC")}: </span>
+                        <span className="fw-semibold">{p.bank.ifsc}</span>
+                      </div>
+                    )}
+                    {p.bank.iban && (
+                      <div>
+                        <span className="kv-key">{t("IBAN")}: </span>
+                        <span className="fw-semibold">{p.bank.iban}</span>
+                      </div>
+                    )}
+                    {p.bank.ad_code && (
+                      <div>
+                        <span className="kv-key">{t("AD Code")}: </span>
+                        <span className="fw-semibold">{p.bank.ad_code}</span>
+                      </div>
+                    )}
+                    {p.bank.currency_code && (
+                      <div>
+                        <span className="kv-key">{t("Account Currency")}: </span>
+                        <span className="fw-semibold">
+                          {p.bank.currency_code}
+                        </span>
+                      </div>
+                    )}
+                    {p.bank.branch_name && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <span className="kv-key">{t("Branch")}: </span>
+                        <span className="fw-semibold">
+                          {p.bank.branch_name}
+                          {p.bank.branch_address
+                            ? `, ${p.bank.branch_address}`
+                            : ""}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Terms */}
+              {p.payment_terms_text && (
+                <div className="section">
+                  <Label>{t("Payment Terms")}</Label>
+                  <div className="body">{p.payment_terms_text}</div>
+                </div>
+              )}
+
+              {/* Declaration */}
+              {p.declaration_text && (
+                <div className="section">
+                  <Label>{t("Declaration")}</Label>
+                  <div className="body">{p.declaration_text}</div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {p.notes_to_client && (
+                <div className="section">
+                  <Label>{t("Notes")}</Label>
+                  <div className="body">{p.notes_to_client}</div>
+                </div>
+              )}
             </div>
 
-            {/* Bank details */}
-            {p.bank && (
-              <div className="border-top pt-2 mb-3 p-2 rounded bg-light ">
-                <div className="text-muted small text-uppercase mb-1">
-                  {t("Beneficiary Bank Details")}
-                </div>
-                <div className="row small text-dark">
-                  {p.bank.beneficiary_name && (
-                    <div className="col-md-6 ">
-                      <span className="text-muted">{t("Beneficiary")}: </span>
-                      {p.bank.beneficiary_name}
-                    </div>
-                  )}
-                  {p.bank.bank_name && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("Bank")}: </span>
-                      {p.bank.bank_name}
-                    </div>
-                  )}
-                  {p.bank.account_number && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("Account No.")}: </span>
-                      {p.bank.account_number}
-                    </div>
-                  )}
-                  {p.bank.swift_code && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("SWIFT")}: </span>
-                      {p.bank.swift_code}
-                    </div>
-                  )}
-                  {p.bank.ifsc && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("IFSC")}: </span>
-                      {p.bank.ifsc}
-                    </div>
-                  )}
-                  {p.bank.iban && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("IBAN")}: </span>
-                      {p.bank.iban}
-                    </div>
-                  )}
-                  {p.bank.ad_code && (
-                    <div className="col-md-6">
-                      <span className="text-muted">{t("AD Code")}: </span>
-                      {p.bank.ad_code}
-                    </div>
-                  )}
-                  {p.bank.currency_code && (
-                    <div className="col-md-6">
-                      <span className="text-muted">
-                        {t("Account Currency")}:{" "}
-                      </span>
-                      {p.bank.currency_code}
-                    </div>
-                  )}
-                  {p.bank.branch_name && (
-                    <div className="col-md-12">
-                      <span className="text-muted">{t("Branch")}: </span>
-                      {p.bank.branch_name}
-                      {p.bank.branch_address
-                        ? `, ${p.bank.branch_address}`
-                        : ""}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Terms / Declaration / Notes */}
-            {p.payment_terms_text && (
-              <div className="small mb-2">
-                <span className="text-muted">{t("Payment Terms")}: </span>
-                <span style={{ whiteSpace: "pre-line" }}>
-                  {p.payment_terms_text}
+            {/* Footer */}
+            <div className="qd-footer">
+              {t("Thank you for your business.")}
+              {p.company_email && (
+                <span className="ms-1">
+                  · <a href={`mailto:${p.company_email}`}>{p.company_email}</a>
                 </span>
-              </div>
-            )}
-            {p.declaration_text && (
-              <div className="border-top pt-2 small">
-                <div className="text-muted">{t("Declaration")}</div>
-                <div style={{ whiteSpace: "pre-line" }}>
-                  {p.declaration_text}
-                </div>
-              </div>
-            )}
-            {p.notes_to_client && (
-              <div className="border-top pt-2 small">
-                <div className="text-muted">{t("Notes")}</div>
-                <div style={{ whiteSpace: "pre-line" }}>
-                  {p.notes_to_client}
-                </div>
-              </div>
-            )}
-          </CardBody>
-        </Card>
+              )}
+              {p.company_phone && (
+                <span className="ms-1">· {p.company_phone}</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </Fragment>
   );

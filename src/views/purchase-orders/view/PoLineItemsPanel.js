@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { useSelector } from "react-redux";
-import { Row, Col, Table } from "reactstrap";
+import { Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
 import { DetailPanel } from "@src/views/_shared/detail-page";
@@ -26,9 +26,6 @@ const PoLineItemsPanel = ({ bare = false }) => {
   const toCcy = (v) =>
     v === null || v === undefined || v === "" ? v : Number(v) * rate;
 
-  const intraState =
-    num(p?.cgst_total) + num(p?.sgst_total) > 0 && num(p?.igst_total) === 0;
-
   const body = (
     <Fragment>
       <div className="table-responsive">
@@ -37,33 +34,13 @@ const PoLineItemsPanel = ({ bare = false }) => {
             <tr>
               <th style={{ width: 30 }}>#</th>
               <th>{t("Product")}</th>
-              <th className="text-end" style={{ width: 100 }}>
+              <th className="text-end" style={{ width: 120 }}>
                 {t("Qty")}
               </th>
-              <th className="text-end" style={{ width: 100 }}>
+              <th className="text-end" style={{ width: 120 }}>
                 {t("Rate")}
               </th>
-              <th className="text-end" style={{ width: 70 }}>
-                {t("Disc%")}
-              </th>
-              <th className="text-end" style={{ width: 70 }}>
-                {t("GST%")}
-              </th>
-              {intraState ? (
-                <Fragment>
-                  <th className="text-end" style={{ width: 90 }}>
-                    {t("CGST")}
-                  </th>
-                  <th className="text-end" style={{ width: 90 }}>
-                    {t("SGST")}
-                  </th>
-                </Fragment>
-              ) : (
-                <th className="text-end" style={{ width: 90 }}>
-                  {t("IGST")}
-                </th>
-              )}
-              <th className="text-end" style={{ width: 110 }}>
+              <th className="text-end" style={{ width: 130 }}>
                 {t("Total")}
               </th>
             </tr>
@@ -71,10 +48,7 @@ const PoLineItemsPanel = ({ bare = false }) => {
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td
-                  colSpan={intraState ? 9 : 8}
-                  className="text-center text-muted py-3"
-                >
+                <td colSpan={5} className="text-center text-muted py-3">
                   {t("No line items.")}
                 </td>
               </tr>
@@ -96,22 +70,6 @@ const PoLineItemsPanel = ({ bare = false }) => {
                 <td className="text-end">
                   {sym} {fmt(toCcy(l.unit_price))}
                 </td>
-                <td className="text-end">{num(l.discount_pct) || 0}</td>
-                <td className="text-end">{num(l.tax_pct) || 0}</td>
-                {intraState ? (
-                  <Fragment>
-                    <td className="text-end">
-                      {sym} {fmt(toCcy(l.cgst))}
-                    </td>
-                    <td className="text-end">
-                      {sym} {fmt(toCcy(l.sgst))}
-                    </td>
-                  </Fragment>
-                ) : (
-                  <td className="text-end">
-                    {sym} {fmt(toCcy(l.igst))}
-                  </td>
-                )}
                 <td className="text-end fw-bold">
                   {sym} {fmt(toCcy(l.line_total))}
                 </td>
@@ -120,58 +78,6 @@ const PoLineItemsPanel = ({ bare = false }) => {
           </tbody>
         </Table>
       </div>
-
-      <Row className="mt-3 justify-content-end">
-        <Col md="10" lg="6" xl="5">
-          <Table borderless size="sm" className="mb-0">
-            <tbody>
-              <tr>
-                <td className="text-muted">{t("Subtotal")}</td>
-                <td className="text-end">
-                  {sym} {fmt(toCcy(p?.subtotal))}
-                </td>
-              </tr>
-              {intraState ? (
-                <Fragment>
-                  <tr>
-                    <td className="text-muted">{t("CGST")}</td>
-                    <td className="text-end">
-                      {sym} {fmt(toCcy(p?.cgst_total))}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">{t("SGST")}</td>
-                    <td className="text-end">
-                      {sym} {fmt(toCcy(p?.sgst_total))}
-                    </td>
-                  </tr>
-                </Fragment>
-              ) : (
-                <tr>
-                  <td className="text-muted">{t("IGST")}</td>
-                  <td className="text-end">
-                    {sym} {fmt(toCcy(p?.igst_total))}
-                  </td>
-                </tr>
-              )}
-              {num(p?.round_off) !== 0 && (
-                <tr>
-                  <td className="text-muted">{t("Round-off")}</td>
-                  <td className="text-end">
-                    {sym} {fmt(toCcy(p?.round_off))}
-                  </td>
-                </tr>
-              )}
-              <tr className="border-top">
-                <td className="fw-bold">{t("Grand Total")}</td>
-                <td className="text-end fw-bold">
-                  {sym} {fmt(toCcy(p?.grand_total))}
-                </td>
-              </tr>
-            </tbody>
-          </Table>
-        </Col>
-      </Row>
     </Fragment>
   );
 

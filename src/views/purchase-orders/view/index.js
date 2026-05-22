@@ -5,7 +5,7 @@
 //   3. Summary (Buyer + Vendor + delivery/terms + notes)
 //   4. Tabs (Line Items | Coverage | PO Vendors)  |  Snapshot side panel
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Hash,
   ExternalLink,
-  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -24,8 +23,6 @@ import {
   getPurchaseOrder,
   cleanPurchaseOrderMessage,
 } from "@src/views/purchase-orders/store";
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
@@ -35,9 +32,11 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
+  DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
 import PoRelatedDocsTabs from "./PoRelatedDocsTabs";
+import PoShareLinkPanel from "./PoShareLinkPanel";
 
 const PIPELINE_STEPS = [
   { value: "draft", label: "Draft" },
@@ -118,37 +117,6 @@ const ViewPurchaseOrder = () => {
 
   const linesCount = (p?.lines || []).length;
 
-  const [downloading, setDownloading] = useState(false);
-  const onDownloadPdf = async () => {
-    if (!id || downloading) return;
-    setDownloading(true);
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf`,
-        { responseType: "blob" }
-      );
-      const cd = resp.headers?.["content-disposition"] || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `${p?.voucher_no || "purchase-order"}.pdf`;
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   const kpiItems = [
     {
       key: "total",
@@ -187,12 +155,6 @@ const ViewPurchaseOrder = () => {
   ];
 
   const headerActions = [
-    {
-      icon: Download,
-      label: downloading ? t("Generating…") : t("Download PDF"),
-      onClick: onDownloadPdf,
-      disabled: downloading,
-    },
     {
       icon: Edit,
       label: t("Edit"),
@@ -274,7 +236,11 @@ const ViewPurchaseOrder = () => {
 
         <DetailKpiStrip items={kpiItems} />
 
-        <PoRelatedDocsTabs />
+        <DetailTwoPanel
+          ratio="9-3"
+          left={<PoRelatedDocsTabs />}
+          right={<PoShareLinkPanel />}
+        />
       </div>
     </Fragment>
   );
