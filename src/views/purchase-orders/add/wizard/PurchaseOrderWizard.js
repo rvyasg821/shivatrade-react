@@ -58,19 +58,44 @@ const PurchaseOrderWizard = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [vendorPriceList, setVendorPriceList] = useState([]);
+  const [hasExistingPovs, setHasExistingPovs] = useState(false);
+
+  // On edit, check if any POVs that have left `draft` (i.e. dispatched
+  // or closed) exist for this PO — those bind line items because they
+  // already represent committed vendor procurement. Draft POVs and
+  // cancelled POVs do not block PO edits.
+  useEffect(() => {
+    if (!isEdit || !id) {
+      setHasExistingPovs(false);
+      return;
+    }
+    instance
+      .get(API_ENDPOINTS.poVendors.list, {
+        params: { purchase_order_id: id, page: 1, perPage: 200 },
+      })
+      .then((resp) => {
+        const items = resp?.data?.data || [];
+        const blocking = items.some(
+          (p) =>
+            p?.status === "dispatched" ||
+            p?.status === "closed"
+        );
+        setHasExistingPovs(blocking);
+      })
+      .catch(() => setHasExistingPovs(false));
+  }, [id, isEdit]);
 
   const schema = useMemo(
     () =>
       yup.object().shape({
-        vendor_id: yup.string().trim().required(t("Vendor is required")),
+        // Header vendor_id is legacy / optional. PO is multi-vendor at
+        // line level — each line carries its own vendor_id.
+        vendor_id: yup.string().nullable(),
         customer_id: yup
           .string()
           .trim()
           .required(t("Customer is required")),
         po_date: yup.string().trim().required(t("PO date is required")),
-        // delivery_address is now derived from a picked company address.
-        // We require EITHER delivery_address_id OR delivery_address (text
-        // override). Cross-field rule enforced below.
         delivery_address: yup.string().nullable(),
         delivery_address_id: yup.string().nullable(),
         expected_delivery_date: yup.string().nullable(),
@@ -84,6 +109,9 @@ const PurchaseOrderWizard = () => {
           .array()
           .of(
             yup.object().shape({
+              vendor_id: yup
+                .string()
+                .required(t("Vendor is required")),
               product_id: yup.string().required(t("Product is required")),
               qty: yup.string().required(t("Qty is required")),
               unit_price: yup.string().required(t("Unit price is required")),
@@ -352,7 +380,8 @@ const PurchaseOrderWizard = () => {
       };
     }
     return {
-      vendor_id: values.vendor_id,
+      // Header vendor_id intentionally omitted — PO is multi-vendor at
+      // line level (each line carries its own vendor_id).
       vendor_address_id: values.vendor_address_id || undefined,
       customer_id: values.customer_id || undefined,
       quotation_id: values.quotation_id || undefined,
@@ -370,6 +399,7 @@ const PurchaseOrderWizard = () => {
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
         product_id: l.product_id,
+        vendor_id: l.vendor_id,
         source_quotation_line_id: l.source_quotation_line_id || undefined,
         source_pfi_line_id: l.source_pfi_line_id || undefined,
         description: l.description || "",
@@ -459,6 +489,7 @@ const PurchaseOrderWizard = () => {
     priceByProduct,
     vendorProductOptions,
     intraState,
+    hasExistingPovs,
     sourcePfiVoucher: store?.purchaseOrderItem?.pfi_voucher_no,
     sourcePfiId: store?.purchaseOrderItem?.pfi_id,
     sourceQuotationVoucher: store?.purchaseOrderItem?.quotation_voucher_no,

@@ -196,9 +196,13 @@ const ViewPurchaseOrder = () => {
     </span>
   );
 
-  const subtitleParts = [p?.vendor_name, p?.vendor_contact_email].filter(
-    Boolean
-  );
+  // PO is multi-vendor at line level; show customer in subtitle, fall back
+  // to legacy header vendor for older POs.
+  const subtitleParts = [
+    p?.customer_name,
+    p?.customer_contact_email,
+    !p?.customer_name ? p?.vendor_name : null,
+  ].filter(Boolean);
 
   return (
     <Fragment>
