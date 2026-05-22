@@ -276,15 +276,9 @@ const navigationItems = [
         resource: poVendorsModuleSlug,
         companyOnly: true,
       },
-      {
-        id: trackingModuleSlug,
-        title: rolePermissionName[trackingModuleSlug],
-        icon: <MapPin size={20} />,
-        navLink: `${appsRoot}/tracking`,
-        permissionId: trackingModuleSlug,
-        resource: trackingModuleSlug,
-        companyOnly: true,
-      },
+      // Tracking sidebar entry hidden — permission slug retained
+      // (`trackingModuleSlug`) so the per-POV Tracking tab and BE checks
+      // keep working. Restore this block to re-show the ops-feed page.
     ],
   },
 

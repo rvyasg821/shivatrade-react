@@ -6,15 +6,15 @@ import Step3Review from "./Step3Review";
 
 export const STEPS = [
   {
-    key: "vendor",
-    label: "Vendor & Reference",
+    key: "customer",
+    label: "Customer & Reference",
     icon: Users,
     fields: [
-      "vendor_id",
-      "vendor_address_id",
+      "customer_id",
       "po_date",
       "expected_delivery_date",
       "delivery_address",
+      "delivery_address_id",
       "payment_terms",
       "delivery_terms",
     ],
@@ -27,7 +27,7 @@ export const STEPS = [
     icon: Package,
     fields: ["lines"],
     Component: Step2Items,
-    canEnter: (form) => !!form.getValues("vendor_id"),
+    canEnter: (form) => !!form.getValues("customer_id"),
   },
   {
     key: "review",

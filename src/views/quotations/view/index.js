@@ -330,6 +330,7 @@ const ViewQuotation = () => {
         sourceType="quotation"
         sourceId={id}
         sourceVoucherNo={q?.voucher_no}
+        onCreated={() => dispatch(getQuotation(id))}
       />
     </Fragment>
   );

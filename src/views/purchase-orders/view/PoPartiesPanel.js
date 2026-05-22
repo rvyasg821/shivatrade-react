@@ -120,13 +120,36 @@ const PoPartiesPanel = () => {
           </PartyCard>
         </Col>
         <Col md="6">
-          <PartyCard icon={User} label={t("Vendor")}>
-            <div className="fw-bolder mb-25" style={{ color: "#212529" }}>
-              {p?.vendor_name || "-"}
-            </div>
-            {p?.vendor_contact_name && <div>{p.vendor_contact_name}</div>}
-            {p?.vendor_contact_email && <div>{p.vendor_contact_email}</div>}
-            {vendorPhone && <div>{vendorPhone}</div>}
+          <PartyCard icon={User} label={t("Vendors")}>
+            {(() => {
+              // Multi-vendor PO: derive unique vendors from line items.
+              // Legacy POs fall back to the header vendor_id.
+              const linesVendors = [];
+              const seen = new Set();
+              for (const ln of p?.lines || []) {
+                const vid = ln?.vendor_id;
+                if (!vid || seen.has(vid)) continue;
+                seen.add(vid);
+                linesVendors.push({
+                  id: vid,
+                  name: ln?.vendor_name || vid,
+                });
+              }
+              if (linesVendors.length === 0 && p?.vendor_name) {
+                linesVendors.push({
+                  id: p?.vendor_id,
+                  name: p?.vendor_name,
+                });
+              }
+              if (linesVendors.length === 0) {
+                return <div className="text-muted small">-</div>;
+              }
+              return linesVendors.map((v) => (
+                <div key={v.id} className="mb-25" style={{ color: "#212529" }}>
+                  • {v.name}
+                </div>
+              ));
+            })()}
           </PartyCard>
         </Col>
       </Row>

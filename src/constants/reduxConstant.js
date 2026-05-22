@@ -500,6 +500,8 @@ const initPurchaseOrderLineItem = {
   product_id: "",
   product_name: "",
   product_code: "",
+  vendor_id: "",
+  vendor_name: "",
   source_quotation_line_id: "",
   source_pfi_line_id: "",
   description: "",
