@@ -34,7 +34,7 @@ import {
 } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
 import Notification from "@components/toast/notification";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import {
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
@@ -85,6 +85,14 @@ const ViewQuotation = () => {
   const store = useSelector((s) => s.quotation);
   const currencyStore = useSelector((s) => s.currency);
   const q = store?.quotationItem || {};
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const quotationPerms = authUserItem?.role?.permissions?.quotations;
+  const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canEdit =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
+  const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
 
   useEffect(() => {
@@ -208,15 +216,19 @@ const ViewQuotation = () => {
       icon: Truck,
       label: t("Generate POs"),
       onClick: () => setPoModalOpen(true),
-      hidden: !isApproved,
+      hidden: !isApproved || !canGeneratePo,
       outline: false,
       color: "success",
     },
-    {
-      icon: Edit,
-      label: t("Edit"),
-      onClick: () => navigate(`${appsRoot}/quotations/edit/${id}`),
-    },
+    ...(canEdit
+      ? [
+          {
+            icon: Edit,
+            label: t("Edit"),
+            onClick: () => navigate(`${appsRoot}/quotations/edit/${id}`),
+          },
+        ]
+      : []),
     {
       icon: ArrowLeft,
       label: t("Back to Quotations"),

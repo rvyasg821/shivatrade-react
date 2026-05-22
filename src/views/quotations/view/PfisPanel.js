@@ -8,7 +8,7 @@ import { Edit, PlusCircle, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPfiList, cleanPfiMessage } from "@src/views/pfi/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 
@@ -32,9 +32,14 @@ const PfisPanel = ({ bare = false }) => {
   const quotationStore = useSelector((s) => s.quotation);
   const [loaded, setLoaded] = useState(false);
 
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
+  const canAddPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
+
   const q = quotationStore?.quotationItem || {};
   const statusLower = (q?.status || "").toLowerCase();
-  const canCreate = statusLower === "approved";
+  const canCreate = statusLower === "approved" && canAddPfi;
 
   useEffect(() => {
     if (!id) return;

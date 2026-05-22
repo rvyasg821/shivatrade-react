@@ -213,6 +213,7 @@ const CategoryList = () => {
   // Permission gating
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.categories;
+  const canRead = isAdmin || perms?.can_all || perms?.can_read;
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
@@ -348,6 +349,7 @@ const CategoryList = () => {
               </div>
 
               <div className="d-flex align-items-center gap-1 flex-wrap">
+                {canRead && (
                 <Button
                   color="outline-secondary"
                   size="sm"
@@ -357,6 +359,7 @@ const CategoryList = () => {
                   <Download className="me-50" size={14} />
                   {t("Export")}
                 </Button>
+                )}
                 {(canAdd || canEdit) && (
                   <Button
                     color="outline-secondary"

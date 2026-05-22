@@ -213,6 +213,7 @@ const PriceListView = () => {
 
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["price-list"];
+  const canRead = isAdmin || perms?.can_all || perms?.can_read;
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
@@ -419,6 +420,7 @@ const PriceListView = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                  {canRead && (
                   <Button
                     color="outline-secondary"
                     size="sm"
@@ -428,6 +430,7 @@ const PriceListView = () => {
                   >
                     {t("Export")} <Download size={14} />
                   </Button>
+                  )}
                   {(canAdd || canEdit) && (
                     <Button
                       color="outline-secondary"

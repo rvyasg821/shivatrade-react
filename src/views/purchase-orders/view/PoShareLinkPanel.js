@@ -15,7 +15,7 @@ import {
   rotatePurchaseOrderToken,
   unpublishPurchaseOrder,
 } from "@src/views/purchase-orders/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import Notification from "@components/toast/notification";
 
 import { DetailPanel } from "@src/views/_shared/detail-page";
@@ -29,9 +29,14 @@ const PoShareLinkPanel = () => {
   const p = purchaseOrderItem || {};
   const [copied, setCopied] = useState(false);
 
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canManage = isAdmin || perms?.can_all || perms?.can_update;
+
   // PO is publishable any time it isn't a draft.
   const status = (p?.status || "").toLowerCase();
-  const canPublish = !!status && status !== "draft";
+  const canPublish = canManage && !!status && status !== "draft";
   const token = p?.public_token;
   const publicUrl = token ? `${window.location.origin}/po/${token}` : "";
 
@@ -107,6 +112,7 @@ const PoShareLinkPanel = () => {
               </Button>
             </CopyToClipboard>
           </InputGroup>
+          {canManage && (
           <div className="d-flex gap-1">
             <Button
               color="secondary"
@@ -127,6 +133,7 @@ const PoShareLinkPanel = () => {
               <X size={14} className="me-50" /> {t("Unpublish")}
             </Button>
           </div>
+          )}
         </Fragment>
       )}
     </DetailPanel>

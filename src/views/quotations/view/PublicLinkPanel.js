@@ -14,7 +14,7 @@ import {
   rotateQuotationToken,
   unpublishQuotation,
 } from "@src/views/quotations/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import Notification from "@components/toast/notification";
 
 import { DetailPanel } from "@src/views/_shared/detail-page";
@@ -28,7 +28,13 @@ const PublicLinkPanel = () => {
   const q = quotationItem || {};
   const [copied, setCopied] = useState(false);
 
-  const canPublish = q?.status === "sent" || q?.status === "approved";
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.quotations;
+  const canManage = isAdmin || perms?.can_all || perms?.can_update;
+
+  const canPublish =
+    canManage && (q?.status === "sent" || q?.status === "approved");
   const token = q?.public_token;
   const publicUrl = token ? `${window.location.origin}/q/${token}` : "";
 
@@ -104,26 +110,28 @@ const PublicLinkPanel = () => {
               </Button>
             </CopyToClipboard>
           </InputGroup>
-          <div className="d-flex gap-1">
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={() => dispatch(rotateQuotationToken(id))}
-              className="flex-grow-1"
-            >
-              <RefreshCw size={14} className="me-50" /> {t("Rotate")}
-            </Button>
-            <Button
-              color="danger"
-              outline
-              size="sm"
-              onClick={() => dispatch(unpublishQuotation(id))}
-              className="flex-grow-1"
-            >
-              <X size={14} className="me-50" /> {t("Unpublish")}
-            </Button>
-          </div>
+          {canManage && (
+            <div className="d-flex gap-1">
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                onClick={() => dispatch(rotateQuotationToken(id))}
+                className="flex-grow-1"
+              >
+                <RefreshCw size={14} className="me-50" /> {t("Rotate")}
+              </Button>
+              <Button
+                color="danger"
+                outline
+                size="sm"
+                onClick={() => dispatch(unpublishQuotation(id))}
+                className="flex-grow-1"
+              >
+                <X size={14} className="me-50" /> {t("Unpublish")}
+              </Button>
+            </div>
+          )}
         </Fragment>
       )}
     </DetailPanel>
