@@ -20,7 +20,7 @@ import {
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -62,6 +62,11 @@ const PurchaseOrderInfoCard = () => {
 
   const { purchaseOrderItem } = useSelector((s) => s.purchaseOrder);
   const p = purchaseOrderItem || {};
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
 
   const statusColor =
     PURCHASE_ORDER_STATUS_BADGE_COLOR[(p?.status || "").toLowerCase()] ||
@@ -269,17 +274,21 @@ const PurchaseOrderInfoCard = () => {
             <UncontrolledTooltip target="po-pdf-from-view" placement="top">
               {t("Download PO as PDF")}
             </UncontrolledTooltip>
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/purchase-orders/edit/${id}`)}
-              id="po-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="po-edit-from-view" placement="top">
-              {t("Edit PO")}
-            </UncontrolledTooltip>
+            {canEdit && (
+              <>
+                <Button
+                  color="primary"
+                  outline
+                  onClick={() => navigate(`${appsRoot}/purchase-orders/edit/${id}`)}
+                  id="po-edit-from-view"
+                >
+                  <Edit size={14} className="me-50" /> {t("Edit")}
+                </Button>
+                <UncontrolledTooltip target="po-edit-from-view" placement="top">
+                  {t("Edit PO")}
+                </UncontrolledTooltip>
+              </>
+            )}
           </div>
         </CardBody>
       </Card>

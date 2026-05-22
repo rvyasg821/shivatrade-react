@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 
 import { getCustomer, cleanCustomerMessage } from "@src/views/customers/store";
 import Notification from "@components/toast/notification";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 
 import {
   DetailHeader,
@@ -41,6 +41,10 @@ const ViewCustomer = () => {
 
   const store = useSelector((s) => s.customer);
   const c = store?.customerItem || {};
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.customers;
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
 
   useEffect(() => {
     if (id) dispatch(getCustomer(id));
@@ -102,11 +106,15 @@ const ViewCustomer = () => {
   ];
 
   const headerActions = [
-    {
-      icon: Edit,
-      label: t("Edit"),
-      onClick: () => navigate(`${appsRoot}/customers/edit/${id}`),
-    },
+    ...(canEdit
+      ? [
+          {
+            icon: Edit,
+            label: t("Edit"),
+            onClick: () => navigate(`${appsRoot}/customers/edit/${id}`),
+          },
+        ]
+      : []),
     {
       icon: ArrowLeft,
       label: t("Back to Customers"),

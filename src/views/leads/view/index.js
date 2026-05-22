@@ -37,7 +37,7 @@ import { getProductDropdown } from "@src/views/products/store";
 import { getVendorDropdown } from "@src/views/vendors/store";
 import Notification from "@components/toast/notification";
 import { formatDate } from "@src/utility/dateFormat";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import {
   LEAD_STATUS_OPTIONS,
   LEAD_STATUS_BADGE_COLOR,
@@ -97,6 +97,18 @@ const ViewLead = () => {
   const categoryStore = useSelector((s) => s.category);
   const productStore = useSelector((s) => s.product);
   const vendorStore = useSelector((s) => s.vendor);
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const leadPerms = authUserItem?.role?.permissions?.leads;
+  const quotationPerms = authUserItem?.role?.permissions?.quotations;
+  const customerPerms = authUserItem?.role?.permissions?.customers;
+  const canEditLead =
+    isAdmin || leadPerms?.can_all || leadPerms?.can_update;
+  const canAddQuotation =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_add;
+  const canConvertCustomer =
+    isAdmin || customerPerms?.can_all || customerPerms?.can_add;
 
   // Activity composer visibility — collapsed by default. The header "+"
   // action opens it; submitting a note auto-collapses it again.
@@ -204,22 +216,26 @@ const ViewLead = () => {
       icon: PlusCircle,
       label: t("Quotation"),
       onClick: () => navigate(`${appsRoot}/quotations/add?lead_id=${id}`),
-      hidden: isLost,
+      hidden: isLost || !canAddQuotation,
       outline: false,
     },
     {
       icon: UserPlus,
       label: t("Convert to Customer"),
       onClick: onConvert,
-      hidden: !isWon || isConverted,
+      hidden: !isWon || isConverted || !canConvertCustomer,
       outline: false,
       color: "success",
     },
-    {
-      icon: Edit,
-      label: t("Edit"),
-      onClick: () => navigate(`${appsRoot}/leads/edit/${id}`),
-    },
+    ...(canEditLead
+      ? [
+          {
+            icon: Edit,
+            label: t("Edit"),
+            onClick: () => navigate(`${appsRoot}/leads/edit/${id}`),
+          },
+        ]
+      : []),
     {
       icon: ArrowLeft,
       label: t("Back to Leads"),
@@ -486,6 +502,7 @@ const ViewLead = () => {
             <DetailPanel
               title={t("Activity")}
               action={
+                canEditLead && (
                 <Button
                   color={showActivityComposer ? "secondary" : "primary"}
                   outline={showActivityComposer}
@@ -505,6 +522,7 @@ const ViewLead = () => {
                     </>
                   )}
                 </Button>
+                )
               }
             >
               {/* Cap height so a busy activity feed scrolls inside its own
@@ -520,8 +538,9 @@ const ViewLead = () => {
               >
                 <ActivityTab
                   leadId={id}
-                  showComposer={showActivityComposer}
+                  showComposer={showActivityComposer && canEditLead}
                   onComposerClose={() => setShowActivityComposer(false)}
+                  canManage={canEditLead}
                 />
               </div>
             </DetailPanel>

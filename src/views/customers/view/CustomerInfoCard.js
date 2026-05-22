@@ -21,7 +21,7 @@ import {
 } from "react-feather";
 
 import Avatar from "@components/avatar";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { useTranslation } from "react-i18next";
 
 const InfoRow = ({ icon: Icon, value }) => {
@@ -45,6 +45,10 @@ const CustomerInfoCard = () => {
   const { t } = useTranslation();
 
   const { customerItem } = useSelector((s) => s.customer);
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.customers;
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
   const c = customerItem || {};
 
   const initials = (c.company_name || "?")
@@ -129,19 +133,21 @@ const CustomerInfoCard = () => {
             <InfoRow icon={Briefcase} value={c?.pan} />
           </ul>
 
-          <div className="d-flex justify-content-center">
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/customers/edit/${id}`)}
-              id="customer-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="customer-edit-from-view" placement="top">
-              {t("Edit customer")}
-            </UncontrolledTooltip>
-          </div>
+          {canEdit && (
+            <div className="d-flex justify-content-center">
+              <Button
+                color="primary"
+                outline
+                onClick={() => navigate(`${appsRoot}/customers/edit/${id}`)}
+                id="customer-edit-from-view"
+              >
+                <Edit size={14} className="me-50" /> {t("Edit")}
+              </Button>
+              <UncontrolledTooltip target="customer-edit-from-view" placement="top">
+                {t("Edit customer")}
+              </UncontrolledTooltip>
+            </div>
+          )}
         </CardBody>
       </Card>
     </Fragment>

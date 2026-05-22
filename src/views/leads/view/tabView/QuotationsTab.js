@@ -11,7 +11,7 @@ import {
   getQuotationList,
   cleanQuotationMessage,
 } from "@src/views/quotations/store";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 
 const QuotationsTab = () => {
   const { id } = useParams();
@@ -22,8 +22,17 @@ const QuotationsTab = () => {
   const leadStore = useSelector((s) => s.lead);
   const [loaded, setLoaded] = useState(false);
 
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const quotationPerms = authUserItem?.role?.permissions?.quotations;
+  const canAddQuotation =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_add;
+  const canEditQuotation =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
+
   const currentStatus = leadStore?.leadItem?.status;
-  const canCreateQuotation = currentStatus && currentStatus !== "lost";
+  const canCreateQuotation =
+    currentStatus && currentStatus !== "lost" && canAddQuotation;
 
   useEffect(() => {
     if (!id) return;
@@ -97,18 +106,24 @@ const QuotationsTab = () => {
                     {row?.status || "-"}
                   </td>
                   <td className="text-center">
-                    <Link
-                      to={`${appsRoot}/quotations/edit/${row?._id}`}
-                      id={`lead-qt-edit-${row?._id}`}
-                    >
-                      <Edit size={18} />
-                    </Link>
-                    <UncontrolledTooltip
-                      placement="top"
-                      target={`lead-qt-edit-${row?._id}`}
-                    >
-                      {t("Open")}
-                    </UncontrolledTooltip>
+                    {canEditQuotation ? (
+                      <>
+                        <Link
+                          to={`${appsRoot}/quotations/edit/${row?._id}`}
+                          id={`lead-qt-edit-${row?._id}`}
+                        >
+                          <Edit size={18} />
+                        </Link>
+                        <UncontrolledTooltip
+                          placement="top"
+                          target={`lead-qt-edit-${row?._id}`}
+                        >
+                          {t("Open")}
+                        </UncontrolledTooltip>
+                      </>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                 </tr>
               );
