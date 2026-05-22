@@ -21,7 +21,7 @@ import {
 } from "react-feather";
 
 import Avatar from "@components/avatar";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { useTranslation } from "react-i18next";
 import {
   LEAD_STATUS_OPTIONS,
@@ -51,6 +51,10 @@ const LeadInfoCard = () => {
 
   const { leadItem } = useSelector((s) => s.lead);
   const l = leadItem || {};
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.leads;
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
 
   const initials = (l.company_name || l.contact_name || "?")
     .split(" ")
@@ -145,19 +149,21 @@ const LeadInfoCard = () => {
             <InfoRow icon={Hash} value={l?._id ? `#${l._id.slice(-6)}` : null} />
           </ul>
 
-          <div className="d-flex justify-content-center">
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/leads/edit/${id}`)}
-              id="lead-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="lead-edit-from-view" placement="top">
-              {t("Edit lead")}
-            </UncontrolledTooltip>
-          </div>
+          {canEdit && (
+            <div className="d-flex justify-content-center">
+              <Button
+                color="primary"
+                outline
+                onClick={() => navigate(`${appsRoot}/leads/edit/${id}`)}
+                id="lead-edit-from-view"
+              >
+                <Edit size={14} className="me-50" /> {t("Edit")}
+              </Button>
+              <UncontrolledTooltip target="lead-edit-from-view" placement="top">
+                {t("Edit lead")}
+              </UncontrolledTooltip>
+            </div>
+          )}
         </CardBody>
       </Card>
     </Fragment>

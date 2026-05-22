@@ -23,7 +23,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import Avatar from "@components/avatar";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 
@@ -52,6 +52,14 @@ const QuotationInfoCard = () => {
   const q = quotationItem || {};
   const [poModalOpen, setPoModalOpen] = useState(false);
   const sym = q?.currency_symbol || q?.currency_code || "";
+
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const quotationPerms = authUserItem?.role?.permissions?.quotations;
+  const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const canEdit =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
+  const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
 
   return (
     <Fragment>
@@ -143,18 +151,22 @@ const QuotationInfoCard = () => {
           </ul>
 
           <div className="d-grid gap-1">
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/quotations/edit/${id}`)}
-              id="qt-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="qt-edit-from-view" placement="top">
-              {t("Edit quotation")}
-            </UncontrolledTooltip>
-            {(q?.status || "").toLowerCase() === "approved" && (
+            {canEdit && (
+              <>
+                <Button
+                  color="primary"
+                  outline
+                  onClick={() => navigate(`${appsRoot}/quotations/edit/${id}`)}
+                  id="qt-edit-from-view"
+                >
+                  <Edit size={14} className="me-50" /> {t("Edit")}
+                </Button>
+                <UncontrolledTooltip target="qt-edit-from-view" placement="top">
+                  {t("Edit quotation")}
+                </UncontrolledTooltip>
+              </>
+            )}
+            {canGeneratePo && (q?.status || "").toLowerCase() === "approved" && (
               <>
                 <Button
                   color="success"

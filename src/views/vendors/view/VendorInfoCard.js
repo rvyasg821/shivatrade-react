@@ -24,7 +24,7 @@ import {
 } from "react-feather";
 
 import Avatar from "@components/avatar";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { useTranslation } from "react-i18next";
 
 const InfoRow = ({ icon: Icon, value }) => {
@@ -48,6 +48,10 @@ const VendorInfoCard = () => {
   const { t } = useTranslation();
 
   const { vendorItem } = useSelector((s) => s.vendor);
+  const authUserItem = useSelector((s) => s.auth?.authUserItem);
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.vendors;
+  const canEdit = isAdmin || perms?.can_all || perms?.can_update;
   const v = vendorItem || {};
 
   const initials = (v.company_name || "?")
@@ -136,19 +140,21 @@ const VendorInfoCard = () => {
             <InfoRow icon={Tag} value={categoriesLabel} />
           </ul>
 
-          <div className="d-flex justify-content-center">
-            <Button
-              color="primary"
-              outline
-              onClick={() => navigate(`${appsRoot}/vendors/edit/${id}`)}
-              id="vendor-edit-from-view"
-            >
-              <Edit size={14} className="me-50" /> {t("Edit")}
-            </Button>
-            <UncontrolledTooltip target="vendor-edit-from-view" placement="top">
-              {t("Edit vendor")}
-            </UncontrolledTooltip>
-          </div>
+          {canEdit && (
+            <div className="d-flex justify-content-center">
+              <Button
+                color="primary"
+                outline
+                onClick={() => navigate(`${appsRoot}/vendors/edit/${id}`)}
+                id="vendor-edit-from-view"
+              >
+                <Edit size={14} className="me-50" /> {t("Edit")}
+              </Button>
+              <UncontrolledTooltip target="vendor-edit-from-view" placement="top">
+                {t("Edit vendor")}
+              </UncontrolledTooltip>
+            </div>
+          )}
         </CardBody>
       </Card>
     </Fragment>
