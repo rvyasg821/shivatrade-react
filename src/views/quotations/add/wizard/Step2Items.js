@@ -33,6 +33,7 @@ const Step2Items = ({
       exchangeRate={exchangeRate}
       readOnly={isLocked}
       tableLayout="detailed"
+      displayInBase
     />
   );
 };

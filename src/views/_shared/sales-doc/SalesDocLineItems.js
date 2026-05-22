@@ -22,6 +22,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
+import Notification from "@components/toast/notification";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import {
   PRODUCT_UOM_OPTIONS,
@@ -62,6 +63,10 @@ const SalesDocLineItems = ({
   baseCurrencyCode = "",
   exchangeRate = 1,
   readOnly = false,
+  /** When true, line-table money cells render the raw INR values with the
+   *  base-currency symbol (no exchange-rate conversion). Used on the
+   *  Quotation/PFI Step 2 where the user works in base currency. */
+  displayInBase = false,
   /** PFI (and future Commercial Invoice) only: render HS code + per-line
    *  weight / package fields in the modal and auto-fill them from the
    *  product master. Off for Quotation / PO. */
@@ -193,6 +198,24 @@ const SalesDocLineItems = ({
   };
 
   const onPickProduct = async (idx, opt) => {
+    // Block duplicate products in the same document — every PFI /
+    // Quotation / PO line must reference a distinct product, otherwise
+    // costing / coverage roll-ups double-count the same SKU.
+    if (opt?.value) {
+      const dupe = (liveLines || []).some(
+        (ln, i) => i !== idx && ln?.product_id === opt.value
+      );
+      if (dupe) {
+        Notification(
+          t("Duplicate product"),
+          t(
+            "This product is already added as a line. Edit the existing line instead."
+          ),
+          "warning"
+        );
+        return;
+      }
+    }
     setValue(`lines.${idx}.product_id`, opt?.value || "");
     if (opt?.raw) {
       setValue(`lines.${idx}.unit`, opt.raw.unit_of_measure || "");
@@ -343,8 +366,9 @@ const SalesDocLineItems = ({
   const baseSym = currencySymbol(baseCurrencyCode);
   // Symbol of the doc's own currency — same as the detail page uses, so the
   // edit table reads in the foreign currency the user picked at Step 1.
-  const docSym = currencySymbol(currencyCode) || baseSym;
-  const docRate = num(exchangeRate) || 1;
+  const docSym =
+    displayInBase ? baseSym : currencySymbol(currencyCode) || baseSym;
+  const docRate = displayInBase ? 1 : num(exchangeRate) || 1;
   const toDocCcy = (v) => num(v) * docRate;
   const showConverted =
     !!currencyCode && !!baseCurrencyCode && currencyCode !== baseCurrencyCode;
@@ -382,7 +406,11 @@ const SalesDocLineItems = ({
             {t('No line items yet - click "Add Line".')}
           </div>
         ) : (
-          <Table responsive bordered className="mb-0 align-middle">
+          <Table
+            responsive
+            bordered
+            className="mb-0 align-top table-dense"
+          >
             <thead>
               <tr>
                 <th style={{ width: 40 }}>#</th>
@@ -391,11 +419,11 @@ const SalesDocLineItems = ({
                   <>
                     <th className="text-end">{t("Qty")}</th>
                     <th className="text-end">{t("Price")}</th>
-                    <th className="text-end">{t("Disc%")}</th>
+                    <th className="text-end">{t("Disc")}</th>
                     <th className="text-end">{t("Expenses")}</th>
                     <th className="text-end">{t("Rebates")}</th>
-                    <th className="text-end">{t("GST%")}</th>
-                    <th className="text-end">{t("Margin%")}</th>
+                    <th className="text-end">{t("GST")}</th>
+                    <th className="text-end">{t("Margin")}</th>
                     <th className="text-end">{t("Total")}</th>
                   </>
                 ) : (
@@ -450,9 +478,16 @@ const SalesDocLineItems = ({
                       {tableLayout === "detailed" ? (
                         <>
                           <td className="text-end">
-                            {l.qty
-                              ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
-                              : "-"}
+                            {l.qty ? (
+                              <Fragment>
+                                <div>{l.qty}</div>
+                                {l.unit ? (
+                                  <small className="text-muted">{l.unit}</small>
+                                ) : null}
+                              </Fragment>
+                            ) : (
+                              "-"
+                            )}
                           </td>
                           <td className="text-end">
                             {l.unit_price
