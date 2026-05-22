@@ -24,7 +24,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
-import CompanyAddressSelect from "@src/views/_shared/CompanyAddressSelect";
+import LocationSelect from "@src/views/_shared/LocationSelect";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -59,7 +59,7 @@ const PoGeneratePreviewModal = ({
   const [dropped, setDropped] = useState({});
   // Deliver-to address (applies to every PO created in this batch).
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
-  const [companyAddresses, setCompanyAddresses] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const previewEndpoint =
     sourceType === "pfi"
@@ -233,21 +233,21 @@ const PoGeneratePreviewModal = ({
             {t("Deliver goods to")}{" "}
             <span className="text-danger">*</span>
           </label>
-          <CompanyAddressSelect
+          <LocationSelect
             value={deliveryAddressId}
             onChange={setDeliveryAddressId}
-            onAddressesLoaded={setCompanyAddresses}
+            onLocationsLoaded={setLocations}
           />
           <small className="text-muted">
             {t(
-              "Vendors will deliver to this address. Pick a saved company address."
+              "Vendors will deliver to this location. Pick from your Locations master."
             )}
           </small>
-          {!companyAddresses.length && (
+          {!locations.length && (
             <div className="alert alert-warning small mt-2 mb-0">
-              {t("No company addresses on file.")}{" "}
-              <a href="/apps/profile" target="_blank" rel="noopener noreferrer">
-                {t("Add one in your Company Profile")}
+              {t("No locations on file.")}{" "}
+              <a href={`${appsRoot}/locations`} target="_blank" rel="noopener noreferrer">
+                {t("Add one in Locations")}
               </a>
             </div>
           )}

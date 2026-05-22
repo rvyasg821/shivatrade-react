@@ -124,16 +124,20 @@ const LocationForm = () => {
       .notRequired()
       .test("valid-mobile", `${t("Minimum 8 digits required")}.`, (value) => {
         if (!value || value.trim() === "") return true;
-        const phoneNumber = parsePhoneNumberFromString(`+${value}`);
+        // Tolerate both formats: "+447123456789" (new E.164) and
+        // "447123456789" (legacy / from PhoneInput's raw digits).
+        const trimmed = value.trim();
+        const e164 = trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+        const phoneNumber = parsePhoneNumberFromString(e164);
         return phoneNumber && phoneNumber.nationalNumber.length >= 8;
       }),
     // Section 3: Address Information (all optional)
-    address_1: yup.string().nullable().notRequired(),
-    address_2: yup.string().nullable().notRequired(),
+    address_line1: yup.string().nullable().notRequired(),
+    address_line2: yup.string().nullable().notRequired(),
     city: yup.string().nullable().notRequired(),
     state: yup.string().nullable().notRequired(),
     country: yup.string().nullable().notRequired(),
-    zip_code: yup.string().nullable().notRequired(),
+    postcode: yup.string().nullable().notRequired(),
     latitude: yup.number().nullable().notRequired().transform((value, original) => (original === '' ? null : value)),
     longitude: yup.number().nullable().notRequired().transform((value, original) => (original === '' ? null : value)),
   });
@@ -217,8 +221,8 @@ const LocationForm = () => {
       // Convert null/undefined to "" for text input fields
       const textFields = new Set([
         'location_name', 'location_code', 'description', 'contact_name',
-        'email', 'mobile', 'address_1', 'address_2', 'city', 'state',
-        'country', 'zip_code', 'timezone', 'currency', 'latitude', 'longitude',
+        'email', 'mobile', 'address_line1', 'address_line2', 'city', 'state',
+        'country', 'postcode', 'timezone', 'currency', 'latitude', 'longitude',
         'notification_email', 'notification_email_cc',
       ]);
       const cleanedLocItem = Object.fromEntries(
@@ -389,9 +393,12 @@ const LocationForm = () => {
   const watchedMobile = watch("mobile");
   const watchedCountry = watch("country_code");
   const watchedDial = (watchedCountry?.dialCode || "+").replace("+", "");
-  const liveFormattedMobile = watchedMobile
+  // `mobile` is now stored E.164-prefixed (e.g. "+447…") but the
+  // formatter + PhoneInput expect raw digits (no leading "+").
+  const watchedMobileDigits = (watchedMobile || "").replace(/^\+/, "");
+  const liveFormattedMobile = watchedMobileDigits
     ? formatPhoneNumber(
-        watchedMobile,
+        watchedMobileDigits,
         watchedCountry?.format || "+.. (..) .........",
         watchedDial
       )
@@ -505,12 +512,19 @@ const LocationForm = () => {
 
   const onSubmit = async (values) => {
     if (values) {
+      // Store the full international number (E.164 with leading "+") so
+      // the DB value is unambiguous. The formatted human-readable string
+      // lives inside `country_code.internationalNumber` / nationalNumber.
       const dialCode = (values?.country_code?.dialCode || "").replace("+", "");
-      let mobileValue = values?.mobile || "";
-      if (dialCode && mobileValue.startsWith(dialCode)) {
-        mobileValue = mobileValue.slice(dialCode.length);
+      const rawDigits = (values?.mobile || "").replace(/\D/g, "");
+      let mobileValue = rawDigits;
+      if (rawDigits && dialCode) {
+        mobileValue = rawDigits.startsWith(dialCode)
+          ? `+${rawDigits}`
+          : `+${dialCode}${rawDigits}`;
+      } else if (rawDigits) {
+        mobileValue = rawDigits.startsWith("+") ? rawDigits : `+${rawDigits}`;
       }
-      mobileValue = mobileValue.trim();
 
       const locData = {
         location_name: values?.location_name || "",
@@ -527,12 +541,12 @@ const LocationForm = () => {
         contact_name: values?.contact_name || "",
         email: values?.email || "",
         mobile: mobileValue || "",
-        address_1: values?.address_1 || "",
-        address_2: values?.address_2 || "",
+        address_line1: values?.address_line1 || "",
+        address_line2: values?.address_line2 || "",
         city: values?.city || "",
         state: values?.state || "",
         country: values?.country || "",
-        zip_code: values?.zip_code || "",
+        postcode: values?.postcode || "",
         timezone: values?.timezone || "",
         currency: values?.currency || "",
         latitude: values?.latitude || null,
@@ -855,12 +869,12 @@ const LocationForm = () => {
             <CardBody className="pt-2">
               <Row>
                 <Col lg={6} md={6} sm={12} className="mb-2">
-                  <Label className="form-label" for="address_1">
+                  <Label className="form-label" for="address_line1">
                     {t("Address Line 1")}
                   </Label>
                   <Controller
-                    id="address_1"
-                    name="address_1"
+                    id="address_line1"
+                    name="address_line1"
                     control={control}
                     render={({ field }) => (
                       <Input {...field} autoComplete="off" />
@@ -869,12 +883,12 @@ const LocationForm = () => {
                 </Col>
 
                 <Col lg={6} md={6} sm={12} className="mb-2">
-                  <Label className="form-label" for="address_2">
+                  <Label className="form-label" for="address_line2">
                     {t("Address Line 2")}
                   </Label>
                   <Controller
-                    id="address_2"
-                    name="address_2"
+                    id="address_line2"
+                    name="address_line2"
                     control={control}
                     render={({ field }) => (
                       <Input {...field} autoComplete="off" />
@@ -913,12 +927,12 @@ const LocationForm = () => {
                 
 
                 <Col lg={6} md={6} sm={12} className="mb-2">
-                  <Label className="form-label" for="zip_code">
-                    {t("Zip Code")}
+                  <Label className="form-label" for="postcode">
+                    {t("Postcode")}
                   </Label>
                   <Controller
-                    id="zip_code"
-                    name="zip_code"
+                    id="postcode"
+                    name="postcode"
                     control={control}
                     render={({ field }) => (
                       <Input {...field} autoComplete="off" />
