@@ -5,6 +5,7 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 import { PURCHASE_ORDER_STATUS_OPTIONS } from "@constant/options";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -32,6 +33,8 @@ const Step3Review = ({ isLocked, intraState }) => {
   const { t } = useTranslation();
   const { control } = useFormContext();
   const lines = useWatch({ control, name: "lines" }) || [];
+  const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
+  const sym = getCurrencySymbol(currencyCode);
 
   let subtotal = 0;
   let cgst_total = 0;
@@ -114,32 +117,32 @@ const Step3Review = ({ isLocked, intraState }) => {
           <tbody>
             <tr>
               <td>{t("Subtotal")}</td>
-              <td className="text-end">₹ {subtotal.toLocaleString()}</td>
+              <td className="text-end">{sym} {subtotal.toLocaleString()}</td>
             </tr>
             {intraState ? (
               <>
                 <tr>
                   <td>{t("CGST")}</td>
-                  <td className="text-end">₹ {cgst_total.toLocaleString()}</td>
+                  <td className="text-end">{sym} {cgst_total.toLocaleString()}</td>
                 </tr>
                 <tr>
                   <td>{t("SGST")}</td>
-                  <td className="text-end">₹ {sgst_total.toLocaleString()}</td>
+                  <td className="text-end">{sym} {sgst_total.toLocaleString()}</td>
                 </tr>
               </>
             ) : (
               <tr>
                 <td>{t("IGST")}</td>
-                <td className="text-end">₹ {igst_total.toLocaleString()}</td>
+                <td className="text-end">{sym} {igst_total.toLocaleString()}</td>
               </tr>
             )}
             <tr>
               <td>{t("Round-off")}</td>
-              <td className="text-end">₹ {round_off.toLocaleString()}</td>
+              <td className="text-end">{sym} {round_off.toLocaleString()}</td>
             </tr>
             <tr className="border-top">
               <td className="fw-bold">{t("Grand Total")}</td>
-              <td className="text-end fw-bold">₹ {grand.toLocaleString()}</td>
+              <td className="text-end fw-bold">{sym} {grand.toLocaleString()}</td>
             </tr>
           </tbody>
         </Table>
