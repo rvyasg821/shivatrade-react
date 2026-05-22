@@ -258,6 +258,25 @@ export const fetchCompanyDashboardStats = createAsyncThunk(
     }
 );
 
+// Sales / Purchase / Operations rollup for the dashboard.
+export const fetchOperationsStats = createAsyncThunk(
+    "dashboard/fetchOperationsStats",
+    async (period = "month") => {
+        try {
+            const response = await instance.get(
+                API_ENDPOINTS.dashboard.operationsStats,
+                { params: { period } }
+            );
+            if (response?.data?.statusCode && response?.data?.data) {
+                return { operationsStats: response.data.data, error: "" };
+            }
+            return { operationsStats: null, error: response?.data?.message || "Failed" };
+        } catch (error) {
+            return { operationsStats: null, error: error.message };
+        }
+    }
+);
+
 const dashboardWidgetsSlice = createSlice({
     name: "dashboardWidgets",
     initialState: {
@@ -275,6 +294,10 @@ const dashboardWidgetsSlice = createSlice({
         companyStats: null,
         companyStatsLoading: false,
         companyStatsError: "",
+        // Sales / Purchase / Operations rollup
+        operationsStats: null,
+        operationsStatsLoading: false,
+        operationsStatsError: "",
         // Subscription state (for company admin)
         subscription: null,
         subscriptionLoading: false,
@@ -433,6 +456,20 @@ const dashboardWidgetsSlice = createSlice({
                 state.companyStatsLoading = false;
                 state.companyStats = null;
                 state.companyStatsError = action.error?.message || "Failed";
+            })
+            .addCase(fetchOperationsStats.pending, (state) => {
+                state.operationsStatsLoading = true;
+                state.operationsStatsError = "";
+            })
+            .addCase(fetchOperationsStats.fulfilled, (state, action) => {
+                state.operationsStatsLoading = false;
+                state.operationsStats = action.payload.operationsStats;
+                state.operationsStatsError = action.payload.error || "";
+            })
+            .addCase(fetchOperationsStats.rejected, (state, action) => {
+                state.operationsStatsLoading = false;
+                state.operationsStats = null;
+                state.operationsStatsError = action.error?.message || "Failed";
             });
     },
 });

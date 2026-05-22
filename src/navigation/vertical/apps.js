@@ -260,26 +260,18 @@ const navigationItems = [
     ],
   },
 
-  // Purchase
+  // PO Vendor — promoted to a top-level entry (out of the Purchase group)
+  // since it's the only item that lives there for now. Tracking sidebar
+  // entry remains hidden; its permission slug (`trackingModuleSlug`) is
+  // still wired for the per-POV Tracking tab + BE checks.
   {
-    id: purchaseGroupSlug,
-    title: 'Purchase',
-    icon: <ShoppingCart size={20} />,
+    id: poVendorsModuleSlug,
+    title: rolePermissionName[poVendorsModuleSlug],
+    icon: <CheckSquare size={20} />,
+    navLink: `${appsRoot}/po-vendors`,
+    permissionId: poVendorsModuleSlug,
+    resource: poVendorsModuleSlug,
     companyOnly: true,
-    children: [
-      {
-        id: poVendorsModuleSlug,
-        title: rolePermissionName[poVendorsModuleSlug],
-        icon: <CheckSquare size={20} />,
-        navLink: `${appsRoot}/po-vendors`,
-        permissionId: poVendorsModuleSlug,
-        resource: poVendorsModuleSlug,
-        companyOnly: true,
-      },
-      // Tracking sidebar entry hidden — permission slug retained
-      // (`trackingModuleSlug`) so the per-POV Tracking tab and BE checks
-      // keep working. Restore this block to re-show the ops-feed page.
-    ],
   },
 
   // Warehouse
@@ -314,9 +306,13 @@ const navigationItems = [
   // },
 
   // People group (Employees + HRM tools)
+  // Admin tier sees this labeled "People" (management view).
+  // Employee tier sees "My Records" (self-service view) — swapped at
+  // render time in VerticalLayout based on the user's role tier.
   {
     id: 'people',
     title: 'People',
+    titleSelfService: 'HRM',
     icon: <Users size={20} />,
     companyOnly: true,
     children: [

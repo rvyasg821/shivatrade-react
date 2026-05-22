@@ -65,18 +65,38 @@ const VerticalLayout = (props) => {
     // Hidden from Company Admin, Location Admin, and system admins
     const canSeeSelfService = isEmployee || (role?.category === 'custom' && !!role?.companyId);
 
+    // adminLevel items are the management variants ("Attendance Admin",
+    // "Leave Requests"). Hide them from anyone in the employee-tier
+    // (= can see the self-service variant), not just users with the
+    // literal "Employee" system role — custom employee-tier roles
+    // (access_scope='self') should also see only the self-service entry.
+    const isAdminTier =
+      role?.name === 'Super Admin' ||
+      role?.name === 'Admin' ||
+      role?.name === 'Company Admin' ||
+      role?.name === 'Location Admin' ||
+      role?.access_scope === 'company' ||
+      role?.access_scope === 'location' ||
+      role?.access_scope === 'system';
+    const hideAdminLevel = !isAdminTier;
+
     const filteredMenu = navigation.map(item => {
       const newItem = { ...item };
-      // Hide adminLevel items from Employee
-      if (newItem.adminLevel && isEmployee) return null;
+      // Hide adminLevel items from employee-tier users (system + custom).
+      if (newItem.adminLevel && hideAdminLevel) return null;
       // Hide employeeOnly items from non-employees (admins)
       if (newItem.employeeOnly && !isEmployee) return null;
       // Hide selfServiceOnly items from company/location admins
       if (newItem.selfServiceOnly && !canSeeSelfService) return null;
+      // Tier-aware title swap: groups can declare a `titleSelfService`
+      // label used when the viewer is in the employee tier.
+      if (newItem.titleSelfService && hideAdminLevel) {
+        newItem.title = newItem.titleSelfService;
+      }
       if (newItem.children) {
         newItem.children = newItem.children.filter(child => {
           if (child.companyOnly && isSystemAdmin) return false;
-          if (child.adminLevel && isEmployee) return false;
+          if (child.adminLevel && hideAdminLevel) return false;
           if (child.employeeOnly && !isEmployee) return false;
           if (child.selfServiceOnly && !canSeeSelfService) return false;
           return true;

@@ -498,51 +498,12 @@ const Step1CompanyDetails = () => {
               </div>
             </Row>
 
-            {/* ── Timezone & Currency ── */}
-            <h6 className="fw-bold text-uppercase text-muted mb-1 mt-2">{t("Timezone & Currency")}</h6>
-            <hr className="mt-0 mb-2" />
-            <Row>
-              <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("Timezone")}</Label>
-                <Controller name="timezone" control={control}
-                  render={({ field }) => (
-                    <Select options={timezoneList} value={selectedTimezone} isDisabled={isReadOnly}
-                      onChange={(o) => { setSelectedTimezone(o); const v = o?.value || ''; setValue('timezone', v); field.onChange(v); }}
-                      onBlur={field.onBlur} placeholder={t("Select timezone")} isClearable isSearchable styles={selectStyles} />
-                  )} />
-              </div>
-              <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("Currency")}</Label>
-                <Controller name="currency" control={control}
-                  render={({ field }) => (
-                    <Select options={currencyList} value={selectedCurrency} isDisabled={isReadOnly}
-                      onChange={(o) => { setSelectedCurrency(o); const v = o?.value || ''; setValue('currency', v); field.onChange(v); }}
-                      onBlur={field.onBlur} placeholder={t("Select currency")} isClearable isSearchable styles={selectStyles} />
-                  )} />
-              </div>
-            </Row>
+            {/* Timezone & Currency hidden (2026-05-22) — kept in form
+                state for backwards-compat with downstream consumers but
+                no longer surfaced in the Company Info UI. */}
 
-            {/* ── Country (drives timezone + currency cascading) ── */}
-            <Row>
-              <div className="mb-2 col-lg-6 col-md-6">
-                <Label>{t("Country")}</Label>
-                <Controller name="selected_country" control={control}
-                  render={({ field }) => (
-                    <Select options={countryList} value={selectedCountry} isDisabled={isReadOnly}
-                      onChange={(o) => {
-                        setSelectedCountry(o); const v = o?.value || '';
-                        setValue('selected_country', v); setValue('country', o?.label || ''); field.onChange(v);
-                        if (o) {
-                          const tz = getPrimaryTimezoneByCountry(o.value);
-                          if (tz) { const tzObj = timezoneList.find(t => t.value === tz); if (tzObj) { setSelectedTimezone(tzObj); setValue('timezone', tzObj.value); } }
-                          const cur = autoDetectCurrency(o.value);
-                          if (cur) { setSelectedCurrency(cur); setValue('currency', cur.value); }
-                        }
-                      }}
-                      onBlur={field.onBlur} placeholder={t("Select country")} isClearable isSearchable styles={selectStyles} />
-                  )} />
-              </div>
-            </Row>
+            {/* Country picker hidden (2026-05-22) — value stays in form
+                state for backwards-compat. */}
 
             {/* ── Tax & Compliance (India export) ── */}
             <h4 className="mt-4 mb-2">{t("Tax & Compliance")}</h4>
