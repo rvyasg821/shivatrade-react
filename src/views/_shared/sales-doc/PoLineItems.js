@@ -377,7 +377,6 @@ const PoLineItems = ({
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th>{t("Product")}</th>
-                  <th style={{ width: 140 }}>{t("Vendor")}</th>
                   <th style={{ width: 110 }} className="text-end">
                     {t("Qty")}
                   </th>
@@ -427,8 +426,14 @@ const PoLineItems = ({
                   return (
                     <tr key={field.id}>
                       <td className="text-muted">{idx + 1}</td>
-                      <td>{productLabel}</td>
-                      <td className="small">{vendorLabel}</td>
+                      <td>
+                        <div>{productLabel}</div>
+                        {vendorLabel && vendorLabel !== "-" ? (
+                          <small className="text-muted d-block">
+                            {vendorLabel}
+                          </small>
+                        ) : null}
+                      </td>
                       <td className="text-end">
                         {l.qty
                           ? `${fmt(l.qty)}${l.unit ? ` ${l.unit}` : ""}`

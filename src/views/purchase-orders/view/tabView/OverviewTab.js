@@ -315,7 +315,7 @@ const OverviewTab = () => {
                 <tr className="border-top">
                   <td className="fw-bold">{t("Grand Total")}</td>
                   <td className="text-end fw-bold">
-                    {sym} {fmt(toCcy(p?.grand_total))}
+                    {sym} {fmt(p?.grand_total)}
                   </td>
                 </tr>
               </tbody>
