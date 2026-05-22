@@ -64,6 +64,7 @@ const OverviewTab = () => {
   const { companyItem } = useSelector((s) => s.company || { companyItem: {} });
   const p = purchaseOrderItem || {};
   const lines = p?.lines || [];
+  const sym = p?.currency_symbol || "₹";
 
   useEffect(() => {
     if (!companyItem?._id) dispatch(getCompanyDetails());
@@ -285,33 +286,33 @@ const OverviewTab = () => {
               <tbody>
                 <tr>
                   <td>{t("Subtotal")}</td>
-                  <td className="text-end">₹ {fmt(p?.subtotal)}</td>
+                  <td className="text-end">{sym} {fmt(p?.subtotal)}</td>
                 </tr>
                 {intraState ? (
                   <>
                     <tr>
                       <td>{t("CGST")}</td>
-                      <td className="text-end">₹ {fmt(p?.cgst_total)}</td>
+                      <td className="text-end">{sym} {fmt(p?.cgst_total)}</td>
                     </tr>
                     <tr>
                       <td>{t("SGST")}</td>
-                      <td className="text-end">₹ {fmt(p?.sgst_total)}</td>
+                      <td className="text-end">{sym} {fmt(p?.sgst_total)}</td>
                     </tr>
                   </>
                 ) : (
                   <tr>
                     <td>{t("IGST")}</td>
-                    <td className="text-end">₹ {fmt(p?.igst_total)}</td>
+                    <td className="text-end">{sym} {fmt(p?.igst_total)}</td>
                   </tr>
                 )}
                 <tr>
                   <td>{t("Round-off")}</td>
-                  <td className="text-end">₹ {fmt(p?.round_off)}</td>
+                  <td className="text-end">{sym} {fmt(p?.round_off)}</td>
                 </tr>
                 <tr className="border-top">
                   <td className="fw-bold">{t("Grand Total")}</td>
                   <td className="text-end fw-bold">
-                    ₹ {fmt(p?.grand_total)}
+                    {sym} {fmt(p?.grand_total)}
                   </td>
                 </tr>
               </tbody>

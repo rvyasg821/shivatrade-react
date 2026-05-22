@@ -527,6 +527,7 @@ const initPurchaseOrderItem = {
   vendor_address_id: "",
   customer_id: "",
   customer_name: "",
+  customer_address_id: "",
   quotation_id: "",
   quotation_voucher_no: "",
   pfi_id: "",
