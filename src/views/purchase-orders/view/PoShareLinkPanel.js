@@ -6,7 +6,7 @@ import { Fragment, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Input, InputGroup, Badge } from "reactstrap";
-import { Eye, Link2, RefreshCw, X, Copy } from "react-feather";
+import { Eye, Link2, RefreshCw, X, Copy, Download } from "react-feather";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +17,8 @@ import {
 } from "@src/views/purchase-orders/store";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 import { DetailPanel } from "@src/views/_shared/detail-page";
 
@@ -44,6 +46,37 @@ const PoShareLinkPanel = () => {
     window.open(`${appsRoot}/purchase-orders/preview/${id}`, "_blank");
   };
 
+  const [downloading, setDownloading] = useState(false);
+  const onDownloadPdf = async () => {
+    if (!id || downloading) return;
+    setDownloading(true);
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf`,
+        { responseType: "blob" }
+      );
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${p?.voucher_no || "purchase-order"}.pdf`;
+      const blobUrl = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const onCopy = (_text, result) => {
     if (result) {
       setCopied(true);
@@ -55,12 +88,25 @@ const PoShareLinkPanel = () => {
 
   return (
     <DetailPanel title={t("Share")}>
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="text-muted small mb-1">
-          {t("Preview the customer-facing layout in a new tab.")}
+          {t("Preview exactly what the vendor sees.")}
         </div>
         <Button color="secondary" outline onClick={openPreview} block>
-          <Eye size={14} className="me-50" /> {t("Preview")}
+          <Eye size={14} className="me-50" /> {t("Preview as client")}
+        </Button>
+      </div>
+
+      <div className="mb-2">
+        <Button
+          color="primary"
+          outline
+          onClick={onDownloadPdf}
+          disabled={downloading}
+          block
+        >
+          <Download size={14} className="me-50" />
+          {downloading ? t("Generating…") : t("Download PDF")}
         </Button>
       </div>
 
