@@ -591,16 +591,16 @@ const QuotationWizard = () => {
               </div>
             )}
 
+            <WizardHeader
+              steps={visibleSteps}
+              activeStep={activeStep}
+              visited={visited}
+              onStepClick={goTo}
+              isEdit={isEdit}
+            />
+
             <Card>
               <CardBody>
-                <WizardHeader
-                  steps={visibleSteps}
-                  activeStep={activeStep}
-                  visited={visited}
-                  onStepClick={goTo}
-                  isEdit={isEdit}
-                />
-
                 <div className="wizard-step-body">
                   {ActiveStepComponent ? (
                     <ActiveStepComponent {...stepCtx} />

@@ -29,7 +29,6 @@ const PfisPanel = ({ bare = false }) => {
   const { t } = useTranslation();
 
   const pfiStore = useSelector((s) => s.pfi);
-  const quotationStore = useSelector((s) => s.quotation);
   const [loaded, setLoaded] = useState(false);
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
@@ -37,9 +36,10 @@ const PfisPanel = ({ bare = false }) => {
   const pfiPerms = authUserItem?.role?.permissions?.pfi;
   const canAddPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
 
-  const q = quotationStore?.quotationItem || {};
-  const statusLower = (q?.status || "").toLowerCase();
-  const canCreate = statusLower === "approved" && canAddPfi;
+  // Show the "+ New PFI" button whenever the user has permission —
+  // status-based restrictions live on the server / dest form, not the
+  // entry point.
+  const canCreate = canAddPfi;
 
   useEffect(() => {
     if (!id) return;
@@ -83,16 +83,7 @@ const PfisPanel = ({ bare = false }) => {
               ? t("Create a PFI from this approved quotation.")
               : t("PFIs can be created once the quotation is approved.")
           }
-          cta={
-            canCreate
-              ? {
-                  label: t("Create PFI"),
-                  icon: PlusCircle,
-                  onClick: () =>
-                    navigate(`${appsRoot}/pfi/add?quotation_id=${id}`),
-                }
-              : null
-          }
+          cta={null}
         />
       ) : (
         <div className="table-responsive">

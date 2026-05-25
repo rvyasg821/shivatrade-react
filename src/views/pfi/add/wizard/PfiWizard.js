@@ -3,7 +3,7 @@
 // param / category filter, source-quotation banner.
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 import { Card, CardBody, Form, Spinner, Button } from "reactstrap";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
@@ -20,6 +20,7 @@ import {
   cleanPfiMessage,
   cleanPfiState,
 } from "../../store";
+import { getQuotation } from "@src/views/quotations/store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
 import {
   getExchangeRateOptions,
@@ -54,9 +55,15 @@ const PfiWizard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
+  const location = useLocation();
+  const sourceQuotationIdFromUrl = useMemo(() => {
+    const sp = new URLSearchParams(location.search || "");
+    return sp.get("quotation_id") || "";
+  }, [location.search]);
   const isEdit = !!id;
 
   const store = useSelector((s) => s.pfi);
+  const quotationStore = useSelector((s) => s.quotation);
   const customerStore = useSelector((s) => s.customer);
   const currencyStore = useSelector((s) => s.currency);
   const productStore = useSelector((s) => s.product);
@@ -282,6 +289,11 @@ const PfiWizard = () => {
     } else {
       dispatch(cleanPfiState());
       reset(initPfiItem);
+      // When started from "+ New PFI" on a Quotation detail page, fetch
+      // the source quotation so we can pre-fill the form below.
+      if (sourceQuotationIdFromUrl) {
+        dispatch(getQuotation(sourceQuotationIdFromUrl));
+      }
     }
     return () => {
       dispatch(cleanPfiMessage());
@@ -325,6 +337,48 @@ const PfiWizard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.pfiItem?._id]);
+
+  // Pre-fill from the source quotation when arriving via the
+  // "+ New PFI" button on the Quotation detail page. Runs once per
+  // fetched quotation so user edits are not clobbered on rerender.
+  useEffect(() => {
+    if (isEdit) return;
+    if (!sourceQuotationIdFromUrl) return;
+    const q = quotationStore?.quotationItem;
+    if (!q || q._id !== sourceQuotationIdFromUrl) return;
+    reset({
+      ...initPfiItem,
+      quotation_id: q._id,
+      quotation_voucher_no: q.voucher_no || "",
+      lead_id: q.lead_id || "",
+      customer_id: q.customer_id || "",
+      customer_address_id: q.customer_address_id || "",
+      currency_code: q.currency_code || "",
+      exchange_rate: String(Number(q.exchange_rate ?? 1)),
+      payment_terms: q.payment_terms || "",
+      delivery_terms: q.delivery_terms || "",
+      delivery_location: q.delivery_location || "",
+      notes_to_client: q.notes_to_client || "",
+      margin_pct: String(q.margin_pct ?? "0"),
+      pfi_date: new Date().toISOString().slice(0, 10),
+      lines: (q.lines || []).map((l) => ({
+        ...initPfiLineItem,
+        product_id: l.product_id || "",
+        vendor_id: l.vendor_id || "",
+        description: l.description || "",
+        qty: String(l.qty ?? ""),
+        unit: l.unit || "",
+        unit_price: String(l.unit_price ?? ""),
+        discount_pct: String(l.discount_pct ?? "0"),
+        tax_pct: String(l.tax_pct ?? "0"),
+        margin_pct: String(l.margin_pct ?? "0"),
+        product_rebates_snapshot: l.product_rebates_snapshot || [],
+        product_expenses_snapshot: l.product_expenses_snapshot || [],
+      })),
+    });
+    setVisited(new Set([0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotationStore?.quotationItem?._id, sourceQuotationIdFromUrl]);
 
   // Customer addresses.
   useEffect(() => {
@@ -717,16 +771,16 @@ const PfiWizard = () => {
               </div>
             )}
 
+            <WizardHeader
+              steps={visibleSteps}
+              activeStep={activeStep}
+              visited={visited}
+              onStepClick={goTo}
+              isEdit={isEdit}
+            />
+
             <Card>
               <CardBody>
-                <WizardHeader
-                  steps={visibleSteps}
-                  activeStep={activeStep}
-                  visited={visited}
-                  onStepClick={goTo}
-                  isEdit={isEdit}
-                />
-
                 <div className="wizard-step-body">
                   {ActiveStepComponent ? (
                     <ActiveStepComponent {...stepCtx} />
