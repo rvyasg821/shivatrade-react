@@ -8,7 +8,6 @@ import {
   getLead,
   createLead,
   updateLead,
-  convertLead,
   cleanLeadMessage,
 } from "../store";
 import { getCustomerDropdown, getCustomer } from "../../customers/store";
@@ -44,11 +43,9 @@ import DateInput from "@components/date-input";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { ArrowLeft, UserCheck, FileText, Briefcase, Target, MapPin } from "react-feather";
+import { ArrowLeft, FileText, Briefcase, Target, MapPin } from "react-feather";
 
 // ** Wizard scaffolding (shared with Customer / Quotation / PFI / PO wizards)
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -95,7 +92,6 @@ const LeadForm = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const mySwal = withReactContent(Swal);
 
   const store = useSelector((state) => state.lead);
   const customerStore = useSelector((state) => state.customer);
@@ -278,44 +274,6 @@ const LeadForm = () => {
     if (store?.error) Notification("Error", store.error, "warning");
   }, [store.actionFlag, store.success, store.error]);
 
-  const currentStatus = watch("status");
-  // Hide "Convert to Customer" when:
-  //   - status already won or lost (terminal states)
-  //   - lead is already linked to a customer (converted_customer_id from a
-  //     prior Won, OR customer_id auto-stamped when creating a quotation)
-  const isAlreadyConvertedOrLost =
-    currentStatus === "won" ||
-    currentStatus === "lost" ||
-    !!watch("converted_customer_id") ||
-    !!watch("customer_id");
-  // Allowed on every status except 'lost'. Multiple quotations per lead
-  // are intentional - don't gate by existing quotation count.
-  const canCreateQuotation = currentStatus !== "lost";
-
-  const handleConvert = () => {
-    const linkedCustomerId = watch("customer_id");
-    mySwal
-      .fire({
-        title: t("Convert this lead?"),
-        text: linkedCustomerId
-          ? t("Lead will be marked Won and linked to the existing customer.")
-          : t(
-              "We'll match by contact email; if no customer is found, a new one will be created."
-            ),
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, convert"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-secondary ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then((result) => {
-        if (result.isConfirmed) dispatch(convertLead(id));
-      });
-  };
-
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
     else dispatch(stopLoading());
@@ -452,27 +410,6 @@ const LeadForm = () => {
             {isEditMode ? t("Edit Lead") : t("Add Lead")}
           </h3>
           <div>
-            {isEditMode && canCreateQuotation && (
-              <Button
-                color="primary"
-                outline
-                className="me-1"
-                onClick={() =>
-                  navigate(`${appsRoot}/quotations/add?lead_id=${id}`)
-                }
-              >
-                <FileText size={14} /> {t("Create Quotation")}
-              </Button>
-            )}
-            {isEditMode && !isAlreadyConvertedOrLost && (
-              <Button
-                color="success"
-                className="me-1"
-                onClick={handleConvert}
-              >
-                <UserCheck size={14} /> {t("Convert to Customer")}
-              </Button>
-            )}
             <Button
               color="secondary"
               outline
