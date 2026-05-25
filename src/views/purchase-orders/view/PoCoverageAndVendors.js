@@ -100,49 +100,55 @@ export const PoCoveragePanel = ({ data }) => {
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <div className="text-muted small">
-          {t("Live qty roll-up across all POVs spawned from this PO.")}
-        </div>
-        {canCreatePov && (
-          <div>
-            {canCreate ? (
-              <Fragment>
-                <Button
-                  color="success"
-                  size="sm"
-                  onClick={() => setCreateOpen(true)}
-                  id="po-create-pov"
-                >
-                  <Plus size={14} className="me-50" /> {t("Create POV")}
-                </Button>
-                <UncontrolledTooltip target="po-create-pov" placement="top">
-                  {t(
-                    "Open a new POV against this PO to track vendor dispatch"
-                  )}
-                </UncontrolledTooltip>
-              </Fragment>
-            ) : (
-              <Fragment>
-                <Button
-                  color="success"
-                  size="sm"
-                  disabled
-                  id="po-create-pov-disabled"
-                >
-                  <Plus size={14} className="me-50" /> {t("Create POV")}
-                </Button>
-                <UncontrolledTooltip
-                  target="po-create-pov-disabled"
-                  placement="top"
-                >
-                  {disabledReason}
-                </UncontrolledTooltip>
-              </Fragment>
-            )}
+      {/* Subtitle + Create POV button hidden — PO+POV are always created
+          atomically from PFI, so manual POV creation is not part of the
+          normal flow. Restore by removing the `false &&` wrappers if a
+          recovery use-case (cancelled POV, vendor added later) needs it. */}
+      {false && (
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div className="text-muted small">
+            {t("Live qty roll-up across all POVs spawned from this PO.")}
           </div>
-        )}
-      </div>
+          {canCreatePov && (
+            <div>
+              {canCreate ? (
+                <Fragment>
+                  <Button
+                    color="success"
+                    size="sm"
+                    onClick={() => setCreateOpen(true)}
+                    id="po-create-pov"
+                  >
+                    <Plus size={14} className="me-50" /> {t("Create POV")}
+                  </Button>
+                  <UncontrolledTooltip target="po-create-pov" placement="top">
+                    {t(
+                      "Open a new POV against this PO to track vendor dispatch"
+                    )}
+                  </UncontrolledTooltip>
+                </Fragment>
+              ) : (
+                <Fragment>
+                  <Button
+                    color="success"
+                    size="sm"
+                    disabled
+                    id="po-create-pov-disabled"
+                  >
+                    <Plus size={14} className="me-50" /> {t("Create POV")}
+                  </Button>
+                  <UncontrolledTooltip
+                    target="po-create-pov-disabled"
+                    placement="top"
+                  >
+                    {disabledReason}
+                  </UncontrolledTooltip>
+                </Fragment>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading && !coverage ? (
         <div className="text-center py-3">
@@ -165,16 +171,10 @@ export const PoCoveragePanel = ({ data }) => {
                 {t("Ordered")}
               </th>
               <th style={{ width: 90 }} className="text-end">
-                {t("Covered")}
-              </th>
-              <th style={{ width: 90 }} className="text-end">
                 {t("Dispatched")}
               </th>
               <th style={{ width: 90 }} className="text-end">
                 {t("Received")}
-              </th>
-              <th style={{ width: 90 }} className="text-end text-warning">
-                {t("Lost")}
               </th>
               <th style={{ width: 90 }} className="text-end">
                 {t("Pending")}
@@ -199,16 +199,10 @@ export const PoCoveragePanel = ({ data }) => {
                   {num(l.ordered).toLocaleString()}
                 </td>
                 <td className="text-end">
-                  {num(l.covered).toLocaleString()}
-                </td>
-                <td className="text-end">
                   {num(l.dispatched).toLocaleString()}
                 </td>
                 <td className="text-end">
                   {num(l.received).toLocaleString()}
-                </td>
-                <td className="text-end text-warning">
-                  {num(l.lost) > 0 ? num(l.lost).toLocaleString() : "-"}
                 </td>
                 <td className="text-end fw-bold">
                   {num(l.pending).toLocaleString()}
@@ -225,16 +219,10 @@ export const PoCoveragePanel = ({ data }) => {
                 {num(coverage.totals.ordered).toLocaleString()}
               </td>
               <td className="text-end fw-bold">
-                {num(coverage.totals.covered).toLocaleString()}
-              </td>
-              <td className="text-end fw-bold">
                 {num(coverage.totals.dispatched).toLocaleString()}
               </td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.received).toLocaleString()}
-              </td>
-              <td className="text-end fw-bold text-warning">
-                {num(coverage.totals.lost).toLocaleString()}
               </td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.pending).toLocaleString()}
