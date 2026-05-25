@@ -256,16 +256,12 @@ export const PoVendorsPanel = ({ data }) => {
     return { ordered, dispatched, received };
   };
 
-  // POV amount = sum over POV lines of (ordered_qty / po_line.qty) ×
-  // po_line.line_total, converted to PO customer currency.
+  // POV amount = simple Σ(ordered_qty × unit_price) — no rebates /
+  // expenses / margin / GST applied. Shown in INR.
   const computeAmount = (lines = []) => {
     let inr = 0;
     for (const ln of lines) {
-      const poLine = poLineMap.get(ln.purchase_order_line_id);
-      if (!poLine) continue;
-      const poQty = num(poLine.qty);
-      if (!poQty) continue;
-      inr += (num(ln.ordered_qty) / poQty) * num(poLine.line_total);
+      inr += num(ln.ordered_qty) * num(ln.unit_price);
     }
     return inr;
   };
@@ -355,9 +351,7 @@ export const PoVendorsPanel = ({ data }) => {
                 </div>
               </td>
               <td className="text-end">{itemsCount}</td>
-              <td className="text-end fw-bold">
-                ₹ {fmtMoney(amount)}
-              </td>
+              <td className="text-end fw-bold">₹{fmtMoney(amount)}</td>
               <td className="text-center">
                 <Link
                   to={`${appsRoot}/po-vendors/view/${p._id}`}

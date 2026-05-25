@@ -128,12 +128,11 @@ const OverviewTab = () => {
               {t("No lines on this POV.")}
             </div>
           ) : (
-            <Table responsive bordered size="sm" className="align-middle mb-0">
+            <Table responsive bordered size="sm" className="align-top mb-0">
               <thead className="table-light">
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th style={{ minWidth: 200 }}>{t("Product")}</th>
-                  <th style={{ width: 80 }}>{t("HSN")}</th>
                   <th style={{ width: 70 }}>{t("Unit")}</th>
                   <th style={{ width: 90 }} className="text-end">
                     {t("Rate")}
@@ -168,7 +167,6 @@ const OverviewTab = () => {
                         <small className="text-muted">{l.product_code}</small>
                       )}
                     </td>
-                    <td>{l?.hsn_code || "-"}</td>
                     <td>{l?.unit || "-"}</td>
                     <td className="text-end">
                       {sym} {num(l?.unit_price).toLocaleString()}
