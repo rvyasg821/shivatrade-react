@@ -20,6 +20,8 @@ import {
 import { getVendorDropdown, getVendor } from "../../../vendors/store";
 import { getProductDropdown } from "../../../products/store";
 import { getCustomerDropdown, getCustomer } from "../../../customers/store";
+import { getExpenseDropdown } from "../../../expenses/store";
+import { getRebateDropdown } from "../../../rebates/store";
 import {
   getExchangeRateOptions,
   getCurrencyDropdown,
@@ -32,6 +34,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 
 import { appsRoot } from "@constant/defaultValues";
+import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import {
   initPurchaseOrderItem,
   initPurchaseOrderLineItem,
@@ -60,6 +63,8 @@ const PurchaseOrderWizard = () => {
   const customerStore = useSelector((s) => s.customer);
   const companyStore = useSelector((s) => s.company);
   const currencyStore = useSelector((s) => s.currency);
+  const expenseStore = useSelector((s) => s.expense);
+  const rebateStore = useSelector((s) => s.rebate);
 
   const [submitting, setSubmitting] = useState(false);
   const [vendorPriceList, setVendorPriceList] = useState([]);
@@ -197,6 +202,8 @@ const PurchaseOrderWizard = () => {
     dispatch(getExchangeRateOptions());
     dispatch(getCurrencyDropdown());
     dispatch(getCompanyDetails());
+    dispatch(getExpenseDropdown());
+    dispatch(getRebateDropdown());
     if (isEdit) {
       dispatch(getPurchaseOrder(id));
     } else {
@@ -393,6 +400,50 @@ const PurchaseOrderWizard = () => {
     return m;
   }, [vendorPriceList]);
 
+  // Full client-side product list — feeds the "Show all products"
+  // toggle inside the line-item modal.
+  const allProductOptions = useMemo(
+    () =>
+      (productStore?.productDropdown || []).map((p) => ({
+        value: p._id,
+        label: `${p.code ? p.code + " - " : ""}${p.name}`,
+        raw: p,
+      })),
+    [productStore?.productDropdown]
+  );
+
+  // Same product option shape but named differently — SalesDocLineItems
+  // consumes both `productOptions` and `allProductOptions`.
+  const productOptions = allProductOptions;
+
+  const expenseOptions = useMemo(
+    () =>
+      (expenseStore?.expenseDropdown || []).map((e) => ({
+        value: e._id,
+        label: e.name,
+        raw: e,
+      })),
+    [expenseStore?.expenseDropdown]
+  );
+
+  const rebateOptions = useMemo(
+    () =>
+      (rebateStore?.rebateDropdown || []).map((r) => ({
+        value: r._id,
+        label: r.name,
+        raw: r,
+      })),
+    [rebateStore?.rebateDropdown]
+  );
+
+  const liveExchangeRate = useWatch({ control, name: "exchange_rate" });
+  const exchangeRate = Number(liveExchangeRate) || 1;
+  const liveLines = useWatch({ control, name: "lines" }) || [];
+  const totals = useMemo(
+    () => computeDocTotals(liveLines, exchangeRate),
+    [liveLines, exchangeRate]
+  );
+
   const vendorProductOptions = useMemo(() => {
     const opts = [];
     for (const [pid] of priceByProduct) {
@@ -570,6 +621,14 @@ const PurchaseOrderWizard = () => {
     productById,
     priceByProduct,
     vendorProductOptions,
+    allProductOptions,
+    productOptions,
+    expenseOptions,
+    rebateOptions,
+    selectedCurrencyCode: liveCurrencyCode || "",
+    baseCurrencyCode: "INR",
+    exchangeRate,
+    totals,
     intraState,
     hasExistingPovs,
     sourcePfiVoucher: store?.purchaseOrderItem?.pfi_voucher_no,

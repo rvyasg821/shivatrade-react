@@ -45,7 +45,7 @@ import {
   PRODUCT_UOM_OPTIONS,
   UOM_INTEGER_ONLY,
 } from "@constant/options";
-import { currencySymbol } from "./_helpers";
+import { currencySymbol, computeLineCosting } from "./_helpers";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -86,6 +86,7 @@ const fmt = (v) =>
 const PoLineItems = ({
   isLocked,
   vendorProductOptions,
+  allProductOptions = [],
   productById,
   priceByProduct,
   intraState,
@@ -182,6 +183,9 @@ const PoLineItems = ({
   // browse-all (server-side AsyncSelect search) is the only sensible
   // mode — the legacy "vendor's price list" filter doesn't apply.
   const [browseAll, setBrowseAll] = useState(true);
+  // Toggles a full client-side Select of every product (the same UX PFI
+  // offers via "Show all products" next to the Product label).
+  const [showAllProducts, setShowAllProducts] = useState(false);
   const productSearchTimer = useRef(null);
 
   const confirmDelete = () =>
@@ -319,6 +323,10 @@ const PoLineItems = ({
     tax_pct: editingLine.tax_pct,
     intraState,
   });
+  // Full per-line breakdown (Gross → Disc → Taxable → Reb → Exp → Margin
+  // → GST → Line Total) — mirrors PFI's modal. Uses the line's
+  // rebate / expense / margin snapshots, always in INR.
+  const editingFullCosting = computeLineCosting(editingLine);
 
   // Vendor's list-price for the currently picked product, used to
   // render the "List price: ₹X" hint beneath the Rate input.
@@ -499,8 +507,9 @@ const PoLineItems = ({
         <Modal
           isOpen={modal.open}
           toggle={closeModal}
-          size="xl"
+          size="lg"
           backdrop="static"
+          style={{ maxWidth: 960 }}
         >
           <ModalHeader toggle={closeModal}>
             {modal.isNew
@@ -584,8 +593,26 @@ const PoLineItems = ({
                 {/* Product picker — vendor-list ↔ browse-all toggle */}
                 <Row>
                   <Col md="12" className="mb-2">
-                    <Label className="form-label">
-                      {t("Product")} <span className="text-danger">*</span>
+                    <Label className="form-label d-flex justify-content-between align-items-center">
+                      <span>
+                        {t("Product")} <span className="text-danger">*</span>
+                      </span>
+                      {browseAll && allProductOptions.length > 0 && (
+                        <small>
+                          <a
+                            href="#"
+                            className="text-decoration-none"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowAllProducts((s) => !s);
+                            }}
+                          >
+                            {showAllProducts
+                              ? t("Search instead")
+                              : t("Show all products")}
+                          </a>
+                        </small>
+                      )}
                     </Label>
                     <Controller
                       name={`lines.${editingIdx}.product_id`}
@@ -603,6 +630,27 @@ const PoLineItems = ({
                                   t("Selected product"),
                               }
                             : null;
+                          if (showAllProducts) {
+                            const fullSelected =
+                              allProductOptions.find(
+                                (o) => o.value === field.value
+                              ) || selected;
+                            return (
+                              <Select
+                                classNamePrefix="select"
+                                isSearchable
+                                isDisabled={isLocked}
+                                options={allProductOptions}
+                                value={fullSelected}
+                                onChange={(opt) =>
+                                  onPickFromAll(editingIdx, opt)
+                                }
+                                placeholder={t("Browse all products…")}
+                                menuPortalTarget={document.body}
+                                styles={portalStyles}
+                              />
+                            );
+                          }
                           return (
                             <AsyncSelect
                               classNamePrefix="select"
@@ -1018,10 +1066,9 @@ const PoLineItems = ({
                   </Col>
                 </Row>
 
-                {/* Costing breakdown — mirrors Quotation's modal layout
-                    (vertical list, label left / value right). Same math
-                    as the BE recompute. PO is INR-only so no converted-
-                    currency row. */}
+                {/* Costing breakdown — PFI-style, INR-only.
+                    Gross → − Disc → = Taxable → − Reb → + Exp → + Margin
+                    → + GST → Line Total. */}
                 <hr className="my-2" />
                 <Row>
                   <Col md="12">
@@ -1033,65 +1080,36 @@ const PoLineItems = ({
                         <span className="text-muted">
                           {t("Gross")}{" "}
                           <small>
-                            ({t("Qty")} × {t("Rate")})
+                            ({t("Qty")} × {t("Price")})
                           </small>
                         </span>
-                        <span>
-                          {sym} {fmt(editingCosting.gross)}
-                        </span>
+                        <span>₹{fmt(editingFullCosting.gross)}</span>
                       </li>
-                      {editingCosting.discount_amount > 0 && (
+                      {editingFullCosting.discountAmt > 0 && (
                         <li className="d-flex justify-content-between py-25">
                           <span className="text-muted">
                             − {t("Discount")} (
-                            {num(editingLine.discount_pct) || 0}%)
+                            {editingFullCosting.discountPct}%)
                           </span>
                           <span>
-                            {sym} {fmt(editingCosting.discount_amount)}
+                            ₹{fmt(editingFullCosting.discountAmt)}
                           </span>
                         </li>
                       )}
                       <li className="d-flex justify-content-between py-25">
                         <span className="text-muted">= {t("Taxable")}</span>
-                        <span>
-                          {sym} {fmt(editingCosting.taxable)}
-                        </span>
+                        <span>₹{fmt(editingFullCosting.taxable)}</span>
                       </li>
-                      {intraState ? (
-                        <Fragment>
-                          <li className="d-flex justify-content-between py-25">
-                            <span className="text-muted">
-                              + {t("CGST")} (
-                              {round2(num(editingLine.tax_pct) / 2)}%)
-                            </span>
-                            <span>
-                              {sym} {fmt(editingCosting.cgst)}
-                            </span>
-                          </li>
-                          <li className="d-flex justify-content-between py-25">
-                            <span className="text-muted">
-                              + {t("SGST")} (
-                              {round2(num(editingLine.tax_pct) / 2)}%)
-                            </span>
-                            <span>
-                              {sym} {fmt(editingCosting.sgst)}
-                            </span>
-                          </li>
-                        </Fragment>
-                      ) : (
-                        <li className="d-flex justify-content-between py-25">
-                          <span className="text-muted">
-                            + {t("IGST")} ({num(editingLine.tax_pct) || 0}%)
-                          </span>
-                          <span>
-                            {sym} {fmt(editingCosting.igst)}
-                          </span>
-                        </li>
-                      )}
+                      <li className="d-flex justify-content-between py-25">
+                        <span className="text-muted">
+                          + {t("GST")} ({num(editingLine.tax_pct) || 0}%)
+                        </span>
+                        <span>₹{fmt(editingFullCosting.gst)}</span>
+                      </li>
                       <li className="d-flex justify-content-between pt-50 mt-25 border-top fw-bold">
                         <span>{t("Line Total")}</span>
                         <span>
-                          {sym} {fmt(editingCosting.line_total)}
+                          ₹{fmt(editingFullCosting.lineTotal)}
                         </span>
                       </li>
                     </ul>
