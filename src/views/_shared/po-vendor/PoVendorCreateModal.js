@@ -364,7 +364,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
         {/* Lines */}
         <div className="d-flex justify-content-between align-items-center mb-1">
           <Label className="form-label mb-0">
-            {t("Per-line Cover Quantity")}
+            {t("Per-line Quantity")}
           </Label>
           {coverage && (
             <div>
@@ -424,7 +424,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
                   {t("Pending")}
                 </th>
                 <th style={{ width: 130 }} className="text-end">
-                  {t("Cover in this POV")}
+                  {t("Qty")}
                 </th>
               </tr>
             </thead>
@@ -486,7 +486,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
             <tfoot>
               <tr className="table-light">
                 <td colSpan="6" className="text-end fw-bold">
-                  {t("Total cover in this POV")}
+                  {t("Total qty")}
                 </td>
                 <td className="text-end fw-bold">
                   {totalCover.toLocaleString()}

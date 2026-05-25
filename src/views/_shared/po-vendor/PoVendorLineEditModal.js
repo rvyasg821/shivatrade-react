@@ -1,12 +1,8 @@
 // ── PoVendor Line Edit Modal ──────────────────────────────────────
-// Draft-only inline editor for POV line quantities. Lets the user
-// adjust per-PO-line cover quantity, remove a covered line (set qty
-// to 0), or add a line that was missed at create time.
-//
-// Uses the same coverage endpoint as Create modal but compensates
-// pending client-side by adding back THIS POV's existing ordered_qty
-// (so editing your own qty doesn't trip the over-shipment guard).
-// Backend's replaceLinesOnDraft() does the same exclusion server-side.
+// Draft-only modal showing this POV's PO lines. Quantities are locked
+// to the PO line's ordered qty (policy: POV = full ordered qty). The
+// modal still exists as a read-only confirmation view + a hook point
+// for future per-line tweaks if the policy changes.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +14,6 @@ import {
   Button,
   Table,
   Spinner,
-  Input,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "react-feather";
@@ -39,19 +34,8 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
 
   const [loading, setLoading] = useState(false);
   const [coverage, setCoverage] = useState(null);
-  // qty keyed by purchase_order_line_id
   const [qtyByPoLine, setQtyByPoLine] = useState({});
   const [submitting, setSubmitting] = useState(false);
-
-  // Existing POV lines indexed by purchase_order_line_id (for prefill +
-  // for computing "available" = coverage.pending + this_pov.ordered_qty).
-  const existingByPoLine = useMemo(() => {
-    const m = new Map();
-    for (const l of pov?.lines || []) {
-      m.set(l.purchase_order_line_id, l);
-    }
-    return m;
-  }, [pov?.lines]);
 
   useEffect(() => {
     if (!isOpen || !pov?.purchase_order_id) return;
@@ -68,22 +52,19 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
         if (!mounted) return;
         const data = resp?.data?.data;
         if (!data) {
-          Notification(
-            "Error",
-            t("Failed to load PO coverage."),
-            "warning"
-          );
+          Notification("Error", t("Failed to load PO coverage."), "warning");
           return;
         }
-        setCoverage(data);
+        // Restrict to lines belonging to THIS POV's vendor (BE enforces same).
+        const myVendorId = pov?.vendor_id;
+        const filteredLines = (data.lines || []).filter(
+          (l) => !myVendorId || !l.vendor_id || l.vendor_id === myVendorId
+        );
+        setCoverage({ ...data, lines: filteredLines });
 
-        // Pre-fill qty from existing POV lines; default 0 for un-covered.
         const seed = {};
-        for (const l of data.lines || []) {
-          const existing = existingByPoLine.get(l.purchase_order_line_id);
-          seed[l.purchase_order_line_id] = existing
-            ? String(num(existing.ordered_qty))
-            : "0";
+        for (const l of filteredLines) {
+          seed[l.purchase_order_line_id] = String(num(l.ordered));
         }
         setQtyByPoLine(seed);
       })
@@ -100,20 +81,7 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
     return () => {
       mounted = false;
     };
-  }, [isOpen, pov?.purchase_order_id, existingByPoLine, t]);
-
-  // For each PO line, available = coverage.pending + this_pov's existing
-  // ordered_qty (because pending already subtracted this POV).
-  const availableByPoLine = useMemo(() => {
-    const m = new Map();
-    if (!coverage) return m;
-    for (const l of coverage.lines || []) {
-      const existing = existingByPoLine.get(l.purchase_order_line_id);
-      const selfOrdered = existing ? num(existing.ordered_qty) : 0;
-      m.set(l.purchase_order_line_id, num(l.pending) + selfOrdered);
-    }
-    return m;
-  }, [coverage, existingByPoLine]);
+  }, [isOpen, pov?.purchase_order_id, pov?.vendor_id, t]);
 
   const totalCover = useMemo(() => {
     let s = 0;
@@ -123,44 +91,19 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
     return s;
   }, [coverage, qtyByPoLine]);
 
-  const setAll = (mode) => {
-    const next = {};
-    for (const l of coverage?.lines || []) {
-      const avail = availableByPoLine.get(l.purchase_order_line_id) || 0;
-      next[l.purchase_order_line_id] = mode === "max" ? String(avail) : "0";
-    }
-    setQtyByPoLine(next);
-  };
-
   const onSubmit = async () => {
     if (!coverage) return;
-    const lines = [];
-    for (const l of coverage.lines) {
-      const v = num(qtyByPoLine[l.purchase_order_line_id]);
-      const max = availableByPoLine.get(l.purchase_order_line_id) || 0;
-      if (v < 0 || v > max + 1e-6) {
-        Notification(
-          "Validation",
-          t(
-            `Line "${
-              l.product_name || l.purchase_order_line_id
-            }": qty must be 0–${max}.`
-          ),
-          "warning"
-        );
-        return;
-      }
-      if (v > 1e-6) {
-        lines.push({
-          purchase_order_line_id: l.purchase_order_line_id,
-          ordered_qty: String(v),
-        });
-      }
-    }
+    const lines = coverage.lines
+      .map((l) => ({
+        purchase_order_line_id: l.purchase_order_line_id,
+        ordered_qty: String(num(qtyByPoLine[l.purchase_order_line_id])),
+      }))
+      .filter((l) => num(l.ordered_qty) > 1e-6);
+
     if (!lines.length) {
       Notification(
         "Validation",
-        t("Set at least one line to a non-zero quantity."),
+        t("No lines available to save."),
         "warning"
       );
       return;
@@ -169,10 +112,7 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
     setSubmitting(true);
     try {
       await dispatch(
-        updatePoVendor({
-          id: pov._id,
-          data: { lines },
-        })
+        updatePoVendor({ id: pov._id, data: { lines } })
       ).unwrap();
       toggle?.();
     } catch (err) {
@@ -188,32 +128,6 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
         {t("Edit Lines")} · <code>{pov?.voucher_no}</code>
       </ModalHeader>
       <ModalBody>
-        <p className="small text-muted mb-2">
-          {t(
-            "Adjust per-line cover quantity. Set 0 to remove a covered line. To add a new line, raise its qty above 0. Available = PO pending + your existing reservation."
-          )}
-        </p>
-
-        <div className="d-flex justify-content-end mb-1">
-          <Button
-            size="sm"
-            color="secondary"
-            outline
-            className="me-50"
-            onClick={() => setAll("max")}
-          >
-            {t("Set all to max")}
-          </Button>
-          <Button
-            size="sm"
-            color="secondary"
-            outline
-            onClick={() => setAll("zero")}
-          >
-            {t("Set all to 0")}
-          </Button>
-        </div>
-
         {loading ? (
           <div className="text-center py-3">
             <Spinner /> <span className="ms-2">{t("Loading coverage…")}</span>
@@ -234,64 +148,34 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
                   {t("Ordered")}
                 </th>
                 <th style={{ width: 90 }} className="text-end">
-                  {t("Available")}
-                </th>
-                <th style={{ width: 130 }} className="text-end">
-                  {t("Cover qty")}
+                  {t("Qty")}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {coverage.lines.map((l, idx) => {
-                const max = availableByPoLine.get(l.purchase_order_line_id) || 0;
-                const cur = num(qtyByPoLine[l.purchase_order_line_id]);
-                const tooHigh = cur > max + 1e-6;
-                const isMax = max <= 1e-6;
-                return (
-                  <tr
-                    key={l.purchase_order_line_id}
-                    style={isMax ? { opacity: 0.4 } : {}}
-                  >
-                    <td>{idx + 1}</td>
-                    <td>
-                      <div className="fw-semibold">{l?.product_name || "-"}</div>
-                      {l?.product_code && (
-                        <small className="text-muted">{l.product_code}</small>
-                      )}
-                    </td>
-                    <td>{l?.unit || "-"}</td>
-                    <td className="text-end">
-                      {num(l.ordered).toLocaleString()}
-                    </td>
-                    <td className="text-end fw-semibold">
-                      {max.toLocaleString()}
-                    </td>
-                    <td>
-                      <Input
-                        type="number"
-                        step="0.0001"
-                        min="0"
-                        max={max}
-                        bsSize="sm"
-                        disabled={isMax}
-                        invalid={tooHigh}
-                        value={qtyByPoLine[l.purchase_order_line_id] ?? ""}
-                        onChange={(e) =>
-                          setQtyByPoLine((s) => ({
-                            ...s,
-                            [l.purchase_order_line_id]: e.target.value,
-                          }))
-                        }
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
+              {coverage.lines.map((l, idx) => (
+                <tr key={l.purchase_order_line_id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <div className="fw-semibold">{l?.product_name || "-"}</div>
+                    {l?.product_code && (
+                      <small className="text-muted">{l.product_code}</small>
+                    )}
+                  </td>
+                  <td>{l?.unit || "-"}</td>
+                  <td className="text-end">
+                    {num(l.ordered).toLocaleString()}
+                  </td>
+                  <td className="text-end">
+                    {num(qtyByPoLine[l.purchase_order_line_id]).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
             </tbody>
             <tfoot>
               <tr className="table-light">
-                <td colSpan="5" className="text-end fw-bold">
-                  {t("Total cover")}
+                <td colSpan="4" className="text-end fw-bold">
+                  {t("Total qty")}
                 </td>
                 <td className="text-end fw-bold">
                   {totalCover.toLocaleString()}
