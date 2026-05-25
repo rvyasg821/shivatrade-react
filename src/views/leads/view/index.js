@@ -229,7 +229,7 @@ const ViewLead = () => {
       icon: UserPlus,
       label: t("Convert to Customer"),
       onClick: onConvert,
-      hidden: !isWon || isConverted || !canConvertCustomer,
+      hidden: !isWon || !canConvertCustomer,
       outline: false,
       color: "success",
     },

@@ -63,12 +63,13 @@ export const API_ENDPOINTS = {
     delete: `/tenant/{tenantId}/users/{userId}`,
   },
   customers: {
-    list: `/modules/customers`,
-    get: `/modules/customers`,
-    create: `/modules/customers/create`,
-    update: `/modules/customers/update`,
-    delete: `/modules/customers`,
-    updateMe: `/modules/customers/update`,
+    list: `/admin/customer/list`,
+    get: `/admin/customer/get`, // append /:id
+    create: `/admin/customer/create`,
+    update: `/admin/customer/update`, // append /:id
+    delete: `/admin/customer/delete`, // append /:id
+    dropdown: `/admin/customer/dropdown`,
+    updateMe: `/admin/customer/update`,
     existance: `/modules/customers/isUserExists`,
     updateprofile: `/modules/customers/update-profile`,
     getallbookings: `/modules/booking-management/booking/customer`,
