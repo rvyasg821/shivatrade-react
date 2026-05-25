@@ -192,7 +192,7 @@ const PURCHASE_ORDER_STATUS_OPTIONS = [
 
 const PURCHASE_ORDER_STATUS_BADGE_COLOR = {
   draft: "secondary",
-  confirmed: "info",
+  confirmed: "primary",
   in_process: "warning",
   completed: "success",
   cancelled: "danger",

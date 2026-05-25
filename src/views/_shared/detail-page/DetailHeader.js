@@ -114,7 +114,9 @@ const DetailHeader = ({
               {badge ? (
                 <Badge
                   color={`light-${badge.color || "secondary"}`}
-                  className="text-capitalize"
+                  className={`badge-light-${
+                    badge.color || "secondary"
+                  } text-capitalize`}
                   style={{
                     fontSize: "0.85rem",
                     padding: "0.45rem 0.75rem",
