@@ -14,6 +14,7 @@ import { Paperclip, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { assessmentReportPdfUrl } from "@constant/defaultValues";
+import { formatDateTime } from "@src/utility/dateFormat";
 
 // Backend stores `attachment_url` as a relative path (new rows:
 // "files/tracking/x.pdf"; legacy rows: "/assets/files/tracking/x.pdf").
@@ -29,15 +30,7 @@ const resolveAttachmentHref = (rel) => {
   return `${base}/${path}`;
 };
 
-const fmtWhen = (iso) => {
-  if (!iso) return "-";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return String(iso).slice(0, 16);
-  }
-};
+const fmtWhen = (iso) => (iso ? formatDateTime(iso) : "-");
 
 const TrackingTimeline = ({
   events = [],
