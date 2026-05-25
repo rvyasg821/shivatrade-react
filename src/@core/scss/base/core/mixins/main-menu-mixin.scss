@@ -43,13 +43,13 @@
       display: inline-block;
       position: absolute;
       right: 20px;
-      top: 14px;
-      transform: rotate(0deg);
+      top: 50%;
+      transform: translateY(-50%) rotate(0deg);
       transition: all 0.2s ease-out;
     }
     &.open:not(.menu-item-closing) {
       > a:after {
-        transform: rotate(90deg);
+        transform: translateY(-50%) rotate(0deg);
       }
     }
   }
