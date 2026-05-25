@@ -302,7 +302,9 @@ const ViewQuotation = () => {
               <PublicLinkPanel />
               <DetailPanel title={t("Details")}>
                 <DetailFieldList items={moneyFields} />
-                <DetailFieldList title={t("Terms")} items={termsFields} />
+                {termsFields.some((f) => f.value) && (
+                  <DetailFieldList title={t("Terms")} items={termsFields} />
+                )}
                 {(q?.notes_to_client || q?.internal_notes) && (
                   <div className="mt-1 pt-1 border-top">
                     <div className="text-muted small mb-50">
