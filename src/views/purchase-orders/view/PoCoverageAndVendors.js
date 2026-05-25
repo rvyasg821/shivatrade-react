@@ -23,7 +23,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
-import PoVendorCreateModal from "@src/views/_shared/po-vendor/PoVendorCreateModal";
+import PoVendorRecoverModal from "@src/views/_shared/po-vendor/PoVendorRecoverModal";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 
@@ -100,53 +100,29 @@ export const PoCoveragePanel = ({ data }) => {
 
   return (
     <Fragment>
-      {/* Subtitle + Create POV button hidden — PO+POV are always created
-          atomically from PFI, so manual POV creation is not part of the
-          normal flow. Restore by removing the `false &&` wrappers if a
-          recovery use-case (cancelled POV, vendor added later) needs it. */}
-      {false && (
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <div className="text-muted small">
-            {t("Live qty roll-up across all POVs spawned from this PO.")}
-          </div>
-          {canCreatePov && (
-            <div>
-              {canCreate ? (
-                <Fragment>
-                  <Button
-                    color="success"
-                    size="sm"
-                    onClick={() => setCreateOpen(true)}
-                    id="po-create-pov"
-                  >
-                    <Plus size={14} className="me-50" /> {t("Create POV")}
-                  </Button>
-                  <UncontrolledTooltip target="po-create-pov" placement="top">
-                    {t(
-                      "Open a new POV against this PO to track vendor dispatch"
-                    )}
-                  </UncontrolledTooltip>
-                </Fragment>
-              ) : (
-                <Fragment>
-                  <Button
-                    color="success"
-                    size="sm"
-                    disabled
-                    id="po-create-pov-disabled"
-                  >
-                    <Plus size={14} className="me-50" /> {t("Create POV")}
-                  </Button>
-                  <UncontrolledTooltip
-                    target="po-create-pov-disabled"
-                    placement="top"
-                  >
-                    {disabledReason}
-                  </UncontrolledTooltip>
-                </Fragment>
-              )}
-            </div>
-          )}
+      {/* Create POV — recovery only.
+          PO+POV are normally created atomically from PFI, so this button
+          stays hidden in the happy path (every PO line already has an
+          active POV → coverage.has_pending = false).
+          It surfaces automatically when has_pending = true — i.e. after a
+          POV cancel frees up its lines, or a new vendor line was added to
+          the PO post-creation. The Create POV modal filters by vendor and
+          only shows uncovered lines, so the recovery flow is clean. */}
+      {canCreatePov && canCreate && (
+        <div className="d-flex justify-content-end mb-2">
+          <Button
+            color="success"
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+            id="po-create-pov"
+          >
+            <Plus size={14} className="me-50" /> {t("Create POV")}
+          </Button>
+          <UncontrolledTooltip target="po-create-pov" placement="top">
+            {t(
+              "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
+            )}
+          </UncontrolledTooltip>
         </div>
       )}
 
@@ -232,13 +208,14 @@ export const PoCoveragePanel = ({ data }) => {
         </Table>
       )}
 
-      <PoVendorCreateModal
+      <PoVendorRecoverModal
         isOpen={createOpen}
         toggle={() => {
           setCreateOpen((s) => !s);
           if (createOpen) reload();
         }}
         purchaseOrder={po}
+        onCreated={() => reload()}
       />
     </Fragment>
   );

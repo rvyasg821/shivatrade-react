@@ -37,7 +37,9 @@ const TrackingTab = () => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
-  const { poVendorItem } = useSelector((s) => s.poVendor);
+  const { poVendorItem, actionFlag: povActionFlag } = useSelector(
+    (s) => s.poVendor
+  );
   const trackingStore = useSelector((s) => s.trackingEvent);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
@@ -50,6 +52,22 @@ const TrackingTab = () => {
   useEffect(() => {
     if (id) dispatch(getTrackingEventsByPov(id));
   }, [id, dispatch]);
+
+  // Refresh timeline after any POV state transition that emits a
+  // system event (dispatch / receive / cancel / update). Without this,
+  // the timeline shows stale data if the user is already on this tab
+  // when they click the action button.
+  useEffect(() => {
+    if (!id) return;
+    if (
+      povActionFlag === "POV_DISPATCHED" ||
+      povActionFlag === "POV_CLOSED" ||
+      povActionFlag === "POV_CANCELLED" ||
+      povActionFlag === "POV_UPDT"
+    ) {
+      dispatch(getTrackingEventsByPov(id));
+    }
+  }, [povActionFlag, id, dispatch]);
 
   // Permission gates.
   const isAdmin = isAdminUser(authUserItem);
