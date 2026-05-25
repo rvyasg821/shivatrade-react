@@ -57,6 +57,7 @@ const TrackingTimeline = ({
     <ul className="timeline ms-50">
       {events.map((e) => {
         const retracted = !!e.soft_delete;
+        const isSystem = !!e.is_system;
         const bodyStyle = retracted
           ? { textDecoration: "line-through", opacity: 0.6 }
           : undefined;
@@ -72,6 +73,8 @@ const TrackingTimeline = ({
               className={`timeline-point timeline-point-indicator ${
                 retracted
                   ? "timeline-point-secondary"
+                  : isSystem
+                  ? "timeline-point-info"
                   : e.is_post_closure
                   ? "timeline-point-warning"
                   : ""
@@ -81,6 +84,11 @@ const TrackingTimeline = ({
               <div className="d-flex justify-content-between flex-wrap mb-50">
                 <h6 className="mb-0" style={bodyStyle}>
                   {e.event_type_label || e.event_type || t("Event")}
+                  {isSystem && !retracted && (
+                    <Badge color="light-info" className="ms-50">
+                      {t("System")}
+                    </Badge>
+                  )}
                   {e.is_post_closure && !retracted && (
                     <Badge color="light-warning" className="ms-50">
                       {t("Post-closure")}
@@ -96,7 +104,7 @@ const TrackingTimeline = ({
                   <span className="text-muted small" style={bodyStyle}>
                     {fmtWhen(e.event_at)}
                   </span>
-                  {!retracted && onRetract ? (
+                  {!retracted && !isSystem && onRetract ? (
                     <Fragment>
                       <Trash2
                         size={14}
