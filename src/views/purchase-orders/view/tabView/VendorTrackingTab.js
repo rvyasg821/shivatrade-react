@@ -177,16 +177,10 @@ const VendorTrackingTab = () => {
                     {t("Ordered")}
                   </th>
                   <th style={{ width: 90 }} className="text-end">
-                    {t("Covered")}
-                  </th>
-                  <th style={{ width: 90 }} className="text-end">
                     {t("Dispatched")}
                   </th>
                   <th style={{ width: 90 }} className="text-end">
                     {t("Received")}
-                  </th>
-                  <th style={{ width: 90 }} className="text-end text-warning">
-                    {t("Lost")}
                   </th>
                   <th style={{ width: 90 }} className="text-end">
                     {t("Pending")}
@@ -213,16 +207,10 @@ const VendorTrackingTab = () => {
                       {num(l.ordered).toLocaleString()}
                     </td>
                     <td className="text-end">
-                      {num(l.covered).toLocaleString()}
-                    </td>
-                    <td className="text-end">
                       {num(l.dispatched).toLocaleString()}
                     </td>
                     <td className="text-end">
                       {num(l.received).toLocaleString()}
-                    </td>
-                    <td className="text-end text-warning">
-                      {num(l.lost) > 0 ? num(l.lost).toLocaleString() : "-"}
                     </td>
                     <td className="text-end fw-bold">
                       {num(l.pending).toLocaleString()}
@@ -239,16 +227,10 @@ const VendorTrackingTab = () => {
                     {num(coverage.totals.ordered).toLocaleString()}
                   </td>
                   <td className="text-end fw-bold">
-                    {num(coverage.totals.covered).toLocaleString()}
-                  </td>
-                  <td className="text-end fw-bold">
                     {num(coverage.totals.dispatched).toLocaleString()}
                   </td>
                   <td className="text-end fw-bold">
                     {num(coverage.totals.received).toLocaleString()}
-                  </td>
-                  <td className="text-end fw-bold text-warning">
-                    {num(coverage.totals.lost).toLocaleString()}
                   </td>
                   <td className="text-end fw-bold">
                     {num(coverage.totals.pending).toLocaleString()}
