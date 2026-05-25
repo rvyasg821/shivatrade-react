@@ -1,6 +1,10 @@
 // Overview tab — line items table with the four qty columns + derived
 // short/undispatched. In draft status, exposes an "Edit Lines" button
 // that opens PoVendorLineEditModal to adjust per-line cover qty.
+// NOTE: Edit Lines button is currently hidden — qty is locked to PO
+// ordered qty by policy, so the modal would be read-only. Kept around
+// in case the policy reverses; flip `canEditLines && false` back to
+// `canEditLines` to restore.
 
 import { Fragment, useState } from "react";
 import { useSelector } from "react-redux";
@@ -106,7 +110,9 @@ const OverviewTab = () => {
         <CardBody>
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h4 className="mb-0">{t("Line Items")}</h4>
-            {canEditLines && (
+            {/* Edit Lines hidden — qty is locked to PO ordered qty.
+                Restore by removing the `&& false` below. */}
+            {canEditLines && false && (
               <Button
                 color="primary"
                 outline
