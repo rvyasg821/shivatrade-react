@@ -77,44 +77,11 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
     return { ordered, dispatched };
   }, [lines, qtyByLine]);
 
-  const setQtyAll = (mode) => {
-    const next = {};
-    for (const l of lines) {
-      next[l._id] = mode === "full" ? String(num(l.ordered_qty)) : "0";
-    }
-    setQtyByLine(next);
-  };
-
   const onSubmit = async () => {
     if (!dispatchDate) {
       Notification(
         "Validation",
         t("Dispatch date is required."),
-        "warning"
-      );
-      return;
-    }
-    // Client-side bound check: 0 ≤ dispatched ≤ ordered
-    for (const l of lines) {
-      const v = num(qtyByLine[l._id]);
-      const max = num(l.ordered_qty);
-      if (v < 0 || v > max + 1e-6) {
-        Notification(
-          "Validation",
-          t(
-            `Line "${
-              l.product_name || l._id
-            }": dispatched_qty must be 0–${max}.`
-          ),
-          "warning"
-        );
-        return;
-      }
-    }
-    if (totals.dispatched <= 0) {
-      Notification(
-        "Validation",
-        t("Set at least one line to a non-zero dispatched quantity."),
         "warning"
       );
       return;
@@ -257,27 +224,24 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l, idx) => {
-              const max = num(l.ordered_qty);
-              const cur = num(qtyByLine[l._id]);
-              const tooHigh = cur > max + 1e-6;
-              return (
-                <tr key={l._id}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <div className="fw-semibold">{l?.product_name || "-"}</div>
-                    {l?.product_code && (
-                      <small className="text-muted">{l.product_code}</small>
-                    )}
-                  </td>
-                  <td>{l?.unit || "-"}</td>
-                  <td className="text-end">{max.toLocaleString()}</td>
-                  <td className="text-end">
-                    {num(qtyByLine[l._id]).toLocaleString()}
-                  </td>
-                </tr>
-              );
-            })}
+            {lines.map((l, idx) => (
+              <tr key={l._id}>
+                <td>{idx + 1}</td>
+                <td>
+                  <div className="fw-semibold">{l?.product_name || "-"}</div>
+                  {l?.product_code && (
+                    <small className="text-muted">{l.product_code}</small>
+                  )}
+                </td>
+                <td>{l?.unit || "-"}</td>
+                <td className="text-end">
+                  {num(l.ordered_qty).toLocaleString()}
+                </td>
+                <td className="text-end">
+                  {num(qtyByLine[l._id]).toLocaleString()}
+                </td>
+              </tr>
+            ))}
           </tbody>
           <tfoot>
             <tr className="table-light">

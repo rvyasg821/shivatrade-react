@@ -248,10 +248,23 @@ const TRACKING_EVENT_TYPE_OPTIONS = [
   { value: "other", label: "Other (free text)" },
 ];
 
-const TRACKING_EVENT_TYPE_LABEL = TRACKING_EVENT_TYPE_OPTIONS.reduce(
-  (acc, o) => ((acc[o.value] = o.label), acc),
-  {}
-);
+// System-emitted lifecycle event types (BE: SYSTEM_TRACKING_EVENT_TYPES).
+// Excluded from the Add Event dropdown but still need labels in the timeline.
+const SYSTEM_TRACKING_EVENT_LABELS = {
+  pov_created: "POV Created",
+  pov_dispatched: "POV Dispatched",
+  pov_received: "POV Received",
+  pov_cancelled: "POV Cancelled",
+  pov_updated: "POV Updated",
+};
+
+const TRACKING_EVENT_TYPE_LABEL = {
+  ...TRACKING_EVENT_TYPE_OPTIONS.reduce(
+    (acc, o) => ((acc[o.value] = o.label), acc),
+    {}
+  ),
+  ...SYSTEM_TRACKING_EVENT_LABELS,
+};
 
 /**
  * ISO 4217 codes available as exchange-rate targets on the Currency module.
