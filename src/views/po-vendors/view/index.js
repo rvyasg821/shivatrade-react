@@ -40,9 +40,11 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
+  DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
 import PoVendorTabView from "./tabView";
+import PoVendorShareLinkPanel from "./PoVendorShareLinkPanel";
 import PoVendorDispatchModal from "@src/views/_shared/po-vendor/PoVendorDispatchModal";
 import PoVendorReceiveModal from "@src/views/_shared/po-vendor/PoVendorReceiveModal";
 
@@ -333,7 +335,11 @@ const ViewPoVendor = () => {
 
         <DetailKpiStrip items={kpiItems} />
 
-        <PoVendorTabView />
+        <DetailTwoPanel
+          ratio="9-3"
+          left={<PoVendorTabView />}
+          right={<PoVendorShareLinkPanel />}
+        />
       </div>
 
       <PoVendorDispatchModal
