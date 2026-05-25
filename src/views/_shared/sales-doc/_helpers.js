@@ -35,12 +35,13 @@ export const fmt = (n) =>
  * recompute() exactly. Used by the line-item modal breakdown, the Step 2
  * table, and the Step 3 review table so all three always agree.
  *
- * Flow (matches Development Plan p.24 costing formula):
- *   Gross → − Discount → = Taxable
- *   → + Expenses → − Rebates
- *   → + Margin (on taxable+exp−reb)
- *   → = Net Total
- *   → + GST (on Net Total)
+ * Flow (sequential — each step feeds the next):
+ *   Gross (qty × price)
+ *   → − Discount      = Taxable
+ *   → − Rebates       (% on Taxable, fixed amounts as-is)
+ *   → + Expenses      (% on the post-rebate balance, fixed amounts as-is)
+ *   → + Margin        (% on the post-expense balance)
+ *   → + GST           (% on the post-margin balance)
  *   → Line Total
  * Every component is round2()'d; lineTotal sums the rounded parts.
  */
@@ -53,6 +54,7 @@ export const computeLineCosting = (line) => {
   const discountAmt = round2((gross * disc) / 100);
   const taxable = round2(gross - discountAmt);
 
+  // Rebates apply directly to Taxable (% of Taxable).
   let rebatesPctAmt = 0;
   let rebatesFixedAmt = 0;
   let rebatesPctRate = 0;
@@ -66,25 +68,28 @@ export const computeLineCosting = (line) => {
   rebatesPctAmt = round2(rebatesPctAmt);
   rebatesFixedAmt = round2(rebatesFixedAmt);
   const rebates = round2(rebatesPctAmt + rebatesFixedAmt);
+  const afterRebates = round2(taxable - rebates);
 
+  // Expenses % apply on the post-rebate balance — not on Taxable.
   let expensesPctAmt = 0;
   let expensesFixedAmt = 0;
   let expensesPctRate = 0;
   for (const e of l.product_expenses_snapshot || []) {
     if (e.type === "percent") {
       expensesPctRate += num(e.value);
-      expensesPctAmt += (taxable * num(e.value)) / 100;
+      expensesPctAmt += (afterRebates * num(e.value)) / 100;
     } else expensesFixedAmt += num(e.value);
   }
   expensesPctAmt = round2(expensesPctAmt);
   expensesFixedAmt = round2(expensesFixedAmt);
   const expenses = round2(expensesPctAmt + expensesFixedAmt);
+  const afterExpenses = round2(afterRebates + expenses);
 
+  // Margin % applies on the post-expense balance.
   const marginPct = num(l.margin_pct);
-  const margin = round2(((taxable + expenses - rebates) * marginPct) / 100);
-  // Net Total per spec (p.24): (Price + Expenses − Rebates) + Margin.
-  const netTotal = round2(taxable + expenses - rebates + margin);
-  // GST is applied on the Net Total (NOT just taxable).
+  const margin = round2((afterExpenses * marginPct) / 100);
+  const netTotal = round2(afterExpenses + margin);
+  // GST is applied on the post-margin balance.
   const gst = round2((netTotal * num(l.tax_pct)) / 100);
   const lineTotal = round2(netTotal + gst);
 
@@ -142,6 +147,7 @@ export const computeDocTotals = (lines, exchangeRate) => {
     discount_total += lineGross - lineNet;
     subtotal += lineNet;
 
+    // Rebates: % on Taxable, fixed as-is.
     let lineProdReb = 0;
     let lineProdExp = 0;
     for (const r of l?.product_rebates_snapshot || []) {
@@ -154,9 +160,11 @@ export const computeDocTotals = (lines, exchangeRate) => {
         lineProdReb += amt;
       }
     }
+    const lineAfterRebates = lineNet - lineProdReb;
+    // Expenses: % on post-rebate balance, fixed as-is.
     for (const e of l?.product_expenses_snapshot || []) {
       if (e.type === "percent") {
-        const amt = (lineNet * num(e.value)) / 100;
+        const amt = (lineAfterRebates * num(e.value)) / 100;
         expenses_pct_total += amt;
         lineProdExp += amt;
       } else {
@@ -167,17 +175,18 @@ export const computeDocTotals = (lines, exchangeRate) => {
     product_rebates_total += lineProdReb;
     product_expenses_total += lineProdExp;
 
+    // Margin: % on post-expense balance.
+    const lineAfterExpenses = lineAfterRebates + lineProdExp;
     const lineMarginPct = num(l?.margin_pct);
-    const lineMargin =
-      (lineNet + lineProdExp - lineProdReb) * (lineMarginPct / 100);
+    const lineMargin = lineAfterExpenses * (lineMarginPct / 100);
     line_margin_total += lineMargin;
     if (lineNet > 0) {
       marginByRate[lineMarginPct] =
         (marginByRate[lineMarginPct] || 0) + lineMargin;
     }
 
-    // GST is on Net Total per spec (p.24): (Price + Exp − Reb) + Margin.
-    const lineNetTotal = lineNet + lineProdExp - lineProdReb + lineMargin;
+    // GST on post-margin balance.
+    const lineNetTotal = lineAfterExpenses + lineMargin;
     const lineTax = lineNetTotal * (taxPct / 100);
     tax_total += lineTax;
     if (lineNet > 0) {
@@ -228,10 +237,10 @@ export const computeDocTotals = (lines, exchangeRate) => {
     grand_inr_raw,
     round_off,
     grand_inr,
-    // Use the unrounded INR for foreign-currency conversion so the
-    // costing card's Grand Total matches the per-line totals (which also
-    // use the raw line_total × rate). Round-off only applies to INR.
-    grand_currency: grand_inr_raw * rate,
+    // Convert from the ROUNDED INR so the costing card's Grand Total
+    // matches the header KPI / stored grand_total, which the backend
+    // also derives from Math.round(grand_inr_raw) × rate.
+    grand_currency: grand_inr * rate,
     rate,
   };
 };

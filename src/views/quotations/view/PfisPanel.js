@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Button, UncontrolledTooltip, Badge } from "reactstrap";
-import { Edit, PlusCircle, FileText } from "react-feather";
+import { Eye, PlusCircle, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPfiList, cleanPfiMessage } from "@src/views/pfi/store";
@@ -96,8 +96,8 @@ const PfisPanel = ({ bare = false }) => {
         />
       ) : (
         <div className="table-responsive">
-          <Table size="sm" className="mb-0">
-            <thead>
+          <Table bordered size="sm" className="align-middle mb-0">
+            <thead className="table-light">
               <tr>
                 <th>{t("Date")}</th>
                 <th>{t("PFI #")}</th>
@@ -135,13 +135,13 @@ const PfisPanel = ({ bare = false }) => {
                         to={`${appsRoot}/pfi/view/${row?._id}`}
                         id={`qt-pfi-open-${row?._id}`}
                       >
-                        <Edit size={16} />
+                        <Eye size={18} />
                       </Link>
                       <UncontrolledTooltip
                         placement="top"
                         target={`qt-pfi-open-${row?._id}`}
                       >
-                        {t("Open")}
+                        {t("View")}
                       </UncontrolledTooltip>
                     </td>
                   </tr>

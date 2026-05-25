@@ -170,11 +170,6 @@ const ImportModal = ({ isOpen, toggle, onSuccess, vendorId }) => {
                 </li>
                 <li>
                   {t(
-                    "The product must belong to the vendor (be in one of the vendor's categories) — otherwise the row is skipped",
-                  )}
-                </li>
-                <li>
-                  {t(
                     "Currency: blank or unknown code falls back to your company's default currency",
                   )}
                 </li>
