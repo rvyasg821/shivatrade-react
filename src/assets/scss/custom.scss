@@ -8927,3 +8927,19 @@ span.doc-badge-gray,
 // ─────────────────────────────────────────────────────────────────────
 // MOBILE (<1200px): inline accordion in drawer overlay (unchanged)
 // ─────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────
+// Group-arrow lock: keep the chevron pinned to the right end, vertically
+// centred, with no rotation or transition. Submenus open as a fly-out
+// to the right, so the arrow must never animate. Uses high specificity
+// to defeat the Vuexy mixin defaults.
+// ─────────────────────────────────────────────────────────────────────
+.vertical-layout .main-menu .navigation li.has-sub > a:after,
+.vertical-layout .main-menu .navigation li.has-sub.open:not(.menu-item-closing) > a:after {
+  right: 20px !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  transition: none !important;
+  margin: 0 !important;
+}
