@@ -2,7 +2,10 @@ import { Fragment, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getQuotation } from "@src/views/quotations/store";
+import { createPfiFromQuotation } from "@src/views/pfi/store";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 import {
   Card,
   CardBody,
@@ -23,6 +26,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import Avatar from "@components/avatar";
+import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
@@ -57,9 +61,47 @@ const QuotationInfoCard = () => {
   const isAdmin = isAdminUser(authUserItem);
   const quotationPerms = authUserItem?.role?.permissions?.quotations;
   const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
   const canEdit =
     isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
   const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
+  const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
+
+  const mySwal = withReactContent(Swal);
+  const handleConvertToPfi = () => {
+    mySwal
+      .fire({
+        title: t("Convert to PFI?"),
+        text: t(
+          "A new PFI will be created from this quotation with all line items, expenses and rebates copied over."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, convert"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(createPfiFromQuotation(id))
+          .unwrap()
+          .then((res) => {
+            const newId = res?.pfiItem?._id;
+            Notification(
+              "Success",
+              res?.success || t("PFI created"),
+              "success"
+            );
+            if (newId) navigate(`${appsRoot}/pfi/edit/${newId}`);
+          })
+          .catch((err) =>
+            Notification("Error", err || t("Conversion failed"), "warning")
+          );
+      });
+  };
 
   return (
     <Fragment>
@@ -163,6 +205,21 @@ const QuotationInfoCard = () => {
                 </Button>
                 <UncontrolledTooltip target="qt-edit-from-view" placement="top">
                   {t("Edit quotation")}
+                </UncontrolledTooltip>
+              </>
+            )}
+            {canConvertToPfi && (q?.status || "").toLowerCase() === "approved" && (
+              <>
+                <Button
+                  color="info"
+                  outline
+                  onClick={handleConvertToPfi}
+                  id="qt-convert-to-pfi"
+                >
+                  <FileText size={14} className="me-50" /> {t("Convert to PFI")}
+                </Button>
+                <UncontrolledTooltip target="qt-convert-to-pfi" placement="top">
+                  {t("Create a PFI from this quotation")}
                 </UncontrolledTooltip>
               </>
             )}
