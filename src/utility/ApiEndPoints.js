@@ -249,6 +249,8 @@ export const API_ENDPOINTS = {
     update: `/admin/po-vendor/update`,
     delete: `/admin/po-vendor/delete`,
     fromPo: `/admin/po-vendor/from-po`, // append /:poId
+    recoverPreview: `/admin/po-vendor/recover-preview`, // append /:poId
+    recover: `/admin/po-vendor/recover`, // append /:poId
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     receive: `/admin/po-vendor`, // append /:id/receive
     cancel: `/admin/po-vendor`, // append /:id/cancel
