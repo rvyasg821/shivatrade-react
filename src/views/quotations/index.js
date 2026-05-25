@@ -226,6 +226,12 @@ const QuotationView = () => {
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
+  const canConvertToPfi =
+    isSystemAdmin ||
+    isCompanyAdmin ||
+    pfiPerms?.can_all ||
+    pfiPerms?.can_add;
 
   const customerOptions = useMemo(
     () =>
@@ -395,7 +401,7 @@ const QuotationView = () => {
                 <Edit size={20} />
               </Link>
             )}
-            {isApproved && (
+            {isApproved && canConvertToPfi && (
               <>
                 <FileText
                   size={20}
