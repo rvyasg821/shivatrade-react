@@ -11,6 +11,7 @@ import {
   cleanCustomerMessage,
 } from "../store";
 import { startLoading, stopLoading } from "../../loadingstore";
+import { getExchangeRateOptions } from "../../currencies/store";
 
 // ** Reactstrap
 import {
@@ -90,6 +91,16 @@ const CustomerForm = () => {
   const dispatch = useDispatch();
 
   const store = useSelector((state) => state.customer);
+  const currencyStore = useSelector((state) => state.currency);
+
+  const currencyOptions = useMemo(
+    () =>
+      (currencyStore?.exchangeOptions || []).map((c) => ({
+        value: c.code || c.value,
+        label: `${c.symbol || ""} ${c.code || c.value}${c.name ? ` - ${c.name}` : ""}`.trim(),
+      })),
+    [currencyStore?.exchangeOptions]
+  );
   const isEditMode = !!id;
 
   const schema = useMemo(
@@ -192,6 +203,7 @@ const CustomerForm = () => {
   });
 
   useLayoutEffect(() => {
+    dispatch(getExchangeRateOptions());
     if (isEditMode) {
       dispatch(getCustomer(id));
     } else {
@@ -216,6 +228,7 @@ const CustomerForm = () => {
         gstin: c.gstin || "",
         pan: c.pan || "",
         iec: c.iec || "",
+        currency: c.currency || "",
         status: c.status || (c.is_active ? "active" : "inactive"),
         is_active: c.is_active,
         contacts:
@@ -286,6 +299,7 @@ const CustomerForm = () => {
       gstin: optStr(data.gstin),
       pan: optStr(data.pan),
       iec: optStr(data.iec),
+      currency: optStr(data.currency),
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
@@ -432,7 +446,34 @@ const CustomerForm = () => {
                   />
                 </Col> */}
 
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="currency">
+                    {t("Currency")}
+                  </Label>
+                  <Controller
+                    name="currency"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        inputId="currency"
+                        isClearable
+                        options={currencyOptions}
+                        value={
+                          currencyOptions.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        placeholder={t("Select currency")}
+                        classNamePrefix="select"
+                      />
+                    )}
+                  />
+                </Col>
+
+                <Col md="3" className="mb-2">
                   <Label className="form-label d-block">
                     {t("Status")} <span className="text-danger">*</span>
                   </Label>

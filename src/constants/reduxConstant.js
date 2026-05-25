@@ -665,6 +665,7 @@ const initCustomerItem = {
   gstin: "",
   pan: "",
   iec: "",
+  currency: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initCustomerContactItem, is_primary: true }],
