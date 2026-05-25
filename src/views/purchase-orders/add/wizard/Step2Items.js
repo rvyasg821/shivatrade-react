@@ -1,22 +1,25 @@
 // ── Step 2: Line Items (PO) ─────────────────────────────────────────
-// PO is multi-vendor at line level. Vendor is chosen per line inside
-// the line-item modal: product first → vendor list populated from
-// price-list/by-product (cheapest pre-selected) → save.
+// Uses the same SalesDocLineItems component as PFI/Quotation — the line
+// items table, add/edit popup (with rebate/expense/margin fields) and
+// costing breakdown all match PFI's flow.
 
+import { useFormContext } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
-import PoLineItems from "@src/views/_shared/sales-doc/PoLineItems";
+import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
 import { initPurchaseOrderLineItem } from "@constant/reduxConstant";
 
 const Step2Items = ({
   isLocked,
-  vendorOptions = [],
-  vendorProductOptions,
-  productById,
-  priceByProduct,
-  intraState,
+  productOptions,
+  rebateOptions,
+  expenseOptions,
+  selectedCurrencyCode,
+  baseCurrencyCode,
+  exchangeRate,
   hasExistingPovs,
 }) => {
+  const { control, setValue } = useFormContext();
   const { t } = useTranslation();
 
   return (
@@ -28,14 +31,20 @@ const Step2Items = ({
           )}
         </div>
       )}
-      <PoLineItems
-        isLocked={isLocked || hasExistingPovs}
-        vendorProductOptions={vendorProductOptions}
-        productById={productById}
-        priceByProduct={priceByProduct}
-        intraState={intraState}
+      <SalesDocLineItems
+        control={control}
+        setValue={setValue}
+        productOptions={productOptions}
+        allProductOptions={productOptions}
         initLineItem={initPurchaseOrderLineItem}
-        vendorOptions={vendorOptions}
+        rebateOptions={rebateOptions}
+        expenseOptions={expenseOptions}
+        currencyCode={selectedCurrencyCode}
+        baseCurrencyCode={baseCurrencyCode}
+        exchangeRate={exchangeRate}
+        readOnly={isLocked || hasExistingPovs}
+        tableLayout="detailed"
+        displayInBase
       />
     </>
   );

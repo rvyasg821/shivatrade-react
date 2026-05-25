@@ -511,11 +511,17 @@ const initPurchaseOrderLineItem = {
   unit_price: "0",
   discount_pct: "0",
   tax_pct: "0",
+  margin_pct: "0",
   cgst: "0",
   sgst: "0",
   igst: "0",
   taxable: "0",
   line_total: "0",
+  product_rebates_snapshot: [],
+  product_expenses_snapshot: [],
+  product_rebates_amount: "0",
+  product_expenses_amount: "0",
+  margin_amount: "0",
   seq: 0,
 };
 

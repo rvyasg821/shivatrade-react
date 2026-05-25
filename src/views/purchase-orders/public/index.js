@@ -267,22 +267,55 @@ const PurchaseOrderPublicView = () => {
 
             {/* Body */}
             <div className="qd-body">
-              {/* Ship-to / Meta */}
-              <div
-                className="party-grid"
-                style={{ gridTemplateColumns: "1fr 1fr" }}
-              >
+              {/* Seller / Buyer / Meta */}
+              <div className="party-grid">
                 <div>
-                  <Label>{t("Ship To")}</Label>
-                  {p.delivery_address ? (
+                  <Label>{t("Seller")}</Label>
+                  <div className="party-name">{p.company_name || "-"}</div>
+                  {p.company_address && (
                     <div
                       className="party-line"
                       style={{ whiteSpace: "pre-line" }}
                     >
-                      {p.delivery_address}
+                      {p.company_address}
                     </div>
-                  ) : (
-                    <div className="party-line party-muted">-</div>
+                  )}
+                  {p.company_phone && (
+                    <div className="party-line">{p.company_phone}</div>
+                  )}
+                  {p.company_email && (
+                    <div className="party-line">{p.company_email}</div>
+                  )}
+                  {p.company_gstin && (
+                    <div className="party-line party-muted">
+                      {t("GSTIN")}: {p.company_gstin}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label>{t("Buyer")}</Label>
+                  <div className="party-name">{p.customer_name || "-"}</div>
+                  {p.customer_contact_name && (
+                    <div className="party-line">{p.customer_contact_name}</div>
+                  )}
+                  {p.customer_address && (
+                    <div
+                      className="party-line"
+                      style={{ whiteSpace: "pre-line" }}
+                    >
+                      {p.customer_address}
+                    </div>
+                  )}
+                  {p.customer_contact_phone && (
+                    <div className="party-line">
+                      {p.customer_contact_phone}
+                    </div>
+                  )}
+                  {p.customer_contact_email && (
+                    <div className="party-line">
+                      {p.customer_contact_email}
+                    </div>
                   )}
                 </div>
 
@@ -321,6 +354,19 @@ const PurchaseOrderPublicView = () => {
                   )}
                 </div>
               </div>
+
+              {/* Ship To */}
+              {p.delivery_address && (
+                <div className="section" style={{ marginBottom: 24 }}>
+                  <Label>{t("Ship To")}</Label>
+                  <div
+                    className="party-line"
+                    style={{ whiteSpace: "pre-line" }}
+                  >
+                    {p.delivery_address}
+                  </div>
+                </div>
+              )}
 
               {/* Line items */}
               <Table className="items">
