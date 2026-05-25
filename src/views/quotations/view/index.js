@@ -19,6 +19,7 @@ import {
   MapPin,
   Hash,
   Percent,
+  FileText,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -40,6 +41,9 @@ import {
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
+import { createPfiFromQuotation } from "@src/views/pfi/store";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import {
   DetailHeader,
@@ -88,10 +92,48 @@ const ViewQuotation = () => {
   const isAdmin = isAdminUser(authUserItem);
   const quotationPerms = authUserItem?.role?.permissions?.quotations;
   const poPerms = authUserItem?.role?.permissions?.["purchase-orders"];
+  const pfiPerms = authUserItem?.role?.permissions?.pfi;
   const canEdit =
     isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
   const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
+  const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
+
+  const mySwal = withReactContent(Swal);
+  const handleConvertToPfi = () => {
+    mySwal
+      .fire({
+        title: t("Convert to PFI?"),
+        text: t(
+          "A new PFI will be created from this quotation with all line items, expenses and rebates copied over."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, convert"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(createPfiFromQuotation(id))
+          .unwrap()
+          .then((res) => {
+            const newId = res?.pfiItem?._id;
+            Notification(
+              "Success",
+              res?.success || t("PFI created"),
+              "success"
+            );
+            if (newId) navigate(`${appsRoot}/pfi/edit/${newId}`);
+          })
+          .catch((err) =>
+            Notification("Error", err || t("Conversion failed"), "warning")
+          );
+      });
+  };
 
   useEffect(() => {
     if (id) dispatch(getQuotation(id));
@@ -200,6 +242,14 @@ const ViewQuotation = () => {
 
   // ── Header actions ──
   const headerActions = [
+    {
+      icon: FileText,
+      label: t("Convert to PFI"),
+      onClick: handleConvertToPfi,
+      hidden: !isApproved || !canConvertToPfi,
+      outline: true,
+      color: "info",
+    },
     {
       icon: Truck,
       label: t("Generate POs"),
