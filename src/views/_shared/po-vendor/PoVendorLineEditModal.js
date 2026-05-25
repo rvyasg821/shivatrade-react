@@ -75,15 +75,20 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
           );
           return;
         }
-        setCoverage(data);
+        // Restrict to lines belonging to THIS POV's vendor. PO is multi-
+        // vendor at the line level — other vendors' lines must not be
+        // selectable here (BE enforces the same rule).
+        const myVendorId = pov?.vendor_id;
+        const filteredLines = (data.lines || []).filter(
+          (l) => !myVendorId || !l.vendor_id || l.vendor_id === myVendorId
+        );
+        setCoverage({ ...data, lines: filteredLines });
 
-        // Pre-fill qty from existing POV lines; default 0 for un-covered.
+        // Qty always mirrors the PO line's ordered qty (policy: POV =
+        // full ordered qty, not less / not greater). Input is read-only.
         const seed = {};
-        for (const l of data.lines || []) {
-          const existing = existingByPoLine.get(l.purchase_order_line_id);
-          seed[l.purchase_order_line_id] = existing
-            ? String(num(existing.ordered_qty))
-            : "0";
+        for (const l of filteredLines) {
+          seed[l.purchase_order_line_id] = String(num(l.ordered));
         }
         setQtyByPoLine(seed);
       })
@@ -100,7 +105,7 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
     return () => {
       mounted = false;
     };
-  }, [isOpen, pov?.purchase_order_id, existingByPoLine, t]);
+  }, [isOpen, pov?.purchase_order_id, pov?.vendor_id, existingByPoLine, t]);
 
   // For each PO line, available = coverage.pending + this_pov's existing
   // ordered_qty (because pending already subtracted this POV).
@@ -188,32 +193,6 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
         {t("Edit Lines")} · <code>{pov?.voucher_no}</code>
       </ModalHeader>
       <ModalBody>
-        <p className="small text-muted mb-2">
-          {t(
-            "Adjust per-line cover quantity. Set 0 to remove a covered line. To add a new line, raise its qty above 0. Available = PO pending + your existing reservation."
-          )}
-        </p>
-
-        <div className="d-flex justify-content-end mb-1">
-          <Button
-            size="sm"
-            color="secondary"
-            outline
-            className="me-50"
-            onClick={() => setAll("max")}
-          >
-            {t("Set all to max")}
-          </Button>
-          <Button
-            size="sm"
-            color="secondary"
-            outline
-            onClick={() => setAll("zero")}
-          >
-            {t("Set all to 0")}
-          </Button>
-        </div>
-
         {loading ? (
           <div className="text-center py-3">
             <Spinner /> <span className="ms-2">{t("Loading coverage…")}</span>
@@ -234,10 +213,7 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
                   {t("Ordered")}
                 </th>
                 <th style={{ width: 90 }} className="text-end">
-                  {t("Available")}
-                </th>
-                <th style={{ width: 130 }} className="text-end">
-                  {t("Cover qty")}
+                  {t("Qty")}
                 </th>
               </tr>
             </thead>
@@ -263,26 +239,8 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
                     <td className="text-end">
                       {num(l.ordered).toLocaleString()}
                     </td>
-                    <td className="text-end fw-semibold">
-                      {max.toLocaleString()}
-                    </td>
-                    <td>
-                      <Input
-                        type="number"
-                        step="0.0001"
-                        min="0"
-                        max={max}
-                        bsSize="sm"
-                        disabled={isMax}
-                        invalid={tooHigh}
-                        value={qtyByPoLine[l.purchase_order_line_id] ?? ""}
-                        onChange={(e) =>
-                          setQtyByPoLine((s) => ({
-                            ...s,
-                            [l.purchase_order_line_id]: e.target.value,
-                          }))
-                        }
-                      />
+                    <td className="text-end">
+                      {num(qtyByPoLine[l.purchase_order_line_id]).toLocaleString()}
                     </td>
                   </tr>
                 );
@@ -290,8 +248,8 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
             </tbody>
             <tfoot>
               <tr className="table-light">
-                <td colSpan="5" className="text-end fw-bold">
-                  {t("Total cover")}
+                <td colSpan="4" className="text-end fw-bold">
+                  {t("Total qty")}
                 </td>
                 <td className="text-end fw-bold">
                   {totalCover.toLocaleString()}

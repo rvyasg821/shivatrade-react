@@ -240,25 +240,6 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
           <Label className="form-label mb-0">
             {t("Per-line Dispatched Quantity")}
           </Label>
-          <div>
-            <Button
-              size="sm"
-              color="secondary"
-              outline
-              className="me-50"
-              onClick={() => setQtyAll("full")}
-            >
-              {t("Set all to ordered")}
-            </Button>
-            <Button
-              size="sm"
-              color="secondary"
-              outline
-              onClick={() => setQtyAll("zero")}
-            >
-              {t("Set all to 0")}
-            </Button>
-          </div>
         </div>
 
         <Table bordered size="sm" className="align-middle mb-0">
@@ -291,22 +272,8 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
                   </td>
                   <td>{l?.unit || "-"}</td>
                   <td className="text-end">{max.toLocaleString()}</td>
-                  <td>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      max={max}
-                      bsSize="sm"
-                      invalid={tooHigh}
-                      value={qtyByLine[l._id] ?? ""}
-                      onChange={(e) =>
-                        setQtyByLine((s) => ({
-                          ...s,
-                          [l._id]: e.target.value,
-                        }))
-                      }
-                    />
+                  <td className="text-end">
+                    {num(qtyByLine[l._id]).toLocaleString()}
                   </td>
                 </tr>
               );
