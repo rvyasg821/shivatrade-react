@@ -109,6 +109,38 @@ export const createPoVendorFromPo = createAsyncThunk(
   }
 );
 
+// ─── Recover (multi-vendor batch from PO Coverage tab) ─────────────────
+// Spawns N POVs in one call, grouped by vendor. Used by the recovery flow
+// when one or more POVs were cancelled and their PO lines need re-coverage.
+
+export const recoverPoVendors = createAsyncThunk(
+  "appPoVendor/recoverPoVendors",
+  async ({ purchase_order_id, assignments }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.recover}/${purchase_order_id}`,
+        { assignments }
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          created: body.data.created || [],
+          actionFlag: "POV_RECOVERED",
+          success:
+            body?.message ||
+            `${(body.data.created || []).length} POV(s) created.`,
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to recover POVs");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Update ────────────────────────────────────────────────────────────
 
 export const updatePoVendor = createAsyncThunk(
@@ -321,6 +353,22 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload.error;
       })
       .addCase(createPoVendorFromPo.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(recoverPoVendors.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(recoverPoVendors.fulfilled, (state, action) => {
+        // Doesn't replace poVendorItem — the user is on the PO detail page
+        // and stays there. Listeners watch actionFlag = 'POV_RECOVERED' to
+        // know to refresh coverage / POV list.
+        state.loading = true;
+        state.actionFlag = action.payload.actionFlag;
+        state.success = action.payload.success;
+        state.error = action.payload.error;
+      })
+      .addCase(recoverPoVendors.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })
