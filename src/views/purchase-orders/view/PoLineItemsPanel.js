@@ -65,10 +65,14 @@ const PoLineItemsPanel = ({ bare = false }) => {
                   )}
                 </td>
                 <td className="text-end">
-                  {l.qty ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}` : "-"}
+                  {l.qty
+                    ? `${fmt(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
+                    : "-"}
                 </td>
                 <td className="text-end">
-                  {sym} {fmt(toCcy(l.unit_price))}
+                  {num(l.qty) > 0
+                    ? `${sym} ${fmt(toCcy(l.line_total) / num(l.qty))}`
+                    : `${sym} ${fmt(toCcy(l.unit_price))}`}
                 </td>
                 <td className="text-end fw-bold">
                   {sym} {fmt(toCcy(l.line_total))}

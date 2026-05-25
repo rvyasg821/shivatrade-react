@@ -258,7 +258,12 @@ export const PoCoveragePanel = ({ data }) => {
 
 export const PoVendorsPanel = ({ data }) => {
   const { t } = useTranslation();
-  const { povs, loading } = data;
+  const { po, povs, loading } = data;
+  const fmtMoney = (v) =>
+    Number(v || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   // Flat-siblings model — all POVs are peers. Show in creation order.
   const orderedPovs = useMemo(() => {
@@ -270,11 +275,34 @@ export const PoVendorsPanel = ({ data }) => {
     );
   }, [povs]);
 
+  // Map PO line id → PO line so we can take a proportional share of its
+  // line_total (which already bakes in expense/rebate/margin/GST after the
+  // backend recompute).
+  const poLineMap = useMemo(() => {
+    const m = new Map();
+    for (const l of po?.lines || []) m.set(l._id, l);
+    return m;
+  }, [po]);
+
   const summarizeQty = (lines = []) => {
     const ordered = lines.reduce((s, l) => s + num(l.ordered_qty), 0);
     const dispatched = lines.reduce((s, l) => s + num(l.dispatched_qty), 0);
     const received = lines.reduce((s, l) => s + num(l.received_qty), 0);
     return { ordered, dispatched, received };
+  };
+
+  // POV amount = sum over POV lines of (ordered_qty / po_line.qty) ×
+  // po_line.line_total, converted to PO customer currency.
+  const computeAmount = (lines = []) => {
+    let inr = 0;
+    for (const ln of lines) {
+      const poLine = poLineMap.get(ln.purchase_order_line_id);
+      if (!poLine) continue;
+      const poQty = num(poLine.qty);
+      if (!poQty) continue;
+      inr += (num(ln.ordered_qty) / poQty) * num(poLine.line_total);
+    }
+    return inr;
   };
 
   if (loading && orderedPovs.length === 0) {
@@ -304,6 +332,12 @@ export const PoVendorsPanel = ({ data }) => {
           <th style={{ width: 240 }} className="text-end">
             {t("Qty Summary")}
           </th>
+          <th style={{ width: 70 }} className="text-end">
+            {t("Items")}
+          </th>
+          <th style={{ width: 130 }} className="text-end">
+            {t("Amount")}
+          </th>
           <th style={{ width: 70 }} className="text-center">
             {t("Open")}
           </th>
@@ -312,6 +346,8 @@ export const PoVendorsPanel = ({ data }) => {
       <tbody>
         {orderedPovs.map((p) => {
           const { ordered, dispatched, received } = summarizeQty(p?.lines || []);
+          const itemsCount = (p?.lines || []).length;
+          const amount = computeAmount(p?.lines || []);
           const color =
             PO_VENDOR_STATUS_BADGE_COLOR[p?.status] || "secondary";
           return (
@@ -352,6 +388,10 @@ export const PoVendorsPanel = ({ data }) => {
                 <div>
                   {t("Received")}: {received.toLocaleString()}
                 </div>
+              </td>
+              <td className="text-end">{itemsCount}</td>
+              <td className="text-end fw-bold">
+                ₹ {fmtMoney(amount)}
               </td>
               <td className="text-center">
                 <Link

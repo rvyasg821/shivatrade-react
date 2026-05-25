@@ -82,8 +82,13 @@ const PurchaseOrderPublicView = () => {
 
   const sym = p?.currency_symbol || p?.currency_code || "";
   const rate = num(p?.exchange_rate) || 1;
+  // Line-level amounts are stored in INR; multiply by exchange_rate to
+  // present the vendor's customer currency. Header `grand_total` is
+  // already persisted in customer currency by the backend recompute, so
+  // it must NOT be multiplied again.
   const toCcy = (v) => num(v) * rate;
   const money = (v) => `${sym}${fmt2(toCcy(v))}`;
+  const moneyRaw = (v) => `${sym}${fmt2(num(v))}`;
 
   if (loading && !p) {
     return (
@@ -350,10 +355,14 @@ const PurchaseOrderPublicView = () => {
                       </td>
                       <td className="text-end">
                         {l.qty
-                          ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                          ? `${fmt2(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
                           : "-"}
                       </td>
-                      <td className="text-end">{money(l.unit_price)}</td>
+                      <td className="text-end">
+                        {num(l.qty) > 0
+                          ? `${sym}${fmt2(toCcy(l.line_total) / num(l.qty))}`
+                          : money(l.unit_price)}
+                      </td>
                       <td className="text-end fw-semibold">
                         {money(l.line_total)}
                       </td>
@@ -373,7 +382,7 @@ const PurchaseOrderPublicView = () => {
               <div className="totals">
                 <div className="row-grand">
                   <span>{t("Grand Total")}</span>
-                  <span>{money(p.grand_total)}</span>
+                  <span>{moneyRaw(p.grand_total)}</span>
                 </div>
               </div>
 
