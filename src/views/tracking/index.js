@@ -34,7 +34,7 @@ import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
-import { formatDate } from "@src/utility/dateFormat";
+import { formatDate, formatTime } from "@src/utility/dateFormat";
 
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { TRACKING_EVENT_TYPE_OPTIONS } from "@constant/options";
@@ -164,14 +164,12 @@ const TrackingFeedView = () => {
       minWidth: "170px",
       selector: (row) => {
         if (!row?.event_at) return "-";
-        const d = new Date(row.event_at);
-        const time = isNaN(d) ? "" : d.toLocaleTimeString();
         return (
           <div className="py-1">
             <div className="text-nowrap">{formatDate(row.event_at)}</div>
-            {time ? (
-              <div className="small text-muted text-nowrap mt-25">{time}</div>
-            ) : null}
+            <div className="small text-muted text-nowrap mt-25">
+              {formatTime(row.event_at)}
+            </div>
           </div>
         );
       },
