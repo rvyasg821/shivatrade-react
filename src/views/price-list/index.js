@@ -378,7 +378,7 @@ const PriceListView = () => {
                       id="search-pl"
                       value={searchInput}
                       className="w-100 select"
-                      placeholder={t("Search notes")}
+                      placeholder={t("Search by vendor / product / notes")}
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
