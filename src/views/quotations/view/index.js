@@ -20,11 +20,13 @@ import {
   Hash,
   Percent,
   FileText,
+  CheckCircle,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
   getQuotation,
+  updateQuotation,
   cleanQuotationMessage,
 } from "@src/views/quotations/store";
 import {
@@ -135,6 +137,38 @@ const ViewQuotation = () => {
       });
   };
 
+  // Flip status to `approved` via the standard update endpoint. Confirmation
+  // prompt mirrors the convert-to-PFI flow.
+  const handleApprove = () => {
+    mySwal
+      .fire({
+        title: t("Mark as Approved?"),
+        text: t(
+          "Once approved, this quotation can be converted to a PFI or used to generate POs."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, approve"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(updateQuotation({ id, data: { status: "approved" } }))
+          .unwrap()
+          // The store auto-emits a success notification on update — no need
+          // to fire a second one here; just refresh the detail so the
+          // status badge + downstream buttons reflect the new state.
+          .then(() => dispatch(getQuotation(id)))
+          .catch((err) =>
+            Notification("Error", err || t("Approval failed"), "warning")
+          );
+      });
+  };
+
   useEffect(() => {
     if (id) dispatch(getQuotation(id));
     // Pull live currency master so symbols + base currency are dynamic.
@@ -185,6 +219,10 @@ const ViewQuotation = () => {
 
   const statusLower = (q?.status || "").toLowerCase();
   const isApproved = statusLower === "approved";
+  // Approve is available from draft/sent only; users without edit permission
+  // can't change status (mirrors the Edit button gate).
+  const canApprove =
+    canEdit && (statusLower === "draft" || statusLower === "sent");
 
   const statusLabel = labelize(statusLower, QUOTATION_STATUS_OPTIONS);
 
@@ -242,6 +280,14 @@ const ViewQuotation = () => {
 
   // ── Header actions ──
   const headerActions = [
+    {
+      icon: CheckCircle,
+      label: t("Mark as Approve"),
+      onClick: handleApprove,
+      hidden: !canApprove,
+      outline: false,
+      color: "success",
+    },
     {
       icon: FileText,
       label: t("Convert to PFI"),

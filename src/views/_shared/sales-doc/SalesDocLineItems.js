@@ -646,10 +646,12 @@ const SalesDocLineItems = ({
           </Table>
         )}
 
-        {/* Paginator + per-page selector — only when there's more than one
-            page worth of data. Reuses the same ReactPaginate styling as the
-            project's other listing tables. */}
-        {totalRows > pageSize && (
+        {/* Paginator + per-page selector — visible whenever the row count
+            *could* benefit from pagination at the smallest page size, so the
+            selector stays reachable even after the user bumps page size up
+            past the current total. The ReactPaginate widget itself collapses
+            to a single page when `pageCount === 1`. */}
+        {totalRows > 10 && (
           <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
             <div className="d-flex align-items-center small text-muted">
               <span className="me-50">{t("Show")}</span>
