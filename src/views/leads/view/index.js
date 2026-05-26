@@ -390,13 +390,25 @@ const ViewLead = () => {
                   </Row>
                 ))}
 
-                <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
-                  {t("Opportunity")}
-                </h5>
-                {/* Render only fields/chips that actually have a value so
-                    empty columns don't reserve grid space and leave gaps. */}
+                {/* Render the whole Opportunity section only when there's
+                    at least one populated field — otherwise users see an
+                    empty heading with nothing under it. */}
                 {(() => {
-                  const opportunityBlocks = [];
+                  const hasOpportunity =
+                    !!budget ||
+                    (categoryChips && categoryChips.length > 0) ||
+                    !!l?.follow_up_date ||
+                    (productChips && productChips.length > 0) ||
+                    !!l?.quantity ||
+                    !!l?.delivery_expectation;
+                  if (!hasOpportunity) return null;
+                  return (
+                    <>
+                      <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
+                        {t("Opportunity")}
+                      </h5>
+                      {(() => {
+                        const opportunityBlocks = [];
                   if (budget) {
                     opportunityBlocks.push(
                       <DetailFieldList
@@ -469,14 +481,17 @@ const ViewLead = () => {
                       />
                     );
                   }
-                  return (
-                    <Row className="g-2">
-                      {opportunityBlocks.map((block, idx) => (
-                        <Col md="6" key={idx}>
-                          {block}
-                        </Col>
-                      ))}
-                    </Row>
+                        return (
+                          <Row className="g-2">
+                            {opportunityBlocks.map((block, idx) => (
+                              <Col md="6" key={idx}>
+                                {block}
+                              </Col>
+                            ))}
+                          </Row>
+                        );
+                      })()}
+                    </>
                   );
                 })()}
 
