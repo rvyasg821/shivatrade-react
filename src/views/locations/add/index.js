@@ -971,7 +971,9 @@ const LocationForm = () => {
             </CardBody>
           </Card>
 
-          {/* ── Section 4: Location Settings ── */}
+          {/* ── Section 4: Location Settings ── HIDDEN per ops request 2026-05-26.
+              Restore by removing the `false && (` wrapper + closing `)}`. */}
+          {false && (
           <Card className="mb-2">
             <CardHeader className="border-bottom py-1 d-flex align-items-center gap-1">
               <CardTitle tag="h5" className="mb-0">{t("Location Settings")}</CardTitle>
@@ -1028,6 +1030,7 @@ const LocationForm = () => {
               </Row>
             </CardBody>
           </Card>
+          )}
 
           {/* ── Section 5: Notification Settings (Optional) ── */}
           <Card className="mb-2">
@@ -1127,7 +1130,9 @@ const LocationForm = () => {
             </CardBody>
           </Card>
 
-          {/* ── Section 6: GPS Coordinates (Optional) ── */}
+          {/* ── Section 6: GPS Coordinates (Optional) ── HIDDEN per ops request 2026-05-26.
+              Restore by removing the `false && (` wrapper + closing `)}`. */}
+          {false && (
           <Card className="mb-2">
             <CardHeader className="border-bottom py-1 d-flex align-items-center gap-1">
               <CardTitle tag="h5" className="mb-0">{t("GPS Coordinates")}</CardTitle>
@@ -1183,6 +1188,7 @@ const LocationForm = () => {
               </Row>
             </CardBody>
           </Card>
+          )}
 
           {/* ── Action Buttons ── */}
           <div className="main-form-btn">
