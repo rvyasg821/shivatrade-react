@@ -17,10 +17,13 @@ import {
   ArrowLeft,
   Hash,
   ExternalLink,
+  CheckCircle,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
-import { getPfi, cleanPfiMessage } from "@src/views/pfi/store";
+import { getPfi, updatePfi, cleanPfiMessage } from "@src/views/pfi/store";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
@@ -92,6 +95,38 @@ const ViewPfi = () => {
 
   const statusLower = (p?.status || "").toLowerCase();
   const isApproved = statusLower === "approved";
+  // Approve is only meaningful from draft/sent and requires edit permission.
+  const canApprove =
+    canEdit && (statusLower === "draft" || statusLower === "sent");
+
+  const mySwal = withReactContent(Swal);
+  const handleApprove = () => {
+    mySwal
+      .fire({
+        title: t("Mark as Approved?"),
+        text: t(
+          "Once approved, this PFI can be used to generate Purchase Orders."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, approve"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(updatePfi({ id, data: { status: "approved" } }))
+          .unwrap()
+          // Store auto-emits the success toast; just refresh the detail.
+          .then(() => dispatch(getPfi(id)))
+          .catch((err) =>
+            Notification("Error", err || t("Approval failed"), "warning")
+          );
+      });
+  };
 
   const validityDays = useMemo(() => daysUntil(p?.valid_until), [p?.valid_until]);
   const validityTone =
@@ -146,6 +181,14 @@ const ViewPfi = () => {
   ];
 
   const headerActions = [
+    {
+      icon: CheckCircle,
+      label: t("Mark as Approved"),
+      onClick: handleApprove,
+      hidden: !canApprove,
+      outline: false,
+      color: "success",
+    },
     {
       icon: Truck,
       label: t("Generate POs"),
