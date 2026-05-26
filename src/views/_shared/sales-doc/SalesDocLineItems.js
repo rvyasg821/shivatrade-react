@@ -415,9 +415,17 @@ const SalesDocLineItems = ({
   // pre-filter inside the modal.
   const modalProductOptions = allProductOptions || productOptions || [];
 
-  if (modal.open && editingIdx != null) {
-    ensureVendorOpts(editingIdx, editingLine.product_id);
-  }
+  // Always refresh vendor options when the Edit modal opens for a line.
+  // The on-mount effect (`useEffect` on liveLines.length) caches per-line
+  // options, but if the price list was empty when that initial fetch ran —
+  // and the user has since added a vendor — the cached `[]` would stick
+  // forever. Re-fetching on modal-open guarantees fresh data each time.
+  useEffect(() => {
+    if (modal.open && editingIdx != null && editingLine?.product_id) {
+      fetchVendorPrices(editingIdx, editingLine.product_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal.open, editingIdx, editingLine?.product_id]);
 
   return (
     <Card>

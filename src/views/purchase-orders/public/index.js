@@ -8,7 +8,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
-import { Download, Printer, AlertTriangle } from "react-feather";
+import { Download, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -177,17 +177,19 @@ const PurchaseOrderPublicView = () => {
           font-size: 0.85rem;
         }
         .po-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
-        .po-doc .totals { width: 340px; margin-left: auto; margin-top: 18px; }
-        .po-doc .totals .row-line {
-          display: flex; justify-content: space-between;
-          padding: 6px 0; font-size: 0.88rem; color: #4b5563;
+        /* Grand-total row sits inside <tbody> (not <tfoot>) so it does NOT
+           repeat on every printed page. */
+        .po-doc table.items tr.row-grand-tr td {
+          padding: 14px 12px 6px;
+          font-size: 1rem;
+          color: #09418b;
+          background: transparent;
+          border: 0;
         }
-        .po-doc .totals .row-grand {
-          display: flex; justify-content: space-between;
-          padding: 12px 0 4px;
+        .po-doc table.items tr.row-grand-tr td.party-grand-label,
+        .po-doc table.items tr.row-grand-tr td.party-grand-value {
           border-top: 2px solid #1f2937;
-          margin-top: 6px;
-          font-weight: 700; font-size: 1rem; color: #1f2937;
+          white-space: nowrap;
         }
         .po-doc .section {
           margin-top: 24px; padding-top: 18px;
@@ -222,16 +224,7 @@ const PurchaseOrderPublicView = () => {
             </div>
           )}
 
-          <div className="d-flex justify-content-end mb-2 no-print gap-2">
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={() => window.print()}
-            >
-              <Printer size={14} className="me-50" />
-              {t("Print")}
-            </Button>
+          <div className="d-flex justify-content-end mb-2 no-print">
             <Button
               color="secondary"
               outline
@@ -421,16 +414,19 @@ const PurchaseOrderPublicView = () => {
                       </td>
                     </tr>
                   )}
+                  {/* Grand Total as last <tr> of <tbody> so it doesn't
+                      repeat per page when saving to PDF. */}
+                  <tr className="row-grand-tr">
+                    <td colSpan={3} />
+                    <td className="text-end fw-bold party-grand-label">
+                      {t("Grand Total")}
+                    </td>
+                    <td className="text-end fw-bold party-grand-value">
+                      {moneyRaw(p.grand_total)}
+                    </td>
+                  </tr>
                 </tbody>
               </Table>
-
-              {/* Totals */}
-              <div className="totals">
-                <div className="row-grand">
-                  <span>{t("Grand Total")}</span>
-                  <span>{moneyRaw(p.grand_total)}</span>
-                </div>
-              </div>
 
               {/* Terms */}
               {(p.payment_terms || p.delivery_terms) && (

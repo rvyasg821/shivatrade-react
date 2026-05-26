@@ -9,7 +9,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
-import { Download, Printer, AlertTriangle } from "react-feather";
+import { Download, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getPublicPfi, getPfiPreview } from "@src/views/pfi/store";
@@ -181,15 +181,17 @@ const PfiPublicView = () => {
           font-size: 0.85rem;
         }
         .pfi-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
-        .pfi-doc .totals { width: 340px; margin-left: auto; margin-top: 18px; }
-        .pfi-doc .totals .row-grand {
-          display: flex;
-          justify-content: space-between;
-          padding: 12px 0 4px;
-          border-top: 2px solid #1f2937;
-          font-weight: 700;
+        .pfi-doc table.items tr.row-grand-tr td {
+          padding: 14px 12px 6px;
           font-size: 1rem;
-          color: #1f2937;
+          color: #09418b;
+          background: transparent;
+          border: 0;
+        }
+        .pfi-doc table.items tr.row-grand-tr td.party-grand-label,
+        .pfi-doc table.items tr.row-grand-tr td.party-grand-value {
+          border-top: 2px solid #1f2937;
+          white-space: nowrap;
         }
         .pfi-doc .section {
           margin-top: 24px;
@@ -251,16 +253,7 @@ const PfiPublicView = () => {
             </div>
           )}
 
-          <div className="d-flex justify-content-end mb-2 no-print gap-2">
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={() => window.print()}
-            >
-              <Printer size={14} className="me-50" />
-              {t("Print")}
-            </Button>
+          <div className="d-flex justify-content-end mb-2 no-print">
             <Button
               color="secondary"
               outline
@@ -280,13 +273,8 @@ const PfiPublicView = () => {
                 <img
                   src={appLogo}
                   alt="Logo"
-                  style={{ height: 32, marginBottom: 8 }}
+                  style={{ height: 60, marginBottom: 8 }}
                 />
-                {p.company_name && (
-                  <div className="party-name" style={{ fontSize: "1.05rem" }}>
-                    {p.company_name}
-                  </div>
-                )}
               </div>
               <div className="text-end">
                 <h1 className="qd-title">{t("PROFORMA INVOICE")}</h1>
@@ -478,6 +466,18 @@ const PfiPublicView = () => {
                         </td>
                       </tr>
                     )}
+                    {/* Grand Total sits as the last <tr> of <tbody> (not
+                        in <tfoot>) so it doesn't repeat on every page when
+                        the browser saves to PDF. */}
+                    <tr className="row-grand-tr">
+                      <td colSpan={7} />
+                      <td className="text-end fw-bold party-grand-label">
+                        {t("Grand Total")}
+                      </td>
+                      <td className="text-end fw-bold party-grand-value">
+                        {money(p.grand_total)}
+                      </td>
+                    </tr>
                   </tbody>
                 </Table>
               </div>
@@ -515,14 +515,6 @@ const PfiPublicView = () => {
                   </div>
                 </div>
               )}
-
-              {/* Totals */}
-              <div className="totals">
-                <div className="row-grand">
-                  <span>{t("Grand Total")}</span>
-                  <span>{money(p.grand_total)}</span>
-                </div>
-              </div>
 
               {/* Bank */}
               {p.bank && (
