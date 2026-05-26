@@ -19,8 +19,9 @@ const Step2Items = ({
   exchangeRate,
   hasExistingPovs,
 }) => {
-  const { control, setValue } = useFormContext();
+  const { control, setValue, getValues } = useFormContext();
   const { t } = useTranslation();
+  const docNumber = getValues?.("po_no") || "";
 
   return (
     <>
@@ -45,6 +46,8 @@ const Step2Items = ({
         readOnly={isLocked || hasExistingPovs}
         tableLayout="detailed"
         displayInBase
+        docType="po"
+        docNumber={docNumber}
       />
     </>
   );

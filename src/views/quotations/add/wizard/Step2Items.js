@@ -17,7 +17,8 @@ const Step2Items = ({
   baseCurrencyCode,
   exchangeRate,
 }) => {
-  const { control, setValue } = useFormContext();
+  const { control, setValue, getValues } = useFormContext();
+  const docNumber = getValues?.("quotation_no") || "";
 
   return (
     <SalesDocLineItems
@@ -34,6 +35,8 @@ const Step2Items = ({
       readOnly={isLocked}
       tableLayout="detailed"
       displayInBase
+      docType="quotation"
+      docNumber={docNumber}
     />
   );
 };

@@ -11,6 +11,7 @@ import {
   FileText,
   Briefcase,
   Hash,
+  DollarSign,
 } from "react-feather";
 
 import {
@@ -18,6 +19,7 @@ import {
   DetailFieldList,
   DetailSocials,
 } from "@src/views/_shared/detail-page";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const CustomerDetailsPanel = () => {
   const { t } = useTranslation();
@@ -60,6 +62,17 @@ const CustomerDetailsPanel = () => {
           {primaryPhone}
         </a>
       ) : null,
+    },
+    {
+      icon: DollarSign,
+      label: t("Currency"),
+      value: c?.currency
+        ? `${c.currency}${
+            getCurrencySymbol(c.currency)
+              ? ` (${getCurrencySymbol(c.currency)})`
+              : ""
+          }`
+        : null,
     },
     {
       icon: Globe,
