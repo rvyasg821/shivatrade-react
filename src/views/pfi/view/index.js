@@ -183,7 +183,7 @@ const ViewPfi = () => {
   const headerActions = [
     {
       icon: CheckCircle,
-      label: t("Mark as Approved"),
+      label: t("Mark as Approve"),
       onClick: handleApprove,
       hidden: !canApprove,
       outline: false,
