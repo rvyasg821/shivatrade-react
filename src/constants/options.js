@@ -300,11 +300,12 @@ const REBATE_EXPENSE_TYPE_OPTIONS = [
   { value: "fixed", label: "Fixed Amount" },
 ];
 
-/** PFI / shipping documents - mode of shipment. */
+/** PFI / shipping documents - mode of shipment. Sea + Air only (locked
+ *  2026-05-26 - ShivaTrade ships by sea and air only; road/rail/multimodal
+ *  out of scope. See docs/SHIPPING_MODULE_PLAN.md §3.) */
 const MODE_OF_SHIPMENT_OPTIONS = [
   { value: "sea", label: "Sea" },
   { value: "air", label: "Air" },
-  { value: "road", label: "Road" },
 ];
 
 /** PFI / shipping documents - packing type. Free text on the API; this is the

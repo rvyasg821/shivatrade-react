@@ -15,6 +15,7 @@ import {
   COUNTRY_OPTIONS,
 } from "@constant/options";
 import DateInput from "@components/date-input";
+import PortSelect from "@src/views/_shared/port-master/PortSelect";
 
 const required = <span className="text-danger">*</span>;
 
@@ -31,8 +32,26 @@ const StepShipping = ({
   const { t } = useTranslation();
   const {
     control,
+    setValue,
     formState: { errors },
   } = useFormContext();
+
+  // Watch mode_of_shipment so the PortSelect can restrict the type filter.
+  // sea → sea/icd/sez; air → air/icd. Default (unset) → all loading types.
+  const mode = useWatch({ control, name: "mode_of_shipment" }) || "";
+  const loadingTypes =
+    mode === "sea"
+      ? ["sea", "icd", "sez"]
+      : mode === "air"
+      ? ["air", "icd"]
+      : ["sea", "air", "icd", "sez"];
+
+  // Read current snapshot values so PortSelect can display the existing pick
+  // when editing an existing PFI (or after the wizard re-mounts).
+  const portOfLoadingSnapshot = useWatch({
+    control,
+    name: "port_of_loading_snapshot",
+  });
 
   // Live auto-sums from lines (Phase 2 adds the per-line fields; until then
   // these resolve to 0 which is fine).
@@ -99,22 +118,31 @@ const StepShipping = ({
       </Col>
 
       <Col md="4" className="mb-2">
-        <Label className="form-label">
+        <Label className="form-label" for="pfi-port-of-loading">
           {t("Port of Loading")} {required}
         </Label>
-        <Controller
-          name="port_of_loading"
-          control={control}
-          render={({ field }) => (
-            <Input
-              placeholder="e.g. Mundra Port, India"
-              disabled={isLocked}
-              invalid={!!errors.port_of_loading}
-              {...field}
-              value={field.value || ""}
-              maxLength={150}
-            />
-          )}
+        <PortSelect
+          id="pfi-port-of-loading"
+          value={portOfLoadingSnapshot}
+          countryCode="IN"
+          types={loadingTypes}
+          isDisabled={isLocked}
+          invalid={!!errors.port_of_loading}
+          placeholder={t("Search port by code or name…")}
+          onChange={(port) => {
+            // Snapshot is the source of truth on PDF / downstream docs.
+            // Also write `port_of_loading` (legacy free-text) with the
+            // human-readable name so old reads keep working.
+            setValue("port_of_loading_id", port?._id || null, {
+              shouldDirty: true,
+            });
+            setValue("port_of_loading_snapshot", port || null, {
+              shouldDirty: true,
+            });
+            setValue("port_of_loading", port?.name || "", {
+              shouldDirty: true,
+            });
+          }}
         />
         {errors.port_of_loading && (
           <FormFeedback className="d-block">
@@ -138,9 +166,24 @@ const StepShipping = ({
               {...field}
               value={field.value || ""}
               maxLength={150}
+              onChange={(e) => {
+                const v = e.target.value;
+                field.onChange(v);
+                // Foreign discharge stays free-text Phase 1 (per
+                // PORT_MASTER_PLAN §4.2). Snapshot { name } so downstream
+                // Invoice / Shipping can read from the same shape.
+                setValue(
+                  "port_of_discharge_snapshot",
+                  v ? { name: v } : null,
+                  { shouldDirty: true },
+                );
+              }}
             />
           )}
         />
+        <small className="text-muted">
+          {t("Foreign port - free text. Indian discharge can be picked from master later.")}
+        </small>
         {errors.port_of_discharge && (
           <FormFeedback className="d-block">
             {errors.port_of_discharge.message}
