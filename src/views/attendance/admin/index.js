@@ -910,7 +910,10 @@ const AttendanceAdminPage = () => {
                   </Card>
                 </Col>
 
-                {/* Section 2: Overtime */}
+                {/* Section 2: Overtime — HIDDEN per ops request 2026-05-26.
+                    DB flag overtime_enabled = false at hide time; BE OT logic is a no-op.
+                    Restore by removing the `false && (` wrapper + closing `)}`. */}
+                {false && (
                 <Col md={6}>
                   <Card>
                     <CardHeader className='border-bottom py-1'>
@@ -939,6 +942,7 @@ const AttendanceAdminPage = () => {
                     </CardBody>
                   </Card>
                 </Col>
+                )}
 
                 {/* Section 3: Break & Auto Clock-Out */}
                 <Col md={6}>
@@ -969,7 +973,11 @@ const AttendanceAdminPage = () => {
                   </Card>
                 </Col>
 
-                {/* Section 4: Verification */}
+                {/* Section 4: Verification — HIDDEN per ops request 2026-05-26.
+                    DB flags face_capture_enabled + gps_enabled = false at hide time;
+                    BE face/GPS checks are no-ops. Restore by removing the
+                    `false && (` wrapper + closing `)}`. */}
+                {false && (
                 <Col md={6}>
                   <Card>
                     <CardHeader className='border-bottom py-1'>
@@ -1032,6 +1040,7 @@ const AttendanceAdminPage = () => {
                     </CardBody>
                   </Card>
                 </Col>
+                )}
               </Row>
 
               <div className='d-flex justify-content-end'>
