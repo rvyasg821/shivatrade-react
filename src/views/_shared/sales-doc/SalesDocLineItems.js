@@ -319,6 +319,20 @@ const SalesDocLineItems = ({
       if (opt.raw.discount_pct !== undefined && opt.raw.discount_pct !== null) {
         setValue(`lines.${idx}.discount_pct`, String(opt.raw.discount_pct));
       }
+      // Stash vendor display fields on the line so the table badge renders
+      // from line data — independent of `vendorOptionsByLine` (which only
+      // populates after the price-list-by-product fetch lands).
+      setValue(
+        `lines.${idx}.vendor_code`,
+        opt.raw.vendor_code || "",
+      );
+      setValue(
+        `lines.${idx}.vendor_name`,
+        opt.raw.vendor_name || "",
+      );
+    } else {
+      setValue(`lines.${idx}.vendor_code`, "");
+      setValue(`lines.${idx}.vendor_name`, "");
     }
   };
 
@@ -512,10 +526,19 @@ const SalesDocLineItems = ({
                     ? "-"
                     : t("(not set)"));
                 const vendorOpts = vendorOptionsByLine[idx] || [];
-                const vendorLabel =
+                // Fallback chain: live price-list options → line-stored vendor
+                // data → "-". The line data (vendor_code/vendor_name) keeps the
+                // badge visible even when the product's current price list
+                // doesn't list that vendor (expired/changed).
+                const vendorOptLabel =
                   vendorOpts
                     .find((o) => o.value === l.vendor_id)
-                    ?.label?.split(" - ")[0] || "-";
+                    ?.label?.split(" - ")[0] || "";
+                const vendorLabel =
+                  vendorOptLabel ||
+                  (l.vendor_name && l.vendor_code
+                    ? `${l.vendor_name} [${l.vendor_code}]`
+                    : l.vendor_name || l.vendor_code || "-");
                 return (
                   <Fragment key={field.id}>
                     <tr>
