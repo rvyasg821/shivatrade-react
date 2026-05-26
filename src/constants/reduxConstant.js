@@ -475,6 +475,10 @@ const initPfiItem = {
   // ── Shipping ──
   port_of_loading: "",
   port_of_discharge: "",
+  port_of_loading_id: null,
+  port_of_loading_snapshot: null,
+  port_of_discharge_id: null,
+  port_of_discharge_snapshot: null,
   final_destination: "",
   country_of_origin: "India",
   country_of_final_destination: "",
