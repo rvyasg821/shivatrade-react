@@ -547,7 +547,15 @@ const PfiWizard = () => {
       consignee_name: values.consignee_name?.trim() || undefined,
       consignee_address: values.consignee_address?.trim() || undefined,
       port_of_loading: values.port_of_loading?.trim() || undefined,
+      // Carry the FK + snapshot through to the backend so the PortSelect
+      // can pre-select the saved port on re-edit (the free-text name alone
+      // isn't enough — PortSelect renders from the snapshot object).
+      port_of_loading_id: values.port_of_loading_id || undefined,
+      port_of_loading_snapshot: values.port_of_loading_snapshot || undefined,
       port_of_discharge: values.port_of_discharge?.trim() || undefined,
+      port_of_discharge_id: values.port_of_discharge_id || undefined,
+      port_of_discharge_snapshot:
+        values.port_of_discharge_snapshot || undefined,
       final_destination: values.final_destination?.trim() || undefined,
       country_of_origin: values.country_of_origin?.trim() || undefined,
       country_of_final_destination:

@@ -8,9 +8,9 @@
 import { Fragment, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Table, Badge, Spinner, Button } from "reactstrap";
+import { Table, Badge, Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { Printer, AlertTriangle } from "react-feather";
+import { AlertTriangle } from "react-feather";
 
 import {
   getPublicQuotation,
@@ -132,27 +132,17 @@ const QuotationPublicView = () => {
           font-size: 0.88rem;
         }
         .quotation-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
-        .quotation-doc .totals {
-          width: 320px;
-          margin-left: auto;
-          margin-top: 18px;
-        }
-        .quotation-doc .totals .row-line {
-          display: flex;
-          justify-content: space-between;
-          padding: 6px 0;
-          font-size: 0.88rem;
-          color: #4b5563;
-        }
-        .quotation-doc .totals .row-grand {
-          display: flex;
-          justify-content: space-between;
-          padding: 12px 0 4px;
-          border-top: 2px solid #1f2937;
-          margin-top: 6px;
-          font-weight: 700;
+        .quotation-doc table.items tr.row-grand-tr td {
+          padding: 14px 12px 6px;
           font-size: 1rem;
-          color: #1f2937;
+          color: #09418b;
+          background: transparent;
+          border: 0;
+        }
+        .quotation-doc table.items tr.row-grand-tr td.party-grand-label,
+        .quotation-doc table.items tr.row-grand-tr td.party-grand-value {
+          border-top: 2px solid #1f2937;
+          white-space: nowrap;
         }
         .quotation-doc .section {
           margin-top: 24px;
@@ -202,18 +192,6 @@ const QuotationPublicView = () => {
               {t("This quotation has expired.")}
             </div>
           )}
-
-          <div className="d-flex justify-content-end mb-2 no-print">
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={() => window.print()}
-            >
-              <Printer size={14} className="me-50" />
-              {t("Print")}
-            </Button>
-          </div>
 
           <div className="quotation-doc">
             {/* Header */}
@@ -370,16 +348,21 @@ const QuotationPublicView = () => {
                       </td>
                     </tr>
                   )}
+                  {/* Grand Total as the last <tr> of <tbody> (not <tfoot>)
+                      so it doesn't repeat on every page when the browser
+                      saves to PDF. Value still lines up with the Amount
+                      column thanks to colSpan + matching column widths. */}
+                  <tr className="row-grand-tr">
+                    <td colSpan={5} />
+                    <td className="text-end fw-bold party-grand-label">
+                      {t("Grand Total")}
+                    </td>
+                    <td className="text-end fw-bold party-grand-value">
+                      {money(q.grand_total)}
+                    </td>
+                  </tr>
                 </tbody>
               </Table>
-
-              {/* Totals */}
-              <div className="totals">
-                <div className="row-grand">
-                  <span>{t("Grand Total")}</span>
-                  <span>{money(q.grand_total)}</span>
-                </div>
-              </div>
 
               {/* Terms */}
               {(q.payment_terms ||
