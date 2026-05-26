@@ -13,7 +13,8 @@ const Step2Items = ({
   baseCurrencyCode,
   exchangeRate,
 }) => {
-  const { control, setValue } = useFormContext();
+  const { control, setValue, getValues } = useFormContext();
+  const docNumber = getValues?.("pfi_no") || "";
   return (
     <SalesDocLineItems
       control={control}
@@ -29,6 +30,8 @@ const Step2Items = ({
       showExportFields
       tableLayout="detailed"
       displayInBase
+      docType="pfi"
+      docNumber={docNumber}
     />
   );
 };

@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useRef } from "react";
+import ReactPaginate from "react-paginate";
 import {
   Card,
   CardBody,
@@ -37,6 +38,7 @@ import {
   currencySymbol,
   computeLineCosting,
 } from "./_helpers";
+import LineItemImportExportBar from "./import-export/LineItemImportExportBar";
 
 /**
  * Line items section - compact summary table with Add / Edit / Delete actions.
@@ -76,6 +78,10 @@ const SalesDocLineItems = ({
    *  (qty / price / disc% / expenses / rebates / GST% / margin% / total)
    *  shown on the Review step. */
   tableLayout = "compact",
+  /** "quotation" | "pfi" | "po" — drives the Excel import/export toolbar.
+   *  When omitted the bar is hidden (e.g. read-only review steps). */
+  docType = "",
+  docNumber = "",
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -96,6 +102,22 @@ const SalesDocLineItems = ({
 
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
+
+  // ── Pagination for the line-items table ───────────────────────────────
+  // Client-side only — the rows live in form state, not the server. The
+  // paginator only renders when there are more rows than fit in one page,
+  // so short tables (the common case) stay unchanged.
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0); // zero-indexed
+  const totalRows = lineFA.fields.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageEnd = pageStart + pageSize;
+  // Clamp `page` if rows were deleted past the current page boundary.
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
 
   const [vendorOptionsByLine, setVendorOptionsByLine] = useState({});
   const [modal, setModal] = useState({ open: false, idx: null, isNew: false });
@@ -305,6 +327,8 @@ const SalesDocLineItems = ({
     const newIdx = lineFA.fields.length;
     setModal({ open: true, idx: newIdx, isNew: true });
     setModalStep(0);
+    // Jump to the page that holds the freshly-added row.
+    setPage(Math.floor(newIdx / pageSize));
   };
 
   const openEdit = (idx) => {
@@ -389,9 +413,37 @@ const SalesDocLineItems = ({
             {t("Line Items")} <span className="text-danger">*</span>
           </h5>
           {!readOnly && (
-            <Button size="sm" color="primary" type="button" onClick={openAdd}>
-              <Plus size={14} /> {t("Add Line")}
-            </Button>
+            <div className="d-flex flex-wrap gap-1 align-items-center">
+              {docType ? (
+                <LineItemImportExportBar
+                  docType={docType}
+                  control={control}
+                  lineFA={lineFA}
+                  initLineItem={initLineItem}
+                  currencyCode={currencyCode}
+                  exchangeRate={exchangeRate}
+                  docNumber={docNumber}
+                  // Smart-jump: only move to the last page when at least one
+                  // brand-new row was appended; pure updates stay in place so
+                  // the user can see the row that just changed.
+                  onAfterImport={({ added, totalAfter }) => {
+                    if (added > 0) {
+                      setPage(
+                        Math.max(0, Math.ceil(totalAfter / pageSize) - 1),
+                      );
+                    }
+                  }}
+                />
+              ) : null}
+              <Button
+                size="sm"
+                color="primary"
+                type="button"
+                onClick={openAdd}
+              >
+                <Plus size={14} /> {t("Add Line")}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -441,7 +493,8 @@ const SalesDocLineItems = ({
               </tr>
             </thead>
             <tbody>
-              {lineFA.fields.map((field, idx) => {
+              {lineFA.fields.slice(pageStart, pageEnd).map((field, i) => {
+                const idx = pageStart + i;
                 // While a brand-new line is being entered in the modal,
                 // hide it from the visible list so the user doesn't see
                 // an empty placeholder row in the table behind the modal.
@@ -450,7 +503,14 @@ const SalesDocLineItems = ({
                 const c = computeLineCosting(l);
                 const productLabel =
                   productOptions.find((o) => o.value === l.product_id)?.label ||
-                  (l.product_id ? "-" : t("(not set)"));
+                  (allProductOptions || []).find(
+                    (o) => o.value === l.product_id,
+                  )?.label ||
+                  (l.product_code
+                    ? `${l.product_code}${l.product_name ? ` - ${l.product_name}` : ""}`
+                    : l.product_id
+                    ? "-"
+                    : t("(not set)"));
                 const vendorOpts = vendorOptionsByLine[idx] || [];
                 const vendorLabel =
                   vendorOpts
@@ -561,6 +621,51 @@ const SalesDocLineItems = ({
               })}
             </tbody>
           </Table>
+        )}
+
+        {/* Paginator + per-page selector — only when there's more than one
+            page worth of data. Reuses the same ReactPaginate styling as the
+            project's other listing tables. */}
+        {totalRows > pageSize && (
+          <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
+            <div className="d-flex align-items-center small text-muted">
+              <span className="me-50">{t("Show")}</span>
+              <Input
+                type="select"
+                bsSize="sm"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value) || 10);
+                  setPage(0);
+                }}
+                style={{ width: 80 }}
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Input>
+              <span className="ms-50">
+                {t("of")} {totalRows} {t("rows")}
+              </span>
+            </div>
+            <ReactPaginate
+              previousLabel=""
+              nextLabel=""
+              pageCount={pageCount}
+              activeClassName="active"
+              forcePage={safePage}
+              onPageChange={({ selected }) => setPage(selected)}
+              pageClassName="page-item"
+              nextLinkClassName="page-link"
+              nextClassName="page-item next"
+              previousClassName="page-item prev"
+              previousLinkClassName="page-link"
+              pageLinkClassName="page-link"
+              containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+            />
+          </div>
         )}
       </CardBody>
 

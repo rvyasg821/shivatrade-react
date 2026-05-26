@@ -257,6 +257,11 @@ export const API_ENDPOINTS = {
     cancel: `/admin/po-vendor`, // append /:id/cancel
     pdf: `/admin/po-vendor`, // append /:id/pdf
   },
+  salesDocImport: {
+    resolve: `/admin/sales-doc/import/resolve`,
+    sample: `/admin/sales-doc/import/sample`,
+    export: `/admin/sales-doc/import/export`,
+  },
   trackingEvents: {
     list: `/admin/tracking-event/list`,
     byPov: `/admin/tracking-event/by-pov`, // append /:povId

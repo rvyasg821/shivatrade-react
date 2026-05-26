@@ -8943,3 +8943,45 @@ span.doc-badge-gray,
   transition: none !important;
   margin: 0 !important;
 }
+
+// Scoped paginator inside sales-doc line items table.
+// Overrides the theme's washed-out active colour (#c7c2bf on a dark bg) and
+// the hover state which inherits white text against a near-white background.
+.pagination.react-paginate.line-items-paginator {
+  margin: 0;
+
+  .page-item {
+    .page-link {
+      color: #1a2238;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      min-width: 32px;
+      text-align: center;
+      transition: background 0.15s ease, color 0.15s ease;
+
+      &:hover,
+      &:focus {
+        background: #eef2ff;
+        color: #09418b !important;
+        border-color: #d6dffd;
+        box-shadow: none;
+      }
+    }
+
+    &.active .page-link,
+    &.active .page-link:hover,
+    &.active .page-link:focus {
+      background: #09418b !important;
+      color: #ffffff !important;
+      border-color: #09418b !important;
+      font-weight: 600;
+    }
+
+    &.disabled .page-link {
+      color: #b8bcc4;
+      background: transparent;
+    }
+  }
+}
+
