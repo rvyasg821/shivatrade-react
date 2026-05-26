@@ -1,6 +1,9 @@
 // ── PoVendor Dispatch Modal ──────────────────────────────────────────
 // Captures per-line dispatched_qty + transport fields and flips POV
-// status from draft → dispatched.
+// status from draft → dispatched. Per-line dispatched qty is editable
+// (≤ ordered) so the operator can record under-dispatch (vendor
+// stock-out / partial fulfillment). Any shortfall is released back to
+// the parent PO's pending qty so a follow-up POV can be raised.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -16,8 +19,10 @@ import {
   Input,
   Table,
   Spinner,
+  Alert,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { AlertTriangle } from "react-feather";
 
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
@@ -43,6 +48,7 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
   const [ewayNo, setEwayNo] = useState("");
   const [ewayDate, setEwayDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [shortReason, setShortReason] = useState("");
   const [qtyByLine, setQtyByLine] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,23 +71,55 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
     setEwayNo(p.eway_bill_no || "");
     setEwayDate((p.eway_bill_date || "").slice(0, 10) || "");
     setNotes(p.notes || "");
+    setShortReason("");
   }, [isOpen, lines, p]);
 
-  const totals = useMemo(() => {
+  const { totals, totalShort, shortLineCount, overLineCount } = useMemo(() => {
     let ordered = 0;
     let dispatched = 0;
+    let totalShort = 0;
+    let shortLineCount = 0;
+    let overLineCount = 0;
     for (const l of lines) {
-      ordered += num(l.ordered_qty);
-      dispatched += num(qtyByLine[l._id]);
+      const ord = num(l.ordered_qty);
+      const dsp = num(qtyByLine[l._id]);
+      ordered += ord;
+      dispatched += dsp;
+      const diff = ord - dsp;
+      if (diff > 1e-6) {
+        totalShort += diff;
+        shortLineCount += 1;
+      } else if (diff < -1e-6) {
+        overLineCount += 1;
+      }
     }
-    return { ordered, dispatched };
+    return {
+      totals: { ordered, dispatched },
+      totalShort,
+      shortLineCount,
+      overLineCount,
+    };
   }, [lines, qtyByLine]);
+
+  const handleQtyChange = (lineId, raw) => {
+    setQtyByLine((prev) => ({ ...prev, [lineId]: raw }));
+  };
 
   const onSubmit = async () => {
     if (!dispatchDate) {
       Notification(
         "Validation",
         t("Dispatch date is required."),
+        "warning"
+      );
+      return;
+    }
+    if (overLineCount > 0) {
+      Notification(
+        "Validation",
+        t(
+          "Dispatched quantity cannot exceed ordered quantity on any line."
+        ),
         "warning"
       );
       return;
@@ -102,6 +140,8 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
             eway_bill_no: ewayNo || undefined,
             eway_bill_date: ewayDate || undefined,
             notes: notes || undefined,
+            short_reason:
+              totalShort > 0 && shortReason ? shortReason : undefined,
             lines: lines.map((l) => ({
               _id: l._id,
               dispatched_qty: String(num(qtyByLine[l._id])),
@@ -207,9 +247,12 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
           <Label className="form-label mb-0">
             {t("Per-line Dispatched Quantity")}
           </Label>
+          <small className="text-muted">
+            {t("Edit if under-dispatch. Cannot exceed ordered.")}
+          </small>
         </div>
 
-        <Table bordered size="sm" className="align-middle mb-0">
+        <Table bordered size="sm" className="align-middle mb-2">
           <thead className="table-light">
             <tr>
               <th style={{ width: 30 }}>#</th>
@@ -221,27 +264,55 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
               <th style={{ width: 130 }} className="text-end">
                 {t("Dispatched")}
               </th>
+              <th style={{ width: 90 }} className="text-end">
+                {t("Short")}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {lines.map((l, idx) => (
-              <tr key={l._id}>
-                <td>{idx + 1}</td>
-                <td>
-                  <div className="fw-semibold">{l?.product_name || "-"}</div>
-                  {l?.product_code && (
-                    <small className="text-muted">{l.product_code}</small>
-                  )}
-                </td>
-                <td>{l?.unit || "-"}</td>
-                <td className="text-end">
-                  {num(l.ordered_qty).toLocaleString()}
-                </td>
-                <td className="text-end">
-                  {num(qtyByLine[l._id]).toLocaleString()}
-                </td>
-              </tr>
-            ))}
+            {lines.map((l, idx) => {
+              const ordered = num(l.ordered_qty);
+              const dispatched = num(qtyByLine[l._id]);
+              const short = ordered - dispatched;
+              const over = short < -1e-6;
+              return (
+                <tr key={l._id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <div className="fw-semibold">
+                      {l?.product_name || "-"}
+                    </div>
+                    {l?.product_code && (
+                      <small className="text-muted">{l.product_code}</small>
+                    )}
+                  </td>
+                  <td>{l?.unit || "-"}</td>
+                  <td className="text-end">{ordered.toLocaleString()}</td>
+                  <td className="text-end">
+                    <Input
+                      type="number"
+                      min="0"
+                      max={ordered}
+                      step="any"
+                      bsSize="sm"
+                      className="text-end"
+                      invalid={over}
+                      value={qtyByLine[l._id] ?? ""}
+                      onChange={(e) =>
+                        handleQtyChange(l._id, e.target.value)
+                      }
+                    />
+                  </td>
+                  <td
+                    className={`text-end ${
+                      short > 1e-6 ? "text-warning fw-semibold" : ""
+                    }`}
+                  >
+                    {short > 1e-6 ? short.toLocaleString() : "-"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="table-light">
@@ -254,15 +325,55 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
               <td className="text-end fw-bold">
                 {totals.dispatched.toLocaleString()}
               </td>
+              <td className="text-end fw-bold text-warning">
+                {totalShort > 1e-6 ? totalShort.toLocaleString() : "-"}
+              </td>
             </tr>
           </tfoot>
         </Table>
+
+        {totalShort > 1e-6 && (
+          <Alert color="warning" className="d-flex align-items-start mb-0">
+            <AlertTriangle size={16} className="me-1 mt-25 flex-shrink-0" />
+            <div className="flex-grow-1">
+              <div className="fw-semibold mb-25">
+                {t("Under-dispatch detected")} —{" "}
+                {totalShort.toLocaleString()} {t("unit(s) across")}{" "}
+                {shortLineCount} {t("line(s)")}
+              </div>
+              <div className="small">
+                {t(
+                  "The shortfall will be released back to the parent PO's pending quantity. You can raise a follow-up POV from the PO's Coverage tab to procure the missing quantity from this or another vendor."
+                )}
+              </div>
+              <div className="mt-1">
+                <Label className="form-label mb-25">
+                  {t("Short reason (optional)")}
+                </Label>
+                <Input
+                  type="text"
+                  bsSize="sm"
+                  placeholder={t(
+                    "e.g. Vendor stock-out, Partial fulfillment"
+                  )}
+                  value={shortReason}
+                  onChange={(e) => setShortReason(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+            </div>
+          </Alert>
+        )}
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={toggle} disabled={submitting}>
           {t("Cancel")}
         </Button>
-        <Button color="primary" onClick={onSubmit} disabled={submitting}>
+        <Button
+          color="primary"
+          onClick={onSubmit}
+          disabled={submitting || overLineCount > 0}
+        >
           {submitting ? <Spinner size="sm" /> : null} {t("Mark Dispatched")}
         </Button>
       </ModalFooter>
