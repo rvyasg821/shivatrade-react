@@ -1,7 +1,7 @@
-// Purchase Order detail page — composes the shared detail-page kit.
+// Purchase Order detail page - composes the shared detail-page kit.
 // Layout:
 //   1. Header (avatar P, voucher #, vendor, status, pipeline, actions)
-//   2. KPI strip — Grand Total | PO Date | Expected Delivery | Line Items
+//   2. KPI strip - Grand Total | PO Date | Expected Delivery | Line Items
 //   3. Summary (Buyer + Vendor + delivery/terms + notes)
 //   4. Tabs (Line Items | Coverage | PO Vendors)  |  Snapshot side panel
 
@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Hash,
   ExternalLink,
+  FileText,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -149,12 +150,27 @@ const ViewPurchaseOrder = () => {
     },
   ];
 
+  // Operator can raise an Invoice from a PO once it's not draft/cancelled.
+  // Pre-fills customer / currency / lines via `?po=<id>` query.
+  const canGenerateInvoice =
+    p?.status && p.status !== "draft" && p.status !== "cancelled";
+
   const headerActions = [
     {
       icon: Edit,
       label: t("Edit"),
       onClick: () => navigate(`${appsRoot}/purchase-orders/edit/${id}`),
     },
+    ...(canGenerateInvoice
+      ? [
+          {
+            icon: FileText,
+            label: t("Generate Invoice"),
+            onClick: () => navigate(`${appsRoot}/invoices/add?po=${id}`),
+            color: "success",
+          },
+        ]
+      : []),
     {
       icon: ArrowLeft,
       label: t("Back to POs"),

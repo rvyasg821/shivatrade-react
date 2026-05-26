@@ -134,6 +134,7 @@ const containerStuffingModuleSlug = "container-stuffing";
 // Finance
 const financeGroupSlug = "finance";
 const invoicesModuleSlug = "invoices";
+const shippingModuleSlug = "shipping";
 const expensesModuleSlug = "expenses";
 const rebatesModuleSlug = "rebates";
 const agentModuleSlug = "agents"; // System-level sales agents
@@ -177,7 +178,7 @@ const payRunsModuleSlug = "pay-runs";
 const myPayslipsModuleSlug = "my-payslips";
 const hrmPayrollToolSlug = "hrm-payroll";
 
-// HRM Tool Slugs (used for subscription plan gating — must match seeded tool slugs)
+// HRM Tool Slugs (used for subscription plan gating - must match seeded tool slugs)
 const hrmLeaveToolSlug = "hrm-leave";
 const hrmAttendanceToolSlug = "hrm-attendance";
 const hrmShiftToolSlug = "hrm-shift-rota";
@@ -224,6 +225,7 @@ const rolePermissionName = {
 
   // Finance
   [invoicesModuleSlug]: "Invoices",
+  [shippingModuleSlug]: "Shipping",
   [expensesModuleSlug]: "Expenses",
   [rebatesModuleSlug]: "Rebates",
 
@@ -466,7 +468,7 @@ const SYSTEM_ROLE = {
 
 /**
  * Returns true when the current auth user is Admin / Super Admin /
- * Company Admin — roles that bypass per-module permission checks
+ * Company Admin - roles that bypass per-module permission checks
  * across the app. Pass `authUserItem` (state.auth.authUserItem).
  * Safe for nullish input.
  */
@@ -547,6 +549,7 @@ export {
   // Finance
   financeGroupSlug,
   invoicesModuleSlug,
+  shippingModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
   

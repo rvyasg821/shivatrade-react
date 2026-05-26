@@ -78,6 +78,7 @@ import {
   nonComplianceModuleSlug,
   containerStuffingModuleSlug,
   invoicesModuleSlug,
+  shippingModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
   // HRM Modules (permission slugs)
@@ -164,15 +165,24 @@ const navigationItems = [
         resource: purchaseOrdersModuleSlug,
         companyOnly: true,
       },
-      // {
-      //   id: invoicesModuleSlug,
-      //   title: rolePermissionName[invoicesModuleSlug],
-      //   icon: <FileText size={20} />,
-      //   navLink: '',
-      //   // permissionId: invoicesModuleSlug,
-      //   // resource: invoicesModuleSlug,
-      //   companyOnly: true,
-      // },
+      {
+        id: invoicesModuleSlug,
+        title: rolePermissionName[invoicesModuleSlug],
+        icon: <FileText size={20} />,
+        navLink: `${appsRoot}/invoices`,
+        permissionId: invoicesModuleSlug,
+        resource: invoicesModuleSlug,
+        companyOnly: true,
+      },
+      {
+        id: shippingModuleSlug,
+        title: rolePermissionName[shippingModuleSlug],
+        icon: <Truck size={20} />,
+        navLink: `${appsRoot}/shipping`,
+        permissionId: shippingModuleSlug,
+        resource: shippingModuleSlug,
+        companyOnly: true,
+      },
     ],
   },
 
@@ -260,7 +270,7 @@ const navigationItems = [
     ],
   },
 
-  // PO Vendor — promoted to a top-level entry (out of the Purchase group)
+  // PO Vendor - promoted to a top-level entry (out of the Purchase group)
   // since it's the only item that lives there for now. Tracking sidebar
   // entry remains hidden; its permission slug (`trackingModuleSlug`) is
   // still wired for the per-POV Tracking tab + BE checks.
@@ -307,7 +317,7 @@ const navigationItems = [
 
   // People group (Employees + HRM tools)
   // Admin tier sees this labeled "People" (management view).
-  // Employee tier sees "My Records" (self-service view) — swapped at
+  // Employee tier sees "My Records" (self-service view) - swapped at
   // render time in VerticalLayout based on the user's role tier.
   {
     id: 'people',

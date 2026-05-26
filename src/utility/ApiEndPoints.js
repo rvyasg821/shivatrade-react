@@ -265,6 +265,29 @@ export const API_ENDPOINTS = {
     cancel: `/admin/po-vendor`, // append /:id/cancel
     pdf: `/admin/po-vendor`, // append /:id/pdf
   },
+  invoices: {
+    list: `/admin/invoice/list`,
+    get: `/admin/invoice/get`, // append /:id
+    create: `/admin/invoice/create`,
+    update: `/admin/invoice/update`, // append /:id
+    delete: `/admin/invoice/delete`, // append /:id
+    issue: `/admin/invoice/issue`, // append /:id
+    cancel: `/admin/invoice/cancel`, // append /:id
+    pdf: `/admin/invoice`, // append /:id/pdf?doc=commercial|packing-list
+  },
+  shipping: {
+    list: `/admin/shipping/list`,
+    get: `/admin/shipping/get`, // append /:id
+    create: `/admin/shipping/create`,
+    update: `/admin/shipping/update`, // append /:id
+    delete: `/admin/shipping/delete`, // append /:id
+    transition: `/admin/shipping/transition`, // append /:id
+    cancel: `/admin/shipping/cancel`, // append /:id
+    attachInvoices: `/admin/shipping/attach-invoices`, // append /:id
+    detachInvoice: `/admin/shipping/detach-invoice`, // append /:invoiceId
+    addEvent: `/admin/shipping/event`, // append /:id
+    retractEvent: `/admin/shipping/event`, // append /:eventId
+  },
   salesDocImport: {
     resolve: `/admin/sales-doc/import/resolve`,
     sample: `/admin/sales-doc/import/sample`,
