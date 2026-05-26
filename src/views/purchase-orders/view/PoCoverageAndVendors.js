@@ -152,39 +152,60 @@ export const PoCoveragePanel = ({ data }) => {
               <th style={{ width: 90 }} className="text-end">
                 {t("Received")}
               </th>
+              <th
+                style={{ width: 90 }}
+                className="text-end text-warning"
+                title={t(
+                  "Physical loss: qty that left the vendor but never arrived (dispatched − received on closed POVs). Released back to Pending so a follow-up POV can cover it."
+                )}
+              >
+                {t("Short")}
+              </th>
               <th style={{ width: 90 }} className="text-end">
                 {t("Pending")}
               </th>
             </tr>
           </thead>
           <tbody>
-            {coverage.lines.map((l, idx) => (
-              <tr key={l.purchase_order_line_id}>
-                <td>{idx + 1}</td>
-                <td>
-                  <div className="fw-semibold">{l?.product_name || "-"}</div>
-                  {l?.product_code && (
-                    <small className="text-muted">{l.product_code}</small>
-                  )}
-                  {l?.hsn_code && (
-                    <div className="small text-muted">HSN: {l.hsn_code}</div>
-                  )}
-                </td>
-                <td>{l?.unit || "-"}</td>
-                <td className="text-end">
-                  {num(l.ordered).toLocaleString()}
-                </td>
-                <td className="text-end">
-                  {num(l.dispatched).toLocaleString()}
-                </td>
-                <td className="text-end">
-                  {num(l.received).toLocaleString()}
-                </td>
-                <td className="text-end fw-bold">
-                  {num(l.pending).toLocaleString()}
-                </td>
-              </tr>
-            ))}
+            {coverage.lines.map((l, idx) => {
+              const short = num(l.short);
+              return (
+                <tr key={l.purchase_order_line_id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <div className="fw-semibold">{l?.product_name || "-"}</div>
+                    {l?.product_code && (
+                      <small className="text-muted">{l.product_code}</small>
+                    )}
+                    {l?.hsn_code && (
+                      <div className="small text-muted">
+                        HSN: {l.hsn_code}
+                      </div>
+                    )}
+                  </td>
+                  <td>{l?.unit || "-"}</td>
+                  <td className="text-end">
+                    {num(l.ordered).toLocaleString()}
+                  </td>
+                  <td className="text-end">
+                    {num(l.dispatched).toLocaleString()}
+                  </td>
+                  <td className="text-end">
+                    {num(l.received).toLocaleString()}
+                  </td>
+                  <td
+                    className={`text-end ${
+                      short > 1e-6 ? "text-warning fw-semibold" : "text-muted"
+                    }`}
+                  >
+                    {short > 1e-6 ? short.toLocaleString() : "-"}
+                  </td>
+                  <td className="text-end fw-bold">
+                    {num(l.pending).toLocaleString()}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="table-light">
@@ -199,6 +220,11 @@ export const PoCoveragePanel = ({ data }) => {
               </td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.received).toLocaleString()}
+              </td>
+              <td className="text-end fw-bold text-warning">
+                {num(coverage.totals.short) > 1e-6
+                  ? num(coverage.totals.short).toLocaleString()
+                  : "-"}
               </td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.pending).toLocaleString()}

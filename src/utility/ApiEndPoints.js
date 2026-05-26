@@ -153,6 +153,14 @@ export const API_ENDPOINTS = {
     export: `/admin/category/export`,
     sampleExcel: `/admin/category/sample-excel`,
   },
+  portMaster: {
+    list: `/admin/port-master/list`,
+    get: `/admin/port-master/get`,
+    create: `/admin/port-master/create`,
+    update: `/admin/port-master/update`,
+    delete: `/admin/port-master/delete`,
+    dropdown: `/admin/port-master/dropdown`,
+  },
   products: {
     list: `/admin/product/list`,
     get: `/admin/product/get`,
