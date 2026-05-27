@@ -80,7 +80,7 @@ const STEPS = [
     key: "company",
     label: "Company & Contacts",
     icon: Briefcase,
-    fields: ["company_name", "category_ids", "status", "contacts"],
+    fields: ["company_name", "vendor_code", "category_ids", "status", "contacts"],
   },
   {
     key: "addresses",
@@ -155,6 +155,11 @@ const VendorForm = () => {
           .trim()
           .required(t("Company name is required"))
           .max(200, t("Company name must be at most 200 characters")),
+        vendor_code: yup
+          .string()
+          .trim()
+          .required(t("Vendor code is required"))
+          .max(50, t("Vendor code must be at most 50 characters")),
         website: yup.string().trim().nullable().notRequired(),
         category_ids: yup.array().of(yup.string()).nullable().notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
@@ -562,6 +567,46 @@ const VendorForm = () => {
                       {errors.company_name && (
                         <FormFeedback className="d-block">
                           {errors.company_name.message}
+                        </FormFeedback>
+                      )}
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label" for="vendor_code">
+                        {t("Vendor Code")}{" "}
+                        <span className="text-danger">*</span>
+                      </Label>
+                      <Controller
+                        name="vendor_code"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            id="vendor_code"
+                            maxLength={50}
+                            placeholder={t("Internal short code")}
+                            invalid={!!errors.vendor_code || codeExists}
+                            {...field}
+                            value={field.value || ""}
+                            onBlur={(e) => {
+                              field.onBlur(e);
+                              handleVendorCodeBlur(e);
+                            }}
+                          />
+                        )}
+                      />
+                      {codeChecking && (
+                        <small className="text-muted d-block">
+                          {t("Checking…")}
+                        </small>
+                      )}
+                      {errors.vendor_code && (
+                        <FormFeedback className="d-block">
+                          {errors.vendor_code.message}
+                        </FormFeedback>
+                      )}
+                      {!errors.vendor_code && codeExists && (
+                        <FormFeedback className="d-block">
+                          {t("Vendor code already exists for this company")}
                         </FormFeedback>
                       )}
                     </Col>
@@ -1379,40 +1424,7 @@ const VendorForm = () => {
                 <Fragment>
                   <h4 className="mt-1 mb-2">{t("Tax & Compliance")}</h4>
                   <Row>
-                    <Col md="4" className="mb-2">
-                      <Label className="form-label" for="vendor_code">
-                        {t("Vendor Code")}
-                      </Label>
-                      <Controller
-                        name="vendor_code"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            id="vendor_code"
-                            maxLength={50}
-                            placeholder={t("Internal short code")}
-                            invalid={codeExists}
-                            {...field}
-                            value={field.value || ""}
-                            onBlur={(e) => {
-                              field.onBlur(e);
-                              handleVendorCodeBlur(e);
-                            }}
-                          />
-                        )}
-                      />
-                      {codeChecking && (
-                        <small className="text-muted d-block">
-                          {t("Checking…")}
-                        </small>
-                      )}
-                      {codeExists && (
-                        <FormFeedback className="d-block">
-                          {t("Vendor code already exists for this company")}
-                        </FormFeedback>
-                      )}
-                    </Col>
-                    <Col md="4" className="mb-2">
+                    <Col md="6" className="mb-2">
                       <Label className="form-label" for="gstin">
                         {t("GSTIN")}
                       </Label>
@@ -1430,7 +1442,7 @@ const VendorForm = () => {
                         )}
                       />
                     </Col>
-                    <Col md="4" className="mb-2">
+                    <Col md="6" className="mb-2">
                       <Label className="form-label" for="pan">
                         {t("PAN")}
                       </Label>

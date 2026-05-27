@@ -45,6 +45,7 @@ import {
 
 import PoVendorTabView from "./tabView";
 import PoVendorShareLinkPanel from "./PoVendorShareLinkPanel";
+import PoVendorTotalsPanel from "./PoVendorTotalsPanel";
 import PoVendorDispatchModal from "@src/views/_shared/po-vendor/PoVendorDispatchModal";
 import PoVendorReceiveModal from "@src/views/_shared/po-vendor/PoVendorReceiveModal";
 
@@ -338,7 +339,12 @@ const ViewPoVendor = () => {
         <DetailTwoPanel
           ratio="9-3"
           left={<PoVendorTabView />}
-          right={<PoVendorShareLinkPanel />}
+          right={
+            <Fragment>
+              <PoVendorShareLinkPanel />
+              <PoVendorTotalsPanel />
+            </Fragment>
+          }
         />
       </div>
 
