@@ -296,20 +296,14 @@ const ViewQuotation = () => {
       outline: true,
       color: "info",
     },
-    // TEMP 2026-05-26: Generate POs hidden on Quotation detail until the
-    // QT↔PFI coverage transitivity fix lands (queued for 2026-05-27
-    // morning, see invoice_phase1_remaining_gaps.md gap #5). Right now PO
-    // lines only carry source_pfi_line_id when created via PFI, so the
-    // Quotation coverage endpoint can't see them and the button would
-    // create duplicate POs. PFI detail still has its own Generate POs.
-    // {
-    //   icon: Truck,
-    //   label: t("Generate POs"),
-    //   onClick: () => setPoModalOpen(true),
-    //   hidden: !isApproved || !canGeneratePo,
-    //   outline: false,
-    //   color: "success",
-    // },
+    {
+      icon: Truck,
+      label: t("Generate POs"),
+      onClick: () => setPoModalOpen(true),
+      hidden: !isApproved || !canGeneratePo,
+      outline: false,
+      color: "success",
+    },
     ...(canEdit
       ? [
           {

@@ -77,10 +77,14 @@ const PoGeneratePreviewModal = ({
     setPreviewLines([]);
     setAssignment({});
     setDropped({});
+    // Reset deliver-to on every open so we re-derive from the response
+    // (existing PO's address if any, else LocationSelect's auto-default).
+    setDeliveryAddressId("");
     instance
       .get(previewEndpoint)
       .then((resp) => {
-        const lines = resp?.data?.data?.lines || [];
+        const data = resp?.data?.data || {};
+        const lines = data.lines || [];
         setPreviewLines(lines);
         const seeded = {};
         const seedDropped = {};
@@ -91,6 +95,12 @@ const PoGeneratePreviewModal = ({
         }
         setAssignment(seeded);
         setDropped(seedDropped);
+        // Prefill deliver-to with whatever the existing downstream PO
+        // used so PFI + Quotation modals agree. Falls through to
+        // LocationSelect's auto-default when no PO exists yet.
+        if (data.existing_delivery_address_id) {
+          setDeliveryAddressId(data.existing_delivery_address_id);
+        }
       })
       .catch((err) => {
         Notification(
