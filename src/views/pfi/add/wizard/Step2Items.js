@@ -32,6 +32,7 @@ const Step2Items = ({
       displayInBase
       docType="pfi"
       docNumber={docNumber}
+      hideGst
     />
   );
 };

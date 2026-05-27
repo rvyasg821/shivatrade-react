@@ -32,7 +32,7 @@ const PfiLineItemsPanel = ({ bare = false }) => {
   const toDocCcy = (v) => num(v) * rate;
 
   const totals = useMemo(
-    () => computeDocTotals(lines, p?.exchange_rate),
+    () => computeDocTotals(lines, p?.exchange_rate, { excludeGst: true }),
     [lines, p?.exchange_rate]
   );
 
@@ -144,6 +144,7 @@ const PfiLineItemsPanel = ({ bare = false }) => {
             totals={totals}
             currencyCode={p?.currency_code}
             sticky={false}
+            hideGst
           />
         </Col>
       </Row>

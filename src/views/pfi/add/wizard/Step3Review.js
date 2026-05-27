@@ -45,6 +45,7 @@ const Step3Review = ({
           exchangeRate={exchangeRate}
           readOnly
           tableLayout="compact"
+          hideGst
         />
 
         <Row className="mt-2">
@@ -114,6 +115,7 @@ const Step3Review = ({
         <SalesDocCostingCard
           totals={totals}
           currencyCode={selectedCurrencyCode}
+          hideGst
         />
       </Col>
     </Row>
