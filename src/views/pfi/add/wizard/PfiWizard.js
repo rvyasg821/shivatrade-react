@@ -536,7 +536,7 @@ const PfiWizard = () => {
 
   // Costing engine - shared roll-up, same as the Quotation wizard.
   const totals = useMemo(
-    () => computeDocTotals(liveLines, liveRate),
+    () => computeDocTotals(liveLines, liveRate, { excludeGst: true }),
     [liveLines, liveMargin, liveRate],
   );
 

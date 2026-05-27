@@ -88,7 +88,7 @@ const OverviewTab = () => {
   }, []);
 
   const totals = useMemo(
-    () => computeDocTotals(lines, p?.exchange_rate),
+    () => computeDocTotals(lines, p?.exchange_rate, { excludeGst: true }),
     [lines, p?.exchange_rate]
   );
 
@@ -478,6 +478,7 @@ const OverviewTab = () => {
             totals={totals}
             currencyCode={p?.currency_code}
             sticky={false}
+            hideGst
           />
         </Col>
       </Row>

@@ -142,6 +142,7 @@ const StepShipping = ({
             });
             setValue("port_of_loading", port?.name || "", {
               shouldDirty: true,
+              shouldValidate: true,
             });
           }}
         />
@@ -335,7 +336,12 @@ const StepShipping = ({
       </Col>
 
       <Col md={containerUsed === true ? "2" : "12"} className="mb-2">
-        <Label className="form-label d-block">{t("Container Used?")}</Label>
+        <Label
+          className="form-label d-block"
+          style={{ whiteSpace: "nowrap" }}
+        >
+          {t("Container Used?")}
+        </Label>
         <Controller
           name="container_used"
           control={control}
