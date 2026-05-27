@@ -410,7 +410,7 @@ const QuotationWizard = () => {
 
   // ── Costing engine (mirrors backend recompute) ──────────────────────
   const totals = useMemo(
-    () => computeDocTotals(liveLines, liveRate),
+    () => computeDocTotals(liveLines, liveRate, { excludeGst: true }),
     [liveLines, liveMargin, liveRate]
   );
 

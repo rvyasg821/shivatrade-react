@@ -19,7 +19,7 @@ const OverviewTab = () => {
 
   // Same roll-up the wizard's final step uses - built from the saved lines.
   const totals = useMemo(
-    () => computeDocTotals(lines, q?.exchange_rate),
+    () => computeDocTotals(lines, q?.exchange_rate, { excludeGst: true }),
     [lines, q?.exchange_rate]
   );
 
@@ -35,7 +35,6 @@ const OverviewTab = () => {
             <th className="text-end">{t("Qty")}</th>
             <th className="text-end">{t("Price")}</th>
             <th className="text-end">{t("Disc%")}</th>
-            <th className="text-end">{t("GST%")}</th>
             <th className="text-end">{t("Margin%")}</th>
             <th className="text-end">{t("Line Total")}</th>
           </tr>
@@ -43,7 +42,7 @@ const OverviewTab = () => {
         <tbody>
           {lines.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center text-muted py-3">
+              <td colSpan={7} className="text-center text-muted py-3">
                 {t("No line items.")}
               </td>
             </tr>
@@ -57,7 +56,6 @@ const OverviewTab = () => {
                 <td className="text-end">{l.qty || "-"}</td>
                 <td className="text-end">{fmt(l.unit_price)}</td>
                 <td className="text-end">{num(l.discount_pct)}</td>
-                <td className="text-end">{num(l.tax_pct)}</td>
                 <td className="text-end">{num(l.margin_pct)}</td>
                 <td className="text-end fw-bold">{fmt(l.line_total)}</td>
               </tr>
@@ -81,6 +79,7 @@ const OverviewTab = () => {
             totals={totals}
             currencyCode={q?.currency_code}
             sticky={false}
+            hideGst
           />
         </Col>
       </Row>

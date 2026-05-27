@@ -45,8 +45,9 @@ export const fmt = (n) =>
  *   → Line Total
  * Every component is round2()'d; lineTotal sums the rounded parts.
  */
-export const computeLineCosting = (line) => {
+export const computeLineCosting = (line, opts = {}) => {
   const l = line || {};
+  const excludeGst = !!opts.excludeGst;
   const qty = num(l.qty);
   const price = num(l.unit_price);
   const disc = num(l.discount_pct);
@@ -89,8 +90,9 @@ export const computeLineCosting = (line) => {
   const marginPct = num(l.margin_pct);
   const margin = round2((afterExpenses * marginPct) / 100);
   const netTotal = round2(afterExpenses + margin);
-  // GST is applied on the post-margin balance.
-  const gst = round2((netTotal * num(l.tax_pct)) / 100);
+  // GST applies on the post-margin balance — skipped for Quotation,
+  // where per-line GST is captured for reference but not added to totals.
+  const gst = excludeGst ? 0 : round2((netTotal * num(l.tax_pct)) / 100);
   const lineTotal = round2(netTotal + gst);
 
   return {
@@ -119,7 +121,8 @@ export const computeLineCosting = (line) => {
  * Works on any line array with qty / unit_price / discount_pct / tax_pct /
  * margin_pct / product_rebates_snapshot / product_expenses_snapshot.
  */
-export const computeDocTotals = (lines, exchangeRate) => {
+export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
+  const excludeGst = !!opts.excludeGst;
   let subtotal = 0;
   let tax_total = 0;
   let product_rebates_total = 0;
@@ -185,14 +188,16 @@ export const computeDocTotals = (lines, exchangeRate) => {
         (marginByRate[lineMarginPct] || 0) + lineMargin;
     }
 
-    // GST on post-margin balance.
+    // GST on post-margin balance — skipped when excluded (Quotation).
     const lineNetTotal = lineAfterExpenses + lineMargin;
-    const lineTax = lineNetTotal * (taxPct / 100);
+    const lineTax = excludeGst ? 0 : lineNetTotal * (taxPct / 100);
     tax_total += lineTax;
     if (lineNet > 0) {
-      gstRates.add(taxPct);
+      if (!excludeGst) {
+        gstRates.add(taxPct);
+        gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
+      }
       marginRates.add(lineMarginPct);
-      gstByRate[taxPct] = (gstByRate[taxPct] || 0) + lineTax;
     }
   });
 

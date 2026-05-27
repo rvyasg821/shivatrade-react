@@ -21,6 +21,9 @@ const SalesDocCostingCard = ({
   currencyCode,
   title,
   sticky = true,
+  /** Quotation: capture per-line GST for reference but don't display
+   *  the GST row or roll it into the grand total. */
+  hideGst = false,
 }) => {
   const { t } = useTranslation();
   const currencySym = getCurrencySymbol(currencyCode);
@@ -111,27 +114,31 @@ const SalesDocCostingCard = ({
               </div>
             ))
         )}
-        <div className="d-flex justify-content-between mb-1">
-          <span>
-            + {t("GST")}
-            {totals.gst_uniform
-              ? ` (${round2(num(totals.gst_pct))}%)`
-              : ""}
-          </span>
-          <strong>{inr(totals.tax_total)}</strong>
-        </div>
-        {!totals.gst_uniform &&
-          Object.entries(totals.gst_by_rate || {})
-            .sort((a, b) => Number(a[0]) - Number(b[0]))
-            .map(([rate, amt]) => (
-              <div
-                key={`gst-${rate}`}
-                className="d-flex justify-content-between mb-1 ps-2 small text-muted"
-              >
-                <span>· {round2(num(rate))}%</span>
-                <span>{inr(amt)}</span>
-              </div>
-            ))}
+        {!hideGst && (
+          <>
+            <div className="d-flex justify-content-between mb-1">
+              <span>
+                + {t("GST")}
+                {totals.gst_uniform
+                  ? ` (${round2(num(totals.gst_pct))}%)`
+                  : ""}
+              </span>
+              <strong>{inr(totals.tax_total)}</strong>
+            </div>
+            {!totals.gst_uniform &&
+              Object.entries(totals.gst_by_rate || {})
+                .sort((a, b) => Number(a[0]) - Number(b[0]))
+                .map(([rate, amt]) => (
+                  <div
+                    key={`gst-${rate}`}
+                    className="d-flex justify-content-between mb-1 ps-2 small text-muted"
+                  >
+                    <span>· {round2(num(rate))}%</span>
+                    <span>{inr(amt)}</span>
+                  </div>
+                ))}
+          </>
+        )}
         <hr className="my-2" />
         <div className="d-flex justify-content-between mb-1 text-muted">
           <span>{t("Grand Total")}</span>
