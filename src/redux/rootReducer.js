@@ -6,7 +6,6 @@ import todo from "@src/views/apps/todo/store";
 import chat from "@src/views/apps/chat/store";
 import users from "@src/views/apps/user/store";
 import email from "@src/views/apps/email/store";
-import invoice from "@src/views/apps/invoice/store";
 import calendar from "@src/views/apps/calendar/store";
 import dataTables from "@src/views/tables/data-tables/store";
 import permissions from "@src/views/apps/roles-permissions/store";
@@ -35,6 +34,8 @@ import quotation from "@src/views/quotations/store";
 import pfi from "@src/views/pfi/store";
 import purchaseOrder from "@src/views/purchase-orders/store";
 import poVendor from "@src/views/po-vendors/store";
+import invoice from "@src/views/invoices/store";
+import shipping from "@src/views/shipping/store";
 import trackingEvent from "@src/views/tracking/store";
 import employee from "@src/views/employees/store";
 
@@ -95,7 +96,6 @@ const rootReducer = {
   layout,
   payment,
   subscription,
-  invoice,
   calendar,
   dataTables,
   permissions,
@@ -117,6 +117,8 @@ const rootReducer = {
   pfi,
   purchaseOrder,
   poVendor,
+  invoice,
+  shipping,
   trackingEvent,
   locationContext,
   employee,

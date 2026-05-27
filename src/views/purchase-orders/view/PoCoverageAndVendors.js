@@ -6,7 +6,7 @@
 // each tab mounts only when opened, so the cost is negligible.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
   Table,
@@ -16,7 +16,7 @@ import {
   Badge,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, AlertTriangle, Plus } from "react-feather";
+import { ExternalLink, AlertTriangle, Plus, FileText } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -73,6 +73,7 @@ export const usePoCoverage = () => {
 
 export const PoCoveragePanel = ({ data }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { po, coverage, povs, loading, reload } = data;
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
@@ -81,6 +82,9 @@ export const PoCoveragePanel = ({ data }) => {
   const isAdmin = isAdminUser(authUserItem);
   const povPerms = authUserItem?.role?.permissions?.["po-vendors"];
   const canCreatePov = isAdmin || povPerms?.can_all || povPerms?.can_add;
+  const invoicePerms = authUserItem?.role?.permissions?.invoices;
+  const canCreateInvoice =
+    isAdmin || invoicePerms?.can_all || invoicePerms?.can_add;
 
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -88,6 +92,16 @@ export const PoCoveragePanel = ({ data }) => {
     canCreatePov &&
     coverage?.has_pending &&
     (poStatus === "confirmed" || poStatus === "in_process");
+
+  // Generate Invoice — gated on actual vendor dispatch. Surfaces only when
+  // at least one POV line has been dispatched; the BE enforces the same
+  // rule per-line (assertQtyGuardForLines).
+  const dispatchedTotal = num(coverage?.totals?.dispatched);
+  const canGenerateInvoice =
+    canCreateInvoice &&
+    dispatchedTotal > 0 &&
+    poStatus !== "draft" &&
+    poStatus !== "cancelled";
 
   const disabledReason = useMemo(() => {
     if (!coverage) return t("Loading coverage…");
@@ -108,21 +122,37 @@ export const PoCoveragePanel = ({ data }) => {
           POV cancel frees up its lines, or a new vendor line was added to
           the PO post-creation. The Create POV modal filters by vendor and
           only shows uncovered lines, so the recovery flow is clean. */}
-      {canCreatePov && canCreate && (
-        <div className="d-flex justify-content-end mb-2">
-          <Button
-            color="success"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-            id="po-create-pov"
-          >
-            <Plus size={14} className="me-50" /> {t("Create POV")}
-          </Button>
-          <UncontrolledTooltip target="po-create-pov" placement="top">
-            {t(
-              "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
-            )}
-          </UncontrolledTooltip>
+      {(canCreate || canGenerateInvoice) && (
+        <div className="d-flex justify-content-end mb-2 gap-1">
+          {canCreate && (
+            <Fragment>
+              <Button
+                color="success"
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                id="po-create-pov"
+              >
+                <Plus size={14} className="me-50" /> {t("Create POV")}
+              </Button>
+              <UncontrolledTooltip target="po-create-pov" placement="top">
+                {t(
+                  "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
+                )}
+              </UncontrolledTooltip>
+            </Fragment>
+          )}
+          {canGenerateInvoice && (
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() =>
+                navigate(`${appsRoot}/invoices/add?po=${po?._id}`)
+              }
+            >
+              <FileText size={14} className="me-50" />
+              {t("Generate Invoice")}
+            </Button>
+          )}
         </div>
       )}
 

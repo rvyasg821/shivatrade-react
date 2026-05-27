@@ -320,6 +320,127 @@ const PACKING_TYPE_OPTIONS = [
   { value: "Loose", label: "Loose" },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Invoice module
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INVOICE_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "issued", label: "Issued" },
+  { value: "partially_paid", label: "Partially Paid" },
+  { value: "paid", label: "Paid" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const INVOICE_STATUS_BADGE_COLOR = {
+  draft: "secondary",
+  issued: "info",
+  partially_paid: "warning",
+  paid: "success",
+  cancelled: "danger",
+};
+
+const INVOICE_STATUS_COLOR_MAP = {
+  draft: "#6c757d",
+  issued: "#0d6efd",
+  partially_paid: "#fd7e14",
+  paid: "#198754",
+  cancelled: "#dc3545",
+};
+
+const INVOICE_PIPELINE_STEPS = [
+  { value: "draft", label: "Draft" },
+  { value: "issued", label: "Issued" },
+  { value: "partially_paid", label: "Partially Paid" },
+  { value: "paid", label: "Paid" },
+];
+
+const INVOICE_TERMINAL_STEPS = [
+  { value: "cancelled", label: "Cancelled", color: "danger" },
+];
+
+const INVOICE_GST_ROUTE_OPTIONS = [
+  { value: "igst_paid", label: "IGST Paid (default)" },
+  { value: "lut_zero_rated", label: "LUT - Zero Rated" },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipping module
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SHIPPING_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "booked", label: "Booked" },
+  { value: "dispatched", label: "Dispatched" },
+  { value: "arrived", label: "Arrived" },
+  { value: "cleared", label: "Cleared" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const SHIPPING_STATUS_BADGE_COLOR = {
+  draft: "secondary",
+  booked: "info",
+  dispatched: "warning",
+  arrived: "primary",
+  cleared: "warning",
+  delivered: "success",
+  cancelled: "danger",
+};
+
+const SHIPPING_STATUS_COLOR_MAP = {
+  draft: "#6c757d",
+  booked: "#0d6efd",
+  dispatched: "#fd7e14",
+  arrived: "#0dcaf0",
+  cleared: "#ffc107",
+  delivered: "#198754",
+  cancelled: "#dc3545",
+};
+
+const SHIPPING_PIPELINE_STEPS = [
+  { value: "draft", label: "Draft" },
+  { value: "booked", label: "Booked" },
+  { value: "dispatched", label: "Dispatched" },
+  { value: "arrived", label: "Arrived" },
+  { value: "cleared", label: "Cleared" },
+  { value: "delivered", label: "Delivered" },
+];
+
+const SHIPPING_TERMINAL_STEPS = [
+  { value: "cancelled", label: "Cancelled", color: "danger" },
+];
+
+// Sea + Air only. Road / rail / multimodal locked out per
+// SHIPPING_MODULE_PLAN.md §3.
+const SHIPPING_MODE_OPTIONS = [
+  { value: "sea_fcl", label: "Sea - FCL" },
+  { value: "sea_lcl", label: "Sea - LCL" },
+  { value: "air", label: "Air" },
+  { value: "air_courier", label: "Air Courier" },
+];
+
+const SHIPPING_SEA_MODES = ["sea_fcl", "sea_lcl"];
+const SHIPPING_AIR_MODES = ["air", "air_courier"];
+
+const SHIPPING_BILL_TYPE_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "dbk", label: "DBK" },
+  { value: "rodtep", label: "RoDTEP" },
+  { value: "rosctl", label: "RoSCTL" },
+  { value: "seis", label: "SEIS" },
+];
+
+// Status → next-step transition modal config. Drives the dynamic button
+// label + which date field the SweetAlert collects.
+const SHIPPING_NEXT_STEP = {
+  draft: { to: "booked", label: "Book", dateField: "booking_date", dateLabel: "Booking Date" },
+  booked: { to: "dispatched", label: "Mark Dispatched", dateField: "actual_dispatch_date", dateLabel: "Actual Dispatch Date" },
+  dispatched: { to: "arrived", label: "Mark Arrived", dateField: "actual_arrival_date", dateLabel: "Actual Arrival Date" },
+  arrived: { to: "cleared", label: "Mark Cleared", dateField: "customs_cleared_date", dateLabel: "Customs Cleared Date" },
+  cleared: { to: "delivered", label: "Mark Delivered", dateField: "delivered_date", dateLabel: "Delivered Date" },
+};
+
 export {
   STATUS_OPTIONS,
   REBATE_EXPENSE_TYPE_OPTIONS,
@@ -348,4 +469,22 @@ export {
   EXCHANGE_TO_CURRENCY_OPTIONS,
   MODE_OF_SHIPMENT_OPTIONS,
   PACKING_TYPE_OPTIONS,
+  // Invoice
+  INVOICE_STATUS_OPTIONS,
+  INVOICE_STATUS_BADGE_COLOR,
+  INVOICE_STATUS_COLOR_MAP,
+  INVOICE_PIPELINE_STEPS,
+  INVOICE_TERMINAL_STEPS,
+  INVOICE_GST_ROUTE_OPTIONS,
+  // Shipping
+  SHIPPING_STATUS_OPTIONS,
+  SHIPPING_STATUS_BADGE_COLOR,
+  SHIPPING_STATUS_COLOR_MAP,
+  SHIPPING_PIPELINE_STEPS,
+  SHIPPING_TERMINAL_STEPS,
+  SHIPPING_MODE_OPTIONS,
+  SHIPPING_SEA_MODES,
+  SHIPPING_AIR_MODES,
+  SHIPPING_BILL_TYPE_OPTIONS,
+  SHIPPING_NEXT_STEP,
 };

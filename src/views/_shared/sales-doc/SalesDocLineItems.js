@@ -573,6 +573,11 @@ const SalesDocLineItems = ({
                             {vendorLabel}
                           </span>
                         ) : null}
+                        {l.customer_reference ? (
+                          <div className="small text-muted mt-25">
+                            {t("Buyer Ref")}: {l.customer_reference}
+                          </div>
+                        ) : null}
                       </td>
                       {tableLayout === "detailed" ? (
                         <>
@@ -1616,6 +1621,30 @@ const SalesDocLineItems = ({
                       />
                     )}
                   />
+                </Col>
+                <Col md="12" className="mb-1">
+                  <Label className="form-label">
+                    {t("Buyer's Requirement #")}
+                  </Label>
+                  <Controller
+                    name={`lines.${editingIdx}.customer_reference`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input
+                        {...f}
+                        value={f.value || ""}
+                        maxLength={120}
+                        placeholder={t(
+                          "Buyer's internal part code or requisition (e.g. BOSCH PUMP REQUISITION)",
+                        )}
+                      />
+                    )}
+                  />
+                  <small className="text-muted">
+                    {t(
+                      "Optional. Flows forward to PFI, PO, and Invoice. Appears on the Export Invoice PDF.",
+                    )}
+                  </small>
                 </Col>
               </Row>
 
