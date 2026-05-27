@@ -91,7 +91,7 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
               {t("Ordered")}
             </th>
             <th style={{ width: 90 }} className="text-end">
-              {t("On POs")}
+              {t("Booked")}
             </th>
             <th style={{ width: 90 }} className="text-end">
               {t("Pending")}
