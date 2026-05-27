@@ -146,7 +146,7 @@ export const PoCoveragePanel = ({ data }) => {
               color="primary"
               size="sm"
               onClick={() =>
-                navigate(`${appsRoot}/invoices/add?po=${po?._id}`)
+                navigate(`${appsRoot}/invoices/add?po_id=${po?._id}`)
               }
             >
               <FileText size={14} className="me-50" />

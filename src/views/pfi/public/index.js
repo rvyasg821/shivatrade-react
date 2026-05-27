@@ -619,11 +619,11 @@ const PfiPublicView = () => {
                 </div>
               )}
 
-              {/* Payment Terms */}
-              {p.payment_terms_text && (
+              {/* Payment Terms — Step 1 field. */}
+              {p.payment_terms && (
                 <div className="section">
                   <Label>{t("Payment Terms")}</Label>
-                  <div className="body">{p.payment_terms_text}</div>
+                  <div className="body">{p.payment_terms}</div>
                 </div>
               )}
 
