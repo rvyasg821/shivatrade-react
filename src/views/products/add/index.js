@@ -1127,6 +1127,11 @@ const ProductForm = () => {
                       {errors.pack_size.message}
                     </FormFeedback>
                   )}
+                  <small className="text-muted d-block mt-25">
+                    {t(
+                      "Units per standard pack/box/carton. Used to auto-fill Packages on quotation, PFI and PO line items (Packages = Qty ÷ Pack Size, rounded up).",
+                    )}
+                  </small>
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="country_of_origin">
