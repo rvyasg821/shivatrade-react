@@ -28,7 +28,7 @@ const Step2Items = ({
       {hasExistingPovs && (
         <div className="alert alert-warning small mb-2">
           {t(
-            "POVs have been dispatched against this PO — line items cannot be changed."
+            "Active POV(s) reference this PO's lines — line items cannot be changed. Cancel the POV(s) to edit."
           )}
         </div>
       )}

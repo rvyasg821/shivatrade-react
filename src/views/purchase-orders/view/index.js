@@ -1,7 +1,7 @@
-// Purchase Order detail page — composes the shared detail-page kit.
+// Purchase Order detail page - composes the shared detail-page kit.
 // Layout:
 //   1. Header (avatar P, voucher #, vendor, status, pipeline, actions)
-//   2. KPI strip — Grand Total | PO Date | Expected Delivery | Line Items
+//   2. KPI strip - Grand Total | PO Date | Expected Delivery | Line Items
 //   3. Summary (Buyer + Vendor + delivery/terms + notes)
 //   4. Tabs (Line Items | Coverage | PO Vendors)  |  Snapshot side panel
 
@@ -149,6 +149,8 @@ const ViewPurchaseOrder = () => {
     },
   ];
 
+  // Generate Invoice now lives on the PO Coverage tab next to "Create POV"
+  // — it's gated on dispatched POV qty, which the Coverage tab already shows.
   const headerActions = [
     {
       icon: Edit,

@@ -18,6 +18,8 @@ import {
   pfiModuleSlug,
   purchaseOrdersModuleSlug,
   poVendorsModuleSlug,
+  invoicesModuleSlug,
+  shippingModuleSlug,
   trackingModuleSlug,
 } from '@constant/defaultValues';
 
@@ -78,6 +80,14 @@ const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
 const PurchaseOrderPublicView = lazy(() => import('@src/views/purchase-orders/public'));
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
+const InvoiceList = lazy(() => import('@src/views/invoices'));
+const ViewInvoice = lazy(() => import('@src/views/invoices/view'));
+const AddInvoice = lazy(() => import('@src/views/invoices/add'));
+const EditInvoice = lazy(() => import('@src/views/invoices/add'));
+const ShippingList = lazy(() => import('@src/views/shipping'));
+const ViewShipping = lazy(() => import('@src/views/shipping/view'));
+const AddShipping = lazy(() => import('@src/views/shipping/add'));
+const EditShipping = lazy(() => import('@src/views/shipping/add'));
 const TrackingFeed = lazy(() => import('@src/views/tracking'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
@@ -754,6 +764,58 @@ const AppRoutes = [
       permissionId: poVendorsModuleSlug,
       action: 'list',
     },
+  },
+  {
+    path: `${appsRoot}/invoices`,
+    element: <InvoiceList />,
+    meta: {
+      permissionId: invoicesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/invoices/view/:id`,
+    element: <ViewInvoice />,
+    meta: {
+      permissionId: invoicesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/invoices/add`,
+    element: <AddInvoice />,
+    meta: {
+      permissionId: invoicesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/invoices/edit/:id`,
+    element: <EditInvoice />,
+    meta: {
+      permissionId: invoicesModuleSlug,
+      action: 'update',
+    },
+  },
+  {
+    path: `${appsRoot}/shipping`,
+    element: <ShippingList />,
+    meta: { permissionId: shippingModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/shipping/view/:id`,
+    element: <ViewShipping />,
+    meta: { permissionId: shippingModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/shipping/add`,
+    element: <AddShipping />,
+    meta: { permissionId: shippingModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/shipping/edit/:id`,
+    element: <EditShipping />,
+    meta: { permissionId: shippingModuleSlug, action: 'update' },
   },
   {
     path: `${appsRoot}/tracking`,
