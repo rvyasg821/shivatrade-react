@@ -96,8 +96,6 @@ const PfiWizard = () => {
         quotation_id: yup.string().nullable(),
         lead_id: yup.string().nullable(),
         // ── Shipping & Packing step ──
-        consignee_name: yup.string().nullable().max(200),
-        consignee_address: yup.string().nullable().max(2000),
         port_of_loading: yup
           .string()
           .nullable()
@@ -553,6 +551,21 @@ const PfiWizard = () => {
       lead_id: values.lead_id || undefined,
       customer_id: values.customer_id,
       customer_address_id: values.customer_address_id || undefined,
+      // Consignee (Ship-to) — propagates to PO + Invoice on createFrom chain.
+      consignee_id: values.consignee_id || undefined,
+      consignee_snapshot: (() => {
+        const s = values.consignee_snapshot || {};
+        const hasAny = [
+          s.name,
+          s.address_line1,
+          s.address_line2,
+          s.city,
+          s.state,
+          s.postcode,
+          s.country,
+        ].some((v) => v && String(v).trim());
+        return hasAny ? s : undefined;
+      })(),
       pfi_date: values.pfi_date,
       valid_until: values.valid_until || undefined,
       currency_code: values.currency_code,
@@ -565,8 +578,6 @@ const PfiWizard = () => {
       margin_pct: values.margin_pct || "0",
       status: values.status || "draft",
       // ── Shipping & Packing ──
-      consignee_name: values.consignee_name?.trim() || undefined,
-      consignee_address: values.consignee_address?.trim() || undefined,
       port_of_loading: values.port_of_loading?.trim() || undefined,
       // Carry the FK + snapshot through to the backend so the PortSelect
       // can pre-select the saved port on re-edit (the free-text name alone
@@ -721,11 +732,9 @@ const PfiWizard = () => {
     [allBankAccounts]
   );
 
-  // Default-pick logic — applies ONLY to new PFI creation. On edit we
-  // always keep the bank account that was chosen when the PFI was created,
-  // even if the company's default has since changed (or the PFI's saved
-  // bank doesn't match the current currency). Hydration handles the edit
-  // case by spreading the saved PFI into the form.
+  // Default-pick logic — applies ONLY to new PFI creation. Pick the
+  // is_default bank in the company's HOME currency. Operator can change
+  // to a different bank from the form.
   useEffect(() => {
     if (isEdit) return;
     if (!allBankAccounts.length) return;
@@ -733,14 +742,19 @@ const PfiWizard = () => {
       (b) => b._id === liveBankAccountId
     );
     if (liveBankAccountId && stillValid) return;
+    const homeCurrency = (
+      companyStore?.companyItem?.currency || ""
+    ).toUpperCase();
+    const banksInHome = homeCurrency
+      ? activeBankAccounts.filter(
+          (b) => (b.currency_code || "").toUpperCase() === homeCurrency
+        )
+      : [];
     const def =
-      bankAccountsForCurrency.find((b) => b.is_default) ||
-      bankAccountsForCurrency[0] ||
-      activeBankAccounts.find((b) => b.is_default) ||
-      activeBankAccounts[0];
+      banksInHome.find((b) => b.is_default) || banksInHome[0];
     setValue("bank_account_id", def ? def._id : "", { shouldDirty: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveCurrencyCode, allBankAccounts, isEdit]);
+  }, [allBankAccounts, isEdit, companyStore?.companyItem?.currency]);
 
   const stepCtx = {
     isEdit,
@@ -765,6 +779,34 @@ const PfiWizard = () => {
     sourceQuotationId,
     allBankAccounts,
     bankAccountsForCurrency,
+    prefillConsigneeFromCustomer: async (customerId) => {
+      if (!customerId) return;
+      try {
+        const resp = await instance.get(
+          `${API_ENDPOINTS.customers.get}/${customerId}`,
+        );
+        const cust = resp?.data?.data;
+        const addrs = cust?.addresses || [];
+        const addr =
+          addrs.find((a) => a.is_default) || addrs[0] || {};
+        setValue("consignee_id", customerId, { shouldDirty: true });
+        setValue(
+          "consignee_snapshot",
+          {
+            name: cust?.company_name || "",
+            address_line1: addr.address_line1 || "",
+            address_line2: addr.address_line2 || "",
+            city: addr.city || "",
+            state: addr.state || "",
+            postcode: addr.postcode || "",
+            country: addr.country || "",
+          },
+          { shouldDirty: true },
+        );
+      } catch {
+        // Soft-fail — operator can type fields manually.
+      }
+    },
     onRevertToDraft: () => setValue("status", "draft", { shouldDirty: true }),
   };
 

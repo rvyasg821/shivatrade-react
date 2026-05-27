@@ -448,6 +448,18 @@ const initPfiItem = {
   lead_id: "",
   customer_id: "",
   customer_address_id: "",
+  // Consignee (Ship-to) — hybrid FK + structured snapshot. Propagates
+  // to PO and Invoice on the createFrom chain.
+  consignee_id: "",
+  consignee_snapshot: {
+    name: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    state: "",
+    postcode: "",
+    country: "",
+  },
   pfi_date: new Date().toISOString().slice(0, 10),
   valid_until: "",
   currency_code: "",

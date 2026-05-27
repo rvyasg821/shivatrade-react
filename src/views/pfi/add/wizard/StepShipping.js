@@ -4,6 +4,7 @@
 // bank account. Line-level weights / package counts are entered in the
 // Line Items step and roll up here as read-only auto-sums.
 
+import { useEffect, useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
@@ -28,6 +29,8 @@ const StepShipping = ({
   isLocked,
   bankAccountsForCurrency = [],
   allBankAccounts = [],
+  customerOptions = [],
+  prefillConsigneeFromCustomer,
 }) => {
   const { t } = useTranslation();
   const {
@@ -35,6 +38,21 @@ const StepShipping = ({
     setValue,
     formState: { errors },
   } = useFormContext();
+
+  // Radio toggle — derived from whether consignee_id is set; operator
+  // can flip independently to switch between "pick customer" and "type
+  // freely" modes.
+  const liveConsigneeId = useWatch({ control, name: "consignee_id" });
+  const consigneeSnap =
+    useWatch({ control, name: "consignee_snapshot" }) || {};
+  const [consigneeFromCustomer, setConsigneeFromCustomer] = useState(
+    !!liveConsigneeId,
+  );
+  // Sync radio with form when consignee_id changes externally (e.g.
+  // edit-mode hydration).
+  useEffect(() => {
+    if (liveConsigneeId) setConsigneeFromCustomer(true);
+  }, [liveConsigneeId]);
 
   // Watch mode_of_shipment so the PortSelect can restrict the type filter.
   // sea → sea/icd/sez; air → air/icd. Default (unset) → all loading types.
@@ -70,20 +88,103 @@ const StepShipping = ({
 
   return (
     <Row>
-      {/* ── Consignee ─────────────────────────────────────────────── */}
+      {/* ── Consignee (Ship-to) — hybrid: radio + customer picker + fields */}
       <Col md="12">
-        <h5 className="mt-1 mb-2">{t("Consignee")}</h5>
-        <small className="text-muted d-block mb-2">
-          {t(
-            "Leave blank to use the buyer as the consignee on the public PFI and PDF.",
-          )}
-        </small>
+        <h5 className="mt-1 mb-1">{t("Consignee (Ship-to)")}</h5>
+      </Col>
+      <Col md="12" className="mb-1">
+        <div className="d-flex align-items-center flex-wrap gap-2">
+          <Label className="form-label mb-0 me-1">
+            {t("From Customer?")}
+          </Label>
+          <div className="form-check form-check-inline mb-0">
+            <Input
+              type="radio"
+              id="pfi-consignee-from-yes"
+              name="pfi-consignee-from"
+              checked={consigneeFromCustomer}
+              onChange={() => setConsigneeFromCustomer(true)}
+              disabled={isLocked}
+            />
+            <Label
+              className="form-check-label"
+              for="pfi-consignee-from-yes"
+            >
+              {t("Yes")}
+            </Label>
+          </div>
+          <div className="form-check form-check-inline mb-0">
+            <Input
+              type="radio"
+              id="pfi-consignee-from-no"
+              name="pfi-consignee-from"
+              checked={!consigneeFromCustomer}
+              onChange={() => {
+                setConsigneeFromCustomer(false);
+                setValue("consignee_id", "");
+              }}
+              disabled={isLocked}
+            />
+            <Label
+              className="form-check-label"
+              for="pfi-consignee-from-no"
+            >
+              {t("No")}
+            </Label>
+          </div>
+        </div>
       </Col>
 
+      {consigneeFromCustomer && (
+        <Col md="12" className="mb-2">
+          <Label className="form-label">{t("Pick Customer")}</Label>
+          <Controller
+            name="consignee_id"
+            control={control}
+            render={({ field }) => (
+              <Select
+                classNamePrefix="select"
+                isClearable
+                isDisabled={isLocked}
+                options={customerOptions}
+                value={(() => {
+                  const id = field.value;
+                  if (!id) return null;
+                  const m = customerOptions.find((o) => o.value === id);
+                  if (m) return m;
+                  return {
+                    value: id,
+                    label: consigneeSnap.name || t("(customer)"),
+                  };
+                })()}
+                onChange={(opt) => {
+                  const v = opt ? opt.value : "";
+                  field.onChange(v);
+                  if (v && prefillConsigneeFromCustomer) {
+                    prefillConsigneeFromCustomer(v);
+                  } else if (!v) {
+                    setValue("consignee_snapshot", {
+                      name: "",
+                      address_line1: "",
+                      address_line2: "",
+                      city: "",
+                      state: "",
+                      postcode: "",
+                      country: "",
+                    });
+                  }
+                }}
+                placeholder={t("Search & select customer")}
+              />
+            )}
+          />
+        </Col>
+      )}
+
       <Col md="6" className="mb-2">
-        <Label className="form-label">{t("Consignee Name")}</Label>
+        <Label className="form-label">{t("Name")}</Label>
         <Controller
-          name="consignee_name"
+          name="consignee_snapshot.name"
           control={control}
           render={({ field }) => (
             <Input
@@ -95,19 +196,96 @@ const StepShipping = ({
           )}
         />
       </Col>
-
       <Col md="6" className="mb-2">
-        <Label className="form-label">{t("Consignee Address")}</Label>
+        <Label className="form-label">{t("Address Line 1")}</Label>
         <Controller
-          name="consignee_address"
+          name="consignee_snapshot.address_line1"
           control={control}
           render={({ field }) => (
             <Input
-              type="textarea"
-              rows="2"
               disabled={isLocked}
               {...field}
               value={field.value || ""}
+              maxLength={200}
+            />
+          )}
+        />
+      </Col>
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("Address Line 2")}</Label>
+        <Controller
+          name="consignee_snapshot.address_line2"
+          control={control}
+          render={({ field }) => (
+            <Input
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+              maxLength={200}
+            />
+          )}
+        />
+      </Col>
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("City")}</Label>
+        <Controller
+          name="consignee_snapshot.city"
+          control={control}
+          render={({ field }) => (
+            <Input
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+              maxLength={120}
+            />
+          )}
+        />
+      </Col>
+      <Col md="4" className="mb-2">
+        <Label className="form-label">{t("State")}</Label>
+        <Controller
+          name="consignee_snapshot.state"
+          control={control}
+          render={({ field }) => (
+            <Input
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+              maxLength={120}
+            />
+          )}
+        />
+      </Col>
+      <Col md="4" className="mb-2">
+        <Label className="form-label">{t("Postcode")}</Label>
+        <Controller
+          name="consignee_snapshot.postcode"
+          control={control}
+          render={({ field }) => (
+            <Input
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+              maxLength={30}
+            />
+          )}
+        />
+      </Col>
+      <Col md="4" className="mb-2">
+        <Label className="form-label">{t("Country")}</Label>
+        <Controller
+          name="consignee_snapshot.country"
+          control={control}
+          render={({ field }) => (
+            <Select
+              isDisabled={isLocked}
+              isClearable
+              options={countryOptions}
+              value={
+                countryOptions.find((o) => o.value === field.value) || null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={t("Select country")}
             />
           )}
         />

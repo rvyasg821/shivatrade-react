@@ -160,7 +160,7 @@ const Step1CompanyDetails = () => {
       default_port_of_loading: "",
       default_declaration_text: "",
       // ── PO defaults ──
-      default_po_terms: "",
+      default_terms: "",
       authorised_signatory_name: "",
       // ── Multi-address & multi-bank ──
       addresses: [],
@@ -249,7 +249,7 @@ const Step1CompanyDetails = () => {
         cin: company.cin || "",
         default_port_of_loading: company.default_port_of_loading || "",
         default_declaration_text: company.default_declaration_text || "",
-        default_po_terms: company.default_po_terms || "",
+        default_terms: company.default_terms || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
         addresses: (company.addresses || []).map((a) => ({
           type: a.type || "corporate",
@@ -334,9 +334,9 @@ const Step1CompanyDetails = () => {
         values.default_port_of_loading?.trim() || undefined,
       default_declaration_text:
         values.default_declaration_text?.trim() || undefined,
-      default_po_terms:
-        values.default_po_terms != null
-          ? values.default_po_terms.trim()
+      default_terms:
+        values.default_terms != null
+          ? values.default_terms.trim()
           : undefined,
       authorised_signatory_name:
         values.authorised_signatory_name != null
@@ -579,9 +579,6 @@ const Step1CompanyDetails = () => {
                       value={field.value || ""}
                     />
                   )} />
-                <small className="text-muted">
-                  {t("Pre-fills the PFI's Port of Loading on Quotation → PFI conversion. Editable per PFI.")}
-                </small>
               </Col>
               <Col md="12" className="mb-2">
                 <Label className="form-label" for="default_declaration_text">
@@ -600,9 +597,6 @@ const Step1CompanyDetails = () => {
                       value={field.value || ""}
                     />
                   )} />
-                <small className="text-muted">
-                  {t("Pre-fills the declaration block on every PFI / Commercial Invoice. Editable per document.")}
-                </small>
               </Col>
 
               {/* ── PO defaults ─────────────────────────────────────── */}
@@ -621,18 +615,15 @@ const Step1CompanyDetails = () => {
                       value={field.value || ""}
                     />
                   )} />
-                <small className="text-muted">
-                  {t("Name printed under the signatory block on PFI / PO PDFs.")}
-                </small>
               </Col>
               <Col md="12" className="mb-2">
-                <Label className="form-label" for="default_po_terms">
-                  {t("Default PO Terms & Conditions")}
+                <Label className="form-label" for="default_terms">
+                  {t("Default Terms & Conditions")}
                 </Label>
-                <Controller name="default_po_terms" control={control}
+                <Controller name="default_terms" control={control}
                   render={({ field }) => (
                     <Input
-                      id="default_po_terms"
+                      id="default_terms"
                       type="textarea"
                       rows="3"
                       maxLength={4000}
@@ -642,9 +633,6 @@ const Step1CompanyDetails = () => {
                       value={field.value || ""}
                     />
                   )} />
-                <small className="text-muted">
-                  {t("Standard footer text printed at the bottom of every PO PDF.")}
-                </small>
               </Col>
             </Row>
 
