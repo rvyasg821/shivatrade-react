@@ -440,7 +440,7 @@ const PurchaseOrderWizard = () => {
   const exchangeRate = Number(liveExchangeRate) || 1;
   const liveLines = useWatch({ control, name: "lines" }) || [];
   const totals = useMemo(
-    () => computeDocTotals(liveLines, exchangeRate),
+    () => computeDocTotals(liveLines, exchangeRate, { excludeGst: true }),
     [liveLines, exchangeRate]
   );
 
