@@ -1,5 +1,3 @@
-// Invoice redux slice - list / get / create / update / issue / cancel / delete.
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 import instance from "@src/utility/AxiosConfig";

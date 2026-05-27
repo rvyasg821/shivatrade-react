@@ -1,7 +1,3 @@
-// Shipping detail page - composes the shared detail-page kit.
-// Workflow controls (Book / Dispatch / Arrived / Cleared / Delivered / Cancel)
-// live in the header. Read-only sections below.
-
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";

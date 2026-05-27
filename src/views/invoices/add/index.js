@@ -1,11 +1,3 @@
-// Invoice add/edit - single-page form (sectioned).
-//
-// Entry points:
-//   ?po=<id>       - pre-fills customer, currency, lines from the given PO
-//   /edit/:id      - loads existing DRAFT invoice for editing
-//
-// Submits Save Draft only. Operator does Issue from the detail page after review.
-
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   useNavigate,
@@ -202,6 +194,13 @@ const InvoiceAddEdit = () => {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
   const [costingModal, setCostingModal] = useState({ open: false, idx: null });
+  // Coverage from the PO arrival (?po=...). Drives the BE qty guard mirror:
+  // qty cap per line = dispatched − already_invoiced; banner + disable Save
+  // when nothing has been dispatched yet.
+  const [poCoverage, setPoCoverage] = useState(null);
+  // Count of PO lines auto-dropped because they had 0 dispatched qty.
+  // Used to render the "N of M dispatched" info banner.
+  const [droppedLineCount, setDroppedLineCount] = useState(0);
 
   const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
@@ -210,9 +209,16 @@ const InvoiceAddEdit = () => {
   useEffect(() => {
     if (isEdit || !queryPoId) return;
     (async () => {
-      const action = await dispatch(getPurchaseOrder(queryPoId));
+      const [action, covResp] = await Promise.all([
+        dispatch(getPurchaseOrder(queryPoId)),
+        instance
+          .get(`${API_ENDPOINTS.purchaseOrders.coverage}/${queryPoId}/coverage`)
+          .catch(() => null),
+      ]);
       const po = action?.payload?.purchaseOrderItem;
       if (!po) return;
+      const coverage = covResp?.data?.data || null;
+      setPoCoverage(coverage);
 
       setForm((s) => ({
         ...s,
@@ -230,37 +236,76 @@ const InvoiceAddEdit = () => {
           po.country_of_final_destination || po.country_of_destination || "",
       }));
 
-      // Map PO lines → invoice lines (qty defaults to PO ordered).
-      // Snapshot per-line rebates + expenses from the PO so Invoice carries
-      // the same costing structure (matches Quotation/PFI/PO chain).
-      const mapped = (po.lines || []).map((l, i) => ({
-        seq: i + 1,
-        purchase_order_line_id: l._id,
-        po_vendor_line_id: undefined,
-        product_id: l.product_id,
-        product_name: l.product_name || "",
-        product_code: l.product_code || "",
-        description: l.description || "",
-        hsn_code: l.hsn_code || "",
-        customer_reference: l.customer_reference || "",
-        unit: l.unit || "Nos",
-        uqc_code: mapUomToUqc(l.unit),
-        qty: String(l.qty || 0),
-        unit_price: String(l.unit_price || 0),
-        discount_pct: "0",
-        tax_pct: "0",
-        igst_rate_pct: String(l.tax_pct || 0),
-        product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
-          ? l.product_rebates_snapshot
-          : [],
-        product_expenses_snapshot: Array.isArray(l.product_expenses_snapshot)
-          ? l.product_expenses_snapshot
-          : [],
-      }));
+      // Map PO lines → invoice lines. qty defaults to dispatched-but-not-
+      // yet-invoiced when coverage is available, falling back to PO ordered.
+      // Mirrors the BE guard so users can hit Save without surprise rejects.
+      const dispatchedAvailByLine = new Map();
+      for (const cl of coverage?.lines || []) {
+        // pending in PO coverage = ordered − dispatched (i.e. yet to dispatch)
+        // dispatched = qty actually moved; we want dispatched here.
+        const dispatched = Number(cl.dispatched || 0);
+        dispatchedAvailByLine.set(
+          (cl.purchase_order_line_id || "").toString(),
+          dispatched
+        );
+      }
+      // Auto-drop lines with no dispatched qty — operator can re-add them
+      // on a later invoice once vendor dispatches more. When coverage is
+      // unavailable, fall back to all PO lines at ordered qty (legacy).
+      const haveCoverage = !!coverage;
+      const filteredPoLines = haveCoverage
+        ? (po.lines || []).filter((l) => {
+              const d = dispatchedAvailByLine.get((l._id || "").toString());
+              return typeof d === "number" && d > 0;
+          })
+        : po.lines || [];
+      const droppedCount = haveCoverage
+        ? (po.lines || []).length - filteredPoLines.length
+        : 0;
+      setDroppedLineCount(droppedCount);
+      const mapped = filteredPoLines.map((l, i) => {
+        const dispatched = dispatchedAvailByLine.get((l._id || "").toString());
+        const cap =
+          typeof dispatched === "number"
+            ? Math.max(0, dispatched)
+            : Number(l.qty || 0);
+        return {
+          seq: i + 1,
+          purchase_order_line_id: l._id,
+          po_vendor_line_id: undefined,
+          product_id: l.product_id,
+          product_name: l.product_name || "",
+          product_code: l.product_code || "",
+          description: l.description || "",
+          hsn_code: l.hsn_code || "",
+          customer_reference: l.customer_reference || "",
+          unit: l.unit || "Nos",
+          uqc_code: mapUomToUqc(l.unit),
+          qty: String(cap),
+          unit_price: String(l.unit_price || 0),
+          discount_pct: "0",
+          tax_pct: "0",
+          igst_rate_pct: String(l.tax_pct || 0),
+          product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
+            ? l.product_rebates_snapshot
+            : [],
+          product_expenses_snapshot: Array.isArray(l.product_expenses_snapshot)
+            ? l.product_expenses_snapshot
+            : [],
+        };
+      });
       setLines(mapped);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryPoId, isEdit]);
+
+  // Guard: if we arrived via ?po=<id> but no POV has been dispatched yet,
+  // surface a banner and block Save. Mirrors the BE Rule A enforcement.
+  const noDispatchedYet =
+    !!queryPoId &&
+    !isEdit &&
+    !!poCoverage &&
+    Number(poCoverage?.totals?.dispatched || 0) <= 0;
 
   // ── Load existing invoice for edit ─────────────────────────────────
 
@@ -521,13 +566,60 @@ const InvoiceAddEdit = () => {
             >
               <ArrowLeft size={14} className="me-25" /> {t("Cancel")}
             </Button>
-            <Button color="primary" size="sm" onClick={onSave} disabled={busy}>
+            <Button color="primary" size="sm" onClick={onSave} disabled={busy || noDispatchedYet}>
               {busy ? <Spinner size="sm" /> : <Save size={14} />}{" "}
               {t("Save Draft")}
             </Button>
           </div>
         </CardHeader>
       </Card>
+
+      {noDispatchedYet && (
+        <Card className="mb-2 border-danger">
+          <CardBody className="py-2">
+            <div className="d-flex align-items-start">
+              <AlertTriangle size={18} className="text-danger me-1 mt-25" />
+              <div className="small">
+                <strong>{t("Nothing dispatched yet on this PO.")}</strong>{" "}
+                {t(
+                  "A Commercial Invoice can only be raised for qty the vendor has already dispatched (POV status: dispatched / closed)."
+                )}{" "}
+                {t(
+                  "Open a POV from the PO detail page, mark it dispatched, then come back here."
+                )}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {!noDispatchedYet && droppedLineCount > 0 && (
+        <Card className="mb-2 border-info">
+          <CardBody className="py-2">
+            <div className="d-flex align-items-start">
+              <AlertTriangle size={18} className="text-info me-1 mt-25" />
+              <div className="small">
+                <strong>
+                  {t(
+                    "{{shown}} of {{total}} PO lines are dispatched and pre-filled.",
+                    {
+                      shown: lines.length,
+                      total: lines.length + droppedLineCount,
+                    }
+                  )}
+                </strong>{" "}
+                {t(
+                  "The other {{count}} line(s) had no dispatched qty yet and were dropped from this invoice.",
+                  { count: droppedLineCount }
+                )}{" "}
+                {t(
+                  "Once the remaining POVs are dispatched, raise another invoice from the PO Coverage tab — already-invoiced qty is tracked automatically."
+                )}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {!form.purchase_order_id && (
         <Card className="mb-2 border-warning">
@@ -768,6 +860,16 @@ const InvoiceAddEdit = () => {
                             updateLine(i, { description: e.target.value })
                           }
                           placeholder={t("Description")}
+                        />
+                        <Input
+                          className="mt-25"
+                          value={l.customer_reference || ""}
+                          onChange={(e) =>
+                            updateLine(i, {
+                              customer_reference: e.target.value,
+                            })
+                          }
+                          placeholder={t("Customer Reference (e.g. PFI / PO #)")}
                         />
                       </td>
                       <td>
@@ -1110,7 +1212,7 @@ const InvoiceAddEdit = () => {
         >
           {t("Cancel")}
         </Button>
-        <Button color="primary" onClick={onSave} disabled={busy}>
+        <Button color="primary" onClick={onSave} disabled={busy || noDispatchedYet}>
           {busy ? <Spinner size="sm" /> : <Save size={14} />} {t("Save Draft")}
         </Button>
       </div>

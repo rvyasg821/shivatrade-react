@@ -1,7 +1,3 @@
-// Shipping redux slice - list / get / create / update / transition / cancel
-// / attach-invoices / detach-invoice / addEvent / retractEvent / delete.
-// Inverted-loading convention: loading=true means idle.
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 import instance from "@src/utility/AxiosConfig";

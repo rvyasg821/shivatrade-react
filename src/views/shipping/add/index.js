@@ -1,10 +1,3 @@
-// Shipping add/edit - single-page sectioned form.
-//
-// Entry points:
-//   /shipping/add               - blank
-//   /shipping/add?invoice=<id>  - pre-fills consignee + country + invoice attach
-//   /shipping/edit/:id          - loads existing shipping
-
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";

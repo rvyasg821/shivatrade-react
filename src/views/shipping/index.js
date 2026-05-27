@@ -1,5 +1,3 @@
-// Shipping listing - matches PO + Invoice typography.
-
 import {
   Fragment,
   useCallback,

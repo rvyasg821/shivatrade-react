@@ -1,6 +1,3 @@
-// Invoice listing - matches the PO listing typography.
-// DatatablePagination + status-badge inline style + customer block + action icons.
-
 import {
   Fragment,
   useCallback,

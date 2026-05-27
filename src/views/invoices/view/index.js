@@ -1,11 +1,3 @@
-// Invoice detail page - composes the shared detail-page kit.
-// Layout:
-//   1. Header (avatar I, voucher_no, customer, status, pipeline, action buttons)
-//   2. KPI strip - Grand Total | Balance | Date | Lines
-//   3. Lines table + costing card  | Document chain & GST refund footer
-//
-// PDF download buttons + Edit/Issue/Cancel actions live in the header.
-
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -215,6 +207,17 @@ const ViewInvoice = () => {
         onClick: () =>
           window.open(
             `/api/v1/admin/invoice/${id}/pdf?doc=commercial`,
+            "_blank"
+          ),
+        color: "info",
+        outline: true,
+      });
+      actions.push({
+        icon: Download,
+        label: t("Export Invoice"),
+        onClick: () =>
+          window.open(
+            `/api/v1/admin/invoice/${id}/pdf?doc=export`,
             "_blank"
           ),
         color: "info",
