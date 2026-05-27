@@ -46,22 +46,47 @@ const PoVendorTotalsPanel = () => {
     return m;
   }, [productStore?.productDropdown]);
 
+  const expensesSnapshot = Array.isArray(p?.expenses_snapshot)
+    ? p.expenses_snapshot
+    : [];
+
   const totals = useMemo(() => {
     const subtotal = lines.reduce((s, l) => s + num(l?.line_total), 0);
+    const chargesTotal = expensesSnapshot.reduce(
+      (s, e) => s + num(e?.amount),
+      0,
+    );
+    const taxable = subtotal + chargesTotal;
+    // GST applies on Taxable (subtotal + charges), pro-rated to
+    // per-line by the same chargesPct factor used on the server.
+    const chargesPct = subtotal > 0 ? chargesTotal / subtotal : 0;
     const gstTotal = lines.reduce(
       (s, l) =>
-        s + (num(l?.line_total) * num(productTaxById[l?.product_id])) / 100,
+        s +
+        (num(l?.line_total) *
+          (1 + chargesPct) *
+          num(productTaxById[l?.product_id])) /
+          100,
       0,
     );
     const cgst = gstTotal / 2;
     const sgst = gstTotal - cgst;
-    const rawGrand = subtotal + gstTotal;
+    const rawGrand = taxable + gstTotal;
     const grandRounded = Math.round(rawGrand);
     const roundOff = grandRounded - rawGrand;
-    return { subtotal, gstTotal, cgst, sgst, roundOff, grandRounded };
-  }, [lines, productTaxById]);
+    return {
+      subtotal,
+      chargesTotal,
+      taxable,
+      gstTotal,
+      cgst,
+      sgst,
+      roundOff,
+      grandRounded,
+    };
+  }, [lines, productTaxById, expensesSnapshot]);
 
-  if (!lines.length) return null;
+  if (!lines.length && !expensesSnapshot.length) return null;
 
   return (
     <Card>
@@ -77,6 +102,30 @@ const PoVendorTotalsPanel = () => {
             {sym} {fmt(totals.subtotal)}
           </strong>
         </div>
+
+        {expensesSnapshot.map((e, i) => (
+          <div
+            key={e._id || e.expense_id || i}
+            className="d-flex justify-content-between mb-1 text-muted"
+          >
+            <span>
+              + {e.name}
+              {e.type === "percent" ? ` (${num(e.value)}%)` : ""}
+            </span>
+            <span>
+              {sym} {fmt(num(e.amount))}
+            </span>
+          </div>
+        ))}
+
+        {totals.chargesTotal > 0 && (
+          <div className="d-flex justify-content-between mb-1 text-muted">
+            <span>= {t("Taxable")}</span>
+            <span>
+              {sym} {fmt(totals.taxable)}
+            </span>
+          </div>
+        )}
 
         {totals.gstTotal > 0 && (
           <Fragment>
