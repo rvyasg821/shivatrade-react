@@ -273,13 +273,13 @@ const PfiPartiesPanel = () => {
       )}
 
       {/* Terms + Declaration */}
-      {(p?.payment_terms_text || p?.declaration_text) && (
+      {(p?.payment_terms || p?.declaration_text) && (
         <Row className="g-1 mt-1">
-          {p?.payment_terms_text && (
+          {p?.payment_terms && (
             <Col md="6">
               <SectionLabel icon={FileText}>{t("Payment Terms")}</SectionLabel>
               <div className="small lh-base" style={{ whiteSpace: "pre-line" }}>
-                {p.payment_terms_text}
+                {p.payment_terms}
               </div>
             </Col>
           )}

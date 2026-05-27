@@ -768,40 +768,10 @@ const StepShipping = ({
       </Col>
 
 
-      {/* ── Commercial / declaration ──────────────────────────────── */}
-      <Col md="12">
-        <h5 className="mt-2 mb-2">{t("Payment & Declaration")}</h5>
-      </Col>
-
-      <Col md="6" className="mb-2">
-        <Label className="form-label">
-          {t("Payment Terms (export wording)")} {required}
-        </Label>
-        <Controller
-          name="payment_terms_text"
-          control={control}
-          render={({ field }) => (
-            <Input
-              type="textarea"
-              rows="2"
-              disabled={isLocked}
-              invalid={!!errors.payment_terms_text}
-              {...field}
-              value={field.value || ""}
-            />
-          )}
-        />
-        {errors.payment_terms_text && (
-          <FormFeedback className="d-block">
-            {errors.payment_terms_text.message}
-          </FormFeedback>
-        )}
-        <small className="text-muted">
-          {t("Default: 100% advance via T/T. Editable per PFI.")}
-        </small>
-      </Col>
-
-      <Col md="6" className="mb-2">
+      {/* Payment Terms (export wording) + Payment & Declaration section
+          heading removed — payment_terms (Step 1) is the SoT. Only the
+          Declaration field remains here. */}
+      <Col md="12" className="mb-2">
         <Label className="form-label">
           {t("Declaration")} {required}
         </Label>
