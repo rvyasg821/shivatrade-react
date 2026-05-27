@@ -65,13 +65,14 @@ const STEPS = [
       "company_name",
       "contact_name",
       "contact_email",
+      "status",
     ],
   },
   {
     key: "opportunity",
     label: "Opportunity",
     icon: Target,
-    fields: ["status", "expected_value"],
+    fields: ["expected_value"],
   },
   {
     key: "address",
@@ -634,6 +635,35 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="status">
+                    {t("Status")} {requiredMark}
+                  </Label>
+                  <Controller
+                    name="status"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        inputId="status"
+                        options={LEAD_STATUS_OPTIONS}
+                        value={
+                          LEAD_STATUS_OPTIONS.find(
+                            (o) => o.value === field.value
+                          ) || null
+                        }
+                        onChange={(opt) =>
+                          field.onChange(opt ? opt.value : "")
+                        }
+                        classNamePrefix="select"
+                      />
+                    )}
+                  />
+                  {errors.status && (
+                    <FormFeedback className="d-block">
+                      {errors.status.message}
+                    </FormFeedback>
+                  )}
+                </Col>
               </Row>
 
                 </Fragment>
@@ -858,35 +888,6 @@ const LeadForm = () => {
                   <small className="text-muted">
                     {t("Vendors the customer named as preferred suppliers.")}
                   </small>
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="status">
-                    {t("Status")} {requiredMark}
-                  </Label>
-                  <Controller
-                    name="status"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="status"
-                        options={LEAD_STATUS_OPTIONS}
-                        value={
-                          LEAD_STATUS_OPTIONS.find(
-                            (o) => o.value === field.value
-                          ) || null
-                        }
-                        onChange={(opt) =>
-                          field.onChange(opt ? opt.value : "")
-                        }
-                        classNamePrefix="select"
-                      />
-                    )}
-                  />
-                  {errors.status && (
-                    <FormFeedback className="d-block">
-                      {errors.status.message}
-                    </FormFeedback>
-                  )}
                 </Col>
                 <Col md="12" className="mb-2">
                   <Label className="form-label" for="description">
