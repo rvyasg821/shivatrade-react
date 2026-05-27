@@ -151,12 +151,7 @@ const PfiWizard = () => {
           .nullable()
           .integer()
           .min(0),
-        payment_terms_text: yup
-          .string()
-          .nullable()
-          .transform((v) => (typeof v === "string" ? v.trim() : v))
-          .required(t("Payment Terms are required"))
-          .max(2000),
+        // payment_terms_text removed — payment_terms (Step 1) is the SoT.
         declaration_text: yup
           .string()
           .nullable()
@@ -617,7 +612,6 @@ const PfiWizard = () => {
         values.validity_days === "" || values.validity_days == null
           ? undefined
           : Number(values.validity_days),
-      payment_terms_text: values.payment_terms_text?.trim() || undefined,
       declaration_text: values.declaration_text?.trim() || undefined,
       bank_account_id: values.bank_account_id || undefined,
       lines: (values.lines || []).map((l) => ({

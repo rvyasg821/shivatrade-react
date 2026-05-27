@@ -60,7 +60,6 @@ export const STEPS = [
       "seal_no",
       "container_load_type",
       "validity_days",
-      "payment_terms_text",
       "declaration_text",
       "bank_account_id",
     ],

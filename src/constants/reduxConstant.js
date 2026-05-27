@@ -511,7 +511,8 @@ const initPfiItem = {
   net_weight_kg: "0",
   // ── Bank + commercial defaults ──
   bank_account_id: "",
-  payment_terms_text: "100% advance via T/T",
+  // payment_terms_text removed — Step 1's payment_terms is the SoT.
+  payment_terms_text: "",
   declaration_text: "",
   validity_days: 30,
 };

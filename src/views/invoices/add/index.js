@@ -24,7 +24,23 @@ import {
   ModalFooter,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Save, Plus, Trash2, AlertTriangle, Tag, X } from "react-feather";
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  AlertTriangle,
+  Tag,
+  X,
+  Users,
+  FileText,
+  Layers,
+  Percent,
+} from "react-feather";
+
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
+import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
+import "@src/views/_shared/wizard/wizard.scss";
 import Select from "react-select";
 
 import instance from "@src/utility/AxiosConfig";
@@ -97,7 +113,8 @@ const InvoiceAddEdit = () => {
   const location = useLocation();
   const isEdit = !!editId;
 
-  const queryPoId = new URLSearchParams(location.search).get("po") || "";
+  const queryPoId =
+    new URLSearchParams(location.search).get("po_id") || "";
 
   const store = useSelector((s) => s.invoice);
   const poStore = useSelector((s) => s.purchaseOrder);
@@ -235,6 +252,7 @@ const InvoiceAddEdit = () => {
     internal_notes: "",
     declaration_text:
       "We declare that invoice shows the actual price of the goods described and that all particulars are true and correct.",
+    terms: "",
     // Multi-select: list of company_bank_account ids. Pre-selected from
     // source PFI (via PO chain) on create, else home-currency default.
     bank_account_ids: [],
@@ -256,6 +274,20 @@ const InvoiceAddEdit = () => {
   // Count of PO lines auto-dropped because they had 0 dispatched qty.
   // Used to render the "N of M dispatched" info banner.
   const [droppedLineCount, setDroppedLineCount] = useState(0);
+
+  // ── Wizard navigation ───────────────────────────────────────────────
+  const STEPS = useMemo(
+    () => [
+      { key: "parties", label: t("Parties"), icon: Users },
+      { key: "header", label: t("Invoice Details"), icon: FileText },
+      { key: "items", label: t("Items & Charges"), icon: Layers },
+      { key: "tax", label: t("Tax & Notes"), icon: Percent },
+    ],
+    [t]
+  );
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+  const isLastStep = activeStep === STEPS.length - 1;
 
   const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
@@ -319,6 +351,16 @@ const InvoiceAddEdit = () => {
     if (def?.value) onF("company_address_id", def.value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyAddressOptions, isEdit]);
+
+  // Pre-fill Terms & Conditions from company profile's default_terms on
+  // new invoice. Operator can edit per invoice; PDF reads invoice.terms.
+  useEffect(() => {
+    if (isEdit) return;
+    if (form.terms) return;
+    const defaultTerms = companyStore?.companyItem?.default_terms || "";
+    if (defaultTerms) onF("terms", defaultTerms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyStore?.companyItem?.default_terms, isEdit]);
 
   // Load a customer + its default address, then write into the named
   // snapshot field on form. Used when operator picks "From Customer
@@ -636,6 +678,7 @@ const InvoiceAddEdit = () => {
       notes_to_buyer: inv.notes_to_buyer || "",
       internal_notes: inv.internal_notes || "",
       declaration_text: inv.declaration_text || "",
+      terms: inv.terms || "",
       // Bank accounts aren't stored as IDs on Invoice — only as snapshots.
       // Resolved by account_number against current company bank list in
       // the post-load effect below.
@@ -726,26 +769,81 @@ const InvoiceAddEdit = () => {
 
   // ── Validation + submit ─────────────────────────────────────────────
 
+  // Per-step validators. Each returns {} or an errors map. Used to gate
+  // Next + the final Save call. Composed into validate() below.
+  const stepValidators = {
+    parties: () => {
+      const e = {};
+      if (!form.purchase_order_id) e.purchase_order_id = "PO required";
+      if (!form.customer_id) e.customer_id = "Customer required";
+      if (!form.consignee_snapshot?.name)
+        e.consignee_id = "Consignee name required";
+      return e;
+    },
+    header: () => {
+      const e = {};
+      if (!form.invoice_date) e.invoice_date = "Invoice date required";
+      if (!form.currency_code) e.currency_code = "Currency required";
+      return e;
+    },
+    items: () => {
+      const e = {};
+      if (!lines.length) e.lines = "At least one line item required";
+      for (let i = 0; i < lines.length; i++) {
+        if (num(lines[i].qty) <= 0) e[`line_${i}_qty`] = "Qty > 0";
+        if (!lines[i].hsn_code) e[`line_${i}_hsn`] = "HSN required";
+      }
+      return e;
+    },
+    tax: () => {
+      const e = {};
+      if (form.gst_route === "lut_zero_rated") {
+        if (!form.lut_no) e.lut_no = "LUT no required for zero-rated route";
+        if (!form.lut_date) e.lut_date = "LUT date required";
+      }
+      return e;
+    },
+  };
+
+  const validateStep = (idx) => {
+    const key = STEPS[idx]?.key;
+    if (!key || !stepValidators[key]) return true;
+    const e = stepValidators[key]();
+    setErrors((prev) => ({ ...prev, ...e }));
+    return Object.keys(e).length === 0;
+  };
+
   const validate = () => {
-    const e = {};
-    if (!form.invoice_date) e.invoice_date = "Invoice date required";
-    if (!form.purchase_order_id) e.purchase_order_id = "PO required";
-    if (!form.customer_id) e.customer_id = "Customer required";
-    if (!form.consignee_snapshot?.name)
-      e.consignee_id = "Consignee name required";
-    if (!form.currency_code) e.currency_code = "Currency required";
-    if (form.gst_route === "lut_zero_rated") {
-      if (!form.lut_no) e.lut_no = "LUT no required for zero-rated route";
-      if (!form.lut_date) e.lut_date = "LUT date required";
-    }
-    if (!lines.length) e.lines = "At least one line item required";
-    for (let i = 0; i < lines.length; i++) {
-      if (num(lines[i].qty) <= 0) e[`line_${i}_qty`] = "Qty > 0";
-      if (!lines[i].hsn_code) e[`line_${i}_hsn`] = "HSN required";
-    }
+    const e = {
+      ...stepValidators.parties(),
+      ...stepValidators.header(),
+      ...stepValidators.items(),
+      ...stepValidators.tax(),
+    };
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
+  // ── Wizard navigation handlers ──────────────────────────────────────
+  const goToStep = (idx, { skipValidate = false } = {}) => {
+    if (idx === activeStep) return;
+    if (idx < 0 || idx >= STEPS.length) return;
+    if (idx > activeStep && !skipValidate) {
+      if (!validateStep(activeStep)) {
+        Notification(
+          "Validation",
+          t("Please fix the highlighted fields first."),
+          "warning",
+        );
+        return;
+      }
+    }
+    setVisited((prev) => new Set(prev).add(idx));
+    setActiveStep(idx);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const onNext = () => goToStep(activeStep + 1);
+  const onBack = () => goToStep(activeStep - 1, { skipValidate: true });
 
   const buildPayload = () => ({
     ...form,
@@ -837,17 +935,14 @@ const InvoiceAddEdit = () => {
     const updateSnap = (patch) =>
       onF(snapKey, { ...(form[snapKey] || {}), ...patch });
     return (
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
-            {title}
-            {subtitle && (
-              <small className="text-muted ms-1">({subtitle})</small>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          <Row>
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+          {title}
+          {subtitle && (
+            <small className="text-muted ms-1">({subtitle})</small>
+          )}
+        </h5>
+        <Row>
             <Col md="12" className="mb-1">
               <div className="d-flex align-items-center flex-wrap gap-2">
                 <Label className="form-label mb-0 me-1">
@@ -1023,8 +1118,7 @@ const InvoiceAddEdit = () => {
               />
             </Col>
           </Row>
-        </CardBody>
-      </Card>
+      </div>
     );
   };
 
@@ -1069,28 +1163,30 @@ const InvoiceAddEdit = () => {
 
   return (
     <Fragment>
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1 d-flex align-items-center justify-content-between">
-          <CardTitle tag="h4" className="mb-0">
-            {isEdit ? t("Edit Invoice (Draft)") : t("New Invoice")}
-          </CardTitle>
-          <div className="d-flex gap-1">
-            <Button
-              size="sm"
-              color="secondary"
-              outline
-              onClick={() => navigate(`${appsRoot}/invoices`)}
-              disabled={busy}
-            >
-              <ArrowLeft size={14} className="me-25" /> {t("Cancel")}
-            </Button>
-            <Button color="primary" size="sm" onClick={onSave} disabled={busy || noDispatchedYet}>
-              {busy ? <Spinner size="sm" /> : <Save size={14} />}{" "}
-              {t("Save Draft")}
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="main-content invoice-add quotation-wizard">
+        <div className="d-flex align-items-center justify-content-between mb-2">
+          <h3 className="mb-0">
+            {isEdit ? t("Edit Invoice") : t("Add Invoice")}
+            {isEdit && store?.invoiceItem?.voucher_no
+              ? ` - ${store.invoiceItem.voucher_no}`
+              : ""}
+          </h3>
+          <Button
+            type="button"
+            className="ms-2 btn-primary"
+            onClick={() => navigate(`${appsRoot}/invoices`)}
+          >
+            <ArrowLeft size={17} />
+          </Button>
+        </div>
+
+        <WizardHeader
+          steps={STEPS}
+          activeStep={activeStep}
+          visited={visited}
+          onStepClick={(i) => goToStep(i)}
+          isEdit={isEdit}
+        />
 
       {noDispatchedYet && (
         <Card className="mb-2 border-danger">
@@ -1158,14 +1254,18 @@ const InvoiceAddEdit = () => {
         </Card>
       )}
 
-      {/* ── Customer (Bill-to) ──────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
-            {t("Customer (Bill-to)")}
-          </CardTitle>
-        </CardHeader>
+      <Card>
         <CardBody>
+          <div className="wizard-step-body">
+      {/* ─── STEP 1 of 4 — Parties ──────────────────────────────────── */}
+      {activeStep === 0 && (
+        <Fragment>
+      {/* ── Customer (Bill-to) ──────────────────────────────────────── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+            {t("Customer (Bill-to)")}
+          </h5>
+        <div>
           <Row>
             <Col md="6" className="mb-1">
               <Label className="form-label">
@@ -1225,8 +1325,8 @@ const InvoiceAddEdit = () => {
               />
             </Col>
           </Row>
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
       {/* ── Consignee (Ship-to) ─────────────────────────────────────── */}
       {renderPartyCard({
@@ -1241,23 +1341,23 @@ const InvoiceAddEdit = () => {
       {/* ── Notify Party ────────────────────────────────────────────── */}
       {renderPartyCard({
         title: t("Notify Party"),
-        subtitle: t("optional — third party shown on Commercial Invoice"),
         flagKey: "notify_party_from_customer",
         idKey: "notify_party_id",
         snapKey: "notify_party_snapshot",
         required: false,
       })}
 
-      {/* ── Company Address (Shipper) ───────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
-            {t("Company Address (Shipper)")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
+      {/* ── Company Address (Shipper) + Bank Account(s) ────────────── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+            {t("Company Address & Bank")}
+          </h5>
+        <div>
           <Row>
-            <Col md="12" className="mb-1">
+            <Col md="6" className="mb-1">
+              <Label className="form-label">
+                {t("Company Address (Shipper)")}
+              </Label>
               <Select
                 classNamePrefix="select"
                 isClearable
@@ -1277,23 +1377,8 @@ const InvoiceAddEdit = () => {
                 }
               />
             </Col>
-          </Row>
-        </CardBody>
-      </Card>
-
-      {/* ── Bank Account(s) — multi-select ──────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
-            {t("Bank Account(s)")}{" "}
-            <small className="text-muted">
-              ({t("shown on Commercial Invoice PDF — pick one or more")})
-            </small>
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          <Row>
-            <Col md="12" className="mb-1">
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Bank Account(s)")}</Label>
               <Select
                 isMulti
                 classNamePrefix="select"
@@ -1315,17 +1400,21 @@ const InvoiceAddEdit = () => {
               />
             </Col>
           </Row>
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
-            {t("Header")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="pt-2">
+        </Fragment>
+      )}
+
+      {/* ─── STEP 2 of 4 — Header ───────────────────────────────────── */}
+      {activeStep === 1 && (
+        <Fragment>
+      {/* ── Invoice Details ──────────────────────────────────────────── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+            {t("Invoice Details")}
+          </h5>
+        <div>
           <Row>
             <Col md="4" className="mb-2">
               <Label className="form-label">
@@ -1456,17 +1545,21 @@ const InvoiceAddEdit = () => {
               />
             </Col>
           </Row>
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
+        </Fragment>
+      )}
+
+      {/* ─── STEP 3 of 4 — Items & Charges ──────────────────────────── */}
+      {activeStep === 2 && (
+        <Fragment>
       {/* ── Lines ────────────────────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
             {t("Line Items")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="pt-2">
+          </h5>
+        <div>
           {lines.length === 0 ? (
             <div className="text-muted text-center py-2">
               {t(
@@ -1662,17 +1755,15 @@ const InvoiceAddEdit = () => {
           {errors.lines && (
             <div className="text-danger small mt-1">{errors.lines}</div>
           )}
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
       {/* ── Money + Totals ─────────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
             {t("Charges & Totals")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="pt-2">
+          </h5>
+        <div>
           <Row>
             <Col md="3" className="mb-2">
               <Label className="form-label">{t("Discount Total")}</Label>
@@ -1744,17 +1835,21 @@ const InvoiceAddEdit = () => {
               </div>
             </Col>
           </Row>
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
+        </Fragment>
+      )}
+
+      {/* ─── STEP 4 of 4 — Tax & Notes ──────────────────────────────── */}
+      {activeStep === 3 && (
+        <Fragment>
       {/* ── GST + LUT ────────────────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
             {t("GST Route")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="pt-2">
+          </h5>
+        <div>
           {/* Row 1: full-width radio strip */}
           <Row>
             <Col md="12" className="mb-1">
@@ -1820,17 +1915,15 @@ const InvoiceAddEdit = () => {
               </Col>
             </Row>
           )}
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
       {/* ── Compliance + Notes ───────────────────────────────────────── */}
-      <Card className="mb-2">
-        <CardHeader className="border-bottom py-1">
-          <CardTitle tag="h5" className="mb-0">
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
             {t("Compliance & Notes")}
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="pt-2">
+          </h5>
+        <div>
           <Row>
             <Col md="4" className="mb-2">
               <Label className="form-label">{t("End Use Code")}</Label>
@@ -1887,24 +1980,40 @@ const InvoiceAddEdit = () => {
                 onChange={(e) => onF("declaration_text", e.target.value)}
               />
             </Col>
+            <Col md="12" className="mb-2">
+              <Label className="form-label">
+                {t("Terms & Conditions")}
+              </Label>
+              <Input
+                type="textarea"
+                rows="4"
+                value={form.terms}
+                onChange={(e) => onF("terms", e.target.value)}
+              />
+            </Col>
           </Row>
+        </div>
+      </div>
+
+        </Fragment>
+      )}
+
+          </div>
+
+          {/* ── Wizard Footer (inside same Card) ────────────────────── */}
+          <WizardFooter
+            isFirst={activeStep === 0}
+            isLast={isLastStep}
+            isEdit={isEdit}
+            onBack={onBack}
+            onNext={onNext}
+            onSubmit={onSave}
+            onCancel={() => navigate(`${appsRoot}/invoices`)}
+            submitting={busy || noDispatchedYet}
+          />
         </CardBody>
       </Card>
-
-      {/* ── Footer save ─────────────────────────────────────────────── */}
-      <div className="d-flex justify-content-end gap-1 mb-3">
-        <Button
-          color="secondary"
-          outline
-          onClick={() => navigate(`${appsRoot}/invoices`)}
-          disabled={busy}
-        >
-          {t("Cancel")}
-        </Button>
-        <Button color="primary" onClick={onSave} disabled={busy || noDispatchedYet}>
-          {busy ? <Spinner size="sm" /> : <Save size={14} />} {t("Save Draft")}
-        </Button>
-      </div>
+    </div>
 
       {/* ── Per-line Rebates / Expenses modal ─────────────────────────── */}
       {costingModal.open && costingModal.idx !== null && (
