@@ -23,13 +23,7 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import {
-  Edit,
-  Eye,
-  Trash2,
-  PlusCircle,
-  ExternalLink,
-} from "react-feather";
+import { Edit, Eye, Trash2, ExternalLink } from "react-feather";
 
 import {
   getInvoiceList,
@@ -199,7 +193,6 @@ const InvoicesList = () => {
     authUserItem?.role?.name === "Admin";
   const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
   const perms = authUserItem?.role?.permissions?.invoices;
-  const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
@@ -440,16 +433,11 @@ const InvoicesList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
-                  <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/invoices/add`)}
-                  >
-                    {t("Add Invoice")} <PlusCircle size={16} />
-                  </Button>
-                )}
-              </Col>
+              {/* Invoices are PO-driven by design — Rule A (qty ≤ Σ POV
+                  dispatched) only makes sense in a PO context, and the add
+                  page has no manual line-add UI. Entry point is the
+                  "Generate Invoice" button on the PO Coverage tab. */}
+              <Col sm="3" md="3" />
             </Row>
 
             <Row className="mt-2">

@@ -441,6 +441,7 @@ const QuotationWizard = () => {
         product_id: l.product_id,
         vendor_id: l.vendor_id || undefined,
         description: l.description || "",
+        customer_reference: l.customer_reference || undefined,
         qty: String(l.qty || "0"),
         unit: l.unit || "",
         unit_price: String(l.unit_price || "0"),
