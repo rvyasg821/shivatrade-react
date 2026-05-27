@@ -533,6 +533,7 @@ const PurchaseOrderWizard = () => {
         source_quotation_line_id: l.source_quotation_line_id || undefined,
         source_pfi_line_id: l.source_pfi_line_id || undefined,
         description: l.description || "",
+        customer_reference: l.customer_reference || undefined,
         hsn_code: l.hsn_code || undefined,
         qty: String(l.qty || "0"),
         unit: l.unit || "",
