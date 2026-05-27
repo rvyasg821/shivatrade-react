@@ -468,7 +468,12 @@ const ProductForm = () => {
       packaging_details: data.packaging_details?.trim() || undefined,
       quality_parameters: data.quality_parameters?.trim() || undefined,
       hsn_code: data.hsn_code?.trim() || undefined,
-      tax_pct: numOrUndef(data.tax_pct),
+      // Blank → 0 (not undefined) so clearing the field actually removes
+      // GST on save; undefined would tell the backend to keep the old value.
+      tax_pct:
+        data.tax_pct === "" || data.tax_pct == null
+          ? 0
+          : Number(data.tax_pct),
       unit_of_measure: data.unit_of_measure || undefined,
       selling_price: numOrUndef(data.selling_price),
       margin_pct: numOrUndef(data.margin_pct),
