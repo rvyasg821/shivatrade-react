@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -48,6 +48,8 @@ import {
   resetInvoiceItem,
 } from "@src/views/invoices/store";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
+import { getCustomerDropdown } from "@src/views/customers/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import {
   getExchangeRateOptions,
   getCurrencyDropdown,
@@ -106,16 +108,38 @@ const InvoiceAddEdit = () => {
   const canAdd = isAdmin || perms?.can_all || perms?.can_add;
   const canEdit = isAdmin || perms?.can_all || perms?.can_update;
 
-  // Pull live currency + rebate + expense masters (same sources PFI uses).
+  // Pull live currency + rebate + expense + customer + company masters
+  // (same sources PFI uses).
   useEffect(() => {
     dispatch(getExchangeRateOptions());
     dispatch(getCurrencyDropdown());
     dispatch(getRebateDropdown());
     dispatch(getExpenseDropdown());
+    dispatch(getCustomerDropdown());
+    dispatch(getCompanyDetails());
   }, [dispatch]);
 
   const rebateStore = useSelector((s) => s.rebate);
   const expenseStore = useSelector((s) => s.expense);
+  const customerStore = useSelector((s) => s.customer);
+  const companyStore = useSelector((s) => s.company);
+
+  const customerOptions = useMemo(
+    () =>
+      (customerStore?.customerDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.company_name,
+      })),
+    [customerStore?.customerDropdown]
+  );
+
+  // Active bank accounts of the company; PFI already enriches each with
+  // currency_code. bankAccountOptions itself depends on form.currency_code
+  // and lives below the form-state declaration to avoid a TDZ ref.
+  const allBankAccounts = useMemo(
+    () => companyStore?.companyItem?.bank_accounts || [],
+    [companyStore?.companyItem]
+  );
 
   const rebateOptions = useMemo(
     () =>
@@ -167,7 +191,30 @@ const InvoiceAddEdit = () => {
     customer_address_id: "",
     consignee_id: "",
     consignee_address_id: "",
+    // Notify Party — structured snapshot. The id is optional (set only
+    // when picked from customer master); snapshot is the source of truth.
     notify_party_id: "",
+    notify_party_from_customer: false,
+    notify_party_snapshot: {
+      name: "",
+      address_line1: "",
+      address_line2: "",
+      city: "",
+      state: "",
+      postcode: "",
+      country: "",
+    },
+    // Consignee — same hybrid model: optional FK + structured snapshot.
+    consignee_from_customer: true, // most consignees ARE in master
+    consignee_snapshot: {
+      name: "",
+      address_line1: "",
+      address_line2: "",
+      city: "",
+      state: "",
+      postcode: "",
+      country: "",
+    },
     currency_code: "USD",
     currency_symbol: "",
     exchange_rate: "1",
@@ -188,12 +235,20 @@ const InvoiceAddEdit = () => {
     internal_notes: "",
     declaration_text:
       "We declare that invoice shows the actual price of the goods described and that all particulars are true and correct.",
+    // Multi-select: list of company_bank_account ids. Pre-selected from
+    // source PFI (via PO chain) on create, else home-currency default.
+    bank_account_ids: [],
+    // Picked company address (shipper). BE captures snapshot at save.
+    company_address_id: "",
   });
   const [lines, setLines] = useState([]);
   const [bankSnapshots, setBankSnapshots] = useState([]);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
   const [costingModal, setCostingModal] = useState({ open: false, idx: null });
+  // Address options per customer/consignee/notify — cached so picking the same
+  // entity again doesn't refetch. Keyed by customer _id.
+  const [addressOptionsByCustomer, setAddressOptionsByCustomer] = useState({});
   // Coverage from the PO arrival (?po=...). Drives the BE qty guard mirror:
   // qty cap per line = dispatched − already_invoiced; banner + disable Save
   // when nothing has been dispatched yet.
@@ -203,6 +258,127 @@ const InvoiceAddEdit = () => {
   const [droppedLineCount, setDroppedLineCount] = useState(0);
 
   const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+
+  // Bank account dropdown — filtered by the invoice currency (falls back to
+  // any active account when no currency match). Declared here because it
+  // depends on `form.currency_code`; needs to be after the form state.
+  const bankAccountOptions = useMemo(() => {
+    const active = allBankAccounts.filter(
+      (b) => !b.soft_delete && b.is_active !== false
+    );
+    const cc = (form?.currency_code || "").toUpperCase();
+    const matching = active.filter(
+      (b) => (b.currency_code || "").toUpperCase() === cc
+    );
+    const pool = matching.length ? matching : active;
+    return pool.map((b) => ({
+      value: b._id,
+      label: `${b.bank_name} — ${b.account_number}${
+        b.ad_code ? ` (AD ${b.ad_code})` : ""
+      }${b.currency_code ? ` · ${b.currency_code}` : ""}`,
+      raw: b,
+    }));
+  }, [allBankAccounts, form?.currency_code]);
+
+  // Company addresses for the shipper picker. Lists ALL active addresses
+  // (corporate, branch, warehouse) — type is shown as a prominent prefix so
+  // the operator can tell them apart at a glance.
+  const companyAddressOptions = useMemo(() => {
+    const list = companyStore?.companyItem?.addresses || [];
+    const titleize = (s) =>
+      (s || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return list
+      .filter((a) => !a.soft_delete)
+      .map((a) => {
+        const typeLabel = titleize(a.type || "Address");
+        const rest = [a.label, a.address_line1, a.city, a.country]
+          .filter(Boolean)
+          .join(", ");
+        const defaultTag = a.is_default ? " (default)" : "";
+        return {
+          value: a._id,
+          label: `[${typeLabel}] ${rest}${defaultTag}`,
+          raw: a,
+        };
+      });
+  }, [companyStore?.companyItem]);
+
+  // Auto-pick default company address on new invoice — corporate+default,
+  // else corporate, else any default, else first.
+  useEffect(() => {
+    if (isEdit) return;
+    if (form.company_address_id) return;
+    if (!companyAddressOptions.length) return;
+    const def =
+      companyAddressOptions.find(
+        (o) => o.raw?.type === "corporate" && o.raw?.is_default
+      ) ||
+      companyAddressOptions.find((o) => o.raw?.type === "corporate") ||
+      companyAddressOptions.find((o) => o.raw?.is_default) ||
+      companyAddressOptions[0];
+    if (def?.value) onF("company_address_id", def.value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyAddressOptions, isEdit]);
+
+  // Load a customer + its default address, then write into the named
+  // snapshot field on form. Used when operator picks "From Customer
+  // Master" for Consignee / Notify Party — copies structured fields
+  // one-to-one and sets the FK id for traceability.
+  const prefillSnapshotFromCustomer = useCallback(
+    async (customerId, snapshotField, idField) => {
+      if (!customerId) return;
+      try {
+        const resp = await instance.get(
+          `${API_ENDPOINTS.customers.get}/${customerId}`
+        );
+        const cust = resp?.data?.data;
+        const addrs = cust?.addresses || [];
+        const addr =
+          addrs.find((a) => a.is_default) || addrs[0] || {};
+        setForm((s) => ({
+          ...s,
+          [idField]: customerId,
+          [snapshotField]: {
+            name: cust?.company_name || "",
+            address_line1: addr.address_line1 || "",
+            address_line2: addr.address_line2 || "",
+            city: addr.city || "",
+            state: addr.state || "",
+            postcode: addr.postcode || "",
+            country: addr.country || "",
+          },
+        }));
+      } catch {
+        // Soft-fail — operator can type fields manually.
+      }
+    },
+    []
+  );
+
+  // Fetch addresses for a given customer when not cached yet. Customer
+  // dropdown only returns id + name, so addresses are loaded on demand
+  // via /customer/get and cached by customerId.
+  const ensureAddresses = useCallback(
+    async (customerId) => {
+      if (!customerId || addressOptionsByCustomer[customerId]) return;
+      try {
+        const resp = await instance.get(
+          `${API_ENDPOINTS.customers.get}/${customerId}`
+        );
+        const cust = resp?.data?.data;
+        const opts = (cust?.addresses || []).map((a) => ({
+          value: a._id,
+          label: [a.label, a.address_line1, a.city, a.country]
+            .filter(Boolean)
+            .join(", "),
+        }));
+        setAddressOptionsByCustomer((s) => ({ ...s, [customerId]: opts }));
+      } catch {
+        setAddressOptionsByCustomer((s) => ({ ...s, [customerId]: [] }));
+      }
+    },
+    [addressOptionsByCustomer]
+  );
 
   // ── Load PO data (?po=<id>) and pre-fill ───────────────────────────
 
@@ -225,7 +401,22 @@ const InvoiceAddEdit = () => {
         purchase_order_id: po._id,
         customer_id: po.customer_id || "",
         customer_address_id: po.customer_address_id || "",
-        consignee_id: po.customer_id || "",
+        // Consignee — inherit from PO if it carries one (set when the
+        // source PFI had a consignee). Otherwise default to the buyer.
+        consignee_id: po.consignee_id || po.customer_id || "",
+        consignee_address_id: po.customer_address_id || "",
+        consignee_from_customer: !!(po.consignee_id || po.customer_id),
+        // When PO has a consignee_snapshot from PFI propagation, use it
+        // directly; the snapshot is the source of truth on PDF.
+        ...(po.consignee_snapshot
+          ? { consignee_snapshot: po.consignee_snapshot }
+          : {}),
+        // Pre-select PFI's bank when the PO came via PFI. Falls back to
+        // the home-currency default via the effect below if PFI didn't
+        // carry a bank.
+        bank_account_ids: po.pfi_bank_account_id
+          ? [po.pfi_bank_account_id]
+          : s.bank_account_ids,
         currency_code: po.currency_code || "USD",
         currency_symbol: po.currency_symbol || "",
         exchange_rate: po.exchange_rate || "1",
@@ -276,7 +467,10 @@ const InvoiceAddEdit = () => {
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
-          description: l.description || "",
+          // Default description to product_name so the line carries a
+          // sensible value the operator can refine. Mirrors the PDF
+          // fallback: when description is blank, the PDF shows product_name.
+          description: l.description || l.product_name || "",
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
           unit: l.unit || "Nos",
@@ -298,6 +492,74 @@ const InvoiceAddEdit = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryPoId, isEdit]);
+
+  // Auto-fetch addresses when customer/consignee/notify changes so the
+  // matching address picker can populate.
+  useEffect(() => {
+    if (form.customer_id) ensureAddresses(form.customer_id);
+  }, [form.customer_id, ensureAddresses]);
+  useEffect(() => {
+    if (form.consignee_id) ensureAddresses(form.consignee_id);
+  }, [form.consignee_id, ensureAddresses]);
+
+  // When consignee equals customer and ship-to address isn't set, mirror
+  // the bill-to address. Lets operator change later without bookkeeping.
+  useEffect(() => {
+    if (!form.consignee_id || !form.customer_id) return;
+    if (form.consignee_id !== form.customer_id) return;
+    if (form.consignee_address_id) return;
+    if (!form.customer_address_id) return;
+    onF("consignee_address_id", form.customer_address_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.consignee_id, form.customer_id, form.customer_address_id]);
+
+  // When consignee_from_customer is on and a customer id is set but the
+  // snapshot is empty (e.g. just arrived via PO pre-fill), load it.
+  useEffect(() => {
+    if (!form.consignee_from_customer) return;
+    if (!form.consignee_id) return;
+    if (form.consignee_snapshot?.name) return;
+    prefillSnapshotFromCustomer(
+      form.consignee_id,
+      "consignee_snapshot",
+      "consignee_id"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.consignee_from_customer, form.consignee_id]);
+
+  // Default bank pre-fill on new invoice — first matching by currency,
+  // else first active. Skipped when bank_account_ids was already
+  // pre-selected from a source PFI via PO chain.
+  useEffect(() => {
+    if (isEdit) return;
+    if (form.bank_account_ids?.length) return;
+    const def =
+      bankAccountOptions.find((o) => o.raw?.is_default) ||
+      bankAccountOptions[0];
+    if (def?.value) onF("bank_account_ids", [def.value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankAccountOptions, isEdit]);
+
+  // On edit, resolve the previously-saved bank snapshots back to IDs
+  // by matching account_number against the live company list.
+  useEffect(() => {
+    if (!isEdit) return;
+    if (form.bank_account_ids?.length) return;
+    const snaps = bankSnapshots || [];
+    if (!snaps.length || !allBankAccounts.length) return;
+    const matchedIds = snaps
+      .map((s) => {
+        const target = (s.account_no || "").trim();
+        if (!target) return null;
+        const m = allBankAccounts.find(
+          (b) => (b.account_number || "").trim() === target
+        );
+        return m?._id || null;
+      })
+      .filter(Boolean);
+    if (matchedIds.length) onF("bank_account_ids", matchedIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, bankSnapshots, allBankAccounts]);
 
   // Guard: if we arrived via ?po=<id> but no POV has been dispatched yet,
   // surface a banner and block Save. Mirrors the BE Rule A enforcement.
@@ -332,6 +594,29 @@ const InvoiceAddEdit = () => {
       consignee_id: inv.consignee_id || "",
       consignee_address_id: inv.consignee_address_id || "",
       notify_party_id: inv.notify_party_id || "",
+      notify_party_from_customer: !!inv.notify_party_id,
+      notify_party_snapshot: {
+        name: inv.notify_party_snapshot?.name || "",
+        address_line1:
+          inv.notify_party_snapshot?.address_line1 ||
+          inv.notify_party_snapshot?.address ||
+          "",
+        address_line2: inv.notify_party_snapshot?.address_line2 || "",
+        city: inv.notify_party_snapshot?.city || "",
+        state: inv.notify_party_snapshot?.state || "",
+        postcode: inv.notify_party_snapshot?.postcode || "",
+        country: inv.notify_party_snapshot?.country || "",
+      },
+      consignee_from_customer: !!inv.consignee_id,
+      consignee_snapshot: {
+        name: inv.consignee_snapshot?.name || "",
+        address_line1: inv.consignee_snapshot?.address_line1 || "",
+        address_line2: inv.consignee_snapshot?.address_line2 || "",
+        city: inv.consignee_snapshot?.city || "",
+        state: inv.consignee_snapshot?.state || "",
+        postcode: inv.consignee_snapshot?.postcode || "",
+        country: inv.consignee_snapshot?.country || "",
+      },
       currency_code: inv.currency_code || "USD",
       currency_symbol: inv.currency_symbol || "",
       exchange_rate: inv.exchange_rate || "1",
@@ -351,6 +636,11 @@ const InvoiceAddEdit = () => {
       notes_to_buyer: inv.notes_to_buyer || "",
       internal_notes: inv.internal_notes || "",
       declaration_text: inv.declaration_text || "",
+      // Bank accounts aren't stored as IDs on Invoice — only as snapshots.
+      // Resolved by account_number against current company bank list in
+      // the post-load effect below.
+      bank_account_ids: [],
+      company_address_id: inv.company_address_id || "",
     }));
     setLines(
       (inv.lines || []).map((l, i) => ({
@@ -441,7 +731,8 @@ const InvoiceAddEdit = () => {
     if (!form.invoice_date) e.invoice_date = "Invoice date required";
     if (!form.purchase_order_id) e.purchase_order_id = "PO required";
     if (!form.customer_id) e.customer_id = "Customer required";
-    if (!form.consignee_id) e.consignee_id = "Consignee required";
+    if (!form.consignee_snapshot?.name)
+      e.consignee_id = "Consignee name required";
     if (!form.currency_code) e.currency_code = "Currency required";
     if (form.gst_route === "lut_zero_rated") {
       if (!form.lut_no) e.lut_no = "LUT no required for zero-rated route";
@@ -479,7 +770,27 @@ const InvoiceAddEdit = () => {
       product_rebates_snapshot: l.product_rebates_snapshot || [],
       product_expenses_snapshot: l.product_expenses_snapshot || [],
     })),
-    bank_snapshots: bankSnapshots.length ? bankSnapshots : undefined,
+    bank_snapshots: (() => {
+      // Build one snapshot per picked bank id. Falls back to any
+      // hydrated snapshots, and finally lets the BE substitute the
+      // company default at issue time.
+      const ids = form.bank_account_ids || [];
+      const picked = ids
+        .map((id) => allBankAccounts.find((b) => b._id === id))
+        .filter(Boolean);
+      if (picked.length) {
+        return picked.map((b) => ({
+          name: b.bank_name || "",
+          account_no: b.account_number || "",
+          beneficiary: b.account_holder_name || "",
+          ad_code: b.ad_code || "",
+          swift_code: b.swift_code || "",
+          branch: b.branch_name || "",
+          currency_code: b.currency_code || "",
+        }));
+      }
+      return bankSnapshots.length ? bankSnapshots : undefined;
+    })(),
   });
 
   const onSave = async () => {
@@ -509,6 +820,213 @@ const InvoiceAddEdit = () => {
   };
 
   // ── Render ──────────────────────────────────────────────────────────
+
+  // Reusable Consignee / Notify Party card with radio toggle + optional
+  // "From Customer Master" picker + structured address fields.
+  const renderPartyCard = ({
+    title,
+    subtitle,
+    flagKey,
+    idKey,
+    snapKey,
+    required,
+    errorKey,
+  }) => {
+    const snap = form[snapKey] || {};
+    const fromCustomer = !!form[flagKey];
+    const updateSnap = (patch) =>
+      onF(snapKey, { ...(form[snapKey] || {}), ...patch });
+    return (
+      <Card className="mb-2">
+        <CardHeader className="border-bottom py-1">
+          <CardTitle tag="h5" className="mb-0">
+            {title}
+            {subtitle && (
+              <small className="text-muted ms-1">({subtitle})</small>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <Row>
+            <Col md="12" className="mb-1">
+              <div className="d-flex align-items-center flex-wrap gap-2">
+                <Label className="form-label mb-0 me-1">
+                  {t("From Customer?")}
+                </Label>
+                <div className="form-check form-check-inline mb-0">
+                  <Input
+                    type="radio"
+                    id={`${flagKey}-yes`}
+                    name={flagKey}
+                    checked={fromCustomer}
+                    onChange={() => onF(flagKey, true)}
+                  />
+                  <Label
+                    className="form-check-label"
+                    for={`${flagKey}-yes`}
+                  >
+                    {t("Yes")}
+                  </Label>
+                </div>
+                <div className="form-check form-check-inline mb-0">
+                  <Input
+                    type="radio"
+                    id={`${flagKey}-no`}
+                    name={flagKey}
+                    checked={!fromCustomer}
+                    onChange={() => {
+                      setForm((s) => ({
+                        ...s,
+                        [flagKey]: false,
+                        [idKey]: "",
+                      }));
+                    }}
+                  />
+                  <Label className="form-check-label" for={`${flagKey}-no`}>
+                    {t("No")}
+                  </Label>
+                </div>
+              </div>
+            </Col>
+
+            {fromCustomer && (
+              <Col md="12" className="mb-1">
+                <Label className="form-label">{t("Pick Customer")}</Label>
+                <Select
+                  classNamePrefix="select"
+                  isClearable
+                  options={customerOptions}
+                  value={(() => {
+                    const id = form[idKey];
+                    if (!id) return null;
+                    const match = customerOptions.find(
+                      (o) => o.value === id
+                    );
+                    if (match) return match;
+                    // Fallback: customer master list hasn't loaded yet, OR
+                    // the linked customer is now inactive. Surface what we
+                    // know from the snapshot so the user can see it.
+                    return {
+                      value: id,
+                      label: snap.name || t("(customer)"),
+                    };
+                  })()}
+                  onChange={(opt) => {
+                    const v = opt ? opt.value : "";
+                    if (v) {
+                      prefillSnapshotFromCustomer(v, snapKey, idKey);
+                    } else {
+                      // Clearing the picker should wipe both the FK and
+                      // the auto-filled snapshot so the operator starts
+                      // clean. Manual edits done after the pick are lost
+                      // — that's the expected meaning of "Clear".
+                      setForm((s) => ({
+                        ...s,
+                        [idKey]: "",
+                        [snapKey]: {
+                          name: "",
+                          address_line1: "",
+                          address_line2: "",
+                          city: "",
+                          state: "",
+                          postcode: "",
+                          country: "",
+                        },
+                      }));
+                    }
+                  }}
+                  placeholder={t("Search & select customer")}
+                />
+                <small className="text-muted">
+                  {t(
+                    "Picking a customer pre-fills the fields below. You can edit any field after."
+                  )}
+                </small>
+              </Col>
+            )}
+
+            <Col md="6" className="mb-1">
+              <Label className="form-label">
+                {t("Name")}
+                {required && <span className="text-danger"> *</span>}
+              </Label>
+              <Input
+                value={snap.name || ""}
+                onChange={(e) => updateSnap({ name: e.target.value })}
+                placeholder={t("Entity name")}
+                maxLength={200}
+              />
+              {errorKey && errors[errorKey] && (
+                <FormFeedback className="d-block">
+                  {errors[errorKey]}
+                </FormFeedback>
+              )}
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Address Line 1")}</Label>
+              <Input
+                value={snap.address_line1 || ""}
+                onChange={(e) =>
+                  updateSnap({ address_line1: e.target.value })
+                }
+                maxLength={200}
+              />
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Address Line 2")}</Label>
+              <Input
+                value={snap.address_line2 || ""}
+                onChange={(e) =>
+                  updateSnap({ address_line2: e.target.value })
+                }
+                maxLength={200}
+              />
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("City")}</Label>
+              <Input
+                value={snap.city || ""}
+                onChange={(e) => updateSnap({ city: e.target.value })}
+                maxLength={120}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("State")}</Label>
+              <Input
+                value={snap.state || ""}
+                onChange={(e) => updateSnap({ state: e.target.value })}
+                maxLength={120}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("Postcode")}</Label>
+              <Input
+                value={snap.postcode || ""}
+                onChange={(e) => updateSnap({ postcode: e.target.value })}
+                maxLength={30}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("Country")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={countryOptions}
+                value={
+                  countryOptions.find((o) => o.value === snap.country) ||
+                  null
+                }
+                onChange={(opt) =>
+                  updateSnap({ country: opt ? opt.value : "" })
+                }
+                placeholder={t("Select country")}
+              />
+            </Col>
+          </Row>
+        </CardBody>
+      </Card>
+    );
+  };
 
   if (isEdit && !store?.invoiceItem?._id) {
     return (
@@ -639,6 +1157,166 @@ const InvoiceAddEdit = () => {
           </CardBody>
         </Card>
       )}
+
+      {/* ── Customer (Bill-to) ──────────────────────────────────────── */}
+      <Card className="mb-2">
+        <CardHeader className="border-bottom py-1">
+          <CardTitle tag="h5" className="mb-0">
+            {t("Customer (Bill-to)")}
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <Row>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">
+                {t("Customer")} <span className="text-danger">*</span>
+              </Label>
+              <Select
+                classNamePrefix="select"
+                options={customerOptions}
+                value={
+                  customerOptions.find((o) => o.value === form.customer_id) ||
+                  null
+                }
+                onChange={(opt) => {
+                  const v = opt ? opt.value : "";
+                  setForm((s) => {
+                    const sameAsConsignee = s.consignee_id === s.customer_id;
+                    return {
+                      ...s,
+                      customer_id: v,
+                      customer_address_id: "",
+                      consignee_id: s.consignee_id || v,
+                      ...(sameAsConsignee && {
+                        consignee_id: v,
+                        consignee_address_id: "",
+                      }),
+                    };
+                  });
+                }}
+                isDisabled={!!queryPoId && !isEdit}
+              />
+              {errors.customer_id && (
+                <FormFeedback className="d-block">
+                  {errors.customer_id}
+                </FormFeedback>
+              )}
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Bill-to Address")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={addressOptionsByCustomer[form.customer_id] || []}
+                value={
+                  (
+                    addressOptionsByCustomer[form.customer_id] || []
+                  ).find((o) => o.value === form.customer_address_id) || null
+                }
+                onChange={(opt) =>
+                  onF("customer_address_id", opt ? opt.value : "")
+                }
+                isDisabled={!form.customer_id}
+                placeholder={
+                  form.customer_id
+                    ? t("Select address")
+                    : t("Pick customer first")
+                }
+              />
+            </Col>
+          </Row>
+        </CardBody>
+      </Card>
+
+      {/* ── Consignee (Ship-to) ─────────────────────────────────────── */}
+      {renderPartyCard({
+        title: t("Consignee (Ship-to)"),
+        flagKey: "consignee_from_customer",
+        idKey: "consignee_id",
+        snapKey: "consignee_snapshot",
+        required: true,
+        errorKey: "consignee_id",
+      })}
+
+      {/* ── Notify Party ────────────────────────────────────────────── */}
+      {renderPartyCard({
+        title: t("Notify Party"),
+        subtitle: t("optional — third party shown on Commercial Invoice"),
+        flagKey: "notify_party_from_customer",
+        idKey: "notify_party_id",
+        snapKey: "notify_party_snapshot",
+        required: false,
+      })}
+
+      {/* ── Company Address (Shipper) ───────────────────────────────── */}
+      <Card className="mb-2">
+        <CardHeader className="border-bottom py-1">
+          <CardTitle tag="h5" className="mb-0">
+            {t("Company Address (Shipper)")}
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <Row>
+            <Col md="12" className="mb-1">
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={companyAddressOptions}
+                value={
+                  companyAddressOptions.find(
+                    (o) => o.value === form.company_address_id
+                  ) || null
+                }
+                onChange={(opt) =>
+                  onF("company_address_id", opt ? opt.value : "")
+                }
+                placeholder={
+                  companyAddressOptions.length
+                    ? t("Auto-picked default corporate address")
+                    : t("No company addresses configured")
+                }
+              />
+            </Col>
+          </Row>
+        </CardBody>
+      </Card>
+
+      {/* ── Bank Account(s) — multi-select ──────────────────────────── */}
+      <Card className="mb-2">
+        <CardHeader className="border-bottom py-1">
+          <CardTitle tag="h5" className="mb-0">
+            {t("Bank Account(s)")}{" "}
+            <small className="text-muted">
+              ({t("shown on Commercial Invoice PDF — pick one or more")})
+            </small>
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <Row>
+            <Col md="12" className="mb-1">
+              <Select
+                isMulti
+                classNamePrefix="select"
+                options={bankAccountOptions}
+                value={bankAccountOptions.filter((o) =>
+                  (form.bank_account_ids || []).includes(o.value)
+                )}
+                onChange={(opts) =>
+                  onF(
+                    "bank_account_ids",
+                    (opts || []).map((o) => o.value)
+                  )
+                }
+                placeholder={
+                  bankAccountOptions.length
+                    ? t("Pick one or more bank accounts")
+                    : t("No bank accounts on Company Profile")
+                }
+              />
+            </Col>
+          </Row>
+        </CardBody>
+      </Card>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <Card className="mb-2">
@@ -802,10 +1480,10 @@ const InvoiceAddEdit = () => {
                   <th style={{ width: 30 }}>#</th>
                   <th style={{ width: 110 }}>{t("HSN")} <span className="text-danger">*</span></th>
                   <th>{t("Product / Description")}</th>
-                  <th style={{ width: 70 }}>{t("UQC")}</th>
                   <th style={{ width: 90 }} className="text-end">
                     {t("Qty")}
                   </th>
+                  <th style={{ width: 70 }}>{t("UQC")}</th>
                   <th style={{ width: 110 }} className="text-end">
                     {t("Unit Price")}
                   </th>
@@ -847,19 +1525,27 @@ const InvoiceAddEdit = () => {
                         />
                       </td>
                       <td>
-                        <div className="fw-semibold">{l.product_name}</div>
                         {l.product_code && (
-                          <small className="text-muted">{l.product_code}</small>
+                          <span
+                            className="badge"
+                            style={{
+                              background: "#eef0f3",
+                              color: "#1a2238",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {l.product_code}
+                          </span>
                         )}
                         <Input
                           type="textarea"
                           rows="1"
-                                    className="mt-25"
+                          className="mt-25"
                           value={l.description || ""}
                           onChange={(e) =>
                             updateLine(i, { description: e.target.value })
                           }
-                          placeholder={t("Description")}
+                          placeholder={t("Description (goods)")}
                         />
                         <Input
                           className="mt-25"
@@ -869,26 +1555,29 @@ const InvoiceAddEdit = () => {
                               customer_reference: e.target.value,
                             })
                           }
-                          placeholder={t("Customer Reference (e.g. PFI / PO #)")}
-                        />
-                      </td>
-                      <td>
-                        <Input
-                                    value={l.uqc_code || ""}
-                          onChange={(e) =>
-                            updateLine(i, { uqc_code: e.target.value.toUpperCase() })
-                          }
-                          maxLength={10}
+                          maxLength={120}
+                          placeholder={t(
+                            "Buyer's Requirement # (e.g. BOSCH PUMP REQUISITION)",
+                          )}
                         />
                       </td>
                       <td>
                         <Input
                           type="number"
                           step="any"
-                                    className="text-end"
+                          className="text-end"
                           value={l.qty}
                           onChange={(e) => updateLine(i, { qty: e.target.value })}
                           invalid={!!errors[`line_${i}_qty`]}
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          value={l.uqc_code || ""}
+                          onChange={(e) =>
+                            updateLine(i, { uqc_code: e.target.value.toUpperCase() })
+                          }
+                          maxLength={10}
                         />
                       </td>
                       <td>

@@ -173,25 +173,58 @@ const OverviewTab = () => {
               color="info"
             />
             <div className="mt-1">
-              {p.consignee_name || p.consignee_address ? (
-                <>
-                  <div className="fw-bolder mb-25">
-                    {p.consignee_name || "-"}
-                  </div>
-                  {p.consignee_address && (
-                    <div
-                      className="small text-muted lh-base"
-                      style={{ whiteSpace: "pre-line" }}
-                    >
-                      {p.consignee_address}
+              {(() => {
+                const cs = p.consignee_snapshot;
+                const hasSnap =
+                  cs &&
+                  (cs.name ||
+                    cs.address_line1 ||
+                    cs.city ||
+                    cs.country);
+                if (hasSnap) {
+                  const addr = [
+                    cs.address_line1,
+                    cs.address_line2,
+                    [cs.city, cs.state].filter(Boolean).join(", "),
+                    [cs.country, cs.postcode].filter(Boolean).join(" - "),
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+                  return (
+                    <>
+                      <div className="fw-bolder mb-25">
+                        {cs.name || "-"}
+                      </div>
+                      {addr && (
+                        <div
+                          className="small text-muted lh-base"
+                          style={{ whiteSpace: "pre-line" }}
+                        >
+                          {addr}
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <div className="fw-bolder mb-25">
+                      {p.customer_name || "-"}
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-muted small fst-italic mt-1">
-                  {t("Same as Buyer")}
-                </div>
-              )}
+                    {p.customer_address && (
+                      <div
+                        className="small text-muted lh-base"
+                        style={{ whiteSpace: "pre-line" }}
+                      >
+                        {p.customer_address}
+                      </div>
+                    )}
+                    <div className="text-muted small fst-italic mt-25">
+                      {t("Same as Buyer")}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </Col>
