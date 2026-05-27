@@ -364,11 +364,12 @@ const PfiPublicView = () => {
                 </div>
               </div>
 
-              {/* Consignee */}
-              {(p.consignee_name || p.consignee_address) && (
+              {/* Consignee — mapPublic populates consignee_name / address
+                  from snapshot when set, else falls back to buyer. */}
+              {p.consignee_name && (
                 <div className="section">
                   <Label>{t("Consignee")}</Label>
-                  <div className="party-name">{p.consignee_name || "-"}</div>
+                  <div className="party-name">{p.consignee_name}</div>
                   {p.consignee_address && (
                     <div
                       className="party-line"

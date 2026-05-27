@@ -129,22 +129,61 @@ const PfiPartiesPanel = () => {
         </Col>
         <Col md="4">
           <PartyCard icon={Truck} label={t("Consignee")}>
-            {p.consignee_name || p.consignee_address ? (
-              <Fragment>
-                <div className="fw-bolder mb-25" style={{ color: "#212529" }}>
-                  {p.consignee_name || "-"}
-                </div>
-                {p.consignee_address && (
-                  <div style={{ whiteSpace: "pre-line" }}>
-                    {p.consignee_address}
+            {(() => {
+              // Prefer consignee_snapshot when the PFI carries one; fall
+              // back to buyer for single-party PFIs.
+              const cs = p.consignee_snapshot;
+              const hasSnap =
+                cs &&
+                (cs.name ||
+                  cs.address_line1 ||
+                  cs.city ||
+                  cs.country);
+              const name = hasSnap
+                ? cs.name || "-"
+                : p.customer_name || "-";
+              const addressLines = hasSnap
+                ? [
+                    cs.address_line1,
+                    cs.address_line2,
+                    [cs.city, cs.state].filter(Boolean).join(", "),
+                    [cs.country, cs.postcode].filter(Boolean).join(" - "),
+                  ]
+                    .filter(Boolean)
+                    .join("\n")
+                : null;
+              return (
+                <Fragment>
+                  <div
+                    className="fw-bolder mb-25"
+                    style={{ color: "#212529" }}
+                  >
+                    {name}
                   </div>
-                )}
-              </Fragment>
-            ) : (
-              <div className="fst-italic" style={{ opacity: 0.7 }}>
-                {t("Same as Buyer")}
-              </div>
-            )}
+                  {hasSnap ? (
+                    addressLines && (
+                      <div style={{ whiteSpace: "pre-line" }}>
+                        {addressLines}
+                      </div>
+                    )
+                  ) : (
+                    <Fragment>
+                      {p.customer_address && (
+                        <div style={{ whiteSpace: "pre-line" }}>
+                          {p.customer_address}
+                        </div>
+                      )}
+                      <div
+                        className="fst-italic small mt-25"
+                        style={{ opacity: 0.6 }}
+                      >
+                        {t("Same as Buyer")}
+                      </div>
+                    </Fragment>
+                  )}
+                </Fragment>
+              );
+            })()}
           </PartyCard>
         </Col>
       </Row>
