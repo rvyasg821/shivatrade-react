@@ -133,11 +133,20 @@ const PfiWizard = () => {
         est_delivery_date: yup.string().nullable(),
         packing_marks: yup.string().nullable().max(200),
         packing_type: yup
+          .array()
+          .of(yup.string())
+          .min(1, t("Packing Type is required"))
+          .required(t("Packing Type is required")),
+        container_used: yup
+          .boolean()
+          .nullable()
+          .transform((v) => (v === "" || v == null ? null : v)),
+        container_no: yup.string().nullable().max(50),
+        seal_no: yup.string().nullable().max(50),
+        container_load_type: yup
           .string()
           .nullable()
-          .transform((v) => (typeof v === "string" ? v.trim() : v))
-          .required(t("Packing Type is required"))
-          .max(50),
+          .oneOf(["", "FCL", "LCL", null], t("Invalid load type")),
         validity_days: yup
           .number()
           .transform((v, o) => (o === "" || o == null ? undefined : v))
@@ -317,6 +326,18 @@ const PfiWizard = () => {
         valid_until: (p.valid_until || "").slice(0, 10) || "",
         est_shipment_date: (p.est_shipment_date || "").slice(0, 10) || "",
         est_delivery_date: (p.est_delivery_date || "").slice(0, 10) || "",
+        packing_type: Array.isArray(p.packing_type)
+          ? p.packing_type
+          : p.packing_type
+            ? String(p.packing_type)
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [],
+        container_used: p.container_used === true,
+        container_no: p.container_no || "",
+        seal_no: p.seal_no || "",
+        container_load_type: p.container_load_type || "",
         lines: (p.lines || []).map((l) => ({
           ...initPfiLineItem,
           ...l,
@@ -565,7 +586,22 @@ const PfiWizard = () => {
       est_shipment_date: values.est_shipment_date || undefined,
       est_delivery_date: values.est_delivery_date || undefined,
       packing_marks: values.packing_marks?.trim() || undefined,
-      packing_type: values.packing_type || undefined,
+      packing_type: Array.isArray(values.packing_type)
+        ? values.packing_type.filter(Boolean).join(", ") || undefined
+        : values.packing_type || undefined,
+      container_used: values.container_used === true,
+      container_no:
+        values.container_used === true
+          ? values.container_no?.trim() || undefined
+          : undefined,
+      seal_no:
+        values.container_used === true
+          ? values.seal_no?.trim() || undefined
+          : undefined,
+      container_load_type:
+        values.container_used === true
+          ? values.container_load_type || undefined
+          : undefined,
       validity_days:
         values.validity_days === "" || values.validity_days == null
           ? undefined

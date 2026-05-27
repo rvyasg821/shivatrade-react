@@ -488,7 +488,11 @@ const initPfiItem = {
   est_delivery_date: "",
   // ── Packing ──
   packing_marks: "",
-  packing_type: "",
+  packing_type: [],
+  container_used: false,
+  container_no: "",
+  seal_no: "",
+  container_load_type: "",
   total_packages: 0,
   gross_weight_kg: "0",
   net_weight_kg: "0",
