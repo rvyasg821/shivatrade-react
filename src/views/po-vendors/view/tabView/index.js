@@ -12,12 +12,13 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { FileText, Truck } from "react-feather";
+import { FileText, Truck, Percent } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import OverviewTab from "./OverviewTab";
 import TrackingTab from "./TrackingTab";
+import ExpensesTab from "./ExpensesTab";
 
 const PoVendorTabView = () => {
   const { t } = useTranslation();
@@ -25,6 +26,7 @@ const PoVendorTabView = () => {
 
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const linesCount = (poVendorItem?.lines || []).length;
+  const expensesCount = (poVendorItem?.expenses_snapshot || []).length;
 
   const tabBtn = (key, label, Icon, count) => (
     <NavItem>
@@ -62,12 +64,16 @@ const PoVendorTabView = () => {
       <CardBody>
         <Nav pills className="mb-2">
           {tabBtn("overview", t("Overview"), FileText, linesCount)}
+          {tabBtn("expenses", t("Expenses"), Percent, expensesCount)}
           {tabBtn("tracking", t("Tracking"), Truck, 0)}
         </Nav>
 
         <TabContent activeTab={active}>
           <TabPane tabId="overview">
             <OverviewTab />
+          </TabPane>
+          <TabPane tabId="expenses">
+            {active === "expenses" && <ExpensesTab />}
           </TabPane>
           <TabPane tabId="tracking">
             {active === "tracking" && <TrackingTab />}

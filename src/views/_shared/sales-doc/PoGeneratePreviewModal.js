@@ -17,14 +17,18 @@ import {
   Spinner,
 } from "reactstrap";
 import Select from "react-select";
+import { Input } from "reactstrap";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ExternalLink } from "react-feather";
+import { AlertTriangle, ExternalLink, Plus, Trash2 } from "react-feather";
+import { useDispatch, useSelector } from "react-redux";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
 import LocationSelect from "@src/views/_shared/LocationSelect";
+import { getExpenseDropdown } from "@src/views/expenses/store";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -60,6 +64,36 @@ const PoGeneratePreviewModal = ({
   // Deliver-to address (applies to every PO created in this batch).
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [locations, setLocations] = useState([]);
+  // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
+  const [vendorExpenses, setVendorExpenses] = useState({});
+  // 2-step UX: 1 = Product listing, 2 = Vendor charges.
+  const [step, setStep] = useState(1);
+  // Pagination for the lines table (step 1).
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+
+  // ── Expense master (loaded once when modal opens) ───────────────────
+  const dispatch = useDispatch();
+  const expenseStore = useSelector((s) => s.expense);
+  useEffect(() => {
+    if (isOpen && !(expenseStore?.expenseDropdown?.length)) {
+      dispatch(getExpenseDropdown());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+  const expenseOptions = useMemo(
+    () =>
+      (expenseStore?.expenseDropdown || []).map((e) => ({
+        value: e._id,
+        label: e.code ? `${e.code} - ${e.name}` : e.name,
+        raw: e,
+      })),
+    [expenseStore?.expenseDropdown],
+  );
+  const expenseTypeOptions = [
+    { value: "percent", label: "%" },
+    { value: "fixed", label: "₹ (Fixed)" },
+  ];
 
   const previewEndpoint =
     sourceType === "pfi"
@@ -77,6 +111,9 @@ const PoGeneratePreviewModal = ({
     setPreviewLines([]);
     setAssignment({});
     setDropped({});
+    setVendorExpenses({});
+    setStep(1);
+    setPage(0);
     // Reset deliver-to on every open so we re-derive from the response
     // (existing PO's address if any, else LocationSelect's auto-default).
     setDeliveryAddressId("");
@@ -155,6 +192,17 @@ const PoGeneratePreviewModal = ({
     );
   }, [previewLines, assignment, dropped]);
 
+  // Pagination — slice the lines table by page/pageSize.
+  const totalRows = previewLines.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageEnd = pageStart + pageSize;
+  const pagedLines = previewLines.slice(pageStart, pageEnd);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
+
   const hasUnassignedActiveLines = previewLines.some(
     (l) =>
       !dropped[l.source_line_id] &&
@@ -191,9 +239,22 @@ const PoGeneratePreviewModal = ({
     }
     setCreating(true);
     try {
+      // Trim out empty vendor blocks (no rows) and rows missing expense_id.
+      const trimmedExpenses = {};
+      for (const [vid, rows] of Object.entries(vendorExpenses)) {
+        const cleaned = (rows || []).filter((r) => r?.expense_id);
+        if (cleaned.length) {
+          trimmedExpenses[vid] = cleaned.map((r) => ({
+            expense_id: r.expense_id,
+            type: r.type || "percent",
+            value: r.value || "0",
+          }));
+        }
+      }
       const resp = await instance.post(createEndpoint, {
         assignments,
         delivery_address_id: deliveryAddressId,
+        vendor_expenses: trimmedExpenses,
       });
       const purchaseOrder = resp?.data?.data?.purchase_order;
       const povs = resp?.data?.data?.po_vendors || [];
@@ -263,6 +324,45 @@ const PoGeneratePreviewModal = ({
           )}
         </div>
 
+        {/* ── Stepper header ───────────────────────────────────────── */}
+        <div className="d-flex align-items-center mb-3 small">
+          <span
+            className={`px-2 py-1 rounded me-1 ${
+              step === 1 ? "fw-bold text-white" : "text-muted"
+            }`}
+            style={{
+              background: step === 1 ? "#09418b" : "#eef0f3",
+              minWidth: 28,
+              textAlign: "center",
+            }}
+          >
+            1
+          </span>
+          <span
+            className={step === 1 ? "fw-bold" : "text-muted"}
+          >
+            {t("Products")}
+          </span>
+          <span className="mx-2 text-muted">›</span>
+          <span
+            className={`px-2 py-1 rounded me-1 ${
+              step === 2 ? "fw-bold text-white" : "text-muted"
+            }`}
+            style={{
+              background: step === 2 ? "#09418b" : "#eef0f3",
+              minWidth: 28,
+              textAlign: "center",
+            }}
+          >
+            2
+          </span>
+          <span
+            className={step === 2 ? "fw-bold" : "text-muted"}
+          >
+            {t("Vendor Charges")}
+          </span>
+        </div>
+
         {loading ? (
           <div className="text-center py-5">
             <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
@@ -271,11 +371,11 @@ const PoGeneratePreviewModal = ({
           <div className="text-center text-muted py-4">
             {t("No lines on the source document.")}
           </div>
-        ) : (
+        ) : step === 1 ? (
           <>
             <p className="text-muted small mb-2">
               {t(
-                "Each source line is pre-assigned to the cheapest active vendor. Change the vendor per line or drop a line from this batch. One PO is created per unique vendor. Lines already fully covered by existing POs are dropped automatically — restore to add another PO for the same line."
+                "Each source line is pre-assigned to the cheapest active vendor. Drop a line to exclude it from this batch. Lines already fully covered by existing POs are dropped automatically."
               )}
             </p>
             {previewLines.every((l) => l.fully_covered) && (
@@ -287,7 +387,10 @@ const PoGeneratePreviewModal = ({
               </div>
             )}
 
-            <div className="table-responsive">
+            <div
+              className="table-responsive"
+              style={{ maxHeight: 360, overflowY: "auto" }}
+            >
               <Table bordered size="sm" className="align-middle">
                 <thead className="table-light">
                   <tr>
@@ -309,17 +412,10 @@ const PoGeneratePreviewModal = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {previewLines.map((l, idx) => {
+                  {pagedLines.map((l, i) => {
+                    const idx = pageStart + i;
                     const isDropped = !!dropped[l.source_line_id];
                     const cands = l.candidate_vendors || [];
-                    const cheapestPrice = cands[0]?.unit_price;
-                    const vendorOpts = cands.map((c) => ({
-                      value: c.vendor_id,
-                      label: `${c.vendor_name} — ₹${fmt(c.unit_price)}${
-                        c.unit_price === cheapestPrice ? ` ${t("(cheapest)")}` : ""
-                      }`,
-                      raw: c,
-                    }));
                     const picked = assignment[l.source_line_id];
                     const pickedCand = cands.find(
                       (c) => c.vendor_id === picked
@@ -400,27 +496,19 @@ const PoGeneratePreviewModal = ({
                                 )}
                               </span>
                             </div>
-                          ) : (
-                            <Select
-                              classNamePrefix="select"
-                              menuPortalTarget={document.body}
-                              styles={{
-                                menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                          ) : pickedCand ? (
+                            <span
+                              className="badge"
+                              style={{
+                                background: "#eef0f3",
+                                color: "#1a2238",
+                                fontWeight: 500,
                               }}
-                              isDisabled={isDropped}
-                              options={vendorOpts}
-                              value={
-                                vendorOpts.find((o) => o.value === picked) ||
-                                null
-                              }
-                              onChange={(opt) =>
-                                handleVendorChange(
-                                  l.source_line_id,
-                                  opt ? opt.value : ""
-                                )
-                              }
-                              placeholder={t("Select vendor")}
-                            />
+                            >
+                              {pickedCand.vendor_name}
+                            </span>
+                          ) : (
+                            <span className="text-muted small">—</span>
                           )}
                         </td>
                         <td className="text-end">
@@ -457,21 +545,46 @@ const PoGeneratePreviewModal = ({
               </Table>
             </div>
 
-            {/* Vendor summary */}
-            {vendorSummary.length > 0 && (
-              <div className="mt-3">
-                <h6 className="mb-1">
-                  {t("Will create")}: 1 PO + {vendorSummary.length}{" "}
-                  POV(s)
-                </h6>
-                <ul className="mb-0">
-                  {vendorSummary.map((v) => (
-                    <li key={v.vendor_id} className="small">
-                      <strong>{v.vendor_name}</strong> — {v.lines}{" "}
-                      {t("line(s)")} → ₹{fmt(v.total)}
-                    </li>
-                  ))}
-                </ul>
+            {/* Pagination — always shown when at least one row exists. */}
+            {totalRows > 0 && (
+              <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+                <div className="d-flex align-items-center small text-muted">
+                  <span className="me-50">{t("Show")}</span>
+                  <Input
+                    type="select"
+                    bsSize="sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value) || 10);
+                      setPage(0);
+                    }}
+                    style={{ width: 80 }}
+                  >
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Input>
+                  <span className="ms-50">
+                    {t("of")} {totalRows} {t("rows")}
+                  </span>
+                </div>
+                <ReactPaginate
+                  previousLabel=""
+                  nextLabel=""
+                  pageCount={pageCount}
+                  activeClassName="active"
+                  forcePage={safePage}
+                  onPageChange={({ selected }) => setPage(selected)}
+                  pageClassName="page-item"
+                  nextLinkClassName="page-link"
+                  nextClassName="page-item next"
+                  previousClassName="page-item prev"
+                  previousLinkClassName="page-link"
+                  pageLinkClassName="page-link"
+                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                />
               </div>
             )}
 
@@ -483,6 +596,259 @@ const PoGeneratePreviewModal = ({
                 )}
               </div>
             )}
+
+            {/* Vendor summary line — just a count peek on step 1 */}
+            {vendorSummary.length > 0 && (
+              <div className="alert alert-info small mt-3 mb-0">
+                {t("Will create")}: <strong>1 PO</strong> +{" "}
+                <strong>{vendorSummary.length} POV(s)</strong>.{" "}
+                {t(
+                  "Click Next to add optional vendor charges per POV before creating."
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          /* ── Step 2: Vendor Charges ─────────────────────────────── */
+          <>
+            {vendorSummary.length > 0 && (
+              <div>
+                <h5 className="mb-1">
+                  {t("Vendor Charges")}{" "}
+                  <small className="text-muted">
+                    ({t("optional")})
+                  </small>
+                </h5>
+                <p className="small text-muted mb-3">
+                  {t(
+                    "Add Packing, Transport, etc. from your expense master — applied to that vendor's POV only. Leave any vendor empty if no extra charges apply."
+                  )}
+                </p>
+                <h6 className="mb-2">
+                  {t("Will create")}: 1 PO + {vendorSummary.length}{" "}
+                  POV(s)
+                </h6>
+                {vendorSummary.map((v) => {
+                  const rows = vendorExpenses[v.vendor_id] || [];
+                  const usedIds = new Set(rows.map((r) => r.expense_id).filter(Boolean));
+                  const updateRow = (idx, patch) =>
+                    setVendorExpenses((curr) => {
+                      const list = (curr[v.vendor_id] || []).map((r, i) =>
+                        i === idx ? { ...r, ...patch } : r,
+                      );
+                      return { ...curr, [v.vendor_id]: list };
+                    });
+                  const removeRow = (idx) =>
+                    setVendorExpenses((curr) => {
+                      const list = (curr[v.vendor_id] || []).filter(
+                        (_, i) => i !== idx,
+                      );
+                      const next = { ...curr };
+                      if (list.length === 0) delete next[v.vendor_id];
+                      else next[v.vendor_id] = list;
+                      return next;
+                    });
+                  const addRow = () =>
+                    setVendorExpenses((curr) => ({
+                      ...curr,
+                      [v.vendor_id]: [
+                        ...(curr[v.vendor_id] || []),
+                        {
+                          expense_id: "",
+                          type: "percent",
+                          value: "0",
+                          code: "",
+                          name: "",
+                        },
+                      ],
+                    }));
+                  const chargesTotal = rows.reduce((s, r) => {
+                    if (!r?.expense_id) return s;
+                    return (
+                      s +
+                      (r.type === "percent"
+                        ? (v.total * Number(r.value || 0)) / 100
+                        : Number(r.value || 0))
+                    );
+                  }, 0);
+                  return (
+                    <div
+                      key={v.vendor_id}
+                      className="rounded mb-3 overflow-hidden"
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                      }}
+                    >
+                      {/* Vendor header strip */}
+                      <div
+                        className="d-flex justify-content-between align-items-center px-3 py-2"
+                        style={{
+                          background: "#09418b",
+                          color: "#fff",
+                        }}
+                      >
+                        <div>
+                          <div className="fw-bold">{v.vendor_name}</div>
+                          <div
+                            className="small"
+                            style={{ opacity: 0.85 }}
+                          >
+                            {v.lines} {t("line(s)")} · {t("Subtotal")} ₹
+                            {fmt(v.total)}
+                            {chargesTotal > 0 && (
+                              <>
+                                {" "}
+                                · {t("Charges")} ₹{fmt(chargesTotal)}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          color="light"
+                          outline
+                          onClick={addRow}
+                        >
+                          <Plus size={12} className="me-25" />
+                          {t("Add Expense")}
+                        </Button>
+                      </div>
+                      {/* Vendor body */}
+                      <div className="p-2">
+                      {rows.length === 0 && (
+                        <div className="text-muted small text-center py-2">
+                          {t(
+                            "No charges added for this vendor. Click Add Expense to include Packing, Transport, etc."
+                          )}
+                        </div>
+                      )}
+                      {rows.length > 0 && (
+                        <Table size="sm" bordered className="mb-0 small align-middle">
+                          <thead className="table-light">
+                            <tr>
+                              <th style={{ minWidth: 220 }}>{t("Expense")}</th>
+                              <th style={{ width: 110 }}>{t("Type")}</th>
+                              <th style={{ width: 110 }}>{t("Value")}</th>
+                              <th style={{ width: 110 }} className="text-end">
+                                {t("Amount")}
+                              </th>
+                              <th style={{ width: 40 }} />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r, idx) => {
+                              const pickOptions = expenseOptions.filter(
+                                (o) =>
+                                  o.value === r.expense_id ||
+                                  !usedIds.has(o.value),
+                              );
+                              const amt =
+                                r.type === "percent"
+                                  ? (v.total * Number(r.value || 0)) / 100
+                                  : Number(r.value || 0);
+                              return (
+                                <tr key={idx}>
+                                  <td>
+                                    <Select
+                                      classNamePrefix="select"
+                                      options={pickOptions}
+                                      value={
+                                        expenseOptions.find(
+                                          (o) => o.value === r.expense_id,
+                                        ) || null
+                                      }
+                                      onChange={(opt) => {
+                                        if (!opt) {
+                                          updateRow(idx, {
+                                            expense_id: "",
+                                            code: "",
+                                            name: "",
+                                          });
+                                          return;
+                                        }
+                                        updateRow(idx, {
+                                          expense_id: opt.value,
+                                          code: opt.raw?.code || "",
+                                          name: opt.raw?.name || "",
+                                          type: opt.raw?.type || r.type,
+                                          value:
+                                            opt.raw?.value != null
+                                              ? String(opt.raw.value)
+                                              : r.value,
+                                        });
+                                      }}
+                                      placeholder={t("Pick expense…")}
+                                      menuPortalTarget={document.body}
+                                      styles={{
+                                        menuPortal: (b) => ({
+                                          ...b,
+                                          zIndex: 9999,
+                                        }),
+                                      }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <Select
+                                      classNamePrefix="select"
+                                      options={expenseTypeOptions}
+                                      value={
+                                        expenseTypeOptions.find(
+                                          (o) => o.value === r.type,
+                                        ) || expenseTypeOptions[0]
+                                      }
+                                      onChange={(opt) =>
+                                        updateRow(idx, { type: opt.value })
+                                      }
+                                      menuPortalTarget={document.body}
+                                      styles={{
+                                        menuPortal: (b) => ({
+                                          ...b,
+                                          zIndex: 9999,
+                                        }),
+                                      }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      bsSize="sm"
+                                      value={r.value}
+                                      onChange={(e) =>
+                                        updateRow(idx, {
+                                          value: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                  <td className="text-end">
+                                    ₹{fmt(amt)}
+                                  </td>
+                                  <td className="text-center">
+                                    <Button
+                                      size="sm"
+                                      color="danger"
+                                      outline
+                                      onClick={() => removeRow(idx)}
+                                    >
+                                      <Trash2 size={12} />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </Table>
+                      )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
           </>
         )}
       </ModalBody>
@@ -490,25 +856,50 @@ const PoGeneratePreviewModal = ({
         <Button color="secondary" outline onClick={toggle} disabled={creating}>
           {t("Cancel")}
         </Button>
-        <Button
-          color="primary"
-          onClick={onCreate}
-          disabled={
-            creating ||
-            loading ||
-            hasUnassignedActiveLines ||
-            vendorSummary.length === 0 ||
-            !deliveryAddressId
-          }
-        >
-          {creating ? <Spinner size="sm" /> : null}{" "}
-          {t("Create PO & POVs")}{" "}
-          {vendorSummary.length > 0 && (
-            <Badge color="light" className="ms-1 text-dark">
-              1 + {vendorSummary.length}
-            </Badge>
-          )}
-        </Button>
+        {step === 2 && (
+          <Button
+            color="secondary"
+            outline
+            onClick={() => setStep(1)}
+            disabled={creating}
+          >
+            ← {t("Back")}
+          </Button>
+        )}
+        {step === 1 ? (
+          <Button
+            color="primary"
+            onClick={() => setStep(2)}
+            disabled={
+              loading ||
+              hasUnassignedActiveLines ||
+              vendorSummary.length === 0 ||
+              !deliveryAddressId
+            }
+          >
+            {t("Next")} →
+          </Button>
+        ) : (
+          <Button
+            color="primary"
+            onClick={onCreate}
+            disabled={
+              creating ||
+              loading ||
+              hasUnassignedActiveLines ||
+              vendorSummary.length === 0 ||
+              !deliveryAddressId
+            }
+          >
+            {creating ? <Spinner size="sm" /> : null}{" "}
+            {t("Create PO & POVs")}{" "}
+            {vendorSummary.length > 0 && (
+              <Badge color="light" className="ms-1 text-dark">
+                1 + {vendorSummary.length}
+              </Badge>
+            )}
+          </Button>
+        )}
       </ModalFooter>
     </Modal>
   );
