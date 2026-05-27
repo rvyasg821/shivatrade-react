@@ -48,6 +48,7 @@ const Step2Items = ({
         displayInBase
         docType="po"
         docNumber={docNumber}
+        hideGst
       />
     </>
   );

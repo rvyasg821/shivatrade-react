@@ -190,23 +190,6 @@ const OverviewTab = () => {
               <th style={{ width: 60 }} className="text-end">
                 {t("Disc%")}
               </th>
-              <th style={{ width: 60 }} className="text-end">
-                {t("GST%")}
-              </th>
-              {intraState ? (
-                <>
-                  <th style={{ width: 80 }} className="text-end">
-                    {t("CGST")}
-                  </th>
-                  <th style={{ width: 80 }} className="text-end">
-                    {t("SGST")}
-                  </th>
-                </>
-              ) : (
-                <th style={{ width: 80 }} className="text-end">
-                  {t("IGST")}
-                </th>
-              )}
               <th style={{ width: 100 }} className="text-end">
                 {t("Amount")}
               </th>
@@ -215,7 +198,7 @@ const OverviewTab = () => {
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td colSpan="12" className="text-center text-muted py-3">
+                <td colSpan="9" className="text-center text-muted py-3">
                   {t("No line items.")}
                 </td>
               </tr>
@@ -238,15 +221,6 @@ const OverviewTab = () => {
                 <td>{l.unit || "-"}</td>
                 <td className="text-end">{fmt(toCcy(l.unit_price))}</td>
                 <td className="text-end">{fmt(l.discount_pct)}</td>
-                <td className="text-end">{fmt(l.tax_pct)}</td>
-                {intraState ? (
-                  <>
-                    <td className="text-end">{fmt(toCcy(l.cgst))}</td>
-                    <td className="text-end">{fmt(toCcy(l.sgst))}</td>
-                  </>
-                ) : (
-                  <td className="text-end">{fmt(toCcy(l.igst))}</td>
-                )}
                 <td className="text-end fw-bold">{fmt(toCcy(l.line_total))}</td>
               </tr>
             ))}
@@ -291,23 +265,6 @@ const OverviewTab = () => {
                   <td>{t("Subtotal")}</td>
                   <td className="text-end">{sym} {fmt(toCcy(p?.subtotal))}</td>
                 </tr>
-                {intraState ? (
-                  <>
-                    <tr>
-                      <td>{t("CGST")}</td>
-                      <td className="text-end">{sym} {fmt(toCcy(p?.cgst_total))}</td>
-                    </tr>
-                    <tr>
-                      <td>{t("SGST")}</td>
-                      <td className="text-end">{sym} {fmt(toCcy(p?.sgst_total))}</td>
-                    </tr>
-                  </>
-                ) : (
-                  <tr>
-                    <td>{t("IGST")}</td>
-                    <td className="text-end">{sym} {fmt(toCcy(p?.igst_total))}</td>
-                  </tr>
-                )}
                 <tr>
                   <td>{t("Round-off")}</td>
                   <td className="text-end">{sym} {fmt(toCcy(p?.round_off))}</td>

@@ -21,7 +21,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
   const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
   const exchangeRate = useWatch({ control, name: "exchange_rate" });
   const rate = Number(exchangeRate) || 1;
-  const totals = computeDocTotals(lines, rate);
+  const totals = computeDocTotals(lines, rate, { excludeGst: true });
 
   return (
     <Row>
@@ -41,6 +41,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
           exchangeRate={rate}
           readOnly
           tableLayout="compact"
+          hideGst
         />
 
         <Row>
@@ -107,7 +108,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
       </Col>
 
       <Col md="4">
-        <SalesDocCostingCard totals={totals} currencyCode={currencyCode} />
+        <SalesDocCostingCard totals={totals} currencyCode={currencyCode} hideGst />
       </Col>
     </Row>
   );
