@@ -260,10 +260,12 @@ const SalesDocLineItems = ({
         const liveQty = num(liveLines?.[idx]?.qty);
         const nwpu = num(opt.raw.net_weight_per_unit);
         const gwpu = num(opt.raw.gross_weight_per_unit);
+        const pSize = num(opt.raw.pack_size);
         // Stash per-unit values on the line so a later qty change can
-        // recompute weights without re-fetching the product.
+        // recompute weights / packages without re-fetching the product.
         setValue(`lines.${idx}._nwpu`, String(nwpu));
         setValue(`lines.${idx}._gwpu`, String(gwpu));
+        setValue(`lines.${idx}._pack_size`, String(pSize));
         if (liveQty > 0) {
           setValue(
             `lines.${idx}.net_weight_kg`,
@@ -273,6 +275,12 @@ const SalesDocLineItems = ({
             `lines.${idx}.gross_weight_kg`,
             String(round2(liveQty * gwpu)),
           );
+          if (pSize > 0) {
+            setValue(
+              `lines.${idx}.package_count`,
+              String(Math.ceil(liveQty / pSize)),
+            );
+          }
         }
       }
     }
@@ -1016,6 +1024,9 @@ const SalesDocLineItems = ({
                                 const gwpu = num(
                                   liveLines?.[editingIdx]?._gwpu,
                                 );
+                                const pSize = num(
+                                  liveLines?.[editingIdx]?._pack_size,
+                                );
                                 if (q > 0 && nwpu > 0) {
                                   setValue(
                                     `lines.${editingIdx}.net_weight_kg`,
@@ -1026,6 +1037,12 @@ const SalesDocLineItems = ({
                                   setValue(
                                     `lines.${editingIdx}.gross_weight_kg`,
                                     String(round2(q * gwpu)),
+                                  );
+                                }
+                                if (q > 0 && pSize > 0) {
+                                  setValue(
+                                    `lines.${editingIdx}.package_count`,
+                                    String(Math.ceil(q / pSize)),
                                   );
                                 }
                               }
