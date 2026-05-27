@@ -37,6 +37,7 @@ const Step2Items = ({
       displayInBase
       docType="quotation"
       docNumber={docNumber}
+      hideGst
     />
   );
 };

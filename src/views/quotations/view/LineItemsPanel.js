@@ -33,7 +33,7 @@ const LineItemsPanel = ({ bare = false }) => {
   const toDocCcy = (v) => num(v) * rate;
 
   const totals = useMemo(
-    () => computeDocTotals(lines, q?.exchange_rate),
+    () => computeDocTotals(lines, q?.exchange_rate, { excludeGst: true }),
     [lines, q?.exchange_rate]
   );
 
@@ -148,6 +148,7 @@ const LineItemsPanel = ({ bare = false }) => {
             totals={totals}
             currencyCode={q?.currency_code}
             sticky={false}
+            hideGst
           />
         </Col>
       </Row>

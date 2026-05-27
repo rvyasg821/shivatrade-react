@@ -82,6 +82,9 @@ const SalesDocLineItems = ({
    *  When omitted the bar is hidden (e.g. read-only review steps). */
   docType = "",
   docNumber = "",
+  /** Quotation: capture per-line GST in the modal but don't show the
+   *  GST column in the table or the GST row in the per-line breakdown. */
+  hideGst = false,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -404,7 +407,7 @@ const SalesDocLineItems = ({
     editingIdx != null ? vendorOptionsByLine[editingIdx] || [] : [];
   // Per-line costing for the modal breakdown - shared helper, so the modal,
   // the Step 2 table, and the Step 3 review all use identical math.
-  const editingCosting = computeLineCosting(editingLine);
+  const editingCosting = computeLineCosting(editingLine, { excludeGst: hideGst });
 
   // Costing figures are in the company's home currency (set by the
   // is_default flag in the Currency module). The converted row only shows
@@ -504,7 +507,7 @@ const SalesDocLineItems = ({
                     <th className="text-end">{t("Disc")}</th>
                     <th className="text-end">{t("Expenses")}</th>
                     <th className="text-end">{t("Rebates")}</th>
-                    <th className="text-end">{t("GST")}</th>
+                    {!hideGst && <th className="text-end">{t("GST")}</th>}
                     <th className="text-end">{t("Margin")}</th>
                     <th className="text-end">{t("Total")}</th>
                   </>
@@ -530,7 +533,7 @@ const SalesDocLineItems = ({
                 // an empty placeholder row in the table behind the modal.
                 if (modal.isNew && modal.idx === idx) return null;
                 const l = liveLines[idx] || {};
-                const c = computeLineCosting(l);
+                const c = computeLineCosting(l, { excludeGst: hideGst });
                 const productLabel =
                   productOptions.find((o) => o.value === l.product_id)?.label ||
                   (allProductOptions || []).find(
@@ -611,7 +614,9 @@ const SalesDocLineItems = ({
                               ? `${docSym}${fmt(toDocCcy(c.rebates))}`
                               : "-"}
                           </td>
-                          <td className="text-end">{l.tax_pct || 0}</td>
+                          {!hideGst && (
+                            <td className="text-end">{l.tax_pct || 0}</td>
+                          )}
                           <td className="text-end">{l.margin_pct || 0}</td>
                           <td className="text-end fw-bold">
                             {docSym}
@@ -1753,15 +1758,17 @@ const SalesDocLineItems = ({
                         {fmt(editingCosting.margin)}
                       </span>
                     </li>
-                    <li className="d-flex justify-content-between py-25">
-                      <span className="text-muted">
-                        + {t("GST")} ({num(editingLine.tax_pct)}%)
-                      </span>
-                      <span>
-                        {baseSym}
-                        {fmt(editingCosting.gst)}
-                      </span>
-                    </li>
+                    {!hideGst && (
+                      <li className="d-flex justify-content-between py-25">
+                        <span className="text-muted">
+                          + {t("GST")} ({num(editingLine.tax_pct)}%)
+                        </span>
+                        <span>
+                          {baseSym}
+                          {fmt(editingCosting.gst)}
+                        </span>
+                      </li>
+                    )}
                     <li className="d-flex justify-content-between pt-50 mt-25 border-top fw-bold">
                       <span>{t("Line Total")}</span>
                       <span>
