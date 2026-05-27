@@ -317,6 +317,7 @@ const PACKING_TYPE_OPTIONS = [
   { value: "Bags", label: "Bags" },
   { value: "Bundles", label: "Bundles" },
   { value: "Crates", label: "Crates" },
+  { value: "Loose", label: "Loose" },
 ];
 
 export {

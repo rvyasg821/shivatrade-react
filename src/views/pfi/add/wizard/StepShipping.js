@@ -56,6 +56,7 @@ const StepShipping = ({
   // Live auto-sums from lines (Phase 2 adds the per-line fields; until then
   // these resolve to 0 which is fine).
   const lines = useWatch({ control, name: "lines" }) || [];
+  const containerUsed = useWatch({ control, name: "container_used" });
   const totalPackages = lines.reduce(
     (s, l) => s + (parseInt(l?.package_count, 10) || 0),
     0,
@@ -297,23 +298,6 @@ const StepShipping = ({
       </Col>
 
       <Col md="4" className="mb-2">
-        <Label className="form-label">{t("Container Details")}</Label>
-        <Controller
-          name="container_details"
-          control={control}
-          render={({ field }) => (
-            <Input
-              placeholder="e.g. 1×20'FCL"
-              disabled={isLocked}
-              {...field}
-              value={field.value || ""}
-              maxLength={200}
-            />
-          )}
-        />
-      </Col>
-
-      <Col md="4" className="mb-2">
         <Label className="form-label">{t("Est. Shipment Date")}</Label>
         <Controller
           name="est_shipment_date"
@@ -345,11 +329,141 @@ const StepShipping = ({
         />
       </Col>
 
+      {/* ── Container ─────────────────────────────────────────────── */}
+      <Col md="12">
+        <h5 className="mt-2 mb-2">{t("Container")}</h5>
+      </Col>
+
+      <Col md={containerUsed === true ? "2" : "12"} className="mb-2">
+        <Label className="form-label d-block">{t("Container Used?")}</Label>
+        <Controller
+          name="container_used"
+          control={control}
+          render={({ field }) => (
+            <div
+              className="d-flex align-items-center"
+              style={{ gap: "1.25rem", paddingTop: "0.4rem" }}
+            >
+              <Label
+                className="d-flex align-items-center mb-0"
+                for="container_used_yes"
+                style={{ gap: "0.4rem", cursor: "pointer" }}
+              >
+                <Input
+                  type="radio"
+                  id="container_used_yes"
+                  name="container_used"
+                  disabled={isLocked}
+                  checked={field.value === true}
+                  onChange={() => field.onChange(true)}
+                  style={{ margin: 0, position: "static" }}
+                />
+                <span>{t("Yes")}</span>
+              </Label>
+              <Label
+                className="d-flex align-items-center mb-0"
+                for="container_used_no"
+                style={{ gap: "0.4rem", cursor: "pointer" }}
+              >
+                <Input
+                  type="radio"
+                  id="container_used_no"
+                  name="container_used"
+                  disabled={isLocked}
+                  checked={field.value === false}
+                  onChange={() => field.onChange(false)}
+                  style={{ margin: 0, position: "static" }}
+                />
+                <span>{t("No")}</span>
+              </Label>
+            </div>
+          )}
+        />
+      </Col>
+
+      {containerUsed === true && (
+        <>
+          <Col md="5" className="mb-2">
+            <Label className="form-label">{t("Container Qty × Size")}</Label>
+            <Controller
+              name="container_details"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  placeholder="e.g. 1×20' or 2×40'HC"
+                  disabled={isLocked}
+                  {...field}
+                  value={field.value || ""}
+                  maxLength={200}
+                />
+              )}
+            />
+          </Col>
+          <Col md="5" className="mb-2">
+            <Label className="form-label">{t("Load Type")}</Label>
+            <Controller
+              name="container_load_type"
+              control={control}
+              render={({ field }) => {
+                const opts = [
+                  { value: "FCL", label: "FCL (Full Container Load)" },
+                  { value: "LCL", label: "LCL (Less than Container Load)" },
+                ];
+                return (
+                  <Select
+                    classNamePrefix="select"
+                    isClearable
+                    isDisabled={isLocked}
+                    options={opts}
+                    value={opts.find((o) => o.value === field.value) || null}
+                    onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                  />
+                );
+              }}
+            />
+          </Col>
+
+          <Col md="6" className="mb-2">
+            <Label className="form-label">{t("Container No.")}</Label>
+            <Controller
+              name="container_no"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  placeholder="e.g. MSCU1234567"
+                  disabled={isLocked}
+                  {...field}
+                  value={field.value || ""}
+                  maxLength={50}
+                />
+              )}
+            />
+          </Col>
+          <Col md="6" className="mb-2">
+            <Label className="form-label">{t("Seal No.")}</Label>
+            <Controller
+              name="seal_no"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  placeholder="e.g. SL0098234"
+                  disabled={isLocked}
+                  {...field}
+                  value={field.value || ""}
+                  maxLength={50}
+                />
+              )}
+            />
+          </Col>
+        </>
+      )}
+
       {/* ── Packing ───────────────────────────────────────────────── */}
       <Col md="12">
         <h5 className="mt-2 mb-2">{t("Packing")}</h5>
       </Col>
 
+      {/* Row 1: Packing Type · Packing Marks · Validity */}
       <Col md="4" className="mb-2">
         <Label className="form-label">
           {t("Packing Type")} {required}
@@ -357,21 +471,36 @@ const StepShipping = ({
         <Controller
           name="packing_type"
           control={control}
-          render={({ field }) => (
-            <Select
-              classNamePrefix="select"
-              isClearable
-              isDisabled={isLocked}
-              options={PACKING_TYPE_OPTIONS}
-              value={
-                PACKING_TYPE_OPTIONS.find((o) => o.value === field.value) ||
-                (field.value
-                  ? { value: field.value, label: field.value }
-                  : null)
-              }
-              onChange={(opt) => field.onChange(opt ? opt.value : "")}
-            />
-          )}
+          render={({ field }) => {
+            const arr = Array.isArray(field.value)
+              ? field.value
+              : field.value
+                ? String(field.value)
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : [];
+            return (
+              <Select
+                isMulti
+                classNamePrefix="select"
+                isClearable
+                isDisabled={isLocked}
+                options={PACKING_TYPE_OPTIONS}
+                value={arr.map(
+                  (v) =>
+                    PACKING_TYPE_OPTIONS.find((o) => o.value === v) || {
+                      value: v,
+                      label: v,
+                    },
+                )}
+                onChange={(opts) =>
+                  field.onChange((opts || []).map((o) => o.value))
+                }
+                placeholder={t("Select one or more")}
+              />
+            );
+          }}
         />
         {errors.packing_type && (
           <FormFeedback className="d-block">
@@ -414,20 +543,7 @@ const StepShipping = ({
         />
       </Col>
 
-      {/* Auto-sums from lines (read-only). */}
-      <Col md="4" className="mb-2">
-        <Label className="form-label">{t("Total Packages")}</Label>
-        <Input
-          type="number"
-          value={totalPackages}
-          readOnly
-          className="bg-light"
-        />
-        <small className="text-muted">
-          {t("Auto-summed from line items.")}
-        </small>
-      </Col>
-
+      {/* Row 2: Net Wt · Gross Wt · Total Packages (auto-sums) */}
       <Col md="4" className="mb-2">
         <Label className="form-label">{t("Net Weight (kg)")}</Label>
         <Input
@@ -453,6 +569,20 @@ const StepShipping = ({
           {t("Auto-summed from line items.")}
         </small>
       </Col>
+
+      <Col md="4" className="mb-2">
+        <Label className="form-label">{t("Total Packages")}</Label>
+        <Input
+          type="number"
+          value={totalPackages}
+          readOnly
+          className="bg-light"
+        />
+        <small className="text-muted">
+          {t("Auto-summed from line items.")}
+        </small>
+      </Col>
+
 
       {/* ── Commercial / declaration ──────────────────────────────── */}
       <Col md="12">

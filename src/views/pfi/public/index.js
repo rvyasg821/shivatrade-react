@@ -97,7 +97,9 @@ const PfiPublicView = () => {
     ["Mode", p.mode_of_shipment],
     ["Country of Origin", p.country_of_origin],
     ["Country of Destination", p.country_of_final_destination],
-    ["Container", p.container_details],
+    ...(p.container_used === true
+      ? [["Container Qty × Size", p.container_details]]
+      : []),
     [
       "Est. Shipment",
       p.est_shipment_date ? formatDate(p.est_shipment_date) : "",
@@ -494,6 +496,32 @@ const PfiPublicView = () => {
                         {p.packing_type ? ` × ${p.packing_type}` : ""}
                       </span>
                     </div>
+                    <div>
+                      <span className="kv-key">{t("Container")}: </span>
+                      <span className="fw-semibold">
+                        {p.container_used === true ? t("Yes") : t("No")}
+                      </span>
+                    </div>
+                    {p.container_used === true && p.container_no && (
+                      <div>
+                        <span className="kv-key">{t("Container No.")}: </span>
+                        <span className="fw-semibold">{p.container_no}</span>
+                      </div>
+                    )}
+                    {p.container_used === true && p.seal_no && (
+                      <div>
+                        <span className="kv-key">{t("Seal No.")}: </span>
+                        <span className="fw-semibold">{p.seal_no}</span>
+                      </div>
+                    )}
+                    {p.container_used === true && p.container_load_type && (
+                      <div>
+                        <span className="kv-key">{t("Load Type")}: </span>
+                        <span className="fw-semibold">
+                          {p.container_load_type}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <span className="kv-key">{t("Net Wt")}: </span>
                       <span className="fw-semibold">

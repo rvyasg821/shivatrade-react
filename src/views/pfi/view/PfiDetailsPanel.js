@@ -83,7 +83,6 @@ const PfiDetailsPanel = () => {
         {shipDates && (
           <Field label={t("Est. Ship / Deliver")} value={shipDates} md={12} />
         )}
-        <Field label={t("Container")} value={p?.container_details} md={12} />
         {(p?.total_packages || p?.packing_type) && (
           <Field
             label={t("Total Packages")}
@@ -91,6 +90,21 @@ const PfiDetailsPanel = () => {
               p?.packing_type ? ` × ${p.packing_type}` : ""
             }`}
           />
+        )}
+        <Field
+          label={t("Container Used")}
+          value={p?.container_used === true ? t("Yes") : t("No")}
+        />
+        {p?.container_used === true && (
+          <>
+            <Field
+              label={t("Container Qty × Size")}
+              value={p?.container_details}
+            />
+            <Field label={t("Container No.")} value={p?.container_no} />
+            <Field label={t("Seal No.")} value={p?.seal_no} />
+            <Field label={t("Load Type")} value={p?.container_load_type} />
+          </>
         )}
         {(p?.net_weight_kg || p?.gross_weight_kg) && (
           <Field
