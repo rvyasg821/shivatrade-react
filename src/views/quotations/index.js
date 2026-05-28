@@ -34,6 +34,7 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -451,6 +452,23 @@ const QuotationView = () => {
           <h3 className="mb-0">{t("Quotations")}</h3>
         </div>
 
+        <VoucherStatsTiles
+          module="quotation"
+          filters={{
+            customer_id: customerFilter || undefined,
+            lead_id: leadFilter || undefined,
+            status: statusFilter || undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
+
         {leadFilter && (
           <div className="alert alert-info d-flex justify-content-between align-items-center mb-2">
             <div>
@@ -509,11 +527,18 @@ const QuotationView = () => {
                     <Select
                       isClearable
                       classNamePrefix="select"
-                      placeholder={t("Status")}
+                      placeholder={
+                        statusFilter && statusFilter.includes(",")
+                          ? t("Multiple statuses (tile filter)")
+                          : t("Status")
+                      }
                       options={QUOTATION_STATUS_OPTIONS}
                       value={
-                        QUOTATION_STATUS_OPTIONS.find((o) => o.value === statusFilter) ||
-                        null
+                        statusFilter && !statusFilter.includes(",")
+                          ? QUOTATION_STATUS_OPTIONS.find(
+                              (o) => o.value === statusFilter
+                            )
+                          : null
                       }
                       onChange={(opt) => setStatusFilter(opt ? opt.value : "")}
                     />

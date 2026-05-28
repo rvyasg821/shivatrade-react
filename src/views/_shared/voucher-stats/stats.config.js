@@ -51,4 +51,39 @@ export const STATS_CONFIG = {
       },
     ],
   },
+
+  quotation: {
+    endpointKey: "quotations", // → API_ENDPOINTS.quotations.stats
+    tiles: [
+      {
+        key: "total",
+        label: "Total",
+        color: "info",
+      },
+      {
+        key: "approved",
+        label: "Approved",
+        statuses: ["approved"],
+        color: "success",
+      },
+      {
+        key: "pending",
+        label: "Draft + Sent",
+        statuses: ["draft", "sent"],
+        color: "warning",
+      },
+      {
+        key: "rejected",
+        label: "Rejected",
+        statuses: ["rejected"],
+        color: "danger",
+      },
+      {
+        key: "value",
+        label: "Pipeline Total Value",
+        money: "total_amount_inr",
+        color: "secondary",
+      },
+    ],
+  },
 };
