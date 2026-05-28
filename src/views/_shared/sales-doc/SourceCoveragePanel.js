@@ -88,7 +88,7 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
     <Fragment>
       <div className="text-muted small mb-2">
         {t(
-          "Live qty roll-up of how much of each line is already booked on a Purchase Order."
+          "Live qty roll-up of how much of each line is already booked on a Sales Order."
         )}
       </div>
       <Table responsive bordered size="sm" className="align-middle mb-0">
@@ -106,7 +106,7 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
             <th style={{ width: 90 }} className="text-end">
               {t("Pending")}
             </th>
-            <th style={{ minWidth: 200 }}>{t("Existing POs")}</th>
+            <th style={{ minWidth: 200 }}>{t("Existing Sales Orders")}</th>
           </tr>
         </thead>
         <tbody>
@@ -165,7 +165,7 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
                               {t("qty")}: {num(p.qty).toLocaleString()}
                             </span>
                             <UncontrolledTooltip target={id} placement="top">
-                              {t("Open PO detail")}
+                              {t("Open Sales Order detail")}
                             </UncontrolledTooltip>
                           </span>
                         );

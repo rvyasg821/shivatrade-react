@@ -44,17 +44,17 @@ const PosTab = () => {
 
   return (
     <Fragment>
-      <h4 className="mb-2">{t("Purchase Orders")}</h4>
+      <h4 className="mb-2">{t("Sales Orders")}</h4>
       {loaded && rows.length === 0 ? (
         <div className="text-muted py-3 text-center">
-          {t("No Purchase Orders generated from this PFI yet.")}
+          {t("No Sales Orders generated from this PFI yet.")}
         </div>
       ) : (
         <Table responsive bordered className="mb-0">
           <thead>
             <tr>
               <th>{t("Date")}</th>
-              <th>{t("PO #")}</th>
+              <th>{t("SO #")}</th>
               <th>{t("Vendors")}</th>
               <th>{t("Expected Delivery")}</th>
               <th>{t("Total")}</th>

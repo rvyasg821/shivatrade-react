@@ -125,7 +125,7 @@ const ViewPurchaseOrder = () => {
     },
     {
       key: "date",
-      label: t("PO Date"),
+      label: t("Order Date"),
       value: p?.po_date ? formatDate(p.po_date) : "-",
       icon: Calendar,
       tone: "secondary",
@@ -159,7 +159,7 @@ const ViewPurchaseOrder = () => {
     },
     {
       icon: ArrowLeft,
-      label: t("Back to POs"),
+      label: t("Back to Sales Orders"),
       onClick: () => navigate(-1),
     },
   ];

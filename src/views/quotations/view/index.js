@@ -310,7 +310,7 @@ const ViewQuotation = () => {
     },
     {
       icon: Truck,
-      label: t("Generate POs"),
+      label: t("Generate Sales Orders"),
       onClick: () => setPoModalOpen(true),
       hidden: !isApproved || !canGeneratePo,
       outline: false,

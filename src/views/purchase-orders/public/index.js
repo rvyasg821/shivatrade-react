@@ -103,7 +103,7 @@ const PurchaseOrderPublicView = () => {
       <div className="text-center py-5">
         <AlertTriangle size={36} className="text-muted mb-2" />
         <h5 className="text-muted">
-          {store?.error || t("Purchase Order not found")}
+          {store?.error || t("Sales Order not found")}
         </h5>
       </div>
     );
@@ -248,7 +248,7 @@ const PurchaseOrderPublicView = () => {
                 />
               </div>
               <div className="text-end">
-                <h1 className="qd-title">{t("PURCHASE ORDER")}</h1>
+                <h1 className="qd-title">{t("SALES ORDER")}</h1>
                 <div className="party-muted" style={{ fontSize: "0.85rem" }}>
                   #{p.voucher_no || "-"}
                 </div>

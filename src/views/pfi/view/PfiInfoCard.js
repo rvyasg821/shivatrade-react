@@ -270,13 +270,13 @@ const PfiInfoCard = () => {
                   onClick={() => setPoModalOpen(true)}
                   id="pfi-generate-pos"
                 >
-                  <Truck size={14} className="me-50" /> {t("Generate POs")}
+                  <Truck size={14} className="me-50" /> {t("Generate Sales Orders")}
                 </Button>
                 <UncontrolledTooltip
                   target="pfi-generate-pos"
                   placement="top"
                 >
-                  {t("Split this PFI into vendor Purchase Orders")}
+                  {t("Split this PFI into vendor Sales Orders")}
                 </UncontrolledTooltip>
               </>
             )}
