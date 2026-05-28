@@ -34,6 +34,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import DateInput from "@components/date-input";
 
 // ** Third Party
@@ -446,6 +447,22 @@ const PurchaseOrderView = () => {
           <h3 className="mb-0">{t("Purchase Orders")}</h3>
         </div>
 
+        <VoucherStatsTiles
+          module="po"
+          filters={{
+            vendor_id: vendorFilter || undefined,
+            status: statusFilter || undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
+
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
@@ -480,12 +497,18 @@ const PurchaseOrderView = () => {
                     <Select
                       isClearable
                       classNamePrefix="select"
-                      placeholder={t("Status")}
+                      placeholder={
+                        statusFilter && statusFilter.includes(",")
+                          ? t("Multiple statuses (tile filter)")
+                          : t("Status")
+                      }
                       options={PURCHASE_ORDER_STATUS_OPTIONS}
                       value={
-                        PURCHASE_ORDER_STATUS_OPTIONS.find(
-                          (o) => o.value === statusFilter
-                        ) || null
+                        statusFilter && !statusFilter.includes(",")
+                          ? PURCHASE_ORDER_STATUS_OPTIONS.find(
+                              (o) => o.value === statusFilter
+                            )
+                          : null
                       }
                       onChange={(opt) => setStatusFilter(opt ? opt.value : "")}
                     />

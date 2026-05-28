@@ -100,6 +100,14 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
                   onChange={(opt) =>
                     field.onChange(opt ? opt.value : "draft")
                   }
+                  menuPlacement="auto"
+                  menuPosition="fixed"
+                  menuPortalTarget={
+                    typeof document !== "undefined" ? document.body : undefined
+                  }
+                  styles={{
+                    menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                  }}
                 />
               )}
             />

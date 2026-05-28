@@ -219,6 +219,7 @@ export const API_ENDPOINTS = {
   },
   pfis: {
     list: `/admin/pfi/list`,
+    stats: `/admin/pfi/stats`,
     get: `/admin/pfi/get`,
     create: `/admin/pfi/create`,
     update: `/admin/pfi/update`,
@@ -234,6 +235,7 @@ export const API_ENDPOINTS = {
   },
   purchaseOrders: {
     list: `/admin/purchase-order/list`,
+    stats: `/admin/purchase-order/stats`,
     get: `/admin/purchase-order/get`,
     create: `/admin/purchase-order/create`,
     update: `/admin/purchase-order/update`,
