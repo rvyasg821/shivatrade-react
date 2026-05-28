@@ -278,6 +278,7 @@ const StepShipping = ({
           control={control}
           render={({ field }) => (
             <Select
+              classNamePrefix="select"
               isDisabled={isLocked}
               isClearable
               options={countryOptions}
@@ -286,6 +287,13 @@ const StepShipping = ({
               }
               onChange={(opt) => field.onChange(opt ? opt.value : "")}
               placeholder={t("Select country")}
+              menuPlacement="auto"
+              menuPosition="fixed"
+              maxMenuHeight={180}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : undefined
+              }
+              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
             />
           )}
         />
@@ -727,43 +735,68 @@ const StepShipping = ({
         />
       </Col>
 
-      {/* Row 2: Net Wt · Gross Wt · Total Packages (auto-sums) */}
+      {/* Row 2: Net Wt · Gross Wt · Total Packages — editable.
+          Auto-sum from line items is shown as a hint; override freely. */}
       <Col md="4" className="mb-2">
         <Label className="form-label">{t("Net Weight (kg)")}</Label>
-        <Input
-          type="text"
-          value={totalNetWt.toFixed(3)}
-          readOnly
-          className="bg-light"
+        <Controller
+          name="net_weight_kg"
+          control={control}
+          render={({ field }) => (
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              disabled={isLocked}
+              {...field}
+              value={field.value ?? ""}
+            />
+          )}
         />
         <small className="text-muted">
-          {t("Auto-summed from line items.")}
+          {t("Auto-sum from line items")}: {totalNetWt.toFixed(3)}
         </small>
       </Col>
 
       <Col md="4" className="mb-2">
         <Label className="form-label">{t("Gross Weight (kg)")}</Label>
-        <Input
-          type="text"
-          value={totalGrossWt.toFixed(3)}
-          readOnly
-          className="bg-light"
+        <Controller
+          name="gross_weight_kg"
+          control={control}
+          render={({ field }) => (
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              disabled={isLocked}
+              {...field}
+              value={field.value ?? ""}
+            />
+          )}
         />
         <small className="text-muted">
-          {t("Auto-summed from line items.")}
+          {t("Auto-sum from line items")}: {totalGrossWt.toFixed(3)}
         </small>
       </Col>
 
       <Col md="4" className="mb-2">
         <Label className="form-label">{t("Total Packages")}</Label>
-        <Input
-          type="number"
-          value={totalPackages}
-          readOnly
-          className="bg-light"
+        <Controller
+          name="total_packages"
+          control={control}
+          render={({ field }) => (
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              disabled={isLocked}
+              {...field}
+              value={field.value ?? ""}
+            />
+          )}
         />
         <small className="text-muted">
-          {t("Auto-summed from line items.")}
+          {t("Auto-sum from line items")}: {totalPackages}
         </small>
       </Col>
 

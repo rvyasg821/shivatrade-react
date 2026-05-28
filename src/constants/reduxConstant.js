@@ -382,6 +382,11 @@ const initQuotationLineItem = {
   discount_pct: "0",
   tax_pct: "0",
   margin_pct: "0",
+  // ── Export / Shipping (same shape PFI uses) ──
+  hs_code: "",
+  net_weight_kg: "0",
+  gross_weight_kg: "0",
+  package_count: 0,
 };
 
 const initQuotationExpenseItem = {

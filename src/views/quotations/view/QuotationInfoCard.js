@@ -230,10 +230,10 @@ const QuotationInfoCard = () => {
                   onClick={() => setPoModalOpen(true)}
                   id="qt-generate-pos"
                 >
-                  <Truck size={14} className="me-50" /> {t("Generate POs")}
+                  <Truck size={14} className="me-50" /> {t("Generate Sales Orders")}
                 </Button>
                 <UncontrolledTooltip target="qt-generate-pos" placement="top">
-                  {t("Split this Quotation into vendor Purchase Orders")}
+                  {t("Split this Quotation into vendor Sales Orders")}
                 </UncontrolledTooltip>
               </>
             )}

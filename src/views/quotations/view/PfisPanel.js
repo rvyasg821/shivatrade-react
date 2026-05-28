@@ -90,6 +90,7 @@ const PfisPanel = ({ bare = false }) => {
           <Table bordered size="sm" className="align-middle mb-0">
             <thead className="table-light">
               <tr>
+                <th style={{ width: 40 }}>#</th>
                 <th>{t("Date")}</th>
                 <th>{t("PFI #")}</th>
                 <th>{t("Total")}</th>
@@ -98,11 +99,12 @@ const PfisPanel = ({ bare = false }) => {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {rows.map((row, idx) => {
                 const sym = row?.currency_symbol || row?.currency_code || "";
                 const statusKey = (row?.status || "").toLowerCase();
                 return (
                   <tr key={row?._id}>
+                    <td className="text-muted">{idx + 1}</td>
                     <td>{row?.pfi_date ? formatDate(row.pfi_date) : "-"}</td>
                     <td className="text-wrap">{row?.voucher_no || "-"}</td>
                     <td>

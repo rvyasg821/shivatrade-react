@@ -14,7 +14,9 @@ import {
   UncontrolledTooltip,
   Spinner,
   Badge,
+  Input,
 } from "reactstrap";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, AlertTriangle, Info, Plus, FileText } from "react-feather";
 
@@ -87,6 +89,8 @@ export const PoCoveragePanel = ({ data }) => {
     isAdmin || invoicePerms?.can_all || invoicePerms?.can_add;
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
 
   const canCreate =
     canCreatePov &&
@@ -212,6 +216,7 @@ export const PoCoveragePanel = ({ data }) => {
           {t("Could not load coverage for this PO.")}
         </div>
       ) : (
+        <Fragment>
         <Table responsive bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
@@ -242,7 +247,16 @@ export const PoCoveragePanel = ({ data }) => {
             </tr>
           </thead>
           <tbody>
-            {coverage.lines.map((l, idx) => {
+            {coverage.lines
+              .slice(
+                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize,
+                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize + pageSize
+              )
+              .map((l, i) => {
+              const idx =
+                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) *
+                  pageSize +
+                i;
               const short = num(l.short);
               return (
                 <tr key={l.purchase_order_line_id}>
@@ -307,6 +321,52 @@ export const PoCoveragePanel = ({ data }) => {
             </tr>
           </tfoot>
         </Table>
+
+        {coverage.lines.length > 0 && (
+          <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+            <div className="d-flex align-items-center small text-muted">
+              <span className="me-50">{t("Show")}</span>
+              <Input
+                type="select"
+                bsSize="sm"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value) || 10);
+                  setPage(0);
+                }}
+                style={{ width: 80 }}
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Input>
+              <span className="ms-50">
+                {t("of")} {coverage.lines.length} {t("rows")}
+              </span>
+            </div>
+            <ReactPaginate
+              previousLabel=""
+              nextLabel=""
+              pageCount={Math.max(1, Math.ceil(coverage.lines.length / pageSize))}
+              activeClassName="active"
+              forcePage={Math.min(
+                page,
+                Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)
+              )}
+              onPageChange={({ selected }) => setPage(selected)}
+              pageClassName="page-item"
+              nextLinkClassName="page-link"
+              nextClassName="page-item next"
+              previousClassName="page-item prev"
+              previousLinkClassName="page-link"
+              pageLinkClassName="page-link"
+              containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+            />
+          </div>
+        )}
+        </Fragment>
       )}
 
       <PoVendorRecoverModal
@@ -325,6 +385,8 @@ export const PoCoveragePanel = ({ data }) => {
 export const PoVendorsPanel = ({ data }) => {
   const { t } = useTranslation();
   const { po, povs, loading } = data;
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
   const fmtMoney = (v) =>
     Number(v || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -383,11 +445,19 @@ export const PoVendorsPanel = ({ data }) => {
     );
   }
 
+  const totalPovs = orderedPovs.length;
+  const pageCount = Math.max(1, Math.ceil(totalPovs / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pagedPovs = orderedPovs.slice(pageStart, pageStart + pageSize);
+
   return (
+    <Fragment>
     <Table responsive bordered size="sm" className="align-middle mb-0">
       <thead className="table-light">
         <tr>
-          <th>{t("POV #")}</th>
+          <th style={{ width: 40 }}>#</th>
+          <th style={{ minWidth: 200 }}>{t("POV #")}</th>
           <th style={{ width: 130 }}>{t("Status")}</th>
           <th style={{ width: 120 }}>{t("Dispatch Date")}</th>
           <th style={{ width: 120 }}>{t("Arrival")}</th>
@@ -406,14 +476,16 @@ export const PoVendorsPanel = ({ data }) => {
         </tr>
       </thead>
       <tbody>
-        {orderedPovs.map((p) => {
+        {pagedPovs.map((p, i) => {
+          const rowIdx = pageStart + i;
           const { ordered, dispatched, received } = summarizeQty(p?.lines || []);
           const itemsCount = (p?.lines || []).length;
           const amount = computeAmount(p?.lines || []);
           const color =
             PO_VENDOR_STATUS_BADGE_COLOR[p?.status] || "secondary";
           return (
-            <tr key={p._id}>
+            <tr key={p._id} className="align-top">
+              <td className="text-muted">{rowIdx + 1}</td>
               <td>
                 <Link
                   to={`${appsRoot}/po-vendors/view/${p._id}`}
@@ -474,5 +546,48 @@ export const PoVendorsPanel = ({ data }) => {
         })}
       </tbody>
     </Table>
+
+    {totalPovs > 0 && (
+      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+        <div className="d-flex align-items-center small text-muted">
+          <span className="me-50">{t("Show")}</span>
+          <Input
+            type="select"
+            bsSize="sm"
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value) || 10);
+              setPage(0);
+            }}
+            style={{ width: 80 }}
+          >
+            {[10, 25, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Input>
+          <span className="ms-50">
+            {t("of")} {totalPovs} {t("rows")}
+          </span>
+        </div>
+        <ReactPaginate
+          previousLabel=""
+          nextLabel=""
+          pageCount={pageCount}
+          activeClassName="active"
+          forcePage={safePage}
+          onPageChange={({ selected }) => setPage(selected)}
+          pageClassName="page-item"
+          nextLinkClassName="page-link"
+          nextClassName="page-item next"
+          previousClassName="page-item prev"
+          previousLinkClassName="page-link"
+          pageLinkClassName="page-link"
+          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+        />
+      </div>
+    )}
+    </Fragment>
   );
 };

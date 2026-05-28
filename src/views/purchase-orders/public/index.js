@@ -103,7 +103,7 @@ const PurchaseOrderPublicView = () => {
       <div className="text-center py-5">
         <AlertTriangle size={36} className="text-muted mb-2" />
         <h5 className="text-muted">
-          {store?.error || t("Purchase Order not found")}
+          {store?.error || t("Sales Order not found")}
         </h5>
       </div>
     );
@@ -192,8 +192,8 @@ const PurchaseOrderPublicView = () => {
           white-space: nowrap;
         }
         .po-doc .section {
-          margin-top: 24px; padding-top: 18px;
-          border-top: 1px solid #e5e7eb;
+          margin-top: 18px; padding-top: 0;
+          border-top: 0;
         }
         .po-doc .section .body { font-size: 0.85rem; color: #4b5563; line-height: 1.6; white-space: pre-line; }
         .po-doc .banner {
@@ -248,9 +248,20 @@ const PurchaseOrderPublicView = () => {
                 />
               </div>
               <div className="text-end">
-                <h1 className="qd-title">{t("PURCHASE ORDER")}</h1>
+                <h1 className="qd-title">{t("SALES ORDER")}</h1>
                 <div className="party-muted" style={{ fontSize: "0.85rem" }}>
                   #{p.voucher_no || "-"}
+                </div>
+                <div className="party-muted" style={{ fontSize: "0.85rem" }}>
+                  {t("Date")}:{" "}
+                  <span className="fw-semibold">
+                    {p.po_date ? formatDate(p.po_date) : "-"}
+                  </span>
+                  {" · "}
+                  {t("Currency")}:{" "}
+                  <span className="fw-semibold">
+                    {sym} {p.currency_code || "-"}
+                  </span>
                 </div>
                 <span className="status-badge mt-1 d-inline-block">
                   {p.status || "-"}
@@ -312,54 +323,30 @@ const PurchaseOrderPublicView = () => {
                   )}
                 </div>
 
+                {/* Ship To — moved into the party-grid so it sits
+                    immediately after Buyer. Falls back to buyer when no
+                    delivery_address is set. */}
                 <div>
-                  <Label>{t("PO Details")}</Label>
-                  <div className="party-line">
-                    <span className="party-muted">{t("Date")}: </span>
-                    <span className="fw-semibold">
-                      {p.po_date ? formatDate(p.po_date) : "-"}
-                    </span>
-                  </div>
-                  {p.expected_delivery_date && (
-                    <div className="party-line">
-                      <span className="party-muted">{t("Expected")}: </span>
-                      <span className="fw-semibold">
-                        {formatDate(p.expected_delivery_date)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="party-line">
-                    <span className="party-muted">{t("Currency")}: </span>
-                    <span className="fw-semibold">
-                      {sym} {p.currency_code || "-"}
-                    </span>
-                  </div>
-                  {(p.pfi_voucher_no || p.quotation_voucher_no) && (
-                    <div className="party-line">
-                      <span className="party-muted">
-                        {p.pfi_voucher_no ? t("Source PFI") : t("Source Quote")}
-                        :{" "}
-                      </span>
-                      <span className="fw-semibold">
-                        {p.pfi_voucher_no || p.quotation_voucher_no}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Ship To */}
-              {p.delivery_address && (
-                <div className="section" style={{ marginBottom: 24 }}>
                   <Label>{t("Ship To")}</Label>
                   <div
                     className="party-line"
                     style={{ whiteSpace: "pre-line" }}
                   >
-                    {p.delivery_address}
+                    {p.delivery_address || p.customer_address || "-"}
                   </div>
+                  {p.expected_delivery_date && (
+                    <div className="party-line party-muted">
+                      {t("Expected")}: {formatDate(p.expected_delivery_date)}
+                    </div>
+                  )}
+                  {(p.pfi_voucher_no || p.quotation_voucher_no) && (
+                    <div className="party-line party-muted">
+                      {p.pfi_voucher_no ? t("Source PFI") : t("Source Quote")}
+                      : {p.pfi_voucher_no || p.quotation_voucher_no}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Line items */}
               <Table className="items">

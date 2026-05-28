@@ -98,7 +98,7 @@ const RelatedDocsTabs = () => {
               }}
             >
               <BarChart2 size={16} className="me-50" />
-              {t("PO Coverage")}
+              {t("SO Coverage")}
             </NavLink>
           </NavItem>
         </Nav>

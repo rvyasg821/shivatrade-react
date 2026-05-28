@@ -122,7 +122,7 @@ const PoShareLinkPanel = () => {
             borderRadius: 6,
           }}
         >
-          {t("Confirm the Purchase Order to enable a public link.")}
+          {t("Confirm the Sales Order to enable a public link.")}
         </div>
       ) : !token ? (
         <Fragment>

@@ -214,7 +214,7 @@ const rolePermissionName = {
   [pfiModuleSlug]: "PFI",
 
   // Purchase
-  [purchaseOrdersModuleSlug]: "Purchase Orders",
+  [purchaseOrdersModuleSlug]: "Sales Orders",
   [poVendorsModuleSlug]: "PO Vendors",
   [trackingModuleSlug]: "Tracking",
 

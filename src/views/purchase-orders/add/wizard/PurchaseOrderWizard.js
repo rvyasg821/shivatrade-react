@@ -647,7 +647,7 @@ const PurchaseOrderWizard = () => {
       <div className="main-content purchase-orders-add quotation-wizard">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">
-            {isEdit ? t("Edit Purchase Order") : t("Add Purchase Order")}
+            {isEdit ? t("Edit Sales Order") : t("Add Sales Order")}
             {isEdit && store?.purchaseOrderItem?.voucher_no
               ? ` - ${store.purchaseOrderItem.voucher_no}`
               : ""}

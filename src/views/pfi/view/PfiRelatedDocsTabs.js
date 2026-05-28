@@ -93,8 +93,8 @@ const PfiRelatedDocsTabs = () => {
       <CardBody>
         <Nav pills className="mb-2">
           {tabBtn("lines", t("Line Items"), Layers, linesCount)}
-          {tabBtn("pos", t("Purchase Orders"), Truck, posCount)}
-          {tabBtn("coverage", t("PO Coverage"), BarChart2, 0)}
+          {tabBtn("pos", t("Sales Orders"), Truck, posCount)}
+          {tabBtn("coverage", t("SO Coverage"), BarChart2, 0)}
         </Nav>
 
         <TabContent activeTab={active}>

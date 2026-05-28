@@ -489,6 +489,11 @@ const QuotationWizard = () => {
             value: String(e.value ?? "0"),
           })
         ),
+        // ── Export / Shipping (mirrors PFI line shape) ──
+        hs_code: l.hs_code || undefined,
+        net_weight_kg: String(l.net_weight_kg ?? "0"),
+        gross_weight_kg: String(l.gross_weight_kg ?? "0"),
+        package_count: Number(l.package_count || 0),
       })),
     };
   };

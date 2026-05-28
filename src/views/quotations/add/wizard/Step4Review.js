@@ -101,6 +101,13 @@ const Step4Review = ({
                   onChange={(opt) =>
                     field.onChange(opt ? opt.value : "draft")
                   }
+                  menuPlacement="auto"
+                  menuPosition="fixed"
+                  maxMenuHeight={120}
+                  menuPortalTarget={
+                    typeof document !== "undefined" ? document.body : undefined
+                  }
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
               )}
             />

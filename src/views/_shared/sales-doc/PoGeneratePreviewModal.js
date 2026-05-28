@@ -275,7 +275,7 @@ const PoGeneratePreviewModal = ({
       if (!purchaseOrder) {
         Notification(
           "Error",
-          t("PO creation failed. Please try again."),
+          t("Sales Order creation failed. Please try again."),
           "warning"
         );
         return;
@@ -306,7 +306,7 @@ const PoGeneratePreviewModal = ({
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
       <ModalHeader toggle={toggle}>
-        {t("Generate PO & POVs from")}{" "}
+        {t("Generate Sales Order & POVs from")}{" "}
         {sourceType === "pfi" ? "PFI" : "Quotation"}{" "}
         <code>{sourceVoucherNo || ""}</code>
       </ModalHeader>
@@ -417,14 +417,14 @@ const PoGeneratePreviewModal = ({
 
             <p className="text-muted small mb-2">
               {t(
-                "Each source line is pre-assigned to the cheapest active vendor. Drop a line to exclude it from this batch. Lines already fully covered by existing POs are dropped automatically."
+                "Each source line is pre-assigned to the cheapest active vendor. Drop a line to exclude it from this batch. Lines already fully covered by existing Sales Orders are dropped automatically."
               )}
             </p>
             {previewLines.every((l) => l.fully_covered) && (
               <div className="alert alert-info small mb-2">
                 <AlertTriangle size={14} className="me-1" />
                 {t(
-                  "All lines are already covered by existing POs. To add another, restore a line below."
+                  "All lines are already covered by existing Sales Orders. To add another, restore a line below."
                 )}
               </div>
             )}
@@ -639,7 +639,7 @@ const PoGeneratePreviewModal = ({
             {/* Vendor summary line — just a count peek on step 1 */}
             {vendorSummary.length > 0 && (
               <div className="alert alert-info small mt-3 mb-0">
-                {t("Will create")}: <strong>1 PO</strong> +{" "}
+                {t("Will create")}: <strong>1 {t("Sales Order")}</strong> +{" "}
                 <strong>{vendorSummary.length} POV(s)</strong>.{" "}
                 {t(
                   "Click Next to add optional vendor charges per POV before creating."
@@ -920,7 +920,7 @@ const PoGeneratePreviewModal = ({
             }
           >
             {creating ? <Spinner size="sm" /> : null}{" "}
-            {t("Create PO & POVs")}{" "}
+            {t("Create Sales Order & POVs")}{" "}
             {vendorSummary.length > 0 && (
               <Badge color="light" className="ms-1 text-dark">
                 1 + {vendorSummary.length}

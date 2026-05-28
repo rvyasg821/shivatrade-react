@@ -200,13 +200,8 @@ const QuotationPublicView = () => {
                 <img
                   src={appLogo}
                   alt="Logo"
-                  style={{ height: 32, marginBottom: 8 }}
+                  style={{ height: 56 }}
                 />
-                {q.company_name && (
-                  <div className="party-name" style={{ fontSize: "1.05rem" }}>
-                    {q.company_name}
-                  </div>
-                )}
               </div>
               <div className="text-end">
                 <h1 className="qd-title">{t("QUOTATION")}</h1>
@@ -298,19 +293,19 @@ const QuotationPublicView = () => {
               <Table className="items">
                 <thead>
                   <tr>
-                    <th style={{ width: 40 }}>#</th>
+                    <th style={{ width: 32 }}>#</th>
                     <th>{t("Product / Description")}</th>
-                    <th className="text-end" style={{ width: 90 }}>
+                    <th className="text-end" style={{ width: 70 }}>
                       {t("Qty")}
                     </th>
-                    <th style={{ width: 70 }}>{t("Unit")}</th>
-                    <th className="text-end" style={{ width: 110 }}>
+                    <th style={{ width: 56 }}>{t("Unit")}</th>
+                    <th className="text-end" style={{ width: 80 }}>
                       {t("Rate")}
                     </th>
-                    <th className="text-end" style={{ width: 80 }}>
+                    <th className="text-end" style={{ width: 60 }}>
                       {t("Disc%")}
                     </th>
-                    <th className="text-end" style={{ width: 130 }}>
+                    <th className="text-end" style={{ width: 100 }}>
                       {t("Amount")}
                     </th>
                   </tr>
@@ -323,14 +318,6 @@ const QuotationPublicView = () => {
                         <div className="fw-semibold">
                           {l.product_name || "-"}
                         </div>
-                        {l.description && (
-                          <div
-                            className="small party-muted"
-                            style={{ whiteSpace: "pre-line" }}
-                          >
-                            {l.description}
-                          </div>
-                        )}
                       </td>
                       <td className="text-end">{l.qty || "-"}</td>
                       <td>{l.unit || "-"}</td>

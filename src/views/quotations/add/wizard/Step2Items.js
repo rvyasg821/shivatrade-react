@@ -38,6 +38,7 @@ const Step2Items = ({
       docType="quotation"
       docNumber={docNumber}
       hideGst
+      showExportFields
     />
   );
 };

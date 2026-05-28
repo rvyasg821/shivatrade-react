@@ -260,7 +260,7 @@ const PurchaseOrderView = () => {
 
   const columns = [
     {
-      name: t("PO #"),
+      name: t("SO #"),
       sortField: "voucher_no",
       sortable: false,
       minWidth: "240px",
@@ -444,7 +444,7 @@ const PurchaseOrderView = () => {
     <Fragment>
       <div className="main-content purchase-orders">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <h3 className="mb-0">{t("Purchase Orders")}</h3>
+          <h3 className="mb-0">{t("Sales Orders")}</h3>
         </div>
 
         <VoucherStatsTiles
@@ -537,7 +537,7 @@ const PurchaseOrderView = () => {
                     color="primary"
                     onClick={() => navigate(`${appsRoot}/purchase-orders/add`)}
                   >
-                    {t("Add PO")} <PlusCircle size={16} />
+                    {t("Add SO")} <PlusCircle size={16} />
                   </Button>
                 )}
               </Col>

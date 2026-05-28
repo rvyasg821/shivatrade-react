@@ -105,7 +105,7 @@ const ViewPfi = () => {
       .fire({
         title: t("Mark as Approved?"),
         text: t(
-          "Once approved, this PFI can be used to generate Purchase Orders."
+          "Once approved, this PFI can be used to generate Sales Orders."
         ),
         icon: "question",
         showCancelButton: true,
@@ -191,7 +191,7 @@ const ViewPfi = () => {
     },
     {
       icon: Truck,
-      label: t("Generate POs"),
+      label: t("Generate Sales Orders"),
       onClick: () => setPoModalOpen(true),
       hidden: !isApproved || !canGeneratePo,
       outline: false,
