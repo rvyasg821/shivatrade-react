@@ -11,27 +11,32 @@
 //   />
 //
 // One fetch per `filters` change (debounced 250ms). Tiles with `statuses`
-// are click-to-toggle; Total + money tiles are inert.
+// are click-to-toggle; Total / money / metric tiles are inert.
+//
+// Visual style: white card, subtle border + soft shadow, tinted-square
+// icon on the left, uppercase label + bold number on the right. Active
+// (filtered) state highlights with a ring in the tile's accent color.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Col, Row, Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import * as Icons from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatIndianMoney } from "@src/utility/indianMoney";
 import { STATS_CONFIG } from "./stats.config";
 
-const COLOR_BG = {
-  info: "#00cfe8",
-  success: "#28c76f",
-  warning: "#ff9f43",
-  danger: "#ea5455",
-  secondary: "#82868b",
+// (color → { iconBg: light tint behind the icon, iconFg: icon foreground })
+const COLOR_PALETTE = {
+  info:      { iconBg: "#e0f7fb", iconFg: "#00cfe8" },
+  success:   { iconBg: "#d9f5e3", iconFg: "#28c76f" },
+  warning:   { iconBg: "#ffe5d0", iconFg: "#ff9f43" },
+  danger:    { iconBg: "#fde0e0", iconFg: "#ea5455" },
+  secondary: { iconBg: "#eaeaeb", iconFg: "#82868b" },
 };
 
 const isSameStatusKey = (a, b) => {
-  // a and b are either "" or a single status or a csv. Normalize.
   const norm = (v) =>
     typeof v === "string"
       ? v
@@ -62,8 +67,6 @@ const VoucherStatsTiles = ({
   const [errored, setErrored] = useState(false);
   const debounceRef = useRef(null);
 
-  // Stringify filters for stable dep — avoids refetch when caller
-  // recreates the object identically.
   const filterKey = useMemo(() => JSON.stringify(filters || {}), [filters]);
 
   useEffect(() => {
@@ -74,9 +77,7 @@ const VoucherStatsTiles = ({
       setErrored(false);
       instance
         .get(endpoint, { params: filters })
-        .then((resp) => {
-          setData(resp?.data?.data || null);
-        })
+        .then((resp) => setData(resp?.data?.data || null))
         .catch(() => {
           setErrored(true);
           setData(null);
@@ -96,7 +97,6 @@ const VoucherStatsTiles = ({
     if (loading && !data) return <Spinner size="sm" />;
     if (!data) return "0";
     if (tile.money) return formatIndianMoney(data[tile.money]);
-    // Generic top-level metric (e.g. follow_ups_overdue, unassigned_count).
     if (tile.metric) return data[tile.metric] ?? 0;
     if (tile.key === "total") return data.total ?? 0;
     if (tile.statuses?.length) {
@@ -117,37 +117,74 @@ const VoucherStatsTiles = ({
         const clickable = !!tile.statuses?.length && !!onStatusClick;
         const active =
           clickable && isSameStatusKey(activeStatuses, tileCsv(tile));
+        const palette =
+          COLOR_PALETTE[tile.color] || COLOR_PALETTE.secondary;
+        const Icon = (tile.icon && Icons[tile.icon]) || Icons.Activity;
         return (
-          <Col
-            sm={6}
-            key={tile.key}
-            style={{ flex: "1 1 0" }}
-          >
+          <Col sm={6} key={tile.key} style={{ flex: "1 1 0" }}>
             <div
-              className="d-flex flex-column justify-content-center py-2 px-3 rounded-3 shadow-sm"
+              className="d-flex align-items-center"
               style={{
-                backgroundColor: COLOR_BG[tile.color] || COLOR_BG.secondary,
-                color: "#fff",
+                background: "#fff",
+                border: active
+                  ? `2px solid ${palette.iconFg}`
+                  : "1px solid #ebe9f1",
+                borderRadius: "0.5rem",
+                boxShadow: "0 4px 24px 0 rgba(34, 41, 47, 0.06)",
                 cursor: clickable ? "pointer" : "default",
-                outline: active ? "3px solid rgba(255,255,255,0.65)" : "none",
-                outlineOffset: -3,
-                minHeight: 72,
+                padding: "1rem 1.25rem",
+                gap: "1rem",
+                minHeight: 92,
+                transition: "border-color 120ms ease",
               }}
               onClick={
                 clickable ? () => onStatusClick(tileCsv(tile)) : undefined
               }
             >
               <div
-                className="fw-bold"
-                style={{ fontSize: "1.6rem", lineHeight: 1.1, color: "#fff" }}
+                className="d-flex align-items-center justify-content-center"
+                style={{
+                  background: palette.iconBg,
+                  color: palette.iconFg,
+                  width: 48,
+                  height: 48,
+                  borderRadius: "0.5rem",
+                  flexShrink: 0,
+                }}
               >
-                {renderValue(tile)}
+                <Icon size={22} />
               </div>
-              <div
-                className="small mt-1"
-                style={{ opacity: 0.95, color: "#fff" }}
-              >
-                {t(tile.label)}
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <div
+                  className="text-uppercase"
+                  style={{
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.5px",
+                    fontWeight: 500,
+                    color: "#6e6b7b",
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  {t(tile.label)}
+                </div>
+                <div
+                  className="fw-bold"
+                  style={{
+                    fontSize: "1.5rem",
+                    lineHeight: 1.1,
+                    color: "#1a2238",
+                  }}
+                >
+                  {renderValue(tile)}
+                </div>
+                {tile.subtitle && (
+                  <div
+                    className="small mt-1"
+                    style={{ fontSize: "0.72rem", color: "#6e6b7b" }}
+                  >
+                    {t(tile.subtitle)}
+                  </div>
+                )}
               </div>
             </div>
           </Col>

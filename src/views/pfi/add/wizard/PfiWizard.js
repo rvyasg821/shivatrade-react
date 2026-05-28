@@ -37,6 +37,7 @@ import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import { dispatchSafely } from "@src/utility/dispatchSafely";
 
 import { appsRoot } from "@constant/defaultValues";
 import { initPfiItem, initPfiLineItem } from "@constant/reduxConstant";
@@ -657,8 +658,16 @@ const PfiWizard = () => {
     const action = isEdit
       ? dispatch(updatePfi({ id, data: payload }))
       : dispatch(createPfi(payload));
-    action.unwrap?.().finally(() => setSubmitting(false)) ||
-      action.finally?.(() => setSubmitting(false));
+    // dispatchSafely catches the unwrap() rejection so it never bubbles
+    // to React's error overlay, and shows the BE message via the
+    // right-side toast. The existing useEffect that watches `store.error`
+    // is guarded by `!submitting`, so the toast won't be duplicated —
+    // by the time that effect re-runs after `setSubmitting(false)`,
+    // dispatchSafely has already fired the toast and we don't depend
+    // on the store update timing.
+    dispatchSafely(action, { errorTitle: "Error" }).finally(() =>
+      setSubmitting(false)
+    );
   };
 
   const findFirstErrorStep = () => {

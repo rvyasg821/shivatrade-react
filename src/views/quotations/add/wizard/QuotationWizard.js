@@ -36,6 +36,7 @@ import { startLoading, stopLoading } from "../../../loadingstore";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import { dispatchSafely } from "@src/utility/dispatchSafely";
 
 import { appsRoot } from "@constant/defaultValues";
 import {
@@ -475,8 +476,11 @@ const QuotationWizard = () => {
     const action = isEdit
       ? dispatch(updateQuotation({ id, data: payload }))
       : dispatch(createQuotation(payload));
-    action.unwrap?.().finally(() => setSubmitting(false)) ||
-      action.finally?.(() => setSubmitting(false));
+    // dispatchSafely catches the unwrap() rejection (no React error
+    // overlay) and shows the BE message via the right-side toast.
+    dispatchSafely(action, { errorTitle: "Error" }).finally(() =>
+      setSubmitting(false)
+    );
   };
 
   // Walk steps in order; return the first index whose declared `fields`
