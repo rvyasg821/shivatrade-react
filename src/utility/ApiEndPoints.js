@@ -310,6 +310,7 @@ export const API_ENDPOINTS = {
   },
   leads: {
     list: `/admin/lead/list`,
+    stats: `/admin/lead/stats`,
     get: `/admin/lead/get`,
     create: `/admin/lead/create`,
     update: `/admin/lead/update`,

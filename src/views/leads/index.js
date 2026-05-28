@@ -28,6 +28,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -474,6 +475,20 @@ const LeadList = () => {
           <h3 className="mb-0">{t("Leads")}</h3>
         </div>
 
+        <VoucherStatsTiles
+          module="lead"
+          filters={{
+            status: statusFilter || undefined,
+            source: sourceFilter || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
+
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
@@ -492,7 +507,7 @@ const LeadList = () => {
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Select
                       value={
-                        statusFilter
+                        statusFilter && !statusFilter.includes(",")
                           ? LEAD_STATUS_OPTIONS.find(
                               (s) => s.value === statusFilter
                             )
@@ -503,7 +518,11 @@ const LeadList = () => {
                       }
                       options={LEAD_STATUS_OPTIONS}
                       isClearable
-                      placeholder={t("Filter by Status")}
+                      placeholder={
+                        statusFilter && statusFilter.includes(",")
+                          ? t("Multiple statuses (tile filter)")
+                          : t("Filter by Status")
+                      }
                       classNamePrefix="select"
                     />
                   </Col>
