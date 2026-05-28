@@ -190,10 +190,12 @@ const LeadList = () => {
   const handleConvert = (row) => {
     mySwal
       .fire({
-        title: t("Convert this lead?"),
+        title: t("Convert to Customer?"),
         text: row?.customer_id
           ? t("Lead will be marked Won and linked to the existing customer.")
-          : t("A new customer will be created from this lead's details."),
+          : t(
+              "A new customer will be created from this lead's company and contact details, and the lead will be linked to that customer."
+            ),
         icon: "question",
         showCancelButton: true,
         confirmButtonText: t("Yes, convert"),
@@ -420,10 +422,8 @@ const LeadList = () => {
             </Link>
           )}
           {canEdit &&
-            row?.status !== "won" &&
             row?.status !== "lost" &&
-            !row?.converted_customer_id &&
-            !row?.customer_id && (
+            !row?.converted_customer_id && (
               <>
                 <UserCheck
                   size={20}
