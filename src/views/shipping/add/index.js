@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -26,6 +26,10 @@ import {
   resetShippingItem,
 } from "@src/views/shipping/store";
 import { getInvoice } from "@src/views/invoices/store";
+import { getCustomerDropdown } from "@src/views/customers/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import PortSelect from "@src/views/_shared/port-master/PortSelect";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
@@ -35,8 +39,19 @@ import {
   SHIPPING_SEA_MODES,
   SHIPPING_AIR_MODES,
   SHIPPING_BILL_TYPE_OPTIONS,
+  SHIPPING_CONTAINER_TYPE_OPTIONS,
   COUNTRY_OPTIONS,
 } from "@constant/options";
+
+const BLANK_PARTY_SNAPSHOT = {
+  name: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  postcode: "",
+  country: "",
+};
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -53,7 +68,41 @@ const ShippingAddEdit = () => {
   const invoiceIdFromQuery = new URLSearchParams(location.search).get("invoice_id");
 
   const store = useSelector((s) => s.shipping);
+  const customerStore = useSelector((s) => s.customer);
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
+
+  useEffect(() => {
+    dispatch(getCustomerDropdown());
+    dispatch(getCompanyDetails());
+  }, [dispatch]);
+
+  // Pre-fill Port of Loading from company default on a new Shipping
+  // (skipped on edit, and skipped if a port is already chosen).
+  const companyItem = useSelector(
+    (s) => s.company?.companyItem || s.company?.companyDetail
+  );
+  useEffect(() => {
+    if (isEdit) return;
+    if (form.port_of_loading_id) return;
+    const snap = companyItem?.default_port_of_loading_snapshot;
+    const id = companyItem?.default_port_of_loading_id;
+    if (!snap || !id) return;
+    setForm((s) => ({
+      ...s,
+      port_of_loading_id: id,
+      port_of_loading_snapshot: snap,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyItem?.default_port_of_loading_id, isEdit]);
+
+  const customerOptions = useMemo(
+    () =>
+      (customerStore?.customerDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.company_name,
+      })),
+    [customerStore?.customerDropdown]
+  );
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.shipping;
   const canAdd = isAdmin || perms?.can_all || perms?.can_add;
@@ -62,9 +111,14 @@ const ShippingAddEdit = () => {
   const [form, setForm] = useState({
     mode: "sea_fcl",
     customer_id: "",
+    customer_snapshot: { ...BLANK_PARTY_SNAPSHOT },
     consignee_id: "",
+    consignee_snapshot: { ...BLANK_PARTY_SNAPSHOT },
+    consignee_from_customer: true,
     consignee_address_id: "",
     notify_party_id: "",
+    notify_party_snapshot: { ...BLANK_PARTY_SNAPSHOT },
+    notify_party_from_customer: false,
     forwarder_id: "",
     bl_awb_no: "",
     bl_awb_date: "",
@@ -115,7 +169,57 @@ const ShippingAddEdit = () => {
   const [errors, setErrors] = useState({});
   const [discharge, setDischarge] = useState({ name: "" });
 
-  const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+  const onF = (k, v) => {
+    setForm((s) => ({ ...s, [k]: v }));
+    // Clear the field-level error as soon as the operator changes it.
+    // Special case: consignee name lives on consignee_snapshot.name but
+    // its error key is `consignee_id` (validate() chose that key).
+    setErrors((prev) => {
+      if (!prev[k]) return prev;
+      const next = { ...prev };
+      delete next[k];
+      return next;
+    });
+  };
+  const clearError = (k) =>
+    setErrors((prev) => {
+      if (!prev[k]) return prev;
+      const next = { ...prev };
+      delete next[k];
+      return next;
+    });
+
+  // Pull a customer + its default address and write into the named
+  // snapshot. Mirrors invoice add page behaviour.
+  const prefillSnapshotFromCustomer = useCallback(
+    async (customerId, snapshotKey, idKey) => {
+      if (!customerId) return;
+      try {
+        const resp = await instance.get(
+          `${API_ENDPOINTS.customers.get}/${customerId}`
+        );
+        const cust = resp?.data?.data;
+        const addrs = cust?.addresses || [];
+        const addr = addrs.find((a) => a.is_default) || addrs[0] || {};
+        setForm((s) => ({
+          ...s,
+          [idKey]: customerId,
+          [snapshotKey]: {
+            name: cust?.company_name || cust?.name || "",
+            address_line1: addr.address_line1 || "",
+            address_line2: addr.address_line2 || "",
+            city: addr.city || "",
+            state: addr.state || "",
+            postcode: addr.postcode || "",
+            country: addr.country || "",
+          },
+        }));
+      } catch {
+        /* ignore — operator can still type fields manually */
+      }
+    },
+    []
+  );
 
   // Load invoice → pre-fill consignee + country + attach
   useEffect(() => {
@@ -127,12 +231,28 @@ const ShippingAddEdit = () => {
       setForm((s) => ({
         ...s,
         customer_id: inv.customer_id || "",
+        customer_snapshot:
+          inv.customer_snapshot || s.customer_snapshot,
         consignee_id: inv.consignee_id || "",
+        consignee_snapshot:
+          inv.consignee_snapshot || s.consignee_snapshot,
+        consignee_from_customer: !!inv.consignee_id,
         consignee_address_id: inv.consignee_address_id || "",
         notify_party_id: inv.notify_party_id || "",
+        notify_party_snapshot:
+          inv.notify_party_snapshot || s.notify_party_snapshot,
+        notify_party_from_customer: !!inv.notify_party_id,
         country_of_destination: inv.country_of_destination || "",
         invoice_ids: [inv._id],
       }));
+      // If the invoice has a customer FK but no snapshot, fetch master.
+      if (inv.customer_id && !inv.customer_snapshot) {
+        prefillSnapshotFromCustomer(
+          inv.customer_id,
+          "customer_snapshot",
+          "customer_id"
+        );
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceIdFromQuery, isEdit]);
@@ -192,8 +312,10 @@ const ShippingAddEdit = () => {
     const e = {};
     if (!form.mode) e.mode = "Mode required";
     if (!form.customer_id) e.customer_id = "Customer required";
-    if (!form.consignee_id) e.consignee_id = "Consignee required";
-    if (!form.port_of_loading_id) e.port_of_loading_id = "Port of loading required";
+    if (!form.consignee_snapshot?.name)
+      e.consignee_id = "Consignee name required";
+    if (!form.port_of_loading_id)
+      e.port_of_loading_id = "Port of loading required";
     if (!discharge?.name) e.discharge = "Port of discharge required";
     if (!form.country_of_destination)
       e.country_of_destination = "Destination required";
@@ -208,8 +330,39 @@ const ShippingAddEdit = () => {
     }
     setBusy(true);
     try {
+      // Strip UI-only flags + convert blank optional FK/date strings to
+      // undefined so class-validator @IsUUID / @IsDateString skip them.
+      const OPTIONAL_NULLABLE = [
+        "consignee_id",
+        "consignee_address_id",
+        "notify_party_id",
+        "forwarder_id",
+        "port_of_discharge_id",
+        "shipping_bill_type",
+        "bl_awb_date",
+        "shipping_bill_date",
+        "let_export_order_date",
+        "egm_date",
+        "booking_date",
+        "gate_in_date",
+        "etd",
+        "eta",
+        "actual_dispatch_date",
+        "actual_arrival_date",
+        "customs_cleared_date",
+        "delivered_date",
+      ];
+      const {
+        consignee_from_customer: _f1,
+        notify_party_from_customer: _f2,
+        ...rest
+      } = form;
+      const cleaned = { ...rest };
+      OPTIONAL_NULLABLE.forEach((k) => {
+        if (cleaned[k] === "") cleaned[k] = undefined;
+      });
       const payload = {
-        ...form,
+        ...cleaned,
         port_of_discharge_snapshot: discharge,
       };
       if (isEdit) {
@@ -228,6 +381,180 @@ const ShippingAddEdit = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const renderPartyCard = ({
+    title,
+    subtitle,
+    flagKey,
+    idKey,
+    snapKey,
+    required,
+    errorKey,
+  }) => {
+    const snap = form[snapKey] || {};
+    const fromCustomer = !!form[flagKey];
+    const updateSnap = (patch) =>
+      onF(snapKey, { ...(form[snapKey] || {}), ...patch });
+    return (
+      <Card className="mb-2">
+        <CardHeader className="border-bottom py-1">
+          <CardTitle tag="h5" className="mb-0">
+            {title}
+            {subtitle && (
+              <small className="text-muted ms-1">({subtitle})</small>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="pt-2">
+          <Row>
+            <Col md="12" className="mb-1">
+              <div className="d-flex align-items-center flex-wrap gap-2">
+                <Label className="form-label mb-0 me-1">
+                  {t("From Customer?")}
+                </Label>
+                <div className="form-check form-check-inline mb-0">
+                  <Input
+                    type="radio"
+                    id={`${flagKey}-yes`}
+                    name={flagKey}
+                    checked={fromCustomer}
+                    onChange={() => onF(flagKey, true)}
+                  />
+                  <Label className="form-check-label" for={`${flagKey}-yes`}>
+                    {t("Yes")}
+                  </Label>
+                </div>
+                <div className="form-check form-check-inline mb-0">
+                  <Input
+                    type="radio"
+                    id={`${flagKey}-no`}
+                    name={flagKey}
+                    checked={!fromCustomer}
+                    onChange={() => {
+                      setForm((s) => ({
+                        ...s,
+                        [flagKey]: false,
+                        [idKey]: "",
+                      }));
+                    }}
+                  />
+                  <Label className="form-check-label" for={`${flagKey}-no`}>
+                    {t("No")}
+                  </Label>
+                </div>
+              </div>
+            </Col>
+            {fromCustomer && (
+              <Col md="12" className="mb-1">
+                <Label className="form-label">{t("Pick Customer")}</Label>
+                <Select
+                  classNamePrefix="select"
+                  isClearable
+                  options={customerOptions}
+                  value={(() => {
+                    const id = form[idKey];
+                    if (!id) return null;
+                    const match = customerOptions.find((o) => o.value === id);
+                    if (match) return match;
+                    return {
+                      value: id,
+                      label: snap.name || t("(customer)"),
+                    };
+                  })()}
+                  onChange={(opt) => {
+                    const v = opt ? opt.value : "";
+                    if (v) {
+                      prefillSnapshotFromCustomer(v, snapKey, idKey);
+                    } else {
+                      setForm((s) => ({
+                        ...s,
+                        [idKey]: "",
+                        [snapKey]: { ...BLANK_PARTY_SNAPSHOT },
+                      }));
+                    }
+                  }}
+                  placeholder={t("Search & select customer")}
+                />
+              </Col>
+            )}
+            <Col md="6" className="mb-1">
+              <Label className="form-label">
+                {t("Name")}
+                {required && <span className="text-danger"> *</span>}
+              </Label>
+              <Input
+                value={snap.name || ""}
+                onChange={(e) => updateSnap({ name: e.target.value })}
+                placeholder={t("Entity name")}
+                maxLength={200}
+                invalid={!!(errorKey && errors[errorKey])}
+              />
+              {errorKey && errors[errorKey] && (
+                <FormFeedback className="d-block">
+                  {errors[errorKey]}
+                </FormFeedback>
+              )}
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Address Line 1")}</Label>
+              <Input
+                value={snap.address_line1 || ""}
+                onChange={(e) => updateSnap({ address_line1: e.target.value })}
+                maxLength={200}
+              />
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Address Line 2")}</Label>
+              <Input
+                value={snap.address_line2 || ""}
+                onChange={(e) => updateSnap({ address_line2: e.target.value })}
+                maxLength={200}
+              />
+            </Col>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("City")}</Label>
+              <Input
+                value={snap.city || ""}
+                onChange={(e) => updateSnap({ city: e.target.value })}
+                maxLength={120}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("State")}</Label>
+              <Input
+                value={snap.state || ""}
+                onChange={(e) => updateSnap({ state: e.target.value })}
+                maxLength={120}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("Postcode")}</Label>
+              <Input
+                value={snap.postcode || ""}
+                onChange={(e) => updateSnap({ postcode: e.target.value })}
+                maxLength={30}
+              />
+            </Col>
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("Country")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={countryOptions}
+                value={
+                  countryOptions.find((o) => o.value === snap.country) || null
+                }
+                onChange={(opt) =>
+                  updateSnap({ country: opt ? opt.value : "" })
+                }
+                placeholder={t("Select country")}
+              />
+            </Col>
+          </Row>
+        </CardBody>
+      </Card>
+    );
   };
 
   if (isEdit && !store?.shippingItem?._id) {
@@ -290,48 +617,58 @@ const ShippingAddEdit = () => {
               <Label className="form-label">
                 {t("Mode")} <span className="text-danger">*</span>
               </Label>
-              <Input
-                type="select"
-                value={form.mode}
-                onChange={(e) => onF("mode", e.target.value)}
-                disabled={isEdit && store?.shippingItem?.status !== "draft"}
-              >
-                {MODES.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Input>
+              <Select
+                classNamePrefix="select"
+                options={MODES}
+                value={MODES.find((o) => o.value === form.mode) || null}
+                onChange={(opt) => onF("mode", opt ? opt.value : "")}
+                isDisabled={isEdit && store?.shippingItem?.status !== "draft"}
+                isClearable={false}
+              />
               {isEdit && store?.shippingItem?.status !== "draft" && (
-                <small className="text-muted">{t("Mode locked after booking")}</small>
+                <small className="text-muted">
+                  {t("Mode locked after booking")}
+                </small>
               )}
             </Col>
-            <Col md="3" className="mb-2">
+            <Col md="6" className="mb-2">
               <Label className="form-label">
-                {t("Customer ID")} <span className="text-danger">*</span>
+                {t("Customer")} <span className="text-danger">*</span>
               </Label>
-              <Input
-                value={form.customer_id}
-                onChange={(e) => onF("customer_id", e.target.value)}
-                invalid={!!errors.customer_id}
-                placeholder="UUID"
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={customerOptions}
+                value={(() => {
+                  const id = form.customer_id;
+                  if (!id) return null;
+                  const match = customerOptions.find((o) => o.value === id);
+                  if (match) return match;
+                  return {
+                    value: id,
+                    label: form.customer_snapshot?.name || t("(customer)"),
+                  };
+                })()}
+                onChange={(opt) => {
+                  const v = opt ? opt.value : "";
+                  if (v) {
+                    prefillSnapshotFromCustomer(
+                      v,
+                      "customer_snapshot",
+                      "customer_id"
+                    );
+                  } else {
+                    setForm((s) => ({
+                      ...s,
+                      customer_id: "",
+                      customer_snapshot: { ...BLANK_PARTY_SNAPSHOT },
+                    }));
+                  }
+                }}
+                placeholder={t("Search & select customer")}
               />
               {errors.customer_id && (
-                <FormFeedback className="d-block">{errors.customer_id}</FormFeedback>
-              )}
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">
-                {t("Consignee ID")} <span className="text-danger">*</span>
-              </Label>
-              <Input
-                value={form.consignee_id}
-                onChange={(e) => onF("consignee_id", e.target.value)}
-                invalid={!!errors.consignee_id}
-                placeholder="UUID"
-              />
-              {errors.consignee_id && (
-                <FormFeedback className="d-block">{errors.consignee_id}</FormFeedback>
+                <div className="text-danger small">{errors.customer_id}</div>
               )}
             </Col>
             <Col md="3" className="mb-2">
@@ -388,6 +725,27 @@ const ShippingAddEdit = () => {
         </CardBody>
       </Card>
 
+      {/* Consignee */}
+      {renderPartyCard({
+        title: t("Consignee (Ship-to)"),
+        subtitle: t("the party named on the BL/AWB"),
+        flagKey: "consignee_from_customer",
+        idKey: "consignee_id",
+        snapKey: "consignee_snapshot",
+        required: true,
+        errorKey: "consignee_id",
+      })}
+
+      {/* Notify Party */}
+      {renderPartyCard({
+        title: t("Notify Party"),
+        subtitle: t("optional"),
+        flagKey: "notify_party_from_customer",
+        idKey: "notify_party_id",
+        snapKey: "notify_party_snapshot",
+        required: false,
+      })}
+
       {/* Route */}
       <Card className="mb-2">
         <CardHeader className="border-bottom py-1">
@@ -424,6 +782,7 @@ const ShippingAddEdit = () => {
                 onChange={(port) => {
                   onF("port_of_loading_id", port?._id || "");
                   onF("port_of_loading_snapshot", port || null);
+                  if (port?._id) clearError("port_of_loading_id");
                 }}
               />
               {errors.port_of_loading_id && (
@@ -437,7 +796,10 @@ const ShippingAddEdit = () => {
               <Input
                 placeholder="e.g. Conakry, Guinea"
                 value={discharge?.name || ""}
-                onChange={(e) => setDischarge({ name: e.target.value })}
+                onChange={(e) => {
+                  setDischarge({ name: e.target.value });
+                  if (e.target.value) clearError("discharge");
+                }}
                 invalid={!!errors.discharge}
                 maxLength={150}
               />
@@ -503,17 +865,19 @@ const ShippingAddEdit = () => {
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label">{t("Container Type")}</Label>
-                  <Input
-                    type="select"
-                        value={form.container_type}
-                    onChange={(e) => onF("container_type", e.target.value)}
-                  >
-                    <option value="">-</option>
-                    <option value="20FT">20FT</option>
-                    <option value="40FT">40FT</option>
-                    <option value="40FT-HC">40FT-HC</option>
-                    <option value="LCL">LCL</option>
-                  </Input>
+                  <Select
+                    classNamePrefix="select"
+                    isClearable
+                    options={SHIPPING_CONTAINER_TYPE_OPTIONS}
+                    value={
+                      SHIPPING_CONTAINER_TYPE_OPTIONS.find(
+                        (o) => o.value === form.container_type
+                      ) || null
+                    }
+                    onChange={(opt) =>
+                      onF("container_type", opt ? opt.value : "")
+                    }
+                  />
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label">{t("Vessel")}</Label>
@@ -576,18 +940,20 @@ const ShippingAddEdit = () => {
             </Col>
             <Col md="3" className="mb-2">
               <Label className="form-label">{t("SB Type")}</Label>
-              <Input
-                type="select"
-                value={form.shipping_bill_type}
-                onChange={(e) => onF("shipping_bill_type", e.target.value)}
-              >
-                <option value="">-</option>
-                {SHIPPING_BILL_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Input>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={SHIPPING_BILL_TYPE_OPTIONS}
+                value={
+                  SHIPPING_BILL_TYPE_OPTIONS.find(
+                    (o) => o.value === form.shipping_bill_type
+                  ) || null
+                }
+                onChange={(opt) =>
+                  onF("shipping_bill_type", opt ? opt.value : "")
+                }
+                placeholder={t("Select")}
+              />
             </Col>
             <Col md="3" className="mb-2">
               <Label className="form-label">{t("LEO Date")}</Label>

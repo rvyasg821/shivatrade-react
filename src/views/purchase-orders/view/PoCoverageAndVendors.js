@@ -16,7 +16,7 @@ import {
   Badge,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, AlertTriangle, Plus, FileText } from "react-feather";
+import { ExternalLink, AlertTriangle, Info, Plus, FileText } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -93,13 +93,15 @@ export const PoCoveragePanel = ({ data }) => {
     coverage?.has_pending &&
     (poStatus === "confirmed" || poStatus === "in_process");
 
-  // Generate Invoice — gated on actual vendor dispatch. Surfaces only when
-  // at least one POV line has been dispatched; the BE enforces the same
-  // rule per-line (assertQtyGuardForLines).
+  // Generate Invoice — gated on actual vendor dispatch + remaining
+  // un-invoiced qty. Hides once everything dispatched is already on an
+  // invoice; the BE enforces the same rule per-line (Rule A).
   const dispatchedTotal = num(coverage?.totals?.dispatched);
+  const invoiceableTotal = num(coverage?.totals?.invoiceable);
   const canGenerateInvoice =
     canCreateInvoice &&
     dispatchedTotal > 0 &&
+    invoiceableTotal > 0 &&
     poStatus !== "draft" &&
     poStatus !== "cancelled";
 
@@ -112,8 +114,51 @@ export const PoCoveragePanel = ({ data }) => {
     return null;
   }, [coverage, poStatus, t]);
 
+  const invoicedTotal = num(coverage?.totals?.invoiced);
+  const fullyInvoiced =
+    dispatchedTotal > 0 && invoiceableTotal <= 1e-6 && invoicedTotal > 0;
+
   return (
     <Fragment>
+      {/* Invoice progress hint — shows whenever any qty has been invoiced
+          against this PO. Helps the operator see at a glance that an
+          invoice already exists, and why "Generate Invoice" may be
+          hidden (fully invoiced). */}
+      {invoicedTotal > 0 && (
+        <div
+          className={`d-flex align-items-start gap-1 small p-1 mb-2 rounded ${
+            fullyInvoiced
+              ? "bg-light-success text-success"
+              : "bg-light-info text-info"
+          }`}
+        >
+          <Info size={14} className="mt-25 flex-shrink-0" />
+          <div>
+            <strong>
+              {fullyInvoiced
+                ? t("All dispatched qty already invoiced.")
+                : t("Partial invoice raised for this PO.")}
+            </strong>{" "}
+            <span className="text-body">
+              {t("Invoiced")}: {invoicedTotal} / {t("Dispatched")}:{" "}
+              {dispatchedTotal}
+              {invoiceableTotal > 0 && (
+                <>
+                  {" · "}
+                  {t("Still invoiceable")}: {invoiceableTotal}
+                </>
+              )}
+            </span>{" "}
+            <Link
+              to={`${appsRoot}/invoices?purchase_order_id=${po?._id}`}
+              className="text-decoration-underline"
+            >
+              {t("View invoices")} <ExternalLink size={11} />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Create POV — recovery only.
           PO+POV are normally created atomically from PFI, so this button
           stays hidden in the happy path (every PO line already has an
