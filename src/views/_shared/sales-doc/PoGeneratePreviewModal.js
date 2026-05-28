@@ -29,6 +29,7 @@ import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -90,10 +91,7 @@ const PoGeneratePreviewModal = ({
       })),
     [expenseStore?.expenseDropdown],
   );
-  const expenseTypeOptions = [
-    { value: "percent", label: "%" },
-    { value: "fixed", label: "₹ (Fixed)" },
-  ];
+  const expenseTypeOptions = REBATE_EXPENSE_TYPE_OPTIONS;
 
   const previewEndpoint =
     sourceType === "pfi"
@@ -203,6 +201,21 @@ const PoGeneratePreviewModal = ({
     if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
   }, [pageCount, page]);
 
+  // Prune vendorExpenses entries for vendors no longer in the batch
+  // (e.g. user dropped every line for that vendor).
+  useEffect(() => {
+    const activeVendorIds = new Set(vendorSummary.map((v) => v.vendor_id));
+    setVendorExpenses((curr) => {
+      let changed = false;
+      const next = {};
+      for (const [vid, rows] of Object.entries(curr)) {
+        if (activeVendorIds.has(vid)) next[vid] = rows;
+        else changed = true;
+      }
+      return changed ? next : curr;
+    });
+  }, [vendorSummary]);
+
   const hasUnassignedActiveLines = previewLines.some(
     (l) =>
       !dropped[l.source_line_id] &&
@@ -298,70 +311,73 @@ const PoGeneratePreviewModal = ({
         <code>{sourceVoucherNo || ""}</code>
       </ModalHeader>
       <ModalBody>
-        {/* Deliver-to address — applies to every PO created in this batch. */}
-        <div className="mb-3">
-          <label className="form-label fw-semibold">
-            {t("Deliver goods to")}{" "}
-            <span className="text-danger">*</span>
-          </label>
-          <LocationSelect
-            value={deliveryAddressId}
-            onChange={setDeliveryAddressId}
-            onLocationsLoaded={setLocations}
-          />
-          <small className="text-muted">
-            {t(
-              "Vendors will deliver to this location. Pick from your Locations master."
-            )}
-          </small>
-          {!locations.length && (
-            <div className="alert alert-warning small mt-2 mb-0">
-              {t("No locations on file.")}{" "}
-              <a href={`${appsRoot}/locations`} target="_blank" rel="noopener noreferrer">
-                {t("Add one in Locations")}
-              </a>
+        {/* ── Stepper header (numbered circles + connecting line) ── */}
+        {(() => {
+          const canGoStep2 =
+            !loading &&
+            !hasUnassignedActiveLines &&
+            vendorSummary.length > 0 &&
+            !!deliveryAddressId;
+          const stepBtn = (n, label, target) => {
+            const active = step === target;
+            const disabled = target === 2 && !canGoStep2;
+            return (
+              <div
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                onClick={() => !disabled && setStep(target)}
+                onKeyDown={(e) => {
+                  if (!disabled && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    setStep(target);
+                  }
+                }}
+                className="d-inline-flex align-items-center"
+                style={{
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  opacity: disabled ? 0.5 : 1,
+                  userSelect: "none",
+                }}
+              >
+                <div
+                  className="d-flex align-items-center justify-content-center rounded-circle me-1"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    background: active ? "rgb(115, 103, 240)" : "#fff",
+                    color: active ? "rgb(255, 255, 255)" : "#b9b9c3",
+                    border: active ? "none" : "1px solid #d8d6de",
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  {n}
+                </div>
+                <span
+                  className={`ms-1 ${active ? "fw-bold" : "text-muted"}`}
+                  style={{ color: active ? "#7367f0" : undefined }}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          };
+          return (
+            <div className="d-flex justify-content-center align-items-center mb-2 mt-1">
+              {stepBtn(1, t("Products"), 1)}
+              <span
+                className="mx-2"
+                style={{
+                  width: 80,
+                  height: 1,
+                  background: "#d8d6de",
+                  display: "inline-block",
+                }}
+              />
+              {stepBtn(2, t("Vendor Charges"), 2)}
             </div>
-          )}
-        </div>
-
-        {/* ── Stepper header ───────────────────────────────────────── */}
-        <div className="d-flex align-items-center mb-3 small">
-          <span
-            className={`px-2 py-1 rounded me-1 ${
-              step === 1 ? "fw-bold text-white" : "text-muted"
-            }`}
-            style={{
-              background: step === 1 ? "#09418b" : "#eef0f3",
-              minWidth: 28,
-              textAlign: "center",
-            }}
-          >
-            1
-          </span>
-          <span
-            className={step === 1 ? "fw-bold" : "text-muted"}
-          >
-            {t("Products")}
-          </span>
-          <span className="mx-2 text-muted">›</span>
-          <span
-            className={`px-2 py-1 rounded me-1 ${
-              step === 2 ? "fw-bold text-white" : "text-muted"
-            }`}
-            style={{
-              background: step === 2 ? "#09418b" : "#eef0f3",
-              minWidth: 28,
-              textAlign: "center",
-            }}
-          >
-            2
-          </span>
-          <span
-            className={step === 2 ? "fw-bold" : "text-muted"}
-          >
-            {t("Vendor Charges")}
-          </span>
-        </div>
+          );
+        })()}
 
         {loading ? (
           <div className="text-center py-5">
@@ -373,6 +389,32 @@ const PoGeneratePreviewModal = ({
           </div>
         ) : step === 1 ? (
           <>
+            {/* Deliver-to address — applies to every PO created in this batch. */}
+            <div className="mb-2">
+              <label className="form-label fw-semibold">
+                {t("Deliver goods to")}{" "}
+                <span className="text-danger">*</span>
+              </label>
+              <LocationSelect
+                value={deliveryAddressId}
+                onChange={setDeliveryAddressId}
+                onLocationsLoaded={setLocations}
+              />
+              <small className="text-muted">
+                {t(
+                  "Vendors will deliver to this location. Pick from your Locations master."
+                )}
+              </small>
+              {!locations.length && (
+                <div className="alert alert-warning small mt-2 mb-0">
+                  {t("No locations on file.")}{" "}
+                  <a href={`${appsRoot}/locations`} target="_blank" rel="noopener noreferrer">
+                    {t("Add one in Locations")}
+                  </a>
+                </div>
+              )}
+            </div>
+
             <p className="text-muted small mb-2">
               {t(
                 "Each source line is pre-assigned to the cheapest active vendor. Drop a line to exclude it from this batch. Lines already fully covered by existing POs are dropped automatically."
@@ -387,10 +429,7 @@ const PoGeneratePreviewModal = ({
               </div>
             )}
 
-            <div
-              className="table-responsive"
-              style={{ maxHeight: 360, overflowY: "auto" }}
-            >
+            <div className="table-responsive">
               <Table bordered size="sm" className="align-middle">
                 <thead className="table-light">
                   <tr>
@@ -613,21 +652,11 @@ const PoGeneratePreviewModal = ({
           <>
             {vendorSummary.length > 0 && (
               <div>
-                <h5 className="mb-1">
-                  {t("Vendor Charges")}{" "}
-                  <small className="text-muted">
-                    ({t("optional")})
-                  </small>
-                </h5>
-                <p className="small text-muted mb-3">
+                <p className="small text-muted mb-2">
                   {t(
-                    "Add Packing, Transport, etc. from your expense master — applied to that vendor's POV only. Leave any vendor empty if no extra charges apply."
+                    "Optional — add Packing, Transport, etc. per vendor. Leave empty to skip."
                   )}
                 </p>
-                <h6 className="mb-2">
-                  {t("Will create")}: 1 PO + {vendorSummary.length}{" "}
-                  POV(s)
-                </h6>
                 {vendorSummary.map((v) => {
                   const rows = vendorExpenses[v.vendor_id] || [];
                   const usedIds = new Set(rows.map((r) => r.expense_id).filter(Boolean));
@@ -674,39 +703,32 @@ const PoGeneratePreviewModal = ({
                   return (
                     <div
                       key={v.vendor_id}
-                      className="rounded mb-3 overflow-hidden"
+                      className="rounded mb-2"
                       style={{
                         border: "1px solid #e5e7eb",
                         background: "#fff",
                       }}
                     >
-                      {/* Vendor header strip */}
-                      <div
-                        className="d-flex justify-content-between align-items-center px-3 py-2"
-                        style={{
-                          background: "#09418b",
-                          color: "#fff",
-                        }}
-                      >
-                        <div>
-                          <div className="fw-bold">{v.vendor_name}</div>
-                          <div
-                            className="small"
-                            style={{ opacity: 0.85 }}
-                          >
-                            {v.lines} {t("line(s)")} · {t("Subtotal")} ₹
-                            {fmt(v.total)}
+                      {/* Vendor header strip — compact */}
+                      <div className="d-flex justify-content-between align-items-center px-2 py-1 border-bottom">
+                        <div className="small">
+                          <span className="fw-semibold">{v.vendor_name}</span>
+                          <span className="ms-1">
+                            · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
                             {chargesTotal > 0 && (
                               <>
-                                {" "}
-                                · {t("Charges")} ₹{fmt(chargesTotal)}
+                                {" "}+ {t("Charges")} ₹{fmt(chargesTotal)} ={" "}
+                                <strong>₹{fmt(v.total + chargesTotal)}</strong>{" "}
+                                <span className="text-muted">
+                                  ({t("Taxable")})
+                                </span>
                               </>
                             )}
-                          </div>
+                          </span>
                         </div>
                         <Button
                           size="sm"
-                          color="light"
+                          color="primary"
                           outline
                           onClick={addRow}
                         >
@@ -715,7 +737,7 @@ const PoGeneratePreviewModal = ({
                         </Button>
                       </div>
                       {/* Vendor body */}
-                      <div className="p-2">
+                      <div className="p-1">
                       {rows.length === 0 && (
                         <div className="text-muted small text-center py-2">
                           {t(
@@ -728,7 +750,7 @@ const PoGeneratePreviewModal = ({
                           <thead className="table-light">
                             <tr>
                               <th style={{ minWidth: 220 }}>{t("Expense")}</th>
-                              <th style={{ width: 110 }}>{t("Type")}</th>
+                              <th style={{ width: 160 }}>{t("Type")}</th>
                               <th style={{ width: 110 }}>{t("Value")}</th>
                               <th style={{ width: 110 }} className="text-end">
                                 {t("Amount")}
@@ -780,6 +802,9 @@ const PoGeneratePreviewModal = ({
                                       }}
                                       placeholder={t("Pick expense…")}
                                       menuPortalTarget={document.body}
+                                      menuPlacement="auto"
+                                      menuPosition="fixed"
+                                      maxMenuHeight={200}
                                       styles={{
                                         menuPortal: (b) => ({
                                           ...b,
@@ -801,6 +826,9 @@ const PoGeneratePreviewModal = ({
                                         updateRow(idx, { type: opt.value })
                                       }
                                       menuPortalTarget={document.body}
+                                      menuPlacement="auto"
+                                      menuPosition="fixed"
+                                      maxMenuHeight={200}
                                       styles={{
                                         menuPortal: (b) => ({
                                           ...b,
