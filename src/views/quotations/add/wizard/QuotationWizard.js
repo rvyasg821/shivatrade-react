@@ -204,11 +204,22 @@ const QuotationWizard = () => {
   useEffect(() => {
     const lead = leadStore?.leadItem;
     if (!lead || lead._id !== watchedLeadId) return;
-    if (lead.customer_id && !watch("customer_id")) {
-      setValue("customer_id", lead.customer_id);
+    // Prefer the converted customer (set when the lead was won + converted)
+    // over the original linked customer — a converted lead always points
+    // at its new customer record via converted_customer_id.
+    const customerFromLead =
+      lead.converted_customer_id || lead.customer_id;
+    if (customerFromLead && !watch("customer_id")) {
+      setValue("customer_id", customerFromLead);
     }
     if (lead.currency && !watch("currency_code")) {
       setValue("currency_code", lead.currency);
+    }
+    // Lead `description` is the RFQ brief the salesperson captured —
+    // copy into internal_notes so the original spec stays attached to
+    // the quotation without leaking onto the client-facing PDF.
+    if (lead.description && !watch("internal_notes")) {
+      setValue("internal_notes", lead.description);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadStore?.leadItem, watchedLeadId]);
@@ -308,21 +319,32 @@ const QuotationWizard = () => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
       const boundId = watch("customer_address_id");
-      const opts = (cust.addresses || [])
-        .filter(
-          (a) =>
-            !a.type ||
-            a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
-            a.is_default ||
-            a._id === boundId
-        )
-        .map((a) => ({
-          value: a._id,
-          label: [a.label, a.address_line1, a.city, a.country]
-            .filter(Boolean)
-            .join(", "),
-        }));
+      const filtered = (cust.addresses || []).filter(
+        (a) =>
+          !a.type ||
+          a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO ||
+          a.is_default ||
+          a._id === boundId
+      );
+      const opts = filtered.map((a) => ({
+        value: a._id,
+        label: [a.label, a.address_line1, a.city, a.country]
+          .filter(Boolean)
+          .join(", "),
+      }));
       setCustomerAddressOptions(opts);
+
+      // Auto-pick an address when none is bound yet — covers the
+      // "New Quotation from Lead" flow where the lead has only a
+      // customer link (no specific address). Prefer the explicit
+      // default, then first BILL_TO, then any first address.
+      if (!boundId && filtered.length) {
+        const pick =
+          filtered.find((a) => a.is_default) ||
+          filtered.find((a) => a.type === CUSTOMER_ADDRESS_TYPES.BILL_TO) ||
+          filtered[0];
+        if (pick?._id) setValue("customer_address_id", pick._id);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);

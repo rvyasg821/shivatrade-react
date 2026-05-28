@@ -29,6 +29,8 @@ import {
   X,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import { getLead, cleanLeadMessage, convertLead } from "@src/views/leads/store";
 import { formatMoney } from "@src/utility/currency";
@@ -215,13 +217,31 @@ const ViewLead = () => {
   const isConverted = !!l?.converted_customer_id;
 
   // ── Actions ──
-  const onConvert = async () => {
-    if (!window.confirm(t("Convert this lead to a customer?"))) return;
-    const res = await dispatch(convertLead(id));
-    const newCustomerId = res?.payload?.leadItem?.converted_customer_id;
-    if (newCustomerId) {
-      navigate(`${appsRoot}/customers/view/${newCustomerId}`);
-    }
+  const mySwal = withReactContent(Swal);
+  const onConvert = () => {
+    mySwal
+      .fire({
+        title: t("Convert to Customer?"),
+        text: t(
+          "A new customer will be created from this lead's company and contact details, and the lead will be linked to that customer."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, convert"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        const res = await dispatch(convertLead(id));
+        const newCustomerId = res?.payload?.leadItem?.converted_customer_id;
+        if (newCustomerId) {
+          navigate(`${appsRoot}/customers/view/${newCustomerId}`);
+        }
+      });
   };
 
   const headerActions = [
@@ -229,7 +249,9 @@ const ViewLead = () => {
       icon: UserPlus,
       label: t("Convert to Customer"),
       onClick: onConvert,
-      hidden: !isWon || !canConvertCustomer,
+      // Hide once a customer has been created from this lead — converting
+      // again would create a duplicate.
+      hidden: !isWon || !canConvertCustomer || isConverted,
       outline: false,
       color: "success",
     },
