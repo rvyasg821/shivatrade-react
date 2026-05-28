@@ -421,42 +421,43 @@ const ViewShipping = () => {
               <Card className="mb-2">
                 <CardHeader className="border-bottom py-1">
                   <CardTitle tag="h5" className="mb-0">
-                    {t("Costs (INR)")}
+                    {t("Costs")}
                   </CardTitle>
                 </CardHeader>
                 <CardBody className="pt-2">
-                  <Row className="small">
-                    <Col md="6">
-                      <div className="d-flex justify-content-between py-25">
-                        <span className="text-muted">{t("Freight")}</span>
-                        <span>₹{Number(ship.freight_charges_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      </div>
-                      <div className="d-flex justify-content-between py-25">
-                        <span className="text-muted">{t("Insurance")}</span>
-                        <span>₹{Number(ship.insurance_charges_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      </div>
-                      <div className="d-flex justify-content-between py-25">
-                        <span className="text-muted">{t("CHA")}</span>
-                        <span>₹{Number(ship.cha_charges_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      </div>
-                      <div className="d-flex justify-content-between py-25">
-                        <span className="text-muted">{t("Forwarder")}</span>
-                        <span>₹{Number(ship.forwarder_charges_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      </div>
-                      <div className="d-flex justify-content-between py-25">
-                        <span className="text-muted">{t("Other")}</span>
-                        <span>₹{Number(ship.other_charges_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      </div>
-                    </Col>
-                    <Col md="6" className="d-flex align-items-center justify-content-end">
-                      <div className="border-top border-bottom py-1 text-end" style={{ minWidth: 220 }}>
-                        <div className="text-muted small">{t("Total Cost")}</div>
-                        <div className="fw-bold" style={{ fontSize: "1.1rem" }}>
-                          ₹{Number(ship.total_cost_inr || 0).toLocaleString("en-IN", {minimumFractionDigits:2,maximumFractionDigits:2})}
+                  {(() => {
+                    const inr = (v) =>
+                      `₹${Number(v || 0).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`;
+                    const rows = [
+                      [t("Freight"), ship.freight_charges_inr],
+                      [t("Insurance"), ship.insurance_charges_inr],
+                      [t("CHA"), ship.cha_charges_inr],
+                      [t("Forwarder"), ship.forwarder_charges_inr],
+                      [t("Other"), ship.other_charges_inr],
+                    ];
+                    return (
+                      <div className="small" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {rows.map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="d-flex justify-content-between py-25"
+                          >
+                            <span className="text-muted">{label}</span>
+                            <span>{inr(value)}</span>
+                          </div>
+                        ))}
+                        <div className="d-flex justify-content-between py-25 border-top pt-25 mt-1">
+                          <span className="fw-semibold">{t("Total")}</span>
+                          <span className="fw-bold" style={{ fontSize: "1.05rem" }}>
+                            {inr(ship.total_cost_inr)}
+                          </span>
                         </div>
                       </div>
-                    </Col>
-                  </Row>
+                    );
+                  })()}
                 </CardBody>
               </Card>
 

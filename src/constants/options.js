@@ -364,6 +364,14 @@ const INVOICE_GST_ROUTE_OPTIONS = [
   { value: "lut_zero_rated", label: "LUT - Zero Rated" },
 ];
 
+const INVOICE_PAYMENT_METHOD_OPTIONS = [
+  { value: "bank_transfer", label: "Bank Transfer / Wire" },
+  { value: "lc", label: "Letter of Credit" },
+  { value: "cheque", label: "Cheque" },
+  { value: "cash", label: "Cash" },
+  { value: "other", label: "Other" },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shipping module
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,6 +431,13 @@ const SHIPPING_MODE_OPTIONS = [
 const SHIPPING_SEA_MODES = ["sea_fcl", "sea_lcl"];
 const SHIPPING_AIR_MODES = ["air", "air_courier"];
 
+const SHIPPING_CONTAINER_TYPE_OPTIONS = [
+  { value: "20FT", label: "20FT" },
+  { value: "40FT", label: "40FT" },
+  { value: "40FT-HC", label: "40FT-HC" },
+  { value: "LCL", label: "LCL" },
+];
+
 const SHIPPING_BILL_TYPE_OPTIONS = [
   { value: "free", label: "Free" },
   { value: "dbk", label: "DBK" },
@@ -476,6 +491,7 @@ export {
   INVOICE_PIPELINE_STEPS,
   INVOICE_TERMINAL_STEPS,
   INVOICE_GST_ROUTE_OPTIONS,
+  INVOICE_PAYMENT_METHOD_OPTIONS,
   // Shipping
   SHIPPING_STATUS_OPTIONS,
   SHIPPING_STATUS_BADGE_COLOR,
@@ -483,6 +499,7 @@ export {
   SHIPPING_PIPELINE_STEPS,
   SHIPPING_TERMINAL_STEPS,
   SHIPPING_MODE_OPTIONS,
+  SHIPPING_CONTAINER_TYPE_OPTIONS,
   SHIPPING_SEA_MODES,
   SHIPPING_AIR_MODES,
   SHIPPING_BILL_TYPE_OPTIONS,

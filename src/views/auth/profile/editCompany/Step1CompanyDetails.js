@@ -26,6 +26,7 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
+import PortSelect from "@src/views/_shared/port-master/PortSelect";
 
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
@@ -158,6 +159,8 @@ const Step1CompanyDetails = () => {
       cin: "",
       // ── PFI / export-document defaults ──
       default_port_of_loading: "",
+      default_port_of_loading_id: "",
+      default_port_of_loading_snapshot: null,
       default_declaration_text: "",
       // ── PO defaults ──
       default_terms: "",
@@ -248,6 +251,9 @@ const Step1CompanyDetails = () => {
         lut_date: company.lut_date ? String(company.lut_date).slice(0, 10) : "",
         cin: company.cin || "",
         default_port_of_loading: company.default_port_of_loading || "",
+        default_port_of_loading_id: company.default_port_of_loading_id || "",
+        default_port_of_loading_snapshot:
+          company.default_port_of_loading_snapshot || null,
         default_declaration_text: company.default_declaration_text || "",
         default_terms: company.default_terms || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
@@ -332,6 +338,10 @@ const Step1CompanyDetails = () => {
       cin: values.cin || undefined,
       default_port_of_loading:
         values.default_port_of_loading?.trim() || undefined,
+      default_port_of_loading_id:
+        values.default_port_of_loading_id || undefined,
+      default_port_of_loading_snapshot:
+        values.default_port_of_loading_snapshot || undefined,
       default_declaration_text:
         values.default_declaration_text?.trim() || undefined,
       default_terms:
@@ -568,17 +578,32 @@ const Step1CompanyDetails = () => {
                 <Label className="form-label" for="default_port_of_loading">
                   {t("Default Port of Loading")}
                 </Label>
-                <Controller name="default_port_of_loading" control={control}
+                <Controller
+                  name="default_port_of_loading_snapshot"
+                  control={control}
                   render={({ field }) => (
-                    <Input
-                      id="default_port_of_loading"
-                      maxLength={150}
-                      placeholder="e.g. Mundra Port, India"
+                    <PortSelect
+                      value={field.value}
+                      countryCode="IN"
+                      types={["sea", "icd", "sez"]}
+                      placeholder={t("Search Indian port by code or name…")}
                       disabled={isReadOnly}
-                      {...field}
-                      value={field.value || ""}
+                      onChange={(port) => {
+                        field.onChange(port || null);
+                        setValue(
+                          "default_port_of_loading_id",
+                          port?._id || ""
+                        );
+                        setValue(
+                          "default_port_of_loading",
+                          port
+                            ? `${port.name}${port.code ? ` (${port.code})` : ""}`
+                            : ""
+                        );
+                      }}
                     />
-                  )} />
+                  )}
+                />
               </Col>
               <Col md="12" className="mb-2">
                 <Label className="form-label" for="default_declaration_text">

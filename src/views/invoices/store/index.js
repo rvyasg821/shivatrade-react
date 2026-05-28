@@ -180,6 +180,56 @@ export const cancelInvoice = createAsyncThunk(
   }
 );
 
+// ─── Payments ──────────────────────────────────────────────────────────
+
+export const recordInvoicePayment = createAsyncThunk(
+  "appInvoice/recordInvoicePayment",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.invoices.payments}/${id}`,
+        data
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          invoiceItem: body.data,
+          actionFlag: "INV_PAY_SCS",
+          success: body?.message || "Payment recorded",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to record payment");
+    } catch (err) {
+      return rejectWithValue(err?.response?.data?.message || err.message);
+    }
+  }
+);
+
+export const voidInvoicePayment = createAsyncThunk(
+  "appInvoice/voidInvoicePayment",
+  async ({ id, paymentId, reason }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.invoices.voidPayment}/${id}/void/${paymentId}`,
+        { reason }
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          invoiceItem: body.data,
+          actionFlag: "INV_PAY_VOID_SCS",
+          success: body?.message || "Payment voided",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to void payment");
+    } catch (err) {
+      return rejectWithValue(err?.response?.data?.message || err.message);
+    }
+  }
+);
+
 // ─── Soft delete ───────────────────────────────────────────────────────
 
 export const deleteInvoice = createAsyncThunk(
@@ -330,6 +380,31 @@ export const appInvoiceSlice = createSlice({
       .addCase(cancelInvoice.rejected, (state, action) => {
         state.error = action.payload || action.error?.message;
         state.actionFlag = "INV_CAN_ERR";
+        state.loading = true;
+      })
+      // Record / Void payment
+      .addCase(recordInvoicePayment.fulfilled, (state, action) => {
+        const p = action.payload || {};
+        state.invoiceItem = p.invoiceItem;
+        state.actionFlag = p.actionFlag;
+        state.success = p.success;
+        state.loading = true;
+      })
+      .addCase(recordInvoicePayment.rejected, (state, action) => {
+        state.error = action.payload || action.error?.message;
+        state.actionFlag = "INV_PAY_ERR";
+        state.loading = true;
+      })
+      .addCase(voidInvoicePayment.fulfilled, (state, action) => {
+        const p = action.payload || {};
+        state.invoiceItem = p.invoiceItem;
+        state.actionFlag = p.actionFlag;
+        state.success = p.success;
+        state.loading = true;
+      })
+      .addCase(voidInvoicePayment.rejected, (state, action) => {
+        state.error = action.payload || action.error?.message;
+        state.actionFlag = "INV_PAY_VOID_ERR";
         state.loading = true;
       })
       // Delete

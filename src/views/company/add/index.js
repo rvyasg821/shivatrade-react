@@ -16,6 +16,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
+import PortSelect from "@src/views/_shared/port-master/PortSelect";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
@@ -138,6 +139,8 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
       lut_date: "",
       cin: "",
       default_port_of_loading: "",
+      default_port_of_loading_id: "",
+      default_port_of_loading_snapshot: null,
       default_declaration_text: "",
       addresses: [],
       bank_accounts: [],
@@ -269,6 +272,9 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
         lut_date: company.lut_date ? String(company.lut_date).slice(0, 10) : "",
         cin: company.cin || "",
         default_port_of_loading: company.default_port_of_loading || "",
+        default_port_of_loading_id: company.default_port_of_loading_id || "",
+        default_port_of_loading_snapshot:
+          company.default_port_of_loading_snapshot || null,
         default_declaration_text: company.default_declaration_text || "",
         addresses: (company.addresses || []).map((a) => ({
           type: a.type || "corporate",
@@ -354,6 +360,10 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
         cin: values.cin || undefined,
         default_port_of_loading:
           values.default_port_of_loading?.trim() || undefined,
+        default_port_of_loading_id:
+          values.default_port_of_loading_id || undefined,
+        default_port_of_loading_snapshot:
+          values.default_port_of_loading_snapshot || undefined,
         default_declaration_text:
           values.default_declaration_text?.trim() || undefined,
         addresses: (values.addresses || [])
@@ -678,19 +688,31 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                   <Label for="default_port_of_loading">
                     {t("Default Port of Loading")}
                   </Label>
-                  <Controller name="default_port_of_loading" control={control}
+                  <Controller
+                    name="default_port_of_loading_snapshot"
+                    control={control}
                     render={({ field }) => (
-                      <Input
-                        id="default_port_of_loading"
-                        maxLength={150}
-                        placeholder="e.g. Mundra Port, India"
-                        {...field}
-                        value={field.value || ""}
+                      <PortSelect
+                        value={field.value}
+                        countryCode="IN"
+                        types={["sea", "icd", "sez"]}
+                        placeholder={t("Search Indian port by code or name…")}
+                        onChange={(port) => {
+                          field.onChange(port || null);
+                          setValue(
+                            "default_port_of_loading_id",
+                            port?._id || ""
+                          );
+                          setValue(
+                            "default_port_of_loading",
+                            port
+                              ? `${port.name}${port.code ? ` (${port.code})` : ""}`
+                              : ""
+                          );
+                        }}
                       />
-                    )} />
-                  <small className="text-muted">
-                    {t("Pre-fills the PFI's Port of Loading on Quotation → PFI conversion. Editable per PFI.")}
-                  </small>
+                    )}
+                  />
                 </Col>
                 <Col md="12" className="mb-2">
                   <Label for="default_declaration_text">
