@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
@@ -58,6 +58,8 @@ const InvoicesList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [urlParams] = useSearchParams();
+  const poFilter = urlParams.get("purchase_order_id") || "";
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -84,6 +86,7 @@ const InvoicesList = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
+      if (poFilter) params.purchase_order_id = poFilter;
       dispatch(getInvoiceList(params));
     },
     [
@@ -95,6 +98,7 @@ const InvoicesList = () => {
       statusFilter,
       dateFrom,
       dateTo,
+      poFilter,
       dispatch,
     ]
   );
@@ -152,7 +156,7 @@ const InvoicesList = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, statusFilter, dateFrom, dateTo]);
+  }, [searchInput, statusFilter, dateFrom, dateTo, poFilter]);
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());

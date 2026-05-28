@@ -37,13 +37,22 @@ import {
   issueInvoice,
   cancelInvoice,
   cleanInvoiceMessage,
+  recordInvoicePayment,
+  voidInvoicePayment,
 } from "@src/views/invoices/store";
+import { Input, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
+import Select from "react-select";
+import DateInput from "@components/date-input";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { startLoading, stopLoading } from "@src/views/loadingstore";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import {
   INVOICE_PIPELINE_STEPS as PIPELINE_STEPS,
   INVOICE_TERMINAL_STEPS as TERMINAL_STEPS,
   INVOICE_STATUS_BADGE_COLOR as STATUS_COLORS,
+  INVOICE_PAYMENT_METHOD_OPTIONS as PAYMENT_METHOD_OPTIONS,
 } from "@constant/options";
 import { getCurrencySymbol } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
@@ -81,6 +90,107 @@ const ViewInvoice = () => {
   const canDelete = isAdmin || perms?.can_all || perms?.can_delete;
 
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
+  const [payOpen, setPayOpen] = useState(false);
+  const [payForm, setPayForm] = useState({
+    payment_date: "",
+    amount: "",
+    method: "bank_transfer",
+    reference: "",
+    notes: "",
+  });
+  const [payErrors, setPayErrors] = useState({});
+
+  const openPaymentModal = () => {
+    setPayForm({
+      payment_date: new Date().toISOString().slice(0, 10),
+      amount: String(inv?.balance_receivable || ""),
+      method: "bank_transfer",
+      reference: "",
+      notes: "",
+    });
+    setPayErrors({});
+    setPayOpen(true);
+  };
+
+  const submitPayment = () => {
+    const e = {};
+    if (!payForm.payment_date) e.payment_date = "Date required";
+    const amt = Number(payForm.amount || 0);
+    if (!(amt > 0)) e.amount = "Amount > 0";
+    const bal = Number(inv?.balance_receivable || 0);
+    if (amt > bal + 0.01) e.amount = `Cannot exceed balance ${bal}`;
+    setPayErrors(e);
+    if (Object.keys(e).length) return;
+    dispatch(recordInvoicePayment({ id, data: payForm })).then((r) => {
+      if (r?.meta?.requestStatus === "fulfilled") {
+        setPayOpen(false);
+        dispatch(getInvoice(id));
+      }
+    });
+  };
+
+  // Fetch the PDF via the auth-aware axios instance, then open it as a
+  // blob URL. window.open(serverUrl) would skip the Bearer header → 401.
+  // Uses the global page overlay (SimpleSpinner) for the loading state.
+  const openInvoicePdf = async (doc) => {
+    dispatch(startLoading());
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.invoices.pdf}/${id}/pdf`,
+        { params: { doc }, responseType: "blob" }
+      );
+      const blob = new Blob([resp.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      // Some popup blockers return null; fall back to a download.
+      if (!w) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${inv?.voucher_no || "invoice"}-${doc}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      // Revoke after a delay so the new tab has time to load it.
+      setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || "Failed to load PDF",
+        "warning"
+      );
+    } finally {
+      dispatch(stopLoading());
+    }
+  };
+
+  const handleVoidPayment = (paymentId) => {
+    mySwal
+      .fire({
+        title: t("Void this payment?"),
+        text: t("It will remain in the audit log but won't count toward the balance."),
+        icon: "warning",
+        input: "text",
+        inputPlaceholder: t("Reason (optional)"),
+        showCancelButton: true,
+        confirmButtonText: t("Yes, void"),
+        cancelButtonText: t("Back"),
+        customClass: {
+          confirmButton: "btn btn-warning",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((res) => {
+        if (!res.isConfirmed) return;
+        dispatch(
+          voidInvoicePayment({ id, paymentId, reason: res.value || undefined })
+        ).then((r) => {
+          if (r?.meta?.requestStatus === "fulfilled") dispatch(getInvoice(id));
+        });
+      });
+  };
 
   useEffect(() => {
     if (id) dispatch(getInvoice(id));
@@ -179,6 +289,15 @@ const ViewInvoice = () => {
       });
     }
 
+    if ((isIssued || isPartial) && canEdit) {
+      actions.push({
+        icon: DollarSign,
+        label: t("Record Payment"),
+        onClick: openPaymentModal,
+        color: "success",
+      });
+    }
+
     if ((isIssued || isPartial) && canDelete) {
       actions.push({
         icon: XCircle,
@@ -204,33 +323,21 @@ const ViewInvoice = () => {
       actions.push({
         icon: Download,
         label: t("Commercial Invoice"),
-        onClick: () =>
-          window.open(
-            `/api/v1/admin/invoice/${id}/pdf?doc=commercial`,
-            "_blank"
-          ),
+        onClick: () => openInvoicePdf("commercial"),
         color: "info",
         outline: true,
       });
       actions.push({
         icon: Download,
         label: t("Export Invoice"),
-        onClick: () =>
-          window.open(
-            `/api/v1/admin/invoice/${id}/pdf?doc=export`,
-            "_blank"
-          ),
+        onClick: () => openInvoicePdf("export"),
         color: "info",
         outline: true,
       });
       actions.push({
         icon: Download,
         label: t("Packing List"),
-        onClick: () =>
-          window.open(
-            `/api/v1/admin/invoice/${id}/pdf?doc=packing-list`,
-            "_blank"
-          ),
+        onClick: () => openInvoicePdf("packing-list"),
         color: "info",
         outline: true,
       });
@@ -253,6 +360,7 @@ const ViewInvoice = () => {
     id,
     navigate,
     t,
+    inv?.shipping_id,
   ]);
 
   // ── KPI tiles ───────────────────────────────────────────────────────
@@ -407,15 +515,68 @@ const ViewInvoice = () => {
         <DetailTwoPanel
           ratio="9-3"
           left={
-            <Fragment>
+            <Card className="mb-1">
+              <CardBody>
+                <Nav pills className="mb-2">
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "details"}
+                      onClick={() => setActiveTab("details")}
+                      style={{
+                        color: activeTab === "details" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <FileText size={16} className="me-50" />
+                      {t("Line Items")}
+                    </NavLink>
+                  </NavItem>
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "payments"}
+                      onClick={() => setActiveTab("payments")}
+                      style={{
+                        color:
+                          activeTab === "payments" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <DollarSign size={16} className="me-50" />
+                      {t("Payments")}
+                      {Array.isArray(inv?.payments) &&
+                        inv.payments.filter((p) => !p.voided_at).length >
+                          0 && (
+                          <span
+                            className="badge ms-1"
+                            style={{
+                              background:
+                                activeTab === "payments"
+                                  ? "rgba(255,255,255,0.25)"
+                                  : "#eef0f3",
+                              color:
+                                activeTab === "payments" ? "#fff" : "#1a2238",
+                            }}
+                          >
+                            {
+                              inv.payments.filter((p) => !p.voided_at).length
+                            }
+                          </span>
+                        )}
+                    </NavLink>
+                  </NavItem>
+                </Nav>
+
+                <TabContent activeTab={activeTab}>
+                  <TabPane tabId="details">
               {/* Line Items */}
-              <Card className="mb-2">
-                <CardHeader className="border-bottom py-1">
-                  <CardTitle tag="h5" className="mb-0">
-                    {t("Line Items")}
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="pt-2">
+              <div className="mb-3">
+                <div>
                   {lines.length === 0 ? (
                     <div className="text-muted text-center py-2">
                       {t("No lines")}
@@ -485,17 +646,13 @@ const ViewInvoice = () => {
                       </tfoot>
                     </Table>
                   )}
-                </CardBody>
-              </Card>
+                </div>
+              </div>
 
               {/* Costing summary */}
-              <Card className="mb-2">
-                <CardHeader className="border-bottom py-1">
-                  <CardTitle tag="h5" className="mb-0">
-                    {t("Costing")}
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="pt-2">
+              <div className="mb-3">
+                <h5 className="mb-2">{t("Costing")}</h5>
+                <div>
                   <Row className="small">
                     <Col md="6">
                       <div className="d-flex justify-content-between py-25">
@@ -555,19 +712,17 @@ const ViewInvoice = () => {
                       {t("In words")}: {inv.amount_in_words}
                     </div>
                   )}
-                </CardBody>
-              </Card>
+                </div>
+              </div>
 
               {/* IGST refund footer (igst_paid route only) */}
               {Array.isArray(inv?.igst_refund_buckets) &&
                 inv.igst_refund_buckets.length > 0 && (
-                  <Card className="mb-2">
-                    <CardHeader className="border-bottom py-1">
-                      <CardTitle tag="h5" className="mb-0">
-                        {t("IGST Refund (per HSN rate)")}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardBody className="pt-2">
+                  <div className="mb-3">
+                    <h5 className="mb-2">
+                      {t("IGST Refund (per HSN rate)")}
+                    </h5>
+                    <div>
                       <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-light">
                           <tr>
@@ -602,10 +757,96 @@ const ViewInvoice = () => {
                           </tr>
                         </tfoot>
                       </Table>
-                    </CardBody>
-                  </Card>
+                    </div>
+                  </div>
                 )}
-            </Fragment>
+                </TabPane>
+
+                <TabPane tabId="payments">
+                <div className="mb-3">
+                  {(isIssued || isPartial) && canEdit && (
+                    <div className="d-flex justify-content-end mb-2">
+                      <Button
+                        size="sm"
+                        color="success"
+                        onClick={openPaymentModal}
+                      >
+                        <DollarSign size={14} className="me-50" />
+                        {t("Record Payment")}
+                      </Button>
+                    </div>
+                  )}
+                  <div>
+                    {!Array.isArray(inv?.payments) || inv.payments.length === 0 ? (
+                      <div className="text-muted text-center py-3">
+                        {t("No payments recorded yet.")}
+                      </div>
+                    ) : (
+                      <Table responsive bordered size="sm" className="align-middle mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th>{t("Date")}</th>
+                            <th>{t("Method")}</th>
+                            <th>{t("Reference")}</th>
+                            <th>{t("Notes")}</th>
+                            <th className="text-end">{t("Amount")}</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inv.payments.map((p) => {
+                            const voided = !!p.voided_at;
+                            return (
+                              <tr
+                                key={p._id}
+                                className={voided ? "text-muted" : ""}
+                                style={
+                                  voided ? { textDecoration: "line-through" } : {}
+                                }
+                              >
+                                <td>{formatDate(p.payment_date)}</td>
+                                <td className="text-capitalize">
+                                  {(p.method || "-").replace(/_/g, " ")}
+                                </td>
+                                <td>{p.reference || "-"}</td>
+                                <td>{p.notes || "-"}</td>
+                                <td className="text-end">
+                                  {sym}
+                                  {fmt(p.amount)}
+                                </td>
+                                <td className="text-end">
+                                  {!voided &&
+                                    (isIssued || isPartial) &&
+                                    canEdit && (
+                                      <Button
+                                        size="sm"
+                                        color="link"
+                                        className="p-0 text-danger"
+                                        onClick={() =>
+                                          handleVoidPayment(p._id)
+                                        }
+                                      >
+                                        {t("Void")}
+                                      </Button>
+                                    )}
+                                  {voided && (
+                                    <span className="badge bg-light text-muted">
+                                      {t("voided")}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </Table>
+                    )}
+                  </div>
+                </div>
+                </TabPane>
+                </TabContent>
+              </CardBody>
+            </Card>
           }
           right={
             <Fragment>
@@ -697,10 +938,105 @@ const ViewInvoice = () => {
                   </div>
                 </DetailPanel>
               )}
+
             </Fragment>
           }
         />
       </div>
+
+      {/* ── Record payment modal ─────────────────────────────────────── */}
+      <Modal isOpen={payOpen} toggle={() => setPayOpen(false)} centered size="lg">
+        <ModalHeader toggle={() => setPayOpen(false)}>
+          {t("Record Payment")}
+        </ModalHeader>
+        <ModalBody>
+          <Row>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">
+                {t("Payment Date")} <span className="text-danger">*</span>
+              </Label>
+              <DateInput
+                id="pay-date"
+                value={payForm.payment_date}
+                onChange={(_d, _s, iso) =>
+                  setPayForm((s) => ({ ...s, payment_date: iso || "" }))
+                }
+              />
+              {payErrors.payment_date && (
+                <div className="text-danger small">{payErrors.payment_date}</div>
+              )}
+            </Col>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">
+                {t("Amount")} <span className="text-danger">*</span>
+              </Label>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                value={payForm.amount}
+                onChange={(e) =>
+                  setPayForm((s) => ({ ...s, amount: e.target.value }))
+                }
+                invalid={!!payErrors.amount}
+              />
+              {payErrors.amount && (
+                <FormFeedback className="d-block">
+                  {payErrors.amount}
+                </FormFeedback>
+              )}
+              <small className="text-muted">
+                {t("Balance due")}: {sym}
+                {fmt(inv?.balance_receivable)}
+              </small>
+            </Col>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("Method")}</Label>
+              <Select
+                classNamePrefix="select"
+                options={PAYMENT_METHOD_OPTIONS}
+                value={
+                  PAYMENT_METHOD_OPTIONS.find(
+                    (o) => o.value === payForm.method
+                  ) || null
+                }
+                onChange={(opt) =>
+                  setPayForm((s) => ({ ...s, method: opt ? opt.value : "" }))
+                }
+              />
+            </Col>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("Reference (UTR / Wire / LC #)")}</Label>
+              <Input
+                value={payForm.reference}
+                maxLength={120}
+                onChange={(e) =>
+                  setPayForm((s) => ({ ...s, reference: e.target.value }))
+                }
+              />
+            </Col>
+            <Col md="12" className="mb-2">
+              <Label className="form-label">{t("Notes")}</Label>
+              <Input
+                type="textarea"
+                rows="2"
+                value={payForm.notes}
+                onChange={(e) =>
+                  setPayForm((s) => ({ ...s, notes: e.target.value }))
+                }
+              />
+            </Col>
+          </Row>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" outline onClick={() => setPayOpen(false)}>
+            {t("Cancel")}
+          </Button>
+          <Button color="primary" onClick={submitPayment}>
+            {t("Record")}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </Fragment>
   );
 };

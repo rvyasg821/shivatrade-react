@@ -275,6 +275,8 @@ export const API_ENDPOINTS = {
     cancel: `/admin/invoice/cancel`, // append /:id
     pdf: `/admin/invoice`, // append /:id/pdf?doc=commercial|packing-list
     poAddable: `/admin/invoice/po-addable`, // append /:poId?exclude_invoice_id=...
+    payments: `/admin/invoice/payments`, // append /:invoiceId  (GET list / POST record)
+    voidPayment: `/admin/invoice/payments`, // append /:invoiceId/void/:paymentId
   },
   shipping: {
     list: `/admin/shipping/list`,
