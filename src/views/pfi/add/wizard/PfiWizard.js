@@ -596,6 +596,21 @@ const PfiWizard = () => {
       packing_type: Array.isArray(values.packing_type)
         ? values.packing_type.filter(Boolean).join(", ") || undefined
         : values.packing_type || undefined,
+      // Header-level packing totals — editable in Step 3. Send when the
+      // user has typed a value; otherwise let the backend compute from
+      // line sums.
+      net_weight_kg:
+        values.net_weight_kg === "" || values.net_weight_kg == null
+          ? undefined
+          : String(values.net_weight_kg),
+      gross_weight_kg:
+        values.gross_weight_kg === "" || values.gross_weight_kg == null
+          ? undefined
+          : String(values.gross_weight_kg),
+      total_packages:
+        values.total_packages === "" || values.total_packages == null
+          ? undefined
+          : Number(values.total_packages),
       container_used: values.container_used === true,
       container_no:
         values.container_used === true

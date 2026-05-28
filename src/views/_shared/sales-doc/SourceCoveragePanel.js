@@ -10,7 +10,9 @@ import {
   Spinner,
   Badge,
   UncontrolledTooltip,
+  Input,
 } from "reactstrap";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, AlertTriangle } from "react-feather";
 
@@ -25,6 +27,8 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
   const { t } = useTranslation();
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
 
   const endpoint =
     sourceType === "pfi"
@@ -74,6 +78,12 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
     );
   }
 
+  const totalRows = coverage.lines.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pagedLines = coverage.lines.slice(pageStart, pageStart + pageSize);
+
   return (
     <Fragment>
       <div className="text-muted small mb-2">
@@ -100,7 +110,8 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
           </tr>
         </thead>
         <tbody>
-          {coverage.lines.map((l, idx) => {
+          {pagedLines.map((l, i) => {
+            const idx = pageStart + i;
             const pending = num(l.pending);
             return (
               <tr key={l.source_line_id}>
@@ -184,6 +195,48 @@ const SourceCoveragePanel = ({ sourceType, sourceId }) => {
           </tr>
         </tfoot>
       </Table>
+
+      {totalRows > 0 && (
+        <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+          <div className="d-flex align-items-center small text-muted">
+            <span className="me-50">{t("Show")}</span>
+            <Input
+              type="select"
+              bsSize="sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) || 10);
+                setPage(0);
+              }}
+              style={{ width: 80 }}
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Input>
+            <span className="ms-50">
+              {t("of")} {totalRows} {t("rows")}
+            </span>
+          </div>
+          <ReactPaginate
+            previousLabel=""
+            nextLabel=""
+            pageCount={pageCount}
+            activeClassName="active"
+            forcePage={safePage}
+            onPageChange={({ selected }) => setPage(selected)}
+            pageClassName="page-item"
+            nextLinkClassName="page-link"
+            nextClassName="page-item next"
+            previousClassName="page-item prev"
+            previousLinkClassName="page-link"
+            pageLinkClassName="page-link"
+            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+          />
+        </div>
+      )}
     </Fragment>
   );
 };

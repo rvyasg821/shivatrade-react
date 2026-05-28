@@ -97,8 +97,17 @@ const PfiPublicView = () => {
     ["Mode", p.mode_of_shipment],
     ["Country of Origin", p.country_of_origin],
     ["Country of Destination", p.country_of_final_destination],
+    // Container details — moved into the Shipping section so the
+    // preview/PDF group all logistics info together. Only shown when
+    // a container is actually used.
+    ["Container", p.container_used === true ? "Yes" : "No"],
     ...(p.container_used === true
-      ? [["Container Qty × Size", p.container_details]]
+      ? [
+          ["Container Qty × Size", p.container_details],
+          ["Container No.", p.container_no],
+          ["Seal No.", p.seal_no],
+          ["Load Type", p.container_load_type],
+        ]
       : []),
     [
       "Est. Shipment",
@@ -196,9 +205,9 @@ const PfiPublicView = () => {
           white-space: nowrap;
         }
         .pfi-doc .section {
-          margin-top: 24px;
-          padding-top: 18px;
-          border-top: 1px solid #e5e7eb;
+          margin-top: 18px;
+          padding-top: 0;
+          border-top: 0;
         }
         .pfi-doc .section .body { font-size: 0.85rem; color: #4b5563; line-height: 1.6; white-space: pre-line; }
         .pfi-doc .kv-grid {
@@ -283,6 +292,17 @@ const PfiPublicView = () => {
                 <div className="party-muted" style={{ fontSize: "0.85rem" }}>
                   #{p.voucher_no || "-"}
                 </div>
+                <div className="party-muted" style={{ fontSize: "0.85rem" }}>
+                  {t("Date")}:{" "}
+                  <span className="fw-semibold">
+                    {p.pfi_date ? formatDate(p.pfi_date) : "-"}
+                  </span>
+                  {" · "}
+                  {t("Currency")}:{" "}
+                  <span className="fw-semibold">
+                    {sym} {p.currency_code || "-"}
+                  </span>
+                </div>
                 <span className="status-badge mt-1 d-inline-block">
                   {p.status || "-"}
                 </span>
@@ -339,47 +359,30 @@ const PfiPublicView = () => {
                   )}
                 </div>
 
+                {/* Consignee — mapPublic populates consignee_name / address
+                    from snapshot when set, else falls back to buyer.
+                    Lives in the same party-grid as Exporter + Buyer so it
+                    sits immediately after Buyer. */}
                 <div>
-                  <Label>{t("PFI Details")}</Label>
-                  <div className="party-line">
-                    <span className="party-muted">{t("Date")}: </span>
-                    <span className="fw-semibold">
-                      {p.pfi_date ? formatDate(p.pfi_date) : "-"}
-                    </span>
-                  </div>
-                  {p.valid_until && (
-                    <div className="party-line">
-                      <span className="party-muted">{t("Valid Until")}: </span>
-                      <span className="fw-semibold">
-                        {formatDate(p.valid_until)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="party-line">
-                    <span className="party-muted">{t("Currency")}: </span>
-                    <span className="fw-semibold">
-                      {sym} {p.currency_code || "-"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Consignee — mapPublic populates consignee_name / address
-                  from snapshot when set, else falls back to buyer. */}
-              {p.consignee_name && (
-                <div className="section">
                   <Label>{t("Consignee")}</Label>
-                  <div className="party-name">{p.consignee_name}</div>
-                  {p.consignee_address && (
+                  <div className="party-name">
+                    {p.consignee_name || p.customer_name || "-"}
+                  </div>
+                  {(p.consignee_address || p.customer_address) && (
                     <div
                       className="party-line"
                       style={{ whiteSpace: "pre-line" }}
                     >
-                      {p.consignee_address}
+                      {p.consignee_address || p.customer_address}
+                    </div>
+                  )}
+                  {p.valid_until && (
+                    <div className="party-line party-muted">
+                      {t("Valid Until")}: {formatDate(p.valid_until)}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
               {/* Shipping */}
               {hasShipping && (
@@ -404,25 +407,25 @@ const PfiPublicView = () => {
                 <Table className="items">
                   <thead>
                     <tr>
-                      <th style={{ width: 40 }}>#</th>
+                      <th style={{ width: 32 }}>#</th>
                       <th>{t("Product / Description")}</th>
-                      <th className="text-end" style={{ width: 80 }}>
+                      <th className="text-end" style={{ width: 60 }}>
                         {t("Qty")}
                       </th>
-                      <th style={{ width: 60 }}>{t("Unit")}</th>
-                      <th className="text-end" style={{ width: 100 }}>
+                      <th style={{ width: 50 }}>{t("Unit")}</th>
+                      <th className="text-end" style={{ width: 75 }}>
                         {t("Rate")}
                       </th>
-                      <th className="text-end" style={{ width: 85 }}>
+                      <th className="text-end" style={{ width: 70 }}>
                         {t("Net Wt")}
                       </th>
-                      <th className="text-end" style={{ width: 90 }}>
+                      <th className="text-end" style={{ width: 95 }}>
                         {t("Gross Wt")}
                       </th>
-                      <th className="text-end" style={{ width: 70 }}>
+                      <th className="text-end" style={{ width: 55 }}>
                         {t("Pkgs")}
                       </th>
-                      <th className="text-end" style={{ width: 120 }}>
+                      <th className="text-end" style={{ width: 95 }}>
                         {t("Amount")}
                       </th>
                     </tr>
@@ -435,14 +438,6 @@ const PfiPublicView = () => {
                           <div className="fw-semibold">
                             {l.product_name || "-"}
                           </div>
-                          {l.description && (
-                            <div
-                              className="small party-muted"
-                              style={{ whiteSpace: "pre-line" }}
-                            >
-                              {l.description}
-                            </div>
-                          )}
                         </td>
                         <td className="text-end">{l.qty || "-"}</td>
                         <td>{l.unit || "-"}</td>
@@ -497,32 +492,6 @@ const PfiPublicView = () => {
                         {p.packing_type ? ` × ${p.packing_type}` : ""}
                       </span>
                     </div>
-                    <div>
-                      <span className="kv-key">{t("Container")}: </span>
-                      <span className="fw-semibold">
-                        {p.container_used === true ? t("Yes") : t("No")}
-                      </span>
-                    </div>
-                    {p.container_used === true && p.container_no && (
-                      <div>
-                        <span className="kv-key">{t("Container No.")}: </span>
-                        <span className="fw-semibold">{p.container_no}</span>
-                      </div>
-                    )}
-                    {p.container_used === true && p.seal_no && (
-                      <div>
-                        <span className="kv-key">{t("Seal No.")}: </span>
-                        <span className="fw-semibold">{p.seal_no}</span>
-                      </div>
-                    )}
-                    {p.container_used === true && p.container_load_type && (
-                      <div>
-                        <span className="kv-key">{t("Load Type")}: </span>
-                        <span className="fw-semibold">
-                          {p.container_load_type}
-                        </span>
-                      </div>
-                    )}
                     <div>
                       <span className="kv-key">{t("Net Wt")}: </span>
                       <span className="fw-semibold">

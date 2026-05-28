@@ -102,6 +102,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
                   }
                   menuPlacement="auto"
                   menuPosition="fixed"
+                  maxMenuHeight={180}
                   menuPortalTarget={
                     typeof document !== "undefined" ? document.body : undefined
                   }

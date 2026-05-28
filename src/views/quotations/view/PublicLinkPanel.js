@@ -53,7 +53,7 @@ const PublicLinkPanel = () => {
 
   return (
     <DetailPanel title={t("Share")}>
-      <div className="mb-3">
+      <div className="mb-1">
         <div className="text-muted small mb-1">
           {t("Preview as your client will see it.")}
         </div>
@@ -62,7 +62,7 @@ const PublicLinkPanel = () => {
         </Button>
       </div>
 
-      <hr className="my-2" />
+      <hr className="my-1" />
 
       {!canPublish ? (
         <div

@@ -235,6 +235,13 @@ const Step1Customer = ({
                   null
                 }
                 onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                menuPlacement="auto"
+                menuPosition="fixed"
+                maxMenuHeight={140}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : undefined
+                }
+                styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
               />
             )}
           />
@@ -257,6 +264,13 @@ const Step1Customer = ({
                   INCOTERMS_OPTIONS.find((o) => o.value === field.value) || null
                 }
                 onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                menuPlacement="auto"
+                menuPosition="fixed"
+                maxMenuHeight={140}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : undefined
+                }
+                styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
               />
             )}
           />

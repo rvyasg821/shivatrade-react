@@ -29,6 +29,7 @@ const PfiPosPanel = ({ bare = false }) => {
       <Table responsive bordered size="sm" className="mb-0">
         <thead className="table-light">
           <tr>
+            <th style={{ width: 40 }}>#</th>
             <th>{t("Date")}</th>
             <th>{t("PO #")}</th>
             <th>{t("Expected Delivery")}</th>
@@ -38,31 +39,14 @@ const PfiPosPanel = ({ bare = false }) => {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {rows.map((row, idx) => {
             const sym = row?.currency_symbol || row?.currency_code || "";
-            // PO is multi-vendor at line level. Derive unique vendors
-            // from line items; fall back to legacy header vendor.
-            const seen = new Set();
-            const vendorList = [];
-            for (const ln of row?.lines || []) {
-              const vid = ln?.vendor_id;
-              if (!vid || seen.has(vid)) continue;
-              seen.add(vid);
-              vendorList.push(ln?.vendor_name || vid);
-            }
-            if (vendorList.length === 0 && row?.vendor_name) {
-              vendorList.push(row.vendor_name);
-            }
             return (
               <tr key={row?._id}>
+                <td className="text-muted">{idx + 1}</td>
                 <td>{row?.po_date ? formatDate(row.po_date) : "-"}</td>
                 <td className="text-wrap">
                   <div>{row?.voucher_no || "-"}</div>
-                  {vendorList.length > 0 && (
-                    <small className="text-muted text-capitalize d-block">
-                      {vendorList.join(", ")}
-                    </small>
-                  )}
                 </td>
                 <td>
                   {row?.expected_delivery_date

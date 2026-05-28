@@ -88,7 +88,19 @@ const ViewQuotation = () => {
 
   const store = useSelector((s) => s.quotation);
   const currencyStore = useSelector((s) => s.currency);
+  const pfiItems = useSelector((s) => s.pfi?.pfiItems || []);
   const q = store?.quotationItem || {};
+
+  // A quotation is "already converted" when at least one PFI exists for
+  // it that wasn't rejected / cancelled. Rejected/cancelled PFIs don't
+  // count — the salesperson should be able to re-issue a fresh PFI in
+  // that case.
+  const hasLivePfi = pfiItems.some(
+    (p) =>
+      p?.quotation_id === id &&
+      p?.status !== "rejected" &&
+      p?.status !== "cancelled"
+  );
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
   const isAdmin = isAdminUser(authUserItem);
@@ -292,9 +304,9 @@ const ViewQuotation = () => {
       icon: FileText,
       label: t("Convert to PFI"),
       onClick: handleConvertToPfi,
-      hidden: !isApproved || !canConvertToPfi,
-      outline: true,
-      color: "info",
+      hidden: !isApproved || !canConvertToPfi || hasLivePfi,
+      outline: false,
+      color: "success",
     },
     {
       icon: Truck,
