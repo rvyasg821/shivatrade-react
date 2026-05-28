@@ -362,6 +362,17 @@ const InvoiceAddEdit = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyStore?.companyItem?.default_terms, isEdit]);
 
+  // Pre-fill LUT No / LUT Date from company profile on new invoice.
+  // Operator can override per invoice; only fills when form fields blank.
+  useEffect(() => {
+    if (isEdit) return;
+    const cLutNo = companyStore?.companyItem?.lut_no || "";
+    const cLutDate = companyStore?.companyItem?.lut_date || "";
+    if (cLutNo && !form.lut_no) onF("lut_no", cLutNo);
+    if (cLutDate && !form.lut_date) onF("lut_date", cLutDate.slice(0, 10));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyStore?.companyItem?.lut_no, companyStore?.companyItem?.lut_date, isEdit]);
+
   // Load a customer + its default address, then write into the named
   // snapshot field on form. Used when operator picks "From Customer
   // Master" for Consignee / Notify Party — copies structured fields
@@ -767,6 +778,114 @@ const InvoiceAddEdit = () => {
   const removeLine = (idx) =>
     setLines((prev) => prev.filter((_, i) => i !== idx));
 
+  // ── "Add lines from PO" picker (edit mode only) ─────────────────────
+  // Surfaces PO lines that have dispatched-but-not-yet-invoiced qty
+  // available — typically lines that landed on a POV after the draft
+  // was first created.
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addableLines, setAddableLines] = useState([]);
+  const [addPicks, setAddPicks] = useState({});
+
+  const openAddFromPo = useCallback(async () => {
+    if (!form.purchase_order_id) return;
+    setAddModalOpen(true);
+    setAddLoading(true);
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.invoices.poAddable}/${form.purchase_order_id}`,
+        { params: editId ? { exclude_invoice_id: editId } : {} }
+      );
+      const rows = resp?.data?.data || [];
+      setAddableLines(rows);
+      const picks = {};
+      rows.forEach((r) => {
+        picks[r.purchase_order_line_id] = {
+          selected: false,
+          qty: r.available,
+        };
+      });
+      setAddPicks(picks);
+    } catch (err) {
+      Notification(
+        err?.response?.data?.message || t("Failed to load addable lines"),
+        "danger"
+      );
+      setAddModalOpen(false);
+    } finally {
+      setAddLoading(false);
+    }
+  }, [form.purchase_order_id, editId, t]);
+
+  const togglePick = (poLineId) => {
+    setAddPicks((p) => ({
+      ...p,
+      [poLineId]: { ...p[poLineId], selected: !p[poLineId]?.selected },
+    }));
+  };
+  const setPickQty = (poLineId, qty) => {
+    setAddPicks((p) => ({
+      ...p,
+      [poLineId]: { ...p[poLineId], qty },
+    }));
+  };
+
+  const confirmAddFromPo = () => {
+    const toAppend = [];
+    let nextSeq = lines.length;
+    for (const row of addableLines) {
+      const pick = addPicks[row.purchase_order_line_id];
+      if (!pick?.selected) continue;
+      const qty = Number(pick.qty || 0);
+      if (qty <= 0) continue;
+      // Merge into existing line if the same PO line is already on the
+      // draft — keeps Rule A math clean and avoids duplicate rows.
+      const existingIdx = lines.findIndex(
+        (l) => l.purchase_order_line_id === row.purchase_order_line_id
+      );
+      if (existingIdx >= 0) {
+        const cur = Number(lines[existingIdx].qty || 0);
+        setLines((prev) =>
+          prev.map((l, i) =>
+            i === existingIdx ? { ...l, qty: String(cur + qty) } : l
+          )
+        );
+        continue;
+      }
+      nextSeq += 1;
+      toAppend.push({
+        seq: nextSeq,
+        purchase_order_line_id: row.purchase_order_line_id,
+        po_vendor_line_id: undefined,
+        product_id: row.product_id,
+        product_name: row.product_name || "",
+        product_code: row.product_code || "",
+        description: row.description || row.product_name || "",
+        hsn_code: row.hsn_code || "",
+        customer_reference: row.customer_reference || "",
+        unit: row.unit || "Nos",
+        uqc_code: mapUomToUqc(row.unit),
+        qty: String(qty),
+        unit_price: String(row.unit_price || 0),
+        discount_pct: "0",
+        tax_pct: "0",
+        igst_rate_pct: String(row.tax_pct || 0),
+        product_rebates_snapshot: Array.isArray(row.product_rebates_snapshot)
+          ? row.product_rebates_snapshot
+          : [],
+        product_expenses_snapshot: Array.isArray(row.product_expenses_snapshot)
+          ? row.product_expenses_snapshot
+          : [],
+      });
+    }
+    if (toAppend.length) {
+      setLines((prev) => [...prev, ...toAppend]);
+    }
+    setAddModalOpen(false);
+    setAddableLines([]);
+    setAddPicks({});
+  };
+
   // ── Validation + submit ─────────────────────────────────────────────
 
   // Per-step validators. Each returns {} or an errors map. Used to gate
@@ -845,8 +964,28 @@ const InvoiceAddEdit = () => {
   const onNext = () => goToStep(activeStep + 1);
   const onBack = () => goToStep(activeStep - 1, { skipValidate: true });
 
-  const buildPayload = () => ({
-    ...form,
+  const buildPayload = () => {
+    // class-validator @IsOptional treats "" as a value and runs the
+    // validator — empty string fails @IsUUID / @IsDateString. Strip
+    // these optional fields when blank so they arrive as undefined.
+    const OPTIONAL_NULLABLE = [
+      "due_date",
+      "lut_date",
+      "notify_party_id",
+      "consignee_id",
+      "consignee_address_id",
+      "customer_address_id",
+      "company_address_id",
+      "pfi_id",
+      "quotation_id",
+      "shipping_id",
+    ];
+    const cleaned = { ...form };
+    OPTIONAL_NULLABLE.forEach((k) => {
+      if (cleaned[k] === "") cleaned[k] = undefined;
+    });
+    return {
+    ...cleaned,
     lines: lines.map((l) => ({
       _id: l._id,
       seq: l.seq,
@@ -889,7 +1028,8 @@ const InvoiceAddEdit = () => {
       }
       return bankSnapshots.length ? bankSnapshots : undefined;
     })(),
-  });
+    };
+  };
 
   const onSave = async () => {
     if (!validate()) {
@@ -1556,9 +1696,21 @@ const InvoiceAddEdit = () => {
         <Fragment>
       {/* ── Lines ────────────────────────────────────────────────────── */}
       <div className="mb-3">
-        <h5 className="mt-2 mb-2">
-            {t("Line Items")}
-          </h5>
+        <div className="d-flex justify-content-between align-items-center mt-2 mb-2">
+          <h5 className="mb-0">{t("Line Items")}</h5>
+          {isEdit && form.purchase_order_id && (
+            <Button
+              size="sm"
+              color="primary"
+              outline
+              onClick={openAddFromPo}
+              type="button"
+            >
+              <Plus size={14} className="me-1" />
+              {t("Add lines from PO")}
+            </Button>
+          )}
+        </div>
         <div>
           {lines.length === 0 ? (
             <div className="text-muted text-center py-2">
@@ -2014,6 +2166,129 @@ const InvoiceAddEdit = () => {
         </CardBody>
       </Card>
     </div>
+
+      {/* ── Add lines from PO modal ───────────────────────────────────── */}
+      <Modal
+        isOpen={addModalOpen}
+        toggle={() => setAddModalOpen(false)}
+        size="lg"
+        centered
+      >
+        <ModalHeader toggle={() => setAddModalOpen(false)}>
+          {t("Add lines from PO")}
+        </ModalHeader>
+        <ModalBody>
+          {addLoading ? (
+            <div className="text-center py-4">
+              <Spinner size="sm" /> {t("Loading...")}
+            </div>
+          ) : addableLines.length === 0 ? (
+            <div className="text-muted text-center py-3">
+              {t(
+                "No PO lines have additional dispatched qty available to add."
+              )}
+            </div>
+          ) : (
+            <Fragment>
+              <div className="small text-muted mb-2">
+                {t(
+                  "Lines with dispatched-but-not-yet-invoiced qty. Tick to add to this draft."
+                )}
+              </div>
+              <Table bordered size="sm" className="align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th style={{ width: 36 }}></th>
+                    <th>{t("Product")}</th>
+                    <th className="text-end" style={{ width: 90 }}>
+                      {t("Dispatched")}
+                    </th>
+                    <th className="text-end" style={{ width: 90 }}>
+                      {t("Available")}
+                    </th>
+                    <th style={{ width: 120 }}>{t("Qty to add")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {addableLines.map((r) => {
+                    const pick = addPicks[r.purchase_order_line_id] || {};
+                    return (
+                      <tr key={r.purchase_order_line_id}>
+                        <td className="text-center">
+                          <Input
+                            type="checkbox"
+                            checked={!!pick.selected}
+                            onChange={() =>
+                              togglePick(r.purchase_order_line_id)
+                            }
+                          />
+                        </td>
+                        <td>
+                          <div className="fw-semibold">
+                            {r.product_name || r.product_code || "-"}
+                          </div>
+                          {r.product_code && (
+                            <div className="small text-muted">
+                              {r.product_code}
+                            </div>
+                          )}
+                          {Number(r.already_on_draft) > 0 && (
+                            <div className="small text-muted">
+                              {t("Already on draft")}: {r.already_on_draft}{" "}
+                              {r.unit}
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-end">
+                          {r.dispatched} {r.unit}
+                        </td>
+                        <td className="text-end">
+                          {r.available} {r.unit}
+                        </td>
+                        <td>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            max={r.available}
+                            value={pick.qty || ""}
+                            disabled={!pick.selected}
+                            onChange={(e) =>
+                              setPickQty(
+                                r.purchase_order_line_id,
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </Fragment>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            color="secondary"
+            outline
+            onClick={() => setAddModalOpen(false)}
+          >
+            {t("Cancel")}
+          </Button>
+          <Button
+            color="primary"
+            onClick={confirmAddFromPo}
+            disabled={
+              addLoading ||
+              !Object.values(addPicks).some((p) => p?.selected)
+            }
+          >
+            {t("Add Selected")}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* ── Per-line Rebates / Expenses modal ─────────────────────────── */}
       {costingModal.open && costingModal.idx !== null && (

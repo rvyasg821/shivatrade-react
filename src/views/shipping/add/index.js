@@ -50,7 +50,7 @@ const ShippingAddEdit = () => {
   const { id: editId } = useParams();
   const location = useLocation();
   const isEdit = !!editId;
-  const invoiceIdFromQuery = new URLSearchParams(location.search).get("invoice");
+  const invoiceIdFromQuery = new URLSearchParams(location.search).get("invoice_id");
 
   const store = useSelector((s) => s.shipping);
   const authUserItem = useSelector((s) => s.auth?.authUserItem);

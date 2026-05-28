@@ -271,19 +271,23 @@ const InvoicesList = () => {
         sortable: false,
         grow: 2,
         selector: (row) => {
-          if (!row?.customer_name && !row?.customer_snapshot?.name) return "-";
-          const cs = row?.customer_snapshot || {};
+          const phone = row?.customer_contact_country_code?.formatted || "";
           return (
             <div className="py-1">
               <span className="fw-bold text-capitalize">
-                {row?.customer_name || cs.name || "-"}
+                {row?.customer_name || "-"}
               </span>
-              {cs.contact_name && (
-                <div className="text-capitalize small">{cs.contact_name}</div>
+              {row?.customer_contact_name && (
+                <div className="text-capitalize small">
+                  {row.customer_contact_name}
+                </div>
               )}
-              {cs.email && (
-                <div className="small text-muted">{cs.email}</div>
+              {row?.customer_contact_email && (
+                <div className="small text-muted">
+                  {row.customer_contact_email}
+                </div>
               )}
+              {phone && <div className="small text-muted">{phone}</div>}
             </div>
           );
         },

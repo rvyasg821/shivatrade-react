@@ -197,7 +197,7 @@ const ViewInvoice = () => {
           icon: Truck,
           label: t("Book Shipping"),
           onClick: () =>
-            navigate(`${appsRoot}/shipping/add?invoice=${id}`),
+            navigate(`${appsRoot}/shipping/add?invoice_id=${id}`),
           color: "primary",
         });
       }
