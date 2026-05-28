@@ -652,7 +652,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                 </Col>
                 <Col md="6" className="mb-2">
                   <Label for="lut_no">
-                    {t("LUT Number")} <small className="text-muted">({t("Letter of Undertaking")})</small>
+                    {t("LUT No")} <small className="text-muted">({t("Letter of Undertaking")})</small>
                   </Label>
                   <Controller name="lut_no" control={control}
                     render={({ field }) => (
