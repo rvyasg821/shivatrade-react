@@ -29,7 +29,7 @@ const fmt = (n) =>
   });
 
 const TYPE_OPTIONS = [
-  { value: "percent", label: "%" },
+  { value: "percent", label: "% (Percent)" },
   { value: "fixed", label: "₹ (Fixed)" },
 ];
 
@@ -192,7 +192,7 @@ const ExpensesTab = () => {
             </span>
           )}
         </td>
-        <td style={{ width: 140 }}>
+        <td style={{ width: 180 }}>
           {isDraft ? (
             <Select
               classNamePrefix="select"

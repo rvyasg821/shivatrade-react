@@ -206,6 +206,7 @@ export const API_ENDPOINTS = {
   },
   quotations: {
     list: `/admin/quotation/list`,
+    stats: `/admin/quotation/stats`,
     get: `/admin/quotation/get`,
     create: `/admin/quotation/create`,
     update: `/admin/quotation/update`,
@@ -218,6 +219,7 @@ export const API_ENDPOINTS = {
   },
   pfis: {
     list: `/admin/pfi/list`,
+    stats: `/admin/pfi/stats`,
     get: `/admin/pfi/get`,
     create: `/admin/pfi/create`,
     update: `/admin/pfi/update`,
@@ -233,6 +235,7 @@ export const API_ENDPOINTS = {
   },
   purchaseOrders: {
     list: `/admin/purchase-order/list`,
+    stats: `/admin/purchase-order/stats`,
     get: `/admin/purchase-order/get`,
     create: `/admin/purchase-order/create`,
     update: `/admin/purchase-order/update`,
@@ -312,6 +315,7 @@ export const API_ENDPOINTS = {
   },
   leads: {
     list: `/admin/lead/list`,
+    stats: `/admin/lead/stats`,
     get: `/admin/lead/get`,
     create: `/admin/lead/create`,
     update: `/admin/lead/update`,
