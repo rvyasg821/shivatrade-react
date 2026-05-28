@@ -206,6 +206,7 @@ export const API_ENDPOINTS = {
   },
   quotations: {
     list: `/admin/quotation/list`,
+    stats: `/admin/quotation/stats`,
     get: `/admin/quotation/get`,
     create: `/admin/quotation/create`,
     update: `/admin/quotation/update`,
