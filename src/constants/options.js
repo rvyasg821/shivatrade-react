@@ -446,6 +446,37 @@ const SHIPPING_BILL_TYPE_OPTIONS = [
   { value: "seis", label: "SEIS" },
 ];
 
+// Manual event types operators can add to a shipping timeline. System
+// types (shipping_created/booked/dispatched/arrived/cleared/delivered/
+// cancelled/updated) are emitted only by the BE on status transitions
+// and are NOT listed here.
+const SHIPPING_EVENT_TYPE_OPTIONS = [
+  { value: "doc_handover", label: "Document Handover" },
+  { value: "container_loaded", label: "Container Loaded" },
+  { value: "gate_in", label: "Gate In" },
+  { value: "vessel_departed", label: "Vessel Departed" },
+  { value: "port_of_transhipment", label: "Port of Transhipment" },
+  { value: "delay_reported", label: "Delay Reported" },
+  { value: "document_dispatched", label: "Document Dispatched" },
+  { value: "payment_received", label: "Payment Received" },
+  { value: "other", label: "Other" },
+];
+
+const SHIPPING_EVENT_TYPE_LABEL = SHIPPING_EVENT_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {
+    // System-event labels for read-only display on the timeline.
+    shipping_created: "Created",
+    shipping_booked: "Booked",
+    shipping_dispatched: "Dispatched",
+    shipping_arrived: "Arrived",
+    shipping_cleared: "Customs Cleared",
+    shipping_delivered: "Delivered",
+    shipping_cancelled: "Cancelled",
+    shipping_updated: "Updated",
+  }
+);
+
 // Status → next-step transition modal config. Drives the dynamic button
 // label + which date field the SweetAlert collects.
 const SHIPPING_NEXT_STEP = {
@@ -504,4 +535,6 @@ export {
   SHIPPING_AIR_MODES,
   SHIPPING_BILL_TYPE_OPTIONS,
   SHIPPING_NEXT_STEP,
+  SHIPPING_EVENT_TYPE_OPTIONS,
+  SHIPPING_EVENT_TYPE_LABEL,
 };

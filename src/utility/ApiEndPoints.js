@@ -291,8 +291,8 @@ export const API_ENDPOINTS = {
     cancel: `/admin/shipping/cancel`, // append /:id
     attachInvoices: `/admin/shipping/attach-invoices`, // append /:id
     detachInvoice: `/admin/shipping/detach-invoice`, // append /:invoiceId
-    addEvent: `/admin/shipping/event`, // append /:id
-    retractEvent: `/admin/shipping/event`, // append /:eventId
+    addEvent: `/admin/shipping/event`, // append /:shippingId
+    retractEvent: `/admin/shipping/event`, // append /:eventId/retract
   },
   salesDocImport: {
     resolve: `/admin/sales-doc/import/resolve`,
