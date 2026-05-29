@@ -28,6 +28,7 @@ import {
   Globe,
   Truck,
 } from "react-feather";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -214,6 +215,8 @@ const ViewInvoice = () => {
   const isCancelled = (inv?.status || "").toLowerCase() === "cancelled";
 
   const lines = inv?.lines || [];
+  const [linesPageSize, setLinesPageSize] = useState(10);
+  const [linesPage, setLinesPage] = useState(0);
 
   // ── Handlers ────────────────────────────────────────────────────────
 
@@ -449,7 +452,7 @@ const ViewInvoice = () => {
     inv?.exchange_rate && {
       icon: Percent,
       label: t("Exchange Rate"),
-      value: `1 ${inv.currency_code} = ${fmt(inv.exchange_rate, 4)} INR`,
+      value: `${sym}1 = ₹${fmt(inv.exchange_rate, 4)}`,
     },
   ].filter(Boolean);
 
@@ -601,7 +604,19 @@ const ViewInvoice = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {lines.map((l, i) => (
+                        {(() => {
+                          const totalRows = lines.length;
+                          const pageCount = Math.max(
+                            1,
+                            Math.ceil(totalRows / linesPageSize),
+                          );
+                          const safePage = Math.min(linesPage, pageCount - 1);
+                          const start = safePage * linesPageSize;
+                          return lines
+                            .slice(start, start + linesPageSize)
+                            .map((l, pi) => {
+                              const i = start + pi;
+                              return (
                           <tr key={l._id || i}>
                             <td>{l.seq || i + 1}</td>
                             <td>{l.hsn_code || "-"}</td>
@@ -631,7 +646,9 @@ const ViewInvoice = () => {
                               {fmt(l.line_total)}
                             </td>
                           </tr>
-                        ))}
+                              );
+                            });
+                        })()}
                       </tbody>
                       <tfoot className="table-light">
                         <tr>
@@ -646,6 +663,55 @@ const ViewInvoice = () => {
                       </tfoot>
                     </Table>
                   )}
+                  {lines.length > 0 && (() => {
+                    const totalRows = lines.length;
+                    const pageCount = Math.max(
+                      1,
+                      Math.ceil(totalRows / linesPageSize),
+                    );
+                    const safePage = Math.min(linesPage, pageCount - 1);
+                    return (
+                      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+                        <div className="d-flex align-items-center small text-muted">
+                          <span className="me-50">{t("Show")}</span>
+                          <Input
+                            type="select"
+                            bsSize="sm"
+                            value={linesPageSize}
+                            onChange={(e) => {
+                              setLinesPageSize(Number(e.target.value) || 10);
+                              setLinesPage(0);
+                            }}
+                            style={{ width: 80 }}
+                          >
+                            {[10, 25, 50, 100].map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </Input>
+                          <span className="ms-50">
+                            {t("of")} {totalRows} {t("rows")}
+                          </span>
+                        </div>
+                        <ReactPaginate
+                          previousLabel=""
+                          nextLabel=""
+                          pageCount={pageCount}
+                          activeClassName="active"
+                          forcePage={safePage}
+                          onPageChange={({ selected }) => setLinesPage(selected)}
+                          pageClassName="page-item"
+                          nextLinkClassName="page-link"
+                          nextClassName="page-item next"
+                          previousClassName="page-item prev"
+                          previousLinkClassName="page-link"
+                          pageLinkClassName="page-link"
+                          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
