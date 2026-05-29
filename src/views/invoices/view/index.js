@@ -218,6 +218,28 @@ const ViewInvoice = () => {
   const [linesPageSize, setLinesPageSize] = useState(10);
   const [linesPage, setLinesPage] = useState(0);
 
+  // Line items live in INR. Subtotal is the sum of line totals (INR);
+  // the doc-currency value is INR × exchange_rate, matching the add /
+  // edit form's "₹X × rate = $Y" presentation.
+  const subtotalInr = useMemo(
+    () => lines.reduce((sum, l) => sum + num(l?.line_total), 0),
+    [lines],
+  );
+  const exchangeRate = num(inv?.exchange_rate) || 1;
+  const subtotalDoc = subtotalInr * exchangeRate;
+  // Charges & Totals fields are typed in the document currency. We
+  // recompute the chain on the FE so KPI tiles + Costing card show
+  // proper doc-currency values instead of the legacy INR-mixed numbers
+  // that the BE stores on the header row.
+  const fobDoc = subtotalDoc - num(inv?.discount_total);
+  const grandDoc =
+    fobDoc +
+    num(inv?.freight_charges) +
+    num(inv?.insurance_charges) +
+    num(inv?.other_charges);
+  const balanceDoc = grandDoc - num(inv?.advance_received);
+  const grandInr = exchangeRate > 0 ? grandDoc / exchangeRate : grandDoc;
+
   // ── Handlers ────────────────────────────────────────────────────────
 
   const handleIssue = () => {
@@ -372,21 +394,16 @@ const ViewInvoice = () => {
     {
       key: "grand",
       label: t("Grand Total"),
-      value: inv?.grand_total
-        ? `${sym}${fmt(inv.grand_total)}`
-        : "-",
+      value: grandDoc > 0 ? `${sym}${fmt(grandDoc)}` : "-",
       icon: DollarSign,
       tone: "secondary",
     },
     {
       key: "balance",
       label: t("Balance"),
-      value: inv?.balance_receivable
-        ? `${sym}${fmt(inv.balance_receivable)}`
-        : "-",
+      value: balanceDoc > 0 ? `${sym}${fmt(balanceDoc)}` : "-",
       icon: CreditCard,
-      tone:
-        num(inv?.balance_receivable) > 0 ? "warning" : "success",
+      tone: balanceDoc > 0 ? "warning" : "success",
       sub:
         num(inv?.advance_received) > 0
           ? `${t("Advance")}: ${sym}${fmt(inv.advance_received)}`
@@ -618,7 +635,7 @@ const ViewInvoice = () => {
                               const i = start + pi;
                               return (
                           <tr key={l._id || i}>
-                            <td>{l.seq || i + 1}</td>
+                            <td>{i + 1}</td>
                             <td>{l.hsn_code || "-"}</td>
                             <td>
                               <div className="fw-semibold">
@@ -636,14 +653,12 @@ const ViewInvoice = () => {
                               )}
                             </td>
                             <td>{l.uqc_code || l.unit || "-"}</td>
-                            <td className="text-end">{fmt(l.qty, 4)}</td>
+                            <td className="text-end">{fmt(l.qty, 2)}</td>
                             <td className="text-end">
-                              {sym}
-                              {fmt(l.unit_price, 4)}
+                              ₹{fmt(l.unit_price, 2)}
                             </td>
                             <td className="text-end fw-semibold">
-                              {sym}
-                              {fmt(l.line_total)}
+                              ₹{fmt(l.line_total)}
                             </td>
                           </tr>
                               );
@@ -656,8 +671,41 @@ const ViewInvoice = () => {
                             {t("Subtotal")}
                           </td>
                           <td className="text-end fw-bold">
-                            {sym}
-                            {fmt(inv?.subtotal)}
+                            {sym && sym !== "₹" ? (
+                              <span
+                                className="d-inline-flex align-items-center"
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  justifyContent: "flex-end",
+                                  lineHeight: 1.1,
+                                }}
+                              >
+                                <span style={{ color: "#1a2238" }}>
+                                  ₹{fmt(subtotalInr)}
+                                </span>
+                                <span
+                                  className="text-muted fw-normal mx-1"
+                                  style={{ fontSize: "0.72rem" }}
+                                >
+                                  × {fmt(exchangeRate, 4)} =
+                                </span>
+                                <span
+                                  style={{
+                                    color: "#1a2238",
+                                    background: "#eef0f3",
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {sym}
+                                  {fmt(subtotalDoc)}
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={{ color: "#1a2238" }}>
+                                ₹{fmt(subtotalInr)}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       </tfoot>
@@ -723,7 +771,7 @@ const ViewInvoice = () => {
                     <Col md="6">
                       <div className="d-flex justify-content-between py-25">
                         <span className="text-muted">{t("Subtotal")}</span>
-                        <span>{sym}{fmt(inv?.subtotal)}</span>
+                        <span>{sym}{fmt(subtotalDoc)}</span>
                       </div>
                       <div className="d-flex justify-content-between py-25">
                         <span className="text-muted">{t("Discount")}</span>
@@ -731,7 +779,7 @@ const ViewInvoice = () => {
                       </div>
                       <div className="d-flex justify-content-between py-25 border-top pt-25">
                         <span className="fw-semibold">{t("FOB Value")}</span>
-                        <span className="fw-semibold">{sym}{fmt(inv?.fob_value)}</span>
+                        <span className="fw-semibold">{sym}{fmt(fobDoc)}</span>
                       </div>
                       <div className="d-flex justify-content-between py-25">
                         <span className="text-muted">{t("Freight")}</span>
@@ -749,12 +797,14 @@ const ViewInvoice = () => {
                     <Col md="6">
                       <div className="d-flex justify-content-between py-25 border-top border-bottom py-1 mb-1">
                         <span className="fw-bold">{t("Grand Total")}</span>
-                        <span className="fw-bold">{sym}{fmt(inv?.grand_total)}</span>
+                        <span className="fw-bold">{sym}{fmt(grandDoc)}</span>
                       </div>
-                      <div className="d-flex justify-content-between py-25 small text-muted">
-                        <span>{t("INR equivalent")}</span>
-                        <span>₹{fmt(inv?.grand_total_inr)}</span>
-                      </div>
+                      {sym && sym !== "₹" && (
+                        <div className="d-flex justify-content-between py-25 small text-muted">
+                          <span>{t("INR equivalent")}</span>
+                          <span>₹{fmt(grandInr)}</span>
+                        </div>
+                      )}
                       <div className="d-flex justify-content-between py-25">
                         <span className="text-muted">{t("Advance Received")}</span>
                         <span>{sym}{fmt(inv?.advance_received)}</span>
@@ -763,12 +813,10 @@ const ViewInvoice = () => {
                         <span className="fw-semibold">{t("Balance Receivable")}</span>
                         <span
                           className={`fw-semibold ${
-                            num(inv?.balance_receivable) > 0
-                              ? "text-warning"
-                              : "text-success"
+                            balanceDoc > 0 ? "text-warning" : "text-success"
                           }`}
                         >
-                          {sym}{fmt(inv?.balance_receivable)}
+                          {sym}{fmt(balanceDoc)}
                         </span>
                       </div>
                     </Col>
