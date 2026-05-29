@@ -263,6 +263,18 @@ const PurchaseOrderPublicView = () => {
                     {sym} {p.currency_code || "-"}
                   </span>
                 </div>
+                {(p.pfi_voucher_no || p.quotation_voucher_no) && (
+                  <div
+                    className="party-muted"
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    {p.pfi_voucher_no ? t("Source PFI") : t("Source Quote")}
+                    :{" "}
+                    <span className="fw-semibold">
+                      {p.pfi_voucher_no || p.quotation_voucher_no}
+                    </span>
+                  </div>
+                )}
                 <span className="status-badge mt-1 d-inline-block">
                   {p.status || "-"}
                 </span>
@@ -337,12 +349,6 @@ const PurchaseOrderPublicView = () => {
                   {p.expected_delivery_date && (
                     <div className="party-line party-muted">
                       {t("Expected")}: {formatDate(p.expected_delivery_date)}
-                    </div>
-                  )}
-                  {(p.pfi_voucher_no || p.quotation_voucher_no) && (
-                    <div className="party-line party-muted">
-                      {p.pfi_voucher_no ? t("Source PFI") : t("Source Quote")}
-                      : {p.pfi_voucher_no || p.quotation_voucher_no}
                     </div>
                   )}
                 </div>
