@@ -40,7 +40,6 @@ import {
   Percent,
   Upload,
   Download,
-  Edit2,
 } from "react-feather";
 
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -813,10 +812,19 @@ const InvoiceAddEdit = () => {
 
   // ── Line helpers ────────────────────────────────────────────────────
 
-  const updateLine = (idx, patch) =>
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
-  const removeLine = (idx) =>
-    setLines((prev) => prev.filter((_, i) => i !== idx));
+  // Stable handler identities so row-level memoisation stays effective
+  // when the table grows into the hundreds of rows.
+  const updateLine = useCallback(
+    (idx, patch) =>
+      setLines((prev) =>
+        prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)),
+      ),
+    [],
+  );
+  const removeLine = useCallback(
+    (idx) => setLines((prev) => prev.filter((_, i) => i !== idx)),
+    [],
+  );
 
   // ── "Add lines from PO" picker (edit mode only) ─────────────────────
   // Surfaces PO lines that have dispatched-but-not-yet-invoiced qty
@@ -962,13 +970,35 @@ const InvoiceAddEdit = () => {
     }
     setLinesExporting(true);
     try {
-      const resp = await instance.get(API_ENDPOINTS.invoices.linesExport, {
-        params: {
+      // POST the on-screen lines so unsaved edits (qty / price /
+      // description / etc.) ride into the workbook instead of being
+      // dropped in favour of the persisted draft.
+      const resp = await instance.post(
+        API_ENDPOINTS.invoices.linesExport,
+        {
           purchase_order_id: form.purchase_order_id,
           invoice_id: editId || undefined,
+          lines: (lines || []).map((l) => ({
+            _id: l._id,
+            purchase_order_line_id: l.purchase_order_line_id,
+            product_id: l.product_id,
+            product_name: l.product_name,
+            product_code: l.product_code,
+            hsn_code: l.hsn_code,
+            description: l.description,
+            customer_reference: l.customer_reference,
+            qty: l.qty,
+            unit: l.unit,
+            uqc_code: l.uqc_code,
+            unit_price: l.unit_price,
+            discount_pct: l.discount_pct,
+            igst_rate_pct: l.igst_rate_pct,
+            product_rebates_snapshot: l.product_rebates_snapshot,
+            product_expenses_snapshot: l.product_expenses_snapshot,
+          })),
         },
-        responseType: "blob",
-      });
+        { responseType: "blob" },
+      );
       const cd = resp.headers?.["content-disposition"] || "";
       const m = cd.match(/filename="?([^"]+)"?/);
       const filename =
@@ -1937,7 +1967,7 @@ const InvoiceAddEdit = () => {
                   <th style={{ width: 110 }} className="text-end">
                     {t("Line Total")}
                   </th>
-                  <th style={{ width: 90 }} className="text-center">
+                  <th style={{ width: 70 }} className="text-center">
                     {t("Action")}
                   </th>
                 </tr>
@@ -2087,7 +2117,7 @@ const InvoiceAddEdit = () => {
                         ₹{fmt(lineTotal)}
                         {(rebateCount > 0 || expenseCount > 0) && (
                           <div
-                            className="d-flex flex-wrap justify-content-end gap-1 mt-25"
+                            className="d-flex flex-column align-items-end gap-1 mt-25"
                             style={{ fontSize: "0.85rem" }}
                           >
                             {expenseCount > 0 && (
@@ -2132,13 +2162,12 @@ const InvoiceAddEdit = () => {
                           <Button
                             id={`inv-line-edit-${i}`}
                             size="sm"
-                            color="primary"
-                            outline
+                            color="link"
                             className="p-0 d-inline-flex align-items-center justify-content-center"
-                            style={{ width: 28, height: 28 }}
+                            style={{ width: 22, height: 22 }}
                             onClick={() => setCostingModal({ open: true, idx: i })}
                           >
-                            <Edit2 size={14} />
+                            <Tag size={16} className="text-primary" />
                           </Button>
                           <UncontrolledTooltip
                             target={`inv-line-edit-${i}`}
@@ -2149,13 +2178,12 @@ const InvoiceAddEdit = () => {
                           <Button
                             id={`inv-line-del-${i}`}
                             size="sm"
-                            color="danger"
-                            outline
+                            color="link"
                             className="p-0 d-inline-flex align-items-center justify-content-center"
-                            style={{ width: 28, height: 28 }}
+                            style={{ width: 22, height: 22 }}
                             onClick={() => removeLine(i)}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={16} className="text-danger" />
                           </Button>
                           <UncontrolledTooltip
                             target={`inv-line-del-${i}`}
@@ -2178,20 +2206,27 @@ const InvoiceAddEdit = () => {
                   <td className="text-end fw-bold">
                     {sym && sym !== "₹" ? (
                       <span
-                        className="d-inline-flex align-items-center gap-1"
-                        style={{ flexWrap: "wrap", justifyContent: "flex-end" }}
+                        className="d-inline-flex align-items-center"
+                        style={{
+                          whiteSpace: "nowrap",
+                          justifyContent: "flex-end",
+                          lineHeight: 1.1,
+                        }}
                       >
                         <span style={{ color: "#1a2238" }}>
                           ₹{fmt(totals.subtotalInr)}
                         </span>
-                        <span className="text-muted fw-normal">
+                        <span
+                          className="text-muted fw-normal mx-1"
+                          style={{ fontSize: "0.72rem" }}
+                        >
                           × {fmt(num(form.exchange_rate) || 1, 4)} =
                         </span>
                         <span
                           style={{
                             color: "#1a2238",
                             background: "#eef0f3",
-                            padding: "2px 8px",
+                            padding: "1px 6px",
                             borderRadius: 4,
                           }}
                         >
@@ -2228,7 +2263,7 @@ const InvoiceAddEdit = () => {
                     }}
                     style={{ width: 80 }}
                   >
-                    {[10, 25, 50, 100].map((n) => (
+                    {[10, 25, 50, 100, 200].map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
