@@ -13,6 +13,7 @@ import { ChevronDown, ChevronRight } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
+import { getCurrencySymbol } from "@src/utility/currency";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 
 const required = <span className="text-danger">*</span>;
@@ -32,8 +33,10 @@ const Step1Vendor = ({
   const {
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useFormContext();
+  const watchedRate = watch("exchange_rate");
   const [showAddressOverride, setShowAddressOverride] = useState(false);
 
   return (
@@ -175,17 +178,52 @@ const Step1Vendor = ({
           )}
         />
         <small className="text-muted d-block">
-          {rateMeta?.same
-            ? t("Same currency - rate fixed at 1.")
-            : rateMeta?.rate
-            ? `${t("Auto-filled")}${
-                rateMeta.effective_date
-                  ? ` (${t("as of")} ${rateMeta.effective_date})`
-                  : ""
-              }`
-            : rateMeta?.missing
-            ? t("No rate in master. Enter manually.")
-            : ""}
+          {rateMeta?.same ? (
+            t("Same currency - rate fixed at 1.")
+          ) : rateMeta?.rate ? (
+            (() => {
+              const liveRate = Number(watchedRate);
+              const effRate =
+                Number.isFinite(liveRate) && liveRate > 0
+                  ? liveRate
+                  : Number(rateMeta.rate);
+              const modified =
+                Number.isFinite(liveRate) &&
+                liveRate > 0 &&
+                liveRate !== Number(rateMeta.rate);
+              return (
+                <>
+                  {modified
+                    ? t("Custom rate for this Sales Order")
+                    : t("Auto-filled from Currency master")}
+                  {!modified && rateMeta.effective_date
+                    ? ` (${t("as of")} ${rateMeta.effective_date})`
+                    : ""}
+                  {modified ? <br /> : ". "}
+                  <span>
+                    {getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode}1 ={" "}
+                    {getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}
+                    {Number(effRate).toLocaleString(undefined, {
+                      maximumFractionDigits: 6,
+                    })}
+                    {effRate > 0
+                      ? ` · ${getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}1 = ${
+                          getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode
+                        }${(1 / effRate).toLocaleString(undefined, {
+                          maximumFractionDigits: 4,
+                        })}`
+                      : ""}
+                  </span>
+                </>
+              );
+            })()
+          ) : rateMeta?.missing ? (
+            <span className="text-warning">
+              {t("No rate set in Currency master - enter manually.")}
+            </span>
+          ) : (
+            ""
+          )}
         </small>
       </Col>
 

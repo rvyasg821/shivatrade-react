@@ -36,6 +36,7 @@ const Step1Customer = ({
   } = useFormContext();
   const watchedCustomer = watch("customer_id");
   const watchedLeadId = watch("lead_id");
+  const watchedRate = watch("exchange_rate");
 
   return (
     <Row>
@@ -200,27 +201,41 @@ const Step1Customer = ({
           {rateMeta?.same ? (
             t("Same currency - rate fixed at 1.")
           ) : rateMeta?.rate ? (
-            <>
-              {t("Auto-filled from Currency master")}
-              {rateMeta.effective_date
-                ? ` (${t("as of")} ${rateMeta.effective_date})`
-                : ""}
-              .{" "}
-              <span>
-                {getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode}1 ={" "}
-                {getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}
-                {Number(rateMeta.rate).toLocaleString(undefined, {
-                  maximumFractionDigits: 6,
-                })}
-                {rateMeta.rate > 0
-                  ? ` · ${getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}1 = ${
-                      getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode
-                    }${(1 / rateMeta.rate).toLocaleString(undefined, {
-                      maximumFractionDigits: 4,
-                    })}`
-                  : ""}
-              </span>
-            </>
+            (() => {
+              const liveRate = Number(watchedRate);
+              const effRate = Number.isFinite(liveRate) && liveRate > 0
+                ? liveRate
+                : Number(rateMeta.rate);
+              const modified =
+                Number.isFinite(liveRate) &&
+                liveRate > 0 &&
+                liveRate !== Number(rateMeta.rate);
+              return (
+                <>
+                  {modified
+                    ? t("Custom rate for this quotation")
+                    : t("Auto-filled from Currency master")}
+                  {!modified && rateMeta.effective_date
+                    ? ` (${t("as of")} ${rateMeta.effective_date})`
+                    : ""}
+                  {modified ? <br /> : ". "}
+                  <span>
+                    {getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode}1 ={" "}
+                    {getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}
+                    {Number(effRate).toLocaleString(undefined, {
+                      maximumFractionDigits: 6,
+                    })}
+                    {effRate > 0
+                      ? ` · ${getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}1 = ${
+                          getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode
+                        }${(1 / effRate).toLocaleString(undefined, {
+                          maximumFractionDigits: 4,
+                        })}`
+                      : ""}
+                  </span>
+                </>
+              );
+            })()
           ) : rateMeta?.missing ? (
             <span className="text-warning">
               {t("No rate set in Currency master - enter manually.")}

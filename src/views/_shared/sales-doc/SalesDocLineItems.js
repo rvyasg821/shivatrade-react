@@ -438,6 +438,46 @@ const SalesDocLineItems = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.open, editingIdx, editingLine?.product_id]);
 
+  // Saved lines don't carry the per-unit weight/pack stash (_nwpu/_gwpu/
+  // _pack_size) since those aren't persisted. Re-seed them from the product
+  // master when an existing line opens for edit so a later qty change can
+  // recompute net/gross weight and package count exactly like the new-line
+  // flow does.
+  useEffect(() => {
+    if (
+      !modal.open ||
+      !showExportFields ||
+      editingIdx == null ||
+      !editingLine?.product_id
+    ) {
+      return;
+    }
+    const opt = (allProductOptions || productOptions || []).find(
+      (o) => o.value === editingLine.product_id,
+    );
+    const raw = opt?.raw;
+    if (!raw) return;
+    if (editingLine?._nwpu == null || editingLine?._nwpu === "") {
+      setValue(
+        `lines.${editingIdx}._nwpu`,
+        String(num(raw.net_weight_per_unit)),
+      );
+    }
+    if (editingLine?._gwpu == null || editingLine?._gwpu === "") {
+      setValue(
+        `lines.${editingIdx}._gwpu`,
+        String(num(raw.gross_weight_per_unit)),
+      );
+    }
+    if (editingLine?._pack_size == null || editingLine?._pack_size === "") {
+      setValue(
+        `lines.${editingIdx}._pack_size`,
+        String(num(raw.pack_size)),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal.open, editingIdx, editingLine?.product_id, showExportFields]);
+
   return (
     <Card>
       <CardBody>

@@ -2,7 +2,7 @@
 // Mirrors QuotationWizard. Differences: pfi_date field name, no lead URL
 // param / category filter, source-quotation banner.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 import { Card, CardBody, Form, Spinner, Button } from "reactstrap";
@@ -247,13 +247,23 @@ const PfiWizard = () => {
     if (watchedLeadId) dispatch(getLead(watchedLeadId));
   }, [watchedLeadId, dispatch]);
 
-  // Exchange rate fetch.
+  // Exchange rate lookup on currency pick. The fetched master rate ALWAYS
+  // populates `rateMeta` (the "Auto-filled / Custom" comparison hint), but
+  // the form field is only auto-written:
+  //   • New mode: on the user's first pick of each currency.
+  //   • Edit mode: never — the saved rate is the source of truth.
+  // Tracking the last auto-filled currency in a ref prevents a downstream
+  // re-render (e.g. exchangeOptions arriving late) from clobbering a user
+  // override.
+  const autoFilledForCurrency = useRef(null);
   useEffect(() => {
     if (!liveCurrencyCode) {
       setRateMeta(null);
+      autoFilledForCurrency.current = null;
       return;
     }
-    if (isEdit && store?.pfiItem?.currency_code === liveCurrencyCode) return;
+    const shouldWriteToField =
+      !isEdit && autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
     const defaultOpt = options.find((o) => o.is_default);
     instance
@@ -263,8 +273,11 @@ const PfiWizard = () => {
       .then((resp) => {
         const data = resp?.data?.data;
         if (!data) return setRateMeta({ missing: true });
-        // Trim trailing zeros from the numeric(18,8) string ("0.01200000" → "0.012").
-        setValue("exchange_rate", String(Number(data.rate)));
+        if (shouldWriteToField) {
+          autoFilledForCurrency.current = liveCurrencyCode;
+          // Trim trailing zeros ("0.01200000" → "0.012").
+          setValue("exchange_rate", String(Number(data.rate)));
+        }
         setRateMeta({
           rate: Number(data.rate),
           effective_date: data.effective_date,
@@ -275,7 +288,7 @@ const PfiWizard = () => {
       })
       .catch(() => setRateMeta({ missing: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveCurrencyCode, currencyStore?.exchangeOptions]);
+  }, [liveCurrencyCode, currencyStore?.exchangeOptions, isEdit]);
 
   // Initial loads.
   useEffect(() => {

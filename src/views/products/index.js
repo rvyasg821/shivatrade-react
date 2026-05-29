@@ -337,8 +337,16 @@ const ProductList = () => {
                       onChange={(opt) => setCategoryFilter(opt ? opt.value : "")}
                       options={categoryOptions}
                       isClearable
-                      placeholder={t("Filter by Category")}
+                      placeholder={t("Select Category")}
                       classNamePrefix="select"
+                      styles={{
+                        placeholder: (base) => ({
+                          ...base,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }),
+                      }}
                     />
                   </Col>
                   <Col sm="4" md="4" className="mb-2 mb-md-0">

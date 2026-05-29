@@ -39,7 +39,11 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 
 // ** Constants
-import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
+import {
+  appsRoot,
+  defaultPerPageRow,
+  isAdminUser,
+} from "@constant/defaultValues";
 
 // ** Import/Export
 import instance from "@src/utility/AxiosConfig";
@@ -347,39 +351,39 @@ const CategoryList = () => {
                   />
                 </div>
               </div>
-
-              <div className="d-flex align-items-center gap-1 flex-wrap">
-                {canRead && (
-                <Button
-                  color="outline-secondary"
-                  size="sm"
-                  onClick={handleExport}
-                  disabled={exporting}
-                >
-                  <Download className="me-50" size={14} />
-                  {t("Export")}
-                </Button>
-                )}
-                {(canAdd || canEdit) && (
-                  <Button
-                    color="outline-secondary"
-                    size="sm"
-                    onClick={() => setImportModalOpen(true)}
-                  >
-                    <Upload size={14} className="me-50" />
-                    {t("Import")}
-                  </Button>
-                )}
-                {canAdd && (
-                  <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/categories/add`)}
-                  >
-                    <PlusCircle size={14} className="me-50" />{" "}
-                    {t("Add Category")}
-                  </Button>
-                )}
-              </div>
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                  {canRead && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={handleExport}
+                      disabled={exporting}
+                    >
+                      {t("Export")} <Download size={14} />
+                    </Button>
+                  )}
+                  {(canAdd || canEdit) && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/categories/add`)}
+                    >
+                      <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    </Button>
+                  )}
+                </div>
+              </Col>
             </div>
 
             <Row className="mt-2">
