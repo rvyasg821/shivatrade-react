@@ -214,6 +214,60 @@ export const detachShippingInvoice = createAsyncThunk(
   }
 );
 
+export const createShippingEvent = createAsyncThunk(
+  "appShipping/createShippingEvent",
+  async ({ shippingId, data, attachment }, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+      Object.entries(data || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") fd.append(k, v);
+      });
+      if (attachment) fd.append("attachment", attachment);
+      const resp = await instance.post(
+        `${API_ENDPOINTS.shipping.addEvent}/${shippingId}`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const body = resp?.data;
+      if (ok(body)) {
+        return {
+          shippingId,
+          event: body.data,
+          actionFlag: "SHP_EVT_ADD_SCS",
+          success: body?.message || "Event added",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to add event");
+    } catch (err) {
+      return rejectWithValue(err?.response?.data?.message || err.message);
+    }
+  }
+);
+
+export const retractShippingEvent = createAsyncThunk(
+  "appShipping/retractShippingEvent",
+  async ({ shippingId, eventId, reason }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.shipping.retractEvent}/${eventId}/retract`,
+        { reason }
+      );
+      const body = resp?.data;
+      if (body?.statusCode) {
+        return {
+          shippingId,
+          eventId,
+          actionFlag: "SHP_EVT_RTR_SCS",
+          success: body?.message || "Event retracted",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to retract event");
+    } catch (err) {
+      return rejectWithValue(err?.response?.data?.message || err.message);
+    }
+  }
+);
+
 export const appShippingSlice = createSlice({
   name: "appShipping",
   initialState: {
@@ -349,6 +403,22 @@ export const appShippingSlice = createSlice({
       .addCase(deleteShipping.rejected, (state, action) => {
         state.error = action.payload || action.error?.message;
         state.actionFlag = "SHP_DLT_ERR";
+      })
+      .addCase(createShippingEvent.fulfilled, (state, action) => {
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+      })
+      .addCase(createShippingEvent.rejected, (state, action) => {
+        state.error = action.payload || action.error?.message;
+        state.actionFlag = "SHP_EVT_ADD_ERR";
+      })
+      .addCase(retractShippingEvent.fulfilled, (state, action) => {
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+      })
+      .addCase(retractShippingEvent.rejected, (state, action) => {
+        state.error = action.payload || action.error?.message;
+        state.actionFlag = "SHP_EVT_RTR_ERR";
       });
   },
 });

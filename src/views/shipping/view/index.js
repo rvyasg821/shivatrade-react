@@ -4,12 +4,24 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Card,
   CardBody,
-  CardHeader,
-  CardTitle,
   Table,
   Row,
   Col,
   Spinner,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Label,
+  Input,
+  FormGroup,
+  Nav,
+  NavItem,
+  NavLink,
+  TabContent,
+  TabPane,
+  Badge,
 } from "reactstrap";
 import {
   Calendar,
@@ -24,6 +36,9 @@ import {
   Globe,
   Truck,
   Package,
+  FileText,
+  Activity,
+  Paperclip,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -34,16 +49,24 @@ import {
   transitionShipping,
   cancelShipping,
   cleanShippingMessage,
+  retractShippingEvent,
 } from "@src/views/shipping/store";
+import AddShippingEventModal from "@src/views/shipping/components/AddShippingEventModal";
 import Notification from "@components/toast/notification";
-import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import {
+  appsRoot,
+  assessmentReportPdfUrl,
+  isAdminUser,
+} from "@constant/defaultValues";
 import {
   SHIPPING_PIPELINE_STEPS as PIPELINE_STEPS,
   SHIPPING_TERMINAL_STEPS as TERMINAL_STEPS,
   SHIPPING_STATUS_BADGE_COLOR as STATUS_COLORS,
   SHIPPING_NEXT_STEP as NEXT_STEP,
+  SHIPPING_EVENT_TYPE_LABEL,
 } from "@constant/options";
-import { formatDate } from "@src/utility/dateFormat";
+import { formatDate, formatDateTime } from "@src/utility/dateFormat";
+import DateInput from "@components/date-input";
 
 import {
   DetailHeader,
@@ -71,6 +94,19 @@ const ViewShipping = () => {
   const canDelete = isAdmin || perms?.can_all || perms?.can_delete;
 
   const [busy, setBusy] = useState(false);
+  const [transitionModalOpen, setTransitionModalOpen] = useState(false);
+  const [transitionDate, setTransitionDate] = useState("");
+  const [transitionError, setTransitionError] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [addEventOpen, setAddEventOpen] = useState(false);
+
+  const resolveAttachmentHref = (rel) => {
+    if (!rel) return "";
+    if (/^https?:\/\//i.test(rel)) return rel;
+    const base = (assessmentReportPdfUrl || "").replace(/\/$/, "");
+    const path = rel.replace(/^\//, "").replace(/^assets\//, "");
+    return `${base}/${path}`;
+  };
 
   useEffect(() => {
     if (id) dispatch(getShipping(id));
@@ -87,31 +123,68 @@ const ViewShipping = () => {
   const ModeIcon = ship?.mode?.startsWith("air") ? Wind : Anchor;
   const isCancellable = statusLower !== "delivered" && statusLower !== "cancelled";
 
-  const handleTransition = () => {
+  const openTransitionModal = () => {
     if (!next) return;
+    setTransitionDate("");
+    setTransitionError("");
+    setTransitionModalOpen(true);
+  };
+
+  const closeTransitionModal = () => {
+    setTransitionModalOpen(false);
+    setTransitionDate("");
+    setTransitionError("");
+  };
+
+  const submitTransition = () => {
+    if (!next) return;
+    if (!transitionDate) {
+      setTransitionError(t("Date is required"));
+      return;
+    }
+    const body = { to: next.to };
+    body[next.dateField] = transitionDate;
+    setBusy(true);
+    dispatch(transitionShipping({ id, data: body }))
+      .unwrap()
+      .then(() => closeTransitionModal())
+      .catch(() => {})
+      .finally(() => setBusy(false));
+  };
+
+  const handleRetractEvent = (ev) => {
     mySwal
       .fire({
-        title: t(next.label) + "?",
-        input: "date",
-        inputLabel: t(next.dateLabel),
+        title: t("Retract this event?"),
+        text: t(
+          "It stays in the audit log struck through. Provide a reason."
+        ),
+        icon: "warning",
+        input: "textarea",
+        inputPlaceholder: t("Reason (required)"),
+        inputValidator: (v) =>
+          !v || !v.trim() ? t("A reason is required.") : undefined,
         showCancelButton: true,
-        confirmButtonText: t("Confirm"),
+        confirmButtonText: t("Yes, retract"),
+        cancelButtonText: t("Keep event"),
         customClass: {
-          confirmButton: "btn btn-primary",
+          confirmButton: "btn btn-danger",
           cancelButton: "btn btn-outline-secondary ms-1",
         },
         buttonsStyling: false,
-        inputValidator: (v) => (!v ? t("Date is required") : null),
       })
       .then((res) => {
         if (!res.isConfirmed) return;
-        const body = { to: next.to };
-        body[next.dateField] = res.value;
-        setBusy(true);
-        dispatch(transitionShipping({ id, data: body }))
+        dispatch(
+          retractShippingEvent({
+            shippingId: id,
+            eventId: ev._id,
+            reason: res.value.trim(),
+          })
+        )
           .unwrap()
-          .catch(() => {})
-          .finally(() => setBusy(false));
+          .then(() => dispatch(getShipping(id)))
+          .catch(() => {});
       });
   };
 
@@ -153,7 +226,7 @@ const ViewShipping = () => {
       a.push({
         icon: CheckCircle,
         label: t(next.label),
-        onClick: handleTransition,
+        onClick: openTransitionModal,
         color: "success",
       });
     }
@@ -365,151 +438,336 @@ const ViewShipping = () => {
         <DetailTwoPanel
           ratio="9-3"
           left={
-            <Fragment>
-              {/* Invoices */}
-              <Card className="mb-2">
-                <CardHeader className="border-bottom py-1">
-                  <CardTitle tag="h5" className="mb-0">
-                    {t("Attached Invoices")}
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="pt-2">
-                  {invoices.length === 0 ? (
-                    <div className="text-muted text-center py-2 small">
-                      {t("No invoices attached")}
-                    </div>
-                  ) : (
-                    <Table responsive bordered size="sm" className="align-middle mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th>{t("Invoice #")}</th>
-                          <th className="text-end">{t("Amount")}</th>
-                          <th>{t("Currency")}</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {invoices.map((inv) => (
-                          <tr key={inv._id}>
-                            <td>
-                              <a
-                                href={`${appsRoot}/invoices/view/${inv.invoice_id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="fw-semibold"
-                              >
-                                {inv.invoice_voucher_no || inv.invoice_id?.slice(-8)}
-                              </a>
-                            </td>
-                            <td className="text-end">
-                              {Number(inv.invoice_grand_total || 0).toLocaleString(
-                                undefined,
-                                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                              )}
-                            </td>
-                            <td>{inv.invoice_currency_code}</td>
-                            <td />
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  )}
-                </CardBody>
-              </Card>
+            <Card className="mb-1">
+              <CardBody>
+                <Nav pills className="mb-2">
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "overview"}
+                      onClick={() => setActiveTab("overview")}
+                      style={{
+                        color: activeTab === "overview" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <FileText size={16} className="me-50" />
+                      {t("Overview")}
+                      {invoices.length > 0 && (
+                        <span
+                          className="badge ms-1"
+                          style={{
+                            background:
+                              activeTab === "overview"
+                                ? "rgba(255,255,255,0.25)"
+                                : "#eef0f3",
+                            color:
+                              activeTab === "overview" ? "#fff" : "#1a2238",
+                          }}
+                        >
+                          {invoices.length}
+                        </span>
+                      )}
+                    </NavLink>
+                  </NavItem>
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "tracking"}
+                      onClick={() => setActiveTab("tracking")}
+                      style={{
+                        color: activeTab === "tracking" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <Activity size={16} className="me-50" />
+                      {t("Tracking")}
+                      {events.length > 0 && (
+                        <span
+                          className="badge ms-1"
+                          style={{
+                            background:
+                              activeTab === "tracking"
+                                ? "rgba(255,255,255,0.25)"
+                                : "#eef0f3",
+                            color:
+                              activeTab === "tracking" ? "#fff" : "#1a2238",
+                          }}
+                        >
+                          {events.length}
+                        </span>
+                      )}
+                    </NavLink>
+                  </NavItem>
+                </Nav>
 
-              {/* Costs */}
-              <Card className="mb-2">
-                <CardHeader className="border-bottom py-1">
-                  <CardTitle tag="h5" className="mb-0">
-                    {t("Costs")}
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="pt-2">
-                  {(() => {
-                    const inr = (v) =>
-                      `₹${Number(v || 0).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}`;
-                    const rows = [
-                      [t("Freight"), ship.freight_charges_inr],
-                      [t("Insurance"), ship.insurance_charges_inr],
-                      [t("CHA"), ship.cha_charges_inr],
-                      [t("Forwarder"), ship.forwarder_charges_inr],
-                      [t("Other"), ship.other_charges_inr],
-                    ];
-                    return (
-                      <div className="small" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        {rows.map(([label, value]) => (
-                          <div
-                            key={label}
-                            className="d-flex justify-content-between py-25"
-                          >
-                            <span className="text-muted">{label}</span>
-                            <span>{inr(value)}</span>
-                          </div>
-                        ))}
-                        <div className="d-flex justify-content-between py-25 border-top pt-25 mt-1">
-                          <span className="fw-semibold">{t("Total")}</span>
-                          <span className="fw-bold" style={{ fontSize: "1.05rem" }}>
-                            {inr(ship.total_cost_inr)}
-                          </span>
+                <TabContent activeTab={activeTab}>
+                  <TabPane tabId="overview">
+                    {/* Attached Invoices */}
+                    <div className="mb-3">
+                      <h5 className="mb-1">{t("Attached Invoices")}</h5>
+                      {invoices.length === 0 ? (
+                        <div className="text-muted text-center py-2 small">
+                          {t("No invoices attached")}
                         </div>
-                      </div>
-                    );
-                  })()}
-                </CardBody>
-              </Card>
-
-              {/* Timeline */}
-              <Card className="mb-2">
-                <CardHeader className="border-bottom py-1">
-                  <CardTitle tag="h5" className="mb-0">
-                    {t("Timeline")}
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="pt-2">
-                  {events.length === 0 ? (
-                    <div className="text-muted text-center py-2 small">
-                      {t("No events yet")}
+                      ) : (
+                        <Table
+                          responsive
+                          bordered
+                          size="sm"
+                          className="align-middle mb-0"
+                        >
+                          <thead className="table-light">
+                            <tr>
+                              <th>{t("Invoice #")}</th>
+                              <th className="text-end">{t("Amount")}</th>
+                              <th>{t("Currency")}</th>
+                              <th />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {invoices.map((inv) => (
+                              <tr key={inv._id}>
+                                <td>
+                                  <a
+                                    href={`${appsRoot}/invoices/view/${inv.invoice_id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="fw-semibold"
+                                  >
+                                    {inv.invoice_voucher_no ||
+                                      inv.invoice_id?.slice(-8)}
+                                  </a>
+                                </td>
+                                <td className="text-end">
+                                  {Number(
+                                    inv.invoice_grand_total || 0
+                                  ).toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td>{inv.invoice_currency_code}</td>
+                                <td />
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      )}
                     </div>
-                  ) : (
-                    <ul className="list-unstyled mb-0">
-                      {events.map((e) => (
-                        <li key={e._id} className="d-flex mb-1 small">
+
+                    {/* Costs */}
+                    <div className="mb-3">
+                      <h5 className="mb-1">{t("Costs")}</h5>
+                      {(() => {
+                        const inr = (v) =>
+                          `₹${Number(v || 0).toLocaleString("en-IN", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}`;
+                        const rows = [
+                          [t("Freight"), ship.freight_charges_inr],
+                          [t("Insurance"), ship.insurance_charges_inr],
+                          [t("CHA"), ship.cha_charges_inr],
+                          [t("Forwarder"), ship.forwarder_charges_inr],
+                          [t("Other"), ship.other_charges_inr],
+                        ];
+                        return (
                           <div
-                            className="me-1"
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: e.is_system ? "#0d6efd" : "#6c757d",
-                              marginTop: 5,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <div className="flex-grow-1">
-                            <div className="fw-semibold text-capitalize">
-                              {(e.type || "").replace(/_/g, " ")}
-                              {e.is_system && (
-                                <span className="badge bg-light text-muted ms-1">
-                                  {t("system")}
-                                </span>
-                              )}
+                            className="small"
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {rows.map(([label, value]) => (
+                              <div
+                                key={label}
+                                className="d-flex justify-content-between py-25"
+                              >
+                                <span className="text-muted">{label}</span>
+                                <span>{inr(value)}</span>
+                              </div>
+                            ))}
+                            <div className="d-flex justify-content-between py-25 border-top pt-25 mt-1">
+                              <span className="fw-semibold">{t("Total")}</span>
+                              <span
+                                className="fw-bold"
+                                style={{ fontSize: "1.05rem" }}
+                              >
+                                {inr(ship.total_cost_inr)}
+                              </span>
                             </div>
-                            <div className="text-muted">
-                              {e.occurred_at ? formatDate(e.occurred_at) : ""}
-                              {e.location ? " · " + e.location : ""}
-                            </div>
-                            {e.notes && <div>{e.notes}</div>}
                           </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardBody>
-              </Card>
-            </Fragment>
+                        );
+                      })()}
+                    </div>
+                  </TabPane>
+
+                  <TabPane tabId="tracking">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h5 className="mb-0">{t("Event Timeline")}</h5>
+                      {canEdit &&
+                        statusLower !== "draft" &&
+                        statusLower !== "cancelled" && (
+                          <Button
+                            color="primary"
+                            size="sm"
+                            onClick={() => setAddEventOpen(true)}
+                          >
+                            <FileText size={14} className="me-25" />
+                            {t("Add Event")}
+                          </Button>
+                        )}
+                    </div>
+                    {events.length === 0 ? (
+                      <div className="text-muted text-center py-3 small">
+                        {t("No tracking events yet.")}
+                      </div>
+                    ) : (
+                      <ul className="timeline ms-50">
+                        {events.map((e) => {
+                          const isSystem = !!e.is_system;
+                          const retracted = !!e.soft_delete;
+                          const bodyStyle = retracted
+                            ? {
+                                textDecoration: "line-through",
+                                opacity: 0.6,
+                              }
+                            : undefined;
+                          const label =
+                            SHIPPING_EVENT_TYPE_LABEL[e.type] ||
+                            e.type_other ||
+                            (e.type || t("Event")).replace(/_/g, " ");
+                          return (
+                            <li key={e._id} className="timeline-item">
+                              <span
+                                className={`timeline-point timeline-point-indicator ${
+                                  retracted
+                                    ? "timeline-point-secondary"
+                                    : isSystem
+                                    ? "timeline-point-info"
+                                    : ""
+                                }`}
+                              />
+                              <div className="timeline-event">
+                                <div className="d-flex justify-content-between flex-wrap mb-50">
+                                  <h6
+                                    className="mb-0 text-capitalize"
+                                    style={bodyStyle}
+                                  >
+                                    {label}
+                                    {isSystem && !retracted && (
+                                      <Badge
+                                        color="light-info"
+                                        className="ms-50"
+                                      >
+                                        {t("System")}
+                                      </Badge>
+                                    )}
+                                    {retracted && (
+                                      <Badge
+                                        color="light-secondary"
+                                        className="ms-50"
+                                      >
+                                        {t("Retracted")}
+                                      </Badge>
+                                    )}
+                                  </h6>
+                                  <div className="d-flex align-items-center">
+                                    <span
+                                      className="text-muted small"
+                                      style={bodyStyle}
+                                    >
+                                      {e.occurred_at
+                                        ? formatDateTime(e.occurred_at)
+                                        : "-"}
+                                    </span>
+                                    {!retracted &&
+                                      !isSystem &&
+                                      canEdit && (
+                                        <XCircle
+                                          size={14}
+                                          className="cursor-pointer text-danger ms-1"
+                                          onClick={() =>
+                                            handleRetractEvent(e)
+                                          }
+                                        />
+                                      )}
+                                  </div>
+                                </div>
+                                {e.location && (
+                                  <p
+                                    className="mb-25 small"
+                                    style={bodyStyle}
+                                  >
+                                    <strong>{t("Location:")}</strong>{" "}
+                                    {e.location}
+                                  </p>
+                                )}
+                                {e.notes && (
+                                  <p
+                                    className="mb-25 small"
+                                    style={{
+                                      whiteSpace: "pre-line",
+                                      ...(bodyStyle || {}),
+                                    }}
+                                  >
+                                    {e.notes}
+                                  </p>
+                                )}
+                                <div
+                                  className="d-flex align-items-center flex-wrap mt-50"
+                                  style={bodyStyle}
+                                >
+                                  {e.created_by_name && (
+                                    <span className="text-muted small">
+                                      {t("— Logged by")} {e.created_by_name}
+                                    </span>
+                                  )}
+                                  {e.attachment_url && (
+                                    <a
+                                      href={resolveAttachmentHref(
+                                        e.attachment_url
+                                      )}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="ms-1 small d-inline-flex align-items-center"
+                                    >
+                                      <Paperclip
+                                        size={14}
+                                        className="me-25"
+                                      />
+                                      {t("Attachment")}
+                                    </a>
+                                  )}
+                                </div>
+                                {retracted && (
+                                  <div className="mt-50 small text-warning">
+                                    <strong>{t("Retracted by")}</strong>{" "}
+                                    {e.deleted_by_name || t("user")}
+                                    {e.deleted_at
+                                      ? ` · ${formatDateTime(e.deleted_at)}`
+                                      : ""}
+                                    {e.deleted_reason && (
+                                      <div className="text-muted">
+                                        <strong>{t("Reason:")}</strong>{" "}
+                                        {e.deleted_reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </TabPane>
+                </TabContent>
+              </CardBody>
+            </Card>
           }
           right={
             <Fragment>
@@ -570,6 +828,56 @@ const ViewShipping = () => {
           }
         />
       </div>
+
+      <Modal
+        isOpen={transitionModalOpen}
+        toggle={closeTransitionModal}
+        centered
+        backdrop="static"
+      >
+        <ModalHeader toggle={closeTransitionModal}>
+          {next ? t(next.label) : ""}
+        </ModalHeader>
+        <ModalBody>
+          <FormGroup>
+            <Label className="form-label">
+              {next ? t(next.dateLabel) : t("Date")}
+              <span className="text-danger"> *</span>
+            </Label>
+            <DateInput
+              value={transitionDate}
+              onChange={(_dates, _disp, iso) => {
+                setTransitionDate(iso || "");
+                if (iso) setTransitionError("");
+              }}
+              invalid={!!transitionError}
+            />
+            {transitionError && (
+              <div className="text-danger small mt-25">{transitionError}</div>
+            )}
+          </FormGroup>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            color="outline-secondary"
+            onClick={closeTransitionModal}
+            disabled={busy}
+          >
+            {t("Cancel")}
+          </Button>
+          <Button color="primary" onClick={submitTransition} disabled={busy}>
+            {busy && <Spinner size="sm" className="me-50" />}
+            {t("Confirm")}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      <AddShippingEventModal
+        open={addEventOpen}
+        toggle={() => setAddEventOpen((v) => !v)}
+        shippingId={id}
+        onCreated={() => dispatch(getShipping(id))}
+      />
     </Fragment>
   );
 };
