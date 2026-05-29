@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 
 import { updatePoVendor, getPoVendor } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 import Notification from "@components/toast/notification";
 
 const num = (v) =>
@@ -28,10 +29,7 @@ const fmt = (n) =>
     maximumFractionDigits: 2,
   });
 
-const TYPE_OPTIONS = [
-  { value: "percent", label: "% (Percent)" },
-  { value: "fixed", label: "₹ (Fixed)" },
-];
+const TYPE_OPTIONS = REBATE_EXPENSE_TYPE_OPTIONS;
 
 const ExpensesTab = () => {
   const { t } = useTranslation();

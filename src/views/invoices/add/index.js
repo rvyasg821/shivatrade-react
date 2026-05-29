@@ -22,7 +22,9 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  UncontrolledTooltip,
 } from "reactstrap";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -36,12 +38,17 @@ import {
   FileText,
   Layers,
   Percent,
+  Upload,
+  Download,
+  Edit2,
 } from "react-feather";
 
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
 import "@src/views/_shared/wizard/wizard.scss";
 import Select from "react-select";
+
+import InvoiceLineImportModal from "./components/InvoiceLineImportModal";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -75,6 +82,12 @@ import { getExpenseDropdown } from "@src/views/expenses/store";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const num = (v) => Number(v || 0);
+// Banker-safe rounding to 2 dp. JS floating point can leave a
+// 0.1 + 0.2 = 0.30000000000000004 trail; we snap intermediate
+// rebate / expense / line totals to 2 dp so downstream math stays
+// exact instead of accumulating noise.
+const round2 = (n) =>
+  Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
 
 // Mirror BE `sumRebates` / `sumExpenses` — PFI/PO convention:
 //   Rebate row : { rebate_id, code, name, type: 'percent'|'fixed', pct }
@@ -86,18 +99,24 @@ const sumRebates = (items, base) => {
   let total = 0;
   for (const r of items) {
     if (!r) continue;
-    total += r.type === "fixed" ? num(r.pct) : (base * num(r.pct)) / 100;
+    const add =
+      r.type === "fixed" ? num(r.pct) : (base * num(r.pct)) / 100;
+    // Round each entry before summing so a row of 33.333… 's doesn't
+    // build into noise across many lines.
+    total += round2(add);
   }
-  return total;
+  return round2(total);
 };
 const sumExpenses = (items, base) => {
   if (!Array.isArray(items) || items.length === 0) return 0;
   let total = 0;
   for (const e of items) {
     if (!e) continue;
-    total += e.type === "percent" ? (base * num(e.value)) / 100 : num(e.value);
+    const add =
+      e.type === "percent" ? (base * num(e.value)) / 100 : num(e.value);
+    total += round2(add);
   }
-  return total;
+  return round2(total);
 };
 const fmt = (v, dp = 2) =>
   num(v).toLocaleString(undefined, {
@@ -260,6 +279,9 @@ const InvoiceAddEdit = () => {
     company_address_id: "",
   });
   const [lines, setLines] = useState([]);
+  // Pagination for the Line Items table on Step 3.
+  const [linesPageSize, setLinesPageSize] = useState(10);
+  const [linesPage, setLinesPage] = useState(0);
   const [bankSnapshots, setBankSnapshots] = useState([]);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
@@ -520,10 +542,10 @@ const InvoiceAddEdit = () => {
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
-          // Default description to product_name so the line carries a
-          // sensible value the operator can refine. Mirrors the PDF
-          // fallback: when description is blank, the PDF shows product_name.
-          description: l.description || l.product_name || "",
+          // Description is seeded directly from product_name only —
+          // operators can edit it later. We do NOT inherit the SO line's
+          // long description blurb.
+          description: l.product_name || "",
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
           unit: l.unit || "Nos",
@@ -736,29 +758,47 @@ const InvoiceAddEdit = () => {
 
   // ── Computed totals ─────────────────────────────────────────────────
 
+  // Line items live in INR (unit_price, rebates, expenses are all
+  // captured in home currency). Charges & Totals fields, on the other
+  // hand, are entered in the document currency. The Subtotal converts
+  // the INR roll-up into the doc currency so the rest of the math
+  // (FOB / Grand / Balance) stays in a single currency.
+  //   exchange_rate stored as "1 INR = X doc_units"  →  doc = INR × rate.
+  // Subtotal exposed in BOTH currencies so the UI can show ₹X · $Y.
   const totals = useMemo(() => {
-    let subtotal = 0;
+    let subtotalInr = 0;
     for (const l of lines) {
-      const qty = num(l.qty);
-      const price = num(l.unit_price);
-      const discount = num(l.discount_pct);
-      const base = qty * price;
-      // Match BE recompute math: (base + Σ expenses − Σ rebates) × (1 − disc%)
-      const expensesTotal = sumExpenses(l.product_expenses_snapshot, base);
-      const rebatesTotal = sumRebates(l.product_rebates_snapshot, base);
-      const adjusted = base + expensesTotal - rebatesTotal;
-      subtotal += adjusted * (1 - discount / 100);
+      // Sequential — match the per-line cell math.
+      //   base → − discount → − rebate → + expense
+      const base = round2(num(l.qty) * num(l.unit_price));
+      const discounted = round2(
+        base * (1 - num(l.discount_pct) / 100),
+      );
+      const rebatesTotal = sumRebates(
+        l.product_rebates_snapshot,
+        discounted,
+      );
+      const afterRebate = round2(discounted - rebatesTotal);
+      const expensesTotal = sumExpenses(
+        l.product_expenses_snapshot,
+        afterRebate,
+      );
+      subtotalInr = round2(subtotalInr + afterRebate + expensesTotal);
     }
-    const fob = subtotal - num(form.discount_total);
-    const grand =
+    const rate = num(form.exchange_rate) || 1;
+    const subtotal = round2(subtotalInr * rate); // in doc currency
+    const fob = round2(subtotal - num(form.discount_total));
+    const grand = round2(
       fob +
-      num(form.freight_charges) +
-      num(form.insurance_charges) +
-      num(form.other_charges);
-    const balance = grand - num(form.advance_received);
-    return { subtotal, fob, grand, balance };
+        num(form.freight_charges) +
+        num(form.insurance_charges) +
+        num(form.other_charges),
+    );
+    const balance = round2(grand - num(form.advance_received));
+    return { subtotalInr, subtotal, fob, grand, balance };
   }, [
     lines,
+    form.exchange_rate,
     form.discount_total,
     form.freight_charges,
     form.insurance_charges,
@@ -786,6 +826,11 @@ const InvoiceAddEdit = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [addableLines, setAddableLines] = useState([]);
   const [addPicks, setAddPicks] = useState({});
+  const [addPageSize, setAddPageSize] = useState(10);
+  const [addPage, setAddPage] = useState(0);
+  // Import / Export of Step 3 line items.
+  const [linesImportOpen, setLinesImportOpen] = useState(false);
+  const [linesExporting, setLinesExporting] = useState(false);
 
   const openAddFromPo = useCallback(async () => {
     if (!form.purchase_order_id) return;
@@ -796,7 +841,17 @@ const InvoiceAddEdit = () => {
         `${API_ENDPOINTS.invoices.poAddable}/${form.purchase_order_id}`,
         { params: editId ? { exclude_invoice_id: editId } : {} }
       );
-      const rows = resp?.data?.data || [];
+      // Hide products that are already on the draft — the line items
+      // table is the source of truth for "already added", and dedupe is
+      // by product code (matches the import flow).
+      const usedCodes = new Set(
+        (lines || [])
+          .map((l) => (l.product_code || "").toLowerCase())
+          .filter(Boolean),
+      );
+      const rows = (resp?.data?.data || []).filter(
+        (r) => !usedCodes.has((r.product_code || "").toLowerCase()),
+      );
       setAddableLines(rows);
       const picks = {};
       rows.forEach((r) => {
@@ -815,7 +870,7 @@ const InvoiceAddEdit = () => {
     } finally {
       setAddLoading(false);
     }
-  }, [form.purchase_order_id, editId, t]);
+  }, [form.purchase_order_id, editId, t, lines]);
 
   const togglePick = (poLineId) => {
     setAddPicks((p) => ({
@@ -838,11 +893,16 @@ const InvoiceAddEdit = () => {
       if (!pick?.selected) continue;
       const qty = Number(pick.qty || 0);
       if (qty <= 0) continue;
-      // Merge into existing line if the same PO line is already on the
-      // draft — keeps Rule A math clean and avoids duplicate rows.
-      const existingIdx = lines.findIndex(
-        (l) => l.purchase_order_line_id === row.purchase_order_line_id
-      );
+      // Merge into the existing draft line for the same product so the
+      // product column never duplicates — qty is summed in place.
+      const codeKey = (row.product_code || "").toLowerCase();
+      const existingIdx = codeKey
+        ? lines.findIndex(
+            (l) => (l.product_code || "").toLowerCase() === codeKey,
+          )
+        : lines.findIndex(
+            (l) => l.purchase_order_line_id === row.purchase_order_line_id,
+          );
       if (existingIdx >= 0) {
         const cur = Number(lines[existingIdx].qty || 0);
         setLines((prev) =>
@@ -860,7 +920,7 @@ const InvoiceAddEdit = () => {
         product_id: row.product_id,
         product_name: row.product_name || "",
         product_code: row.product_code || "",
-        description: row.description || row.product_name || "",
+        description: row.product_name || "",
         hsn_code: row.hsn_code || "",
         customer_reference: row.customer_reference || "",
         unit: row.unit || "Nos",
@@ -885,6 +945,118 @@ const InvoiceAddEdit = () => {
     setAddableLines([]);
     setAddPicks({});
   };
+
+  // ── Step 3 line items: Export ──────────────────────────────────────
+  // The export IS the template — no separate "download sample". BE
+  // ships the current draft (or, on a fresh invoice with no lines yet,
+  // a seeded sheet of addable SO rows) plus a hidden _SO_LINES sheet
+  // so a user can hand-add a row by copying a purchase_order_line_id.
+  const handleLinesExport = async () => {
+    if (!form.purchase_order_id) {
+      Notification(
+        "Info",
+        t("Bind a Sales Order to this invoice first."),
+        "info",
+      );
+      return;
+    }
+    setLinesExporting(true);
+    try {
+      const resp = await instance.get(API_ENDPOINTS.invoices.linesExport, {
+        params: {
+          purchase_order_id: form.purchase_order_id,
+          invoice_id: editId || undefined,
+        },
+        responseType: "blob",
+      });
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename =
+        m?.[1] || `invoice-lines-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message ||
+          t("Couldn't generate the line items file. Please try again."),
+        "warning",
+      );
+    } finally {
+      setLinesExporting(false);
+    }
+  };
+
+  // ── Step 3 line items: Import merge ────────────────────────────────
+  // Resolved rows arrive from the BE already validated against the
+  // bound SO + POV dispatched gate. Rows whose product_code already
+  // exists on the draft are patched in place; the rest are appended.
+  const applyResolvedLines = (rows) => {
+    let updated = 0;
+    let added = 0;
+    setLines((prev) => {
+      const next = [...prev];
+      const idxByProductCode = new Map();
+      next.forEach((l, i) => {
+        const code = (l.product_code || "").toLowerCase();
+        if (code) idxByProductCode.set(code, i);
+      });
+      for (const r of rows) {
+        const data = r.data || {};
+        const patch = {
+          purchase_order_line_id: data.purchase_order_line_id,
+          product_id: data.product_id,
+          product_code: data.product_code,
+          product_name: data.product_name,
+          hsn_code: data.hsn_code ?? "",
+          description: data.description ?? "",
+          customer_reference: data.customer_reference ?? "",
+          qty: String(data.qty ?? "0"),
+          unit: data.unit || "",
+          uqc_code: data.uqc_code || "",
+          unit_price: String(data.unit_price ?? "0"),
+          discount_pct: String(data.discount_pct ?? "0"),
+          igst_rate_pct: String(data.igst_rate_pct ?? "0"),
+          product_rebates_snapshot: Array.isArray(data.product_rebates_snapshot)
+            ? data.product_rebates_snapshot
+            : [],
+          product_expenses_snapshot: Array.isArray(
+            data.product_expenses_snapshot,
+          )
+            ? data.product_expenses_snapshot
+            : [],
+        };
+        const codeKey = (data.product_code || "").toLowerCase();
+        const targetIdx = codeKey ? idxByProductCode.get(codeKey) : undefined;
+        if (targetIdx !== undefined) {
+          next[targetIdx] = { ...next[targetIdx], ...patch };
+          updated++;
+        } else {
+          next.push({
+            _id: undefined,
+            seq: next.length,
+            tax_pct: "0",
+            ...patch,
+          });
+          if (codeKey) idxByProductCode.set(codeKey, next.length - 1);
+          added++;
+        }
+      }
+      return next;
+    });
+    Notification(
+      "Success",
+      t("Imported {{added}} new, updated {{updated}}.", { added, updated }),
+      "success",
+    );
+  };
+
 
   // ── Validation + submit ─────────────────────────────────────────────
 
@@ -1698,18 +1870,43 @@ const InvoiceAddEdit = () => {
       <div className="mb-3">
         <div className="d-flex justify-content-between align-items-center mt-2 mb-2">
           <h5 className="mb-0">{t("Line Items")}</h5>
-          {isEdit && form.purchase_order_id && (
-            <Button
-              size="sm"
-              color="primary"
-              outline
-              onClick={openAddFromPo}
-              type="button"
-            >
-              <Plus size={14} className="me-1" />
-              {t("Add lines from PO")}
-            </Button>
-          )}
+          <div className="d-flex flex-wrap gap-1">
+            {form.purchase_order_id && (
+              <Fragment>
+                <Button
+                  size="sm"
+                  color="outline-secondary"
+                  className="text-nowrap"
+                  onClick={handleLinesExport}
+                  disabled={linesExporting}
+                  type="button"
+                >
+                  {t("Export")} <Download size={14} />
+                </Button>
+                <Button
+                  size="sm"
+                  color="outline-secondary"
+                  className="text-nowrap"
+                  onClick={() => setLinesImportOpen(true)}
+                  type="button"
+                >
+                  {t("Import")} <Upload size={14} />
+                </Button>
+              </Fragment>
+            )}
+            {isEdit && form.purchase_order_id && (
+              <Button
+                size="sm"
+                color="primary"
+                outline
+                onClick={openAddFromPo}
+                type="button"
+              >
+                <Plus size={14} className="me-1" />
+                {t("Add lines from SO")}
+              </Button>
+            )}
+          </div>
         </div>
         <div>
           {lines.length === 0 ? (
@@ -1724,11 +1921,13 @@ const InvoiceAddEdit = () => {
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th style={{ width: 110 }}>{t("HSN")} <span className="text-danger">*</span></th>
-                  <th>{t("Product / Description")}</th>
+                  <th style={{ minWidth: 180, maxWidth: 260 }}>
+                    {t("Product / Description")}
+                  </th>
                   <th style={{ width: 90 }} className="text-end">
                     {t("Qty")}
                   </th>
-                  <th style={{ width: 70 }}>{t("UQC")}</th>
+                  <th style={{ width: 100 }}>{t("UQC")}</th>
                   <th style={{ width: 110 }} className="text-end">
                     {t("Unit Price")}
                   </th>
@@ -1738,22 +1937,43 @@ const InvoiceAddEdit = () => {
                   <th style={{ width: 110 }} className="text-end">
                     {t("Line Total")}
                   </th>
-                  <th style={{ width: 30 }}></th>
+                  <th style={{ width: 90 }} className="text-center">
+                    {t("Action")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l, i) => {
-                  const base = num(l.qty) * num(l.unit_price);
-                  const expensesTotal = sumExpenses(
-                    l.product_expenses_snapshot,
-                    base,
+                {(() => {
+                  const totalRows = lines.length;
+                  const pageCount = Math.max(
+                    1,
+                    Math.ceil(totalRows / linesPageSize),
+                  );
+                  const safePage = Math.min(linesPage, pageCount - 1);
+                  const start = safePage * linesPageSize;
+                  const pageLines = lines.slice(start, start + linesPageSize);
+                  return pageLines.map((l, pi) => {
+                    const i = start + pi;
+                  // Sequential per BE spec: each step applies to the
+                  // running balance, not the gross base.
+                  //   base → − discount  → − rebates → + expenses
+                  // % rebates use the discounted amount, then %
+                  // expenses use (discounted − rebate) so they're
+                  // computed on the running total, not the gross.
+                  const base = round2(num(l.qty) * num(l.unit_price));
+                  const discounted = round2(
+                    base * (1 - num(l.discount_pct) / 100),
                   );
                   const rebatesTotal = sumRebates(
                     l.product_rebates_snapshot,
-                    base,
+                    discounted,
                   );
-                  const adjusted = base + expensesTotal - rebatesTotal;
-                  const lineTotal = adjusted * (1 - num(l.discount_pct) / 100);
+                  const afterRebate = round2(discounted - rebatesTotal);
+                  const expensesTotal = sumExpenses(
+                    l.product_expenses_snapshot,
+                    afterRebate,
+                  );
+                  const lineTotal = round2(afterRebate + expensesTotal);
                   const rebateCount = (l.product_rebates_snapshot || []).length;
                   const expenseCount = (l.product_expenses_snapshot || []).length;
                   return (
@@ -1809,10 +2029,18 @@ const InvoiceAddEdit = () => {
                       <td>
                         <Input
                           type="number"
-                          step="any"
+                          step="0.01"
                           className="text-end"
                           value={l.qty}
                           onChange={(e) => updateLine(i, { qty: e.target.value })}
+                          onBlur={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || v === null) return;
+                            const n = Number(v);
+                            if (Number.isFinite(n)) {
+                              updateLine(i, { qty: n.toFixed(2) });
+                            }
+                          }}
                           invalid={!!errors[`line_${i}_qty`]}
                         />
                       </td>
@@ -1828,12 +2056,20 @@ const InvoiceAddEdit = () => {
                       <td>
                         <Input
                           type="number"
-                          step="any"
-                                    className="text-end"
+                          step="0.01"
+                          className="text-end"
                           value={l.unit_price}
                           onChange={(e) =>
                             updateLine(i, { unit_price: e.target.value })
                           }
+                          onBlur={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || v === null) return;
+                            const n = Number(v);
+                            if (Number.isFinite(n)) {
+                              updateLine(i, { unit_price: n.toFixed(2) });
+                            }
+                          }}
                         />
                       </td>
                       <td>
@@ -1848,48 +2084,91 @@ const InvoiceAddEdit = () => {
                         />
                       </td>
                       <td className="text-end fw-semibold">
-                        {sym}
-                        {fmt(lineTotal)}
+                        ₹{fmt(lineTotal)}
                         {(rebateCount > 0 || expenseCount > 0) && (
-                          <div className="small text-muted">
+                          <div
+                            className="d-flex flex-wrap justify-content-end gap-1 mt-25"
+                            style={{ fontSize: "0.85rem" }}
+                          >
                             {expenseCount > 0 && (
-                              <span title={t("Expenses")}>
-                                +exp {fmt(expensesTotal)}
+                              <span
+                                className="badge badge-light-warning"
+                                title={(l.product_expenses_snapshot || [])
+                                  .map(
+                                    (e) =>
+                                      `${e.name || e.code}: ${
+                                        e.type === "percent"
+                                          ? `${num(e.value)}%`
+                                          : `${sym}${fmt(num(e.value))}`
+                                      }`,
+                                  )
+                                  .join(" · ")}
+                              >
+                                {t("Expenses")} +₹{fmt(expensesTotal)}
                               </span>
                             )}
                             {rebateCount > 0 && (
                               <span
-                                title={t("Rebates")}
-                                className={expenseCount > 0 ? "ms-1" : ""}
+                                className="badge badge-light-success"
+                                title={(l.product_rebates_snapshot || [])
+                                  .map(
+                                    (r) =>
+                                      `${r.name || r.code}: ${
+                                        r.type === "fixed"
+                                          ? `${sym}${fmt(num(r.pct))}`
+                                          : `${num(r.pct)}%`
+                                      }`,
+                                  )
+                                  .join(" · ")}
                               >
-                                −reb {fmt(rebatesTotal)}
+                                {t("Rebates")} −₹{fmt(rebatesTotal)}
                               </span>
                             )}
                           </div>
                         )}
                       </td>
-                      <td className="text-center">
-                        <Button
-                          size="sm"
-                          color="link"
-                          className="p-0 me-1"
-                          title={t("Edit rebates / expenses")}
-                          onClick={() => setCostingModal({ open: true, idx: i })}
-                        >
-                          <Tag size={14} className="text-primary" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="link"
-                          className="p-0"
-                          onClick={() => removeLine(i)}
-                        >
-                          <Trash2 size={14} className="text-danger" />
-                        </Button>
+                      <td className="text-center align-middle">
+                        <div className="d-inline-flex align-items-center gap-1">
+                          <Button
+                            id={`inv-line-edit-${i}`}
+                            size="sm"
+                            color="primary"
+                            outline
+                            className="p-0 d-inline-flex align-items-center justify-content-center"
+                            style={{ width: 28, height: 28 }}
+                            onClick={() => setCostingModal({ open: true, idx: i })}
+                          >
+                            <Edit2 size={14} />
+                          </Button>
+                          <UncontrolledTooltip
+                            target={`inv-line-edit-${i}`}
+                            placement="top"
+                          >
+                            {t("Edit rebates / expenses")}
+                          </UncontrolledTooltip>
+                          <Button
+                            id={`inv-line-del-${i}`}
+                            size="sm"
+                            color="danger"
+                            outline
+                            className="p-0 d-inline-flex align-items-center justify-content-center"
+                            style={{ width: 28, height: 28 }}
+                            onClick={() => removeLine(i)}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                          <UncontrolledTooltip
+                            target={`inv-line-del-${i}`}
+                            placement="top"
+                          >
+                            {t("Delete line")}
+                          </UncontrolledTooltip>
+                        </div>
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
               <tfoot className="table-light">
                 <tr>
@@ -1897,13 +2176,86 @@ const InvoiceAddEdit = () => {
                     {t("Subtotal")}
                   </td>
                   <td className="text-end fw-bold">
-                    {sym}{fmt(totals.subtotal)}
+                    {sym && sym !== "₹" ? (
+                      <span
+                        className="d-inline-flex align-items-center gap-1"
+                        style={{ flexWrap: "wrap", justifyContent: "flex-end" }}
+                      >
+                        <span style={{ color: "#1a2238" }}>
+                          ₹{fmt(totals.subtotalInr)}
+                        </span>
+                        <span className="text-muted fw-normal">
+                          × {fmt(num(form.exchange_rate) || 1, 4)} =
+                        </span>
+                        <span
+                          style={{
+                            color: "#1a2238",
+                            background: "#eef0f3",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                          }}
+                        >
+                          {sym}
+                          {fmt(totals.subtotal)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span style={{ color: "#1a2238" }}>
+                        ₹{fmt(totals.subtotalInr)}
+                      </span>
+                    )}
                   </td>
                   <td />
                 </tr>
               </tfoot>
             </Table>
           )}
+          {lines.length > 0 && (() => {
+            const totalRows = lines.length;
+            const pageCount = Math.max(1, Math.ceil(totalRows / linesPageSize));
+            const safePage = Math.min(linesPage, pageCount - 1);
+            return (
+              <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+                <div className="d-flex align-items-center small text-muted">
+                  <span className="me-50">{t("Show")}</span>
+                  <Input
+                    type="select"
+                    bsSize="sm"
+                    value={linesPageSize}
+                    onChange={(e) => {
+                      setLinesPageSize(Number(e.target.value) || 10);
+                      setLinesPage(0);
+                    }}
+                    style={{ width: 80 }}
+                  >
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Input>
+                  <span className="ms-50">
+                    {t("of")} {totalRows} {t("rows")}
+                  </span>
+                </div>
+                <ReactPaginate
+                  previousLabel=""
+                  nextLabel=""
+                  pageCount={pageCount}
+                  activeClassName="active"
+                  forcePage={safePage}
+                  onPageChange={({ selected }) => setLinesPage(selected)}
+                  pageClassName="page-item"
+                  nextLinkClassName="page-link"
+                  nextClassName="page-item next"
+                  previousClassName="page-item prev"
+                  previousLinkClassName="page-link"
+                  pageLinkClassName="page-link"
+                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                />
+              </div>
+            );
+          })()}
           {errors.lines && (
             <div className="text-danger small mt-1">{errors.lines}</div>
           )}
@@ -1912,13 +2264,21 @@ const InvoiceAddEdit = () => {
 
       {/* ── Money + Totals ─────────────────────────────────────────── */}
       <div className="mb-3">
-        <h5 className="mt-2 mb-2">
+        <h5 className="mt-2 mb-1">
             {t("Charges & Totals")}
           </h5>
+        <div className="small text-muted mb-2">
+          {t(
+            "Amounts below are in the invoice currency ({{sym}} {{code}}). Line items are in ₹; the Subtotal converts at the exchange rate above.",
+            { sym, code: form.currency_code || "-" },
+          )}
+        </div>
         <div>
           <Row>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Discount Total")}</Label>
+              <Label className="form-label">
+                {t("Discount Total")} ({sym || "-"})
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -1927,7 +2287,9 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Freight")}</Label>
+              <Label className="form-label">
+                {t("Freight")} ({sym || "-"})
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -1936,7 +2298,9 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Insurance")}</Label>
+              <Label className="form-label">
+                {t("Insurance")} ({sym || "-"})
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -1945,7 +2309,9 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Other Charges")}</Label>
+              <Label className="form-label">
+                {t("Other Charges")} ({sym || "-"})
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -1954,7 +2320,9 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Advance Received")}</Label>
+              <Label className="form-label">
+                {t("Advance Received")} ({sym || "-"})
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -2175,7 +2543,7 @@ const InvoiceAddEdit = () => {
         centered
       >
         <ModalHeader toggle={() => setAddModalOpen(false)}>
-          {t("Add lines from PO")}
+          {t("Add lines from SO")}
         </ModalHeader>
         <ModalBody>
           {addLoading ? (
@@ -2198,7 +2566,31 @@ const InvoiceAddEdit = () => {
               <Table bordered size="sm" className="align-middle mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ width: 36 }}></th>
+                    <th style={{ width: 36 }} className="text-center">
+                      <Input
+                        type="checkbox"
+                        title={t("Select all")}
+                        checked={
+                          addableLines.length > 0 &&
+                          addableLines.every(
+                            (r) => addPicks[r.purchase_order_line_id]?.selected,
+                          )
+                        }
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          setAddPicks((p) => {
+                            const next = { ...p };
+                            addableLines.forEach((r) => {
+                              next[r.purchase_order_line_id] = {
+                                ...next[r.purchase_order_line_id],
+                                selected: v,
+                              };
+                            });
+                            return next;
+                          });
+                        }}
+                      />
+                    </th>
                     <th>{t("Product")}</th>
                     <th className="text-end" style={{ width: 90 }}>
                       {t("Dispatched")}
@@ -2210,7 +2602,17 @@ const InvoiceAddEdit = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {addableLines.map((r) => {
+                  {(() => {
+                    const totalRows = addableLines.length;
+                    const pageCount = Math.max(
+                      1,
+                      Math.ceil(totalRows / addPageSize),
+                    );
+                    const safePage = Math.min(addPage, pageCount - 1);
+                    const start = safePage * addPageSize;
+                    return addableLines
+                      .slice(start, start + addPageSize)
+                      .map((r) => {
                     const pick = addPicks[r.purchase_order_line_id] || {};
                     return (
                       <tr key={r.purchase_order_line_id}>
@@ -2263,9 +2665,59 @@ const InvoiceAddEdit = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                      });
+                  })()}
                 </tbody>
               </Table>
+              {addableLines.length > 0 && (() => {
+                const totalRows = addableLines.length;
+                const pageCount = Math.max(
+                  1,
+                  Math.ceil(totalRows / addPageSize),
+                );
+                const safePage = Math.min(addPage, pageCount - 1);
+                return (
+                  <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+                    <div className="d-flex align-items-center small text-muted">
+                      <span className="me-50">{t("Show")}</span>
+                      <Input
+                        type="select"
+                        bsSize="sm"
+                        value={addPageSize}
+                        onChange={(e) => {
+                          setAddPageSize(Number(e.target.value) || 10);
+                          setAddPage(0);
+                        }}
+                        style={{ width: 80 }}
+                      >
+                        {[10, 25, 50, 100].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </Input>
+                      <span className="ms-50">
+                        {t("of")} {totalRows} {t("rows")}
+                      </span>
+                    </div>
+                    <ReactPaginate
+                      previousLabel=""
+                      nextLabel=""
+                      pageCount={pageCount}
+                      activeClassName="active"
+                      forcePage={safePage}
+                      onPageChange={({ selected }) => setAddPage(selected)}
+                      pageClassName="page-item"
+                      nextLinkClassName="page-link"
+                      nextClassName="page-item next"
+                      previousClassName="page-item prev"
+                      previousLinkClassName="page-link"
+                      pageLinkClassName="page-link"
+                      containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                    />
+                  </div>
+                );
+              })()}
             </Fragment>
           )}
         </ModalBody>
@@ -2301,6 +2753,14 @@ const InvoiceAddEdit = () => {
           expenseOptions={expenseOptions}
         />
       )}
+
+      <InvoiceLineImportModal
+        isOpen={linesImportOpen}
+        toggle={() => setLinesImportOpen((o) => !o)}
+        purchaseOrderId={form.purchase_order_id}
+        invoiceId={editId}
+        onConfirm={applyResolvedLines}
+      />
     </Fragment>
   );
 };
