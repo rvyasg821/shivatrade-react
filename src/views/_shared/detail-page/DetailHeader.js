@@ -63,6 +63,9 @@ const DetailHeader = ({
   badge,
   actions = [],
   moreActions = [],
+  // Optional node rendered right under the action buttons, right-aligned
+  // (e.g. a currency-view toggle on the Quotation detail page).
+  actionsFooter,
   belowSlot,
   sticky = true,
   className = "",
@@ -140,33 +143,36 @@ const DetailHeader = ({
             ) : null}
           </div>
 
-          <div className="d-flex align-items-center gap-1 flex-wrap">
-            {actions.map(renderAction)}
-            {visibleMore.length > 0 && (
-              <UncontrolledDropdown>
-                <DropdownToggle color="secondary" outline size="sm" caret={false}>
-                  <MoreVertical size={14} />
-                </DropdownToggle>
-                <DropdownMenu end>
-                  {visibleMore.map((a, idx) => (
-                    <DropdownItem
-                      key={`dp-hdr-more-${idx}`}
-                      tag="a"
-                      href={a.href || "#"}
-                      onClick={(e) => {
-                        if (!a.href) e.preventDefault();
-                        if (a.onClick) a.onClick(e);
-                      }}
-                      disabled={a.disabled}
-                      className="d-flex align-items-center w-100"
-                    >
-                      {a.icon ? <a.icon size={14} className="me-50" /> : null}
-                      <span>{a.label}</span>
-                    </DropdownItem>
-                  ))}
-                </DropdownMenu>
-              </UncontrolledDropdown>
-            )}
+          <div className="d-flex flex-column align-items-end gap-1">
+            <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+              {actions.map(renderAction)}
+              {visibleMore.length > 0 && (
+                <UncontrolledDropdown>
+                  <DropdownToggle color="secondary" outline size="sm" caret={false}>
+                    <MoreVertical size={14} />
+                  </DropdownToggle>
+                  <DropdownMenu end>
+                    {visibleMore.map((a, idx) => (
+                      <DropdownItem
+                        key={`dp-hdr-more-${idx}`}
+                        tag="a"
+                        href={a.href || "#"}
+                        onClick={(e) => {
+                          if (!a.href) e.preventDefault();
+                          if (a.onClick) a.onClick(e);
+                        }}
+                        disabled={a.disabled}
+                        className="d-flex align-items-center w-100"
+                      >
+                        {a.icon ? <a.icon size={14} className="me-50" /> : null}
+                        <span>{a.label}</span>
+                      </DropdownItem>
+                    ))}
+                  </DropdownMenu>
+                </UncontrolledDropdown>
+              )}
+            </div>
+            {actionsFooter ? <div>{actionsFooter}</div> : null}
           </div>
         </div>
 

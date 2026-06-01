@@ -10,7 +10,8 @@ import { useTranslation } from "react-i18next";
 import { getPfiList, cleanPfiMessage } from "@src/views/pfi/store";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
-import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import { fmt, num } from "@src/views/_shared/sales-doc/_helpers";
+import { useQuotationCurrency } from "./CurrencyToggleContext";
 
 import { DetailPanel, DetailEmptyState } from "@src/views/_shared/detail-page";
 
@@ -30,6 +31,10 @@ const PfisPanel = ({ bare = false }) => {
 
   const pfiStore = useSelector((s) => s.pfi);
   const [loaded, setLoaded] = useState(false);
+
+  // Currency-view toggle from the detail page: OFF → totals shown in the
+  // base currency (INR); ON → each PFI's own currency.
+  const { showDoc, baseCurrency } = useQuotationCurrency();
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
   const isAdmin = isAdminUser(authUserItem);
@@ -102,17 +107,25 @@ const PfisPanel = ({ bare = false }) => {
               {rows.map((row, idx) => {
                 const sym = row?.currency_symbol || row?.currency_code || "";
                 const statusKey = (row?.status || "").toLowerCase();
+                // grand_total is stored in the PFI's own currency
+                // (INR × exchange_rate). Re-derive INR for the base view.
+                const hasTotal =
+                  row?.grand_total !== null &&
+                  row?.grand_total !== undefined;
+                const rowRate = num(row?.exchange_rate) || 1;
+                const totalCell = !hasTotal
+                  ? "-"
+                  : showDoc
+                  ? `${sym}${fmt(num(row.grand_total))}`
+                  : `${baseCurrency.symbol}${fmt(
+                      num(row.grand_total) / rowRate
+                    )}`;
                 return (
                   <tr key={row?._id}>
                     <td className="text-muted">{idx + 1}</td>
                     <td>{row?.pfi_date ? formatDate(row.pfi_date) : "-"}</td>
                     <td className="text-wrap">{row?.voucher_no || "-"}</td>
-                    <td>
-                      {row?.grand_total !== null &&
-                      row?.grand_total !== undefined
-                        ? `${sym}${fmt(row.grand_total)}`
-                        : "-"}
-                    </td>
+                    <td>{totalCell}</td>
                     <td>
                       <Badge
                         color={`light-${

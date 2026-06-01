@@ -8,6 +8,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { Input } from "reactstrap";
 import {
   Calendar,
   DollarSign,
@@ -58,6 +59,10 @@ import {
 
 import RelatedDocsTabs from "./RelatedDocsTabs";
 import PublicLinkPanel from "./PublicLinkPanel";
+import {
+  QuotationCurrencyProvider,
+  QUOTATION_CURRENCY_LS_KEY,
+} from "./CurrencyToggleContext";
 
 const PIPELINE_STEPS = [
   { value: "draft", label: "Draft" },
@@ -112,6 +117,24 @@ const ViewQuotation = () => {
   const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
   const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
+
+  // Currency-view toggle: OFF (default) → ShivaTrade's base currency (INR);
+  // ON → the quotation's own currency. Persisted in localStorage so the
+  // operator's choice survives reloads.
+  const [showDoc, setShowDoc] = useState(() => {
+    try {
+      return localStorage.getItem(QUOTATION_CURRENCY_LS_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUOTATION_CURRENCY_LS_KEY, showDoc ? "1" : "0");
+    } catch {
+      /* ignore quota / privacy-mode failures */
+    }
+  }, [showDoc]);
 
   const mySwal = withReactContent(Swal);
   const handleConvertToPfi = () => {
@@ -223,6 +246,53 @@ const ViewQuotation = () => {
     q?.currency_code ||
     "";
 
+  // ── Currency view (toggle-driven) ──
+  // Stored money on a quotation is in INR (base); the doc Grand Total is
+  // INR × exchange_rate. The toggle picks which currency the page reads in.
+  const rate = Number(q?.exchange_rate || 0);
+  const rateForConv = rate > 0 ? rate : 1;
+  const isBaseCurrency =
+    (q?.currency_code || "").toUpperCase() === baseCurrency.code.toUpperCase();
+  const docCurrency = useMemo(
+    () => ({
+      code: q?.currency_code || baseCurrency.code,
+      symbol: sym || baseCurrency.symbol,
+    }),
+    [q?.currency_code, sym, baseCurrency]
+  );
+  // A base-currency quotation has nothing to convert — the toggle is hidden
+  // and the effective view is always "base".
+  const showDocEffective = showDoc && !isBaseCurrency;
+  const activeSym = showDocEffective ? docCurrency.symbol : baseCurrency.symbol;
+  const activeCode = showDocEffective ? docCurrency.code : baseCurrency.code;
+
+  const currencyCtx = useMemo(() => {
+    const fromInr = (v) =>
+      showDocEffective ? (Number(v) || 0) * rateForConv : Number(v) || 0;
+    return {
+      showDoc: showDocEffective,
+      baseCurrency,
+      docCurrency,
+      rate: rateForConv,
+      sym: activeSym,
+      code: activeCode,
+      fromInr,
+      view: {
+        mode: showDocEffective ? "doc" : "base",
+        rate: rateForConv,
+        sym: docCurrency.symbol,
+        code: docCurrency.code,
+      },
+    };
+  }, [
+    showDocEffective,
+    baseCurrency,
+    docCurrency,
+    rateForConv,
+    activeSym,
+    activeCode,
+  ]);
+
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
@@ -262,7 +332,13 @@ const ViewQuotation = () => {
     {
       key: "total",
       label: t("Grand Total"),
-      value: q?.grand_total ? `${sym}${fmt(q.grand_total)}` : "-",
+      // grand_total is stored in the doc currency (INR × rate). Re-derive
+      // the INR base, then re-project into whichever currency is active.
+      value: q?.grand_total
+        ? `${activeSym}${fmt(
+            currencyCtx.fromInr(Number(q.grand_total || 0) / rateForConv)
+          )}`
+        : "-",
       icon: DollarSign,
       tone: "secondary",
     },
@@ -333,9 +409,6 @@ const ViewQuotation = () => {
   ];
 
   // ── Side panel field lists ──
-  const rate = Number(q?.exchange_rate || 0);
-  const isBaseCurrency =
-    (q?.currency_code || "").toUpperCase() === baseCurrency.code.toUpperCase();
   // Show quote currency → base (e.g. "$1 = ₹83.33") so the customer sees
   // how much of the home currency one unit of their currency buys.
   const inrConversionLine =
@@ -366,11 +439,45 @@ const ViewQuotation = () => {
     },
   ];
 
+  // Currency-view toggle shown under the header action buttons. Hidden for
+  // base-currency quotations (nothing to convert).
+  const currencyToggle = isBaseCurrency ? null : (
+    <div className="d-flex align-items-center gap-50">
+      <span
+        className={`small fw-semibold ${
+          showDocEffective ? "text-muted" : "text-primary"
+        }`}
+      >
+        {baseCurrency.code}
+      </span>
+      <div className="form-check form-switch m-0 ps-0 d-flex">
+        <Input
+          type="switch"
+          role="switch"
+          id="quotation-currency-toggle"
+          className="m-0"
+          style={{ cursor: "pointer" }}
+          checked={showDocEffective}
+          onChange={(e) => setShowDoc(e.target.checked)}
+        />
+      </div>
+      <span
+        className={`small fw-semibold ${
+          showDocEffective ? "text-primary" : "text-muted"
+        }`}
+      >
+        {docCurrency.code}
+      </span>
+    </div>
+  );
+
   return (
+    <QuotationCurrencyProvider value={currencyCtx}>
     <Fragment>
       <div className="app-user-view">
         <DetailHeader
           avatarText="Q"
+          actionsFooter={currencyToggle}
           title={q?.voucher_no || "-"}
           subtitle={
             [q?.customer_name, q?.customer_email].filter(Boolean).join(" · ") ||
@@ -446,6 +553,7 @@ const ViewQuotation = () => {
         onCreated={() => dispatch(getQuotation(id))}
       />
     </Fragment>
+    </QuotationCurrencyProvider>
   );
 };
 

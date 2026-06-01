@@ -225,13 +225,16 @@ const QuotationWizard = () => {
   }, [leadStore?.leadItem, watchedLeadId]);
 
   // Exchange rate lookup on currency pick. The fetched master rate ALWAYS
-  // populates `rateMeta` (the "Auto-filled / Custom" comparison hint), but
-  // the form field is only auto-written:
+  // populates `rateMeta` (the "Auto-filled / Custom" comparison hint). The
+  // form field is auto-written whenever the currency CHANGES to a code we
+  // haven't filled for yet:
   //   • New mode: on the user's first pick of each currency.
-  //   • Edit mode: never — the saved rate is the source of truth.
-  // Tracking the last auto-filled currency in a ref prevents a downstream
-  // re-render (e.g. exchangeOptions arriving late) from clobbering a user
-  // override.
+  //   • Edit mode: on initial load the ref is seeded with the saved
+  //     currency (see hydration effect) so the saved rate is preserved;
+  //     picking a DIFFERENT currency then pulls that currency's master rate.
+  // Tracking the last auto-filled currency in a ref also prevents a
+  // downstream re-render (e.g. exchangeOptions arriving late) from
+  // clobbering a user override.
   const autoFilledForCurrency = useRef(null);
   useEffect(() => {
     if (!liveCurrencyCode) {
@@ -240,7 +243,7 @@ const QuotationWizard = () => {
       return;
     }
     const shouldWriteToField =
-      !isEdit && autoFilledForCurrency.current !== liveCurrencyCode;
+      autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
     const defaultOpt = options.find((o) => o.is_default);
     instance
@@ -293,6 +296,10 @@ const QuotationWizard = () => {
   useEffect(() => {
     if (isEdit && store?.quotationItem?._id) {
       const q = store.quotationItem;
+      // Mark the saved currency as "already filled" so the rate effect
+      // keeps the persisted exchange_rate on load and only auto-fills when
+      // the user later switches to a different currency.
+      autoFilledForCurrency.current = q.currency_code || null;
       reset({
         ...initQuotationItem,
         ...q,
