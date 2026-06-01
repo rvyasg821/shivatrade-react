@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -27,6 +27,10 @@ import {
   Percent,
   Globe,
   Truck,
+  Activity,
+  Paperclip,
+  Plus,
+  Edit2,
 } from "react-feather";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
@@ -41,6 +45,8 @@ import {
   recordInvoicePayment,
   voidInvoicePayment,
 } from "@src/views/invoices/store";
+import AddInvoiceEventModal from "@src/views/invoices/components/AddInvoiceEventModal";
+import ShipmentEditModal from "@src/views/invoices/components/ShipmentEditModal";
 import { Input, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
 import Select from "react-select";
 import DateInput from "@components/date-input";
@@ -48,15 +54,22 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { startLoading, stopLoading } from "@src/views/loadingstore";
 import Notification from "@components/toast/notification";
-import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import {
+  appsRoot,
+  assessmentReportPdfUrl,
+  isAdminUser,
+} from "@constant/defaultValues";
 import {
   INVOICE_PIPELINE_STEPS as PIPELINE_STEPS,
   INVOICE_TERMINAL_STEPS as TERMINAL_STEPS,
   INVOICE_STATUS_BADGE_COLOR as STATUS_COLORS,
   INVOICE_PAYMENT_METHOD_OPTIONS as PAYMENT_METHOD_OPTIONS,
+  INVOICE_EVENT_TYPE_LABEL,
+  SHIPPING_MODE_OPTIONS,
+  SHIPPING_BILL_TYPE_OPTIONS,
 } from "@constant/options";
 import { getCurrencySymbol } from "@src/utility/currency";
-import { formatDate } from "@src/utility/dateFormat";
+import { formatDate, formatDateTime } from "@src/utility/dateFormat";
 
 import {
   DetailHeader,
@@ -93,6 +106,10 @@ const ViewInvoice = () => {
   const [busy, setBusy] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [payOpen, setPayOpen] = useState(false);
+  // Tracking + shipment editor (SHIPPING_INVOICE_MERGE_PLAN §5c).
+  const [events, setEvents] = useState([]);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [shipmentEditOpen, setShipmentEditOpen] = useState(false);
   const [payForm, setPayForm] = useState({
     payment_date: "",
     amount: "",
@@ -196,6 +213,86 @@ const ViewInvoice = () => {
   useEffect(() => {
     if (id) dispatch(getInvoice(id));
   }, [id, dispatch]);
+
+  // ── Tracking events ──────────────────────────────────────────────────
+  const fetchEvents = useCallback(async () => {
+    if (!id) return;
+    try {
+      const resp = await instance.get(`${API_ENDPOINTS.invoices.event}/${id}`);
+      setEvents(resp?.data?.data || []);
+    } catch {
+      setEvents([]);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const resolveAttachmentHref = (rel) => {
+    if (!rel) return "";
+    if (/^https?:\/\//i.test(rel)) return rel;
+    const base = (assessmentReportPdfUrl || "").replace(/\/$/, "");
+    const path = rel.replace(/^\//, "").replace(/^assets\//, "");
+    return `${base}/${path}`;
+  };
+
+  const handleRetractEvent = (eventId) => {
+    mySwal
+      .fire({
+        title: t("Retract event?"),
+        text: t("Provide a reason — kept on record alongside the event."),
+        icon: "warning",
+        input: "text",
+        inputPlaceholder: t("Reason"),
+        showCancelButton: true,
+        confirmButtonText: t("Yes, retract"),
+        cancelButtonText: t("Back"),
+        inputValidator: (v) =>
+          !v || !v.trim() ? t("A reason is required.") : undefined,
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (res) => {
+        if (!res.isConfirmed) return;
+        try {
+          await instance.post(
+            `${API_ENDPOINTS.invoices.event}/${eventId}/retract`,
+            { reason: res.value.trim() }
+          );
+          Notification("Success", t("Tracking event retracted."), "success");
+          fetchEvents();
+        } catch (err) {
+          Notification(
+            "Error",
+            err?.response?.data?.message || t("Failed to retract event"),
+            "warning"
+          );
+        }
+      });
+  };
+
+  // Source Sales Orders — distinct SOs feeding this invoice, derived from the
+  // per-line voucher snapshots (SHIPPING_INVOICE_MERGE_PLAN §6). On-screen only.
+  const sourceSos = useMemo(() => {
+    const byKey = new Map();
+    for (const l of inv?.lines || []) {
+      const so = l.purchase_order_voucher_no || "";
+      const quote = l.quotation_voucher_no || "";
+      const key = `${so}|${quote}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          so,
+          quote,
+          buyer_ref: l.customer_reference || "",
+        });
+      }
+    }
+    return Array.from(byKey.values()).filter((s) => s.so || s.quote);
+  }, [inv?.lines]);
 
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
@@ -590,6 +687,53 @@ const ViewInvoice = () => {
                         )}
                     </NavLink>
                   </NavItem>
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "shipment"}
+                      onClick={() => setActiveTab("shipment")}
+                      style={{
+                        color: activeTab === "shipment" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <Truck size={16} className="me-50" />
+                      {t("Shipment")}
+                    </NavLink>
+                  </NavItem>
+                  <NavItem>
+                    <NavLink
+                      active={activeTab === "tracking"}
+                      onClick={() => setActiveTab("tracking")}
+                      style={{
+                        color: activeTab === "tracking" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <Activity size={16} className="me-50" />
+                      {t("Tracking")}
+                      {events.filter((e) => !e.soft_delete).length > 0 && (
+                        <span
+                          className="badge ms-1"
+                          style={{
+                            background:
+                              activeTab === "tracking"
+                                ? "rgba(255,255,255,0.25)"
+                                : "#eef0f3",
+                            color:
+                              activeTab === "tracking" ? "#fff" : "#1a2238",
+                          }}
+                        >
+                          {events.filter((e) => !e.soft_delete).length}
+                        </span>
+                      )}
+                    </NavLink>
+                  </NavItem>
                 </Nav>
 
                 <TabContent activeTab={activeTab}>
@@ -958,6 +1102,210 @@ const ViewInvoice = () => {
                   </div>
                 </div>
                 </TabPane>
+
+                <TabPane tabId="shipment">
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <h6 className="mb-0">{t("Shipment & Shipping Bill")}</h6>
+                    {canEdit && !isCancelled && (
+                      <Button
+                        size="sm"
+                        color="primary"
+                        outline
+                        onClick={() => setShipmentEditOpen(true)}
+                      >
+                        <Edit2 size={14} className="me-50" />
+                        {t("Edit")}
+                      </Button>
+                    )}
+                  </div>
+                  <Table responsive bordered size="sm" className="mb-0">
+                    <tbody>
+                      <tr>
+                        <th style={{ width: "25%" }}>{t("Mode")}</th>
+                        <td>
+                          {SHIPPING_MODE_OPTIONS.find(
+                            (o) => o.value === inv?.mode
+                          )?.label || "-"}
+                        </td>
+                        <th style={{ width: "25%" }}>{t("Export Scheme")}</th>
+                        <td>
+                          {SHIPPING_BILL_TYPE_OPTIONS.find(
+                            (o) => o.value === inv?.shipping_bill_type
+                          )?.label || "-"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>{t("AWB / BL No.")}</th>
+                        <td>{inv?.bl_awb_no || "-"}</td>
+                        <th>{t("Shipping Bill No.")}</th>
+                        <td>{inv?.shipping_bill_no || "-"}</td>
+                      </tr>
+                      <tr>
+                        <th>{t("Shipping Bill Date")}</th>
+                        <td>
+                          {inv?.shipping_bill_date
+                            ? formatDate(inv.shipping_bill_date)
+                            : "-"}
+                        </td>
+                        <th>{t("Pre-Carriage By")}</th>
+                        <td>{inv?.pre_carriage_by || "-"}</td>
+                      </tr>
+                      <tr>
+                        <th>{t("Place of Receipt")}</th>
+                        <td>{inv?.place_of_receipt || "-"}</td>
+                        <th>{t("Place of Delivery")}</th>
+                        <td>{inv?.place_of_delivery || "-"}</td>
+                      </tr>
+                      <tr>
+                        <th>{t("Port of Loading")}</th>
+                        <td>
+                          {inv?.port_of_loading_snapshot?.name ||
+                            inv?.port_of_loading_snapshot?.code ||
+                            "-"}
+                        </td>
+                        <th>{t("Port of Discharge")}</th>
+                        <td>
+                          {inv?.port_of_discharge_snapshot?.name ||
+                            inv?.port_of_discharge_snapshot?.code ||
+                            "-"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>{t("Total Packages")}</th>
+                        <td>
+                          {inv?.total_packages != null
+                            ? inv.total_packages
+                            : "-"}
+                        </td>
+                        <th>{t("Net / Gross Weight (kg)")}</th>
+                        <td>
+                          {inv?.net_weight_kg != null
+                            ? fmt(inv.net_weight_kg, 3)
+                            : "-"}{" "}
+                          /{" "}
+                          {inv?.gross_weight_kg != null
+                            ? fmt(inv.gross_weight_kg, 3)
+                            : "-"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </TabPane>
+
+                <TabPane tabId="tracking">
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <h6 className="mb-0">{t("Tracking Timeline")}</h6>
+                    {canEdit && !isCancelled && (
+                      <Button
+                        size="sm"
+                        color="primary"
+                        onClick={() => setAddEventOpen(true)}
+                      >
+                        <Plus size={14} className="me-50" />
+                        {t("Add Event")}
+                      </Button>
+                    )}
+                  </div>
+                  {events.length === 0 ? (
+                    <div className="text-muted text-center py-3">
+                      {t("No tracking events yet.")}
+                    </div>
+                  ) : (
+                    <ul className="timeline ms-50">
+                      {events.map((e) => {
+                        const retracted = !!e.soft_delete;
+                        return (
+                          <li key={e._id} className="timeline-item">
+                            <span
+                              className={`timeline-point timeline-point-indicator ${
+                                retracted
+                                  ? "timeline-point-secondary"
+                                  : "timeline-point-info"
+                              }`}
+                            />
+                            <div className="timeline-event">
+                              <div
+                                className="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1"
+                                style={
+                                  retracted
+                                    ? {
+                                        textDecoration: "line-through",
+                                        opacity: 0.6,
+                                      }
+                                    : {}
+                                }
+                              >
+                                <h6 className="mb-0">
+                                  {INVOICE_EVENT_TYPE_LABEL[e.type] ||
+                                    e.type_other ||
+                                    e.type}
+                                </h6>
+                                <span className="timeline-event-time">
+                                  {e.occurred_at
+                                    ? formatDateTime(e.occurred_at)
+                                    : ""}
+                                </span>
+                              </div>
+                              {e.location && (
+                                <p className="mb-0 small">{e.location}</p>
+                              )}
+                              {e.notes && (
+                                <p className="mb-0 text-muted small">
+                                  {e.notes}
+                                </p>
+                              )}
+                              <div className="d-flex align-items-center gap-1 mt-25 flex-wrap">
+                                {e.created_by_name && (
+                                  <span className="text-muted small">
+                                    {t("— Logged by")} {e.created_by_name}
+                                  </span>
+                                )}
+                                {e.attachment_url && (
+                                  <a
+                                    href={resolveAttachmentHref(
+                                      e.attachment_url
+                                    )}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="small d-inline-flex align-items-center"
+                                  >
+                                    <Paperclip size={14} className="me-25" />
+                                    {t("Attachment")}
+                                  </a>
+                                )}
+                                {!retracted && canEdit && !isCancelled && (
+                                  <Button
+                                    size="sm"
+                                    color="link"
+                                    className="p-0 text-danger small"
+                                    onClick={() => handleRetractEvent(e._id)}
+                                  >
+                                    {t("Retract")}
+                                  </Button>
+                                )}
+                              </div>
+                              {retracted && (
+                                <div className="mt-50 small text-warning">
+                                  <strong>{t("Retracted by")}</strong>{" "}
+                                  {e.deleted_by_name || t("user")}
+                                  {e.deleted_at
+                                    ? ` · ${formatDateTime(e.deleted_at)}`
+                                    : ""}
+                                  {e.deleted_reason && (
+                                    <div className="text-muted">
+                                      <strong>{t("Reason:")}</strong>{" "}
+                                      {e.deleted_reason}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </TabPane>
                 </TabContent>
               </CardBody>
             </Card>
@@ -967,6 +1315,39 @@ const ViewInvoice = () => {
               {sourceFields.length > 0 && (
                 <DetailPanel title={t("Source Documents")}>
                   <DetailFieldList items={sourceFields} />
+                </DetailPanel>
+              )}
+              {sourceSos.length > 0 && (
+                <DetailPanel title={t("Source Sales Orders")}>
+                  {sourceSos.map((s, i) => (
+                    <div
+                      key={i}
+                      className={`small ${
+                        i > 0 ? "border-top pt-1 mt-1" : ""
+                      }`}
+                    >
+                      {s.so && (
+                        <div className="fw-semibold">
+                          {t("SO")} {s.so}
+                        </div>
+                      )}
+                      {s.quote && (
+                        <div className="text-muted">
+                          {t("Quote")} {s.quote}
+                        </div>
+                      )}
+                      {s.buyer_ref && (
+                        <div className="text-muted">
+                          {t("Req")} {s.buyer_ref}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {inv?.customer_po_no && (
+                    <div className="small border-top pt-1 mt-1 text-muted">
+                      {t("Buyer PO #")} {inv.customer_po_no}
+                    </div>
+                  )}
                 </DetailPanel>
               )}
               {tradeFields.length > 0 && (
@@ -1057,6 +1438,20 @@ const ViewInvoice = () => {
           }
         />
       </div>
+
+      {/* ── Tracking event + Shipment editor modals ─────────────────── */}
+      <AddInvoiceEventModal
+        open={addEventOpen}
+        toggle={() => setAddEventOpen(false)}
+        invoiceId={id}
+        onCreated={fetchEvents}
+      />
+      <ShipmentEditModal
+        open={shipmentEditOpen}
+        toggle={() => setShipmentEditOpen(false)}
+        invoiceId={id}
+        invoice={inv}
+      />
 
       {/* ── Record payment modal ─────────────────────────────────────── */}
       <Modal isOpen={payOpen} toggle={() => setPayOpen(false)} centered size="lg">

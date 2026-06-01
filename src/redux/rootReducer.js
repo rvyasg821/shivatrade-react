@@ -36,7 +36,6 @@ import purchaseOrder from "@src/views/purchase-orders/store";
 import poVendor from "@src/views/po-vendors/store";
 import inventory from "@src/views/inventory/store";
 import invoice from "@src/views/invoices/store";
-import shipping from "@src/views/shipping/store";
 import trackingEvent from "@src/views/tracking/store";
 import employee from "@src/views/employees/store";
 
@@ -120,7 +119,6 @@ const rootReducer = {
   poVendor,
   inventory,
   invoice,
-  shipping,
   trackingEvent,
   locationContext,
   employee,

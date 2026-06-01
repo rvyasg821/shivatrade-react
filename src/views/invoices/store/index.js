@@ -43,6 +43,19 @@ export const getInvoiceList = createAsyncThunk(
   }
 );
 
+// ─── Multi-SO picker: a customer's invoiceable SO groups ────────────────
+// Returns the raw groups array (used via .unwrap() — no slice state needed).
+
+export const getCustomerInvoiceable = createAsyncThunk(
+  "appInvoice/getCustomerInvoiceable",
+  async (customerId) => {
+    const resp = await instance.get(
+      `${API_ENDPOINTS.invoices.customerInvoiceable}/${customerId}`
+    );
+    return resp?.data?.data || [];
+  }
+);
+
 // ─── Get one ───────────────────────────────────────────────────────────
 
 export const getInvoice = createAsyncThunk(

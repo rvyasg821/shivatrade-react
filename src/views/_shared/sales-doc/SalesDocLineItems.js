@@ -478,6 +478,27 @@ const SalesDocLineItems = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.open, editingIdx, editingLine?.product_id, showExportFields]);
 
+  // Buyer's Requirement # = Quotation voucher (TKT-0). For quotations only,
+  // the buyer-ref defaults to the quotation voucher when left empty. Prefill
+  // the form value on modal open so a readonly field still submits the
+  // voucher. Fallback-only: a real ref the user typed is never overwritten.
+  const lockBuyerRef = docType === "quotation";
+  useEffect(() => {
+    if (
+      !modal.open ||
+      !lockBuyerRef ||
+      editingIdx == null ||
+      !docNumber
+    ) {
+      return;
+    }
+    const current = editingLine?.customer_reference;
+    if (current == null || current === "") {
+      setValue(`lines.${editingIdx}.customer_reference`, docNumber);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal.open, editingIdx, lockBuyerRef, docNumber]);
+
   return (
     <Card>
       <CardBody>
@@ -1677,18 +1698,31 @@ const SalesDocLineItems = ({
                     render={({ field: f }) => (
                       <Input
                         {...f}
-                        value={f.value || ""}
+                        value={
+                          lockBuyerRef
+                            ? f.value || docNumber || ""
+                            : f.value || ""
+                        }
+                        readOnly={lockBuyerRef}
                         maxLength={120}
-                        placeholder={t(
-                          "Buyer's internal part code or requisition (e.g. BOSCH PUMP REQUISITION)",
-                        )}
+                        placeholder={
+                          lockBuyerRef
+                            ? t("Auto-fills with the quotation number")
+                            : t(
+                                "Buyer's internal part code or requisition (e.g. BOSCH PUMP REQUISITION)",
+                              )
+                        }
                       />
                     )}
                   />
                   <small className="text-muted">
-                    {t(
-                      "Optional. Flows forward to PFI, PO, and Invoice. Appears on the Export Invoice PDF.",
-                    )}
+                    {lockBuyerRef
+                      ? t(
+                          "Auto-fills with the quotation number. Flows forward to PFI, PO, and Invoice. Appears on the Export Invoice PDF.",
+                        )
+                      : t(
+                          "Optional. Flows forward to PFI, PO, and Invoice. Appears on the Export Invoice PDF.",
+                        )}
                   </small>
                 </Col>
               </Row>
