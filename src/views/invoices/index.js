@@ -23,13 +23,14 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { Edit, Eye, Trash2, ExternalLink } from "react-feather";
+import { Edit, Eye, Trash2, ExternalLink, Plus } from "react-feather";
 
 import {
   getInvoiceList,
   deleteInvoice,
   cleanInvoiceMessage,
 } from "./store";
+import MultiSoPickerModal from "./components/MultiSoPickerModal";
 import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
@@ -199,6 +200,18 @@ const InvoicesList = () => {
   const perms = authUserItem?.role?.permissions?.invoices;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const canCreate = isSystemAdmin || isCompanyAdmin || perms?.can_create;
+
+  // Customer-first multi-SO picker (SHIPPING_INVOICE_MERGE_PLAN §5b).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const handlePickerConfirm = (selectedLines, meta) => {
+    setPickerOpen(false);
+    // Hand the picked lines + locked header context to the wizard via
+    // router state; the add form pre-fills from location.state.multiSo.
+    navigate(`${appsRoot}/invoices/add`, {
+      state: { multiSo: { ...meta, lines: selectedLines } },
+    });
+  };
 
   // ── Columns ─────────────────────────────────────────────────────────
 
@@ -441,11 +454,22 @@ const InvoicesList = () => {
                   </Col>
                 </Row>
               </Col>
-              {/* Invoices are PO-driven by design — Rule A (qty ≤ Σ POV
-                  dispatched) only makes sense in a PO context, and the add
-                  page has no manual line-add UI. Entry point is the
-                  "Generate Invoice" button on the PO Coverage tab. */}
-              <Col sm="3" md="3" />
+              {/* Create Invoice — customer-first multi-SO picker. Bundles
+                  invoiceable lines across a customer's confirmed SOs into one
+                  invoice (SHIPPING_INVOICE_MERGE_PLAN §5b). The PO Coverage
+                  "Generate Invoice" button remains the other entry point. */}
+              <Col
+                sm="3"
+                md="3"
+                className="d-flex align-items-start justify-content-end"
+              >
+                {canCreate && (
+                  <Button color="primary" onClick={() => setPickerOpen(true)}>
+                    <Plus size={15} className="me-25" />
+                    {t("Create Invoice")}
+                  </Button>
+                )}
+              </Col>
             </Row>
 
             <Row className="mt-2">
@@ -465,6 +489,12 @@ const InvoicesList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <MultiSoPickerModal
+        isOpen={pickerOpen}
+        toggle={() => setPickerOpen(false)}
+        onConfirm={handlePickerConfirm}
+      />
     </Fragment>
   );
 };

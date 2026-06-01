@@ -48,6 +48,7 @@ import "@src/views/_shared/wizard/wizard.scss";
 import Select from "react-select";
 
 import InvoiceLineImportModal from "./components/InvoiceLineImportModal";
+import MultiSoPickerModal from "../components/MultiSoPickerModal";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -59,7 +60,11 @@ import {
   COUNTRY_OPTIONS,
   INCOTERMS_OPTIONS,
   REBATE_EXPENSE_TYPE_OPTIONS,
+  SHIPPING_MODE_OPTIONS,
+  SHIPPING_BILL_TYPE_OPTIONS,
+  SHIPPING_SEA_MODES,
 } from "@constant/options";
+import PortSelect from "@src/views/_shared/port-master/PortSelect";
 import { getCurrencySymbol } from "@src/utility/currency";
 
 import {
@@ -266,6 +271,22 @@ const InvoiceAddEdit = () => {
     delivery_terms: "",
     end_use_code: "",
     preferential_agreement: "",
+    // ── Shipment & Shipping Bill (optional at create; editable post-issue) ──
+    mode: "",
+    shipping_bill_type: "free",
+    shipping_bill_no: "",
+    shipping_bill_date: "",
+    port_of_loading_id: "",
+    port_of_loading_snapshot: null,
+    port_of_discharge_id: "",
+    port_of_discharge_snapshot: null,
+    pre_carriage_by: "",
+    place_of_receipt: "",
+    place_of_delivery: "",
+    total_packages: "",
+    net_weight_kg: "",
+    gross_weight_kg: "",
+    bl_awb_no: "",
     notes_to_buyer: "",
     internal_notes: "",
     declaration_text:
@@ -311,6 +332,9 @@ const InvoiceAddEdit = () => {
   const isLastStep = activeStep === STEPS.length - 1;
 
   const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+
+  // Sea modes show a "BL No." label; air / unset show "AWB / BL No.".
+  const isSeaMode = SHIPPING_SEA_MODES.includes(form.mode);
 
   // Bank account dropdown — filtered by the invoice currency (falls back to
   // any active account when no currency match). Declared here because it
@@ -567,6 +591,61 @@ const InvoiceAddEdit = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryPoId, isEdit]);
 
+  // ── Multi-SO seed from the listing "Create Invoice" picker ──────────
+  // The listing hands { customer_id, currency_code, country_of_destination,
+  // lines } via router state. We fetch the primary SO (first picked line's
+  // PO) and reuse the same header pre-fill as the ?po= path — so bill-to
+  // address, consignee snapshot, exchange rate, incoterm, bank, etc. all
+  // populate exactly like a single-SO invoice. The picker-selected lines
+  // (which may span several SOs) replace the PO's own lines.
+  useEffect(() => {
+    if (isEdit || queryPoId) return;
+    const seed = location.state?.multiSo;
+    if (!seed || !Array.isArray(seed.lines) || !seed.lines.length) return;
+    const primaryPoId = seed.lines[0]?.purchase_order_id || "";
+    (async () => {
+      let po = null;
+      if (primaryPoId) {
+        const action = await dispatch(getPurchaseOrder(primaryPoId));
+        po = action?.payload?.purchaseOrderItem || null;
+      }
+      setForm((s) => ({
+        ...s,
+        // Primary SO pointer (per-line linkage is authoritative for multi-SO;
+        // BE relaxed purchase_order_id to optional).
+        purchase_order_id: primaryPoId || s.purchase_order_id,
+        customer_id: seed.customer_id || po?.customer_id || s.customer_id,
+        customer_address_id: po?.customer_address_id || s.customer_address_id,
+        consignee_id: po?.consignee_id || seed.customer_id || s.consignee_id,
+        consignee_address_id:
+          po?.customer_address_id || s.consignee_address_id,
+        consignee_from_customer: !!(po?.consignee_id || seed.customer_id),
+        ...(po?.consignee_snapshot
+          ? { consignee_snapshot: po.consignee_snapshot }
+          : {}),
+        bank_account_ids: po?.pfi_bank_account_id
+          ? [po.pfi_bank_account_id]
+          : s.bank_account_ids,
+        currency_code: seed.currency_code || po?.currency_code || s.currency_code,
+        currency_symbol:
+          po?.currency_symbol ||
+          getCurrencySymbol(seed.currency_code) ||
+          s.currency_symbol,
+        exchange_rate: po?.exchange_rate || s.exchange_rate,
+        incoterm: po?.incoterm || s.incoterm,
+        payment_terms: po?.payment_terms || s.payment_terms,
+        delivery_terms: po?.delivery_terms || s.delivery_terms,
+        country_of_destination:
+          seed.country_of_destination ||
+          po?.country_of_final_destination ||
+          po?.country_of_destination ||
+          s.country_of_destination,
+      }));
+      setLines(seed.lines.map((l, i) => ({ ...l, seq: i + 1 })));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, queryPoId]);
+
   // Auto-fetch addresses when customer/consignee/notify changes so the
   // matching address picker can populate.
   useEffect(() => {
@@ -707,6 +786,22 @@ const InvoiceAddEdit = () => {
       delivery_terms: inv.delivery_terms || "",
       end_use_code: inv.end_use_code || "",
       preferential_agreement: inv.preferential_agreement || "",
+      // ── Shipment & Shipping Bill ──
+      mode: inv.mode || "",
+      shipping_bill_type: inv.shipping_bill_type || "free",
+      shipping_bill_no: inv.shipping_bill_no || "",
+      shipping_bill_date: inv.shipping_bill_date?.slice(0, 10) || "",
+      port_of_loading_id: inv.port_of_loading_id || "",
+      port_of_loading_snapshot: inv.port_of_loading_snapshot || null,
+      port_of_discharge_id: inv.port_of_discharge_id || "",
+      port_of_discharge_snapshot: inv.port_of_discharge_snapshot || null,
+      pre_carriage_by: inv.pre_carriage_by || "",
+      place_of_receipt: inv.place_of_receipt || "",
+      place_of_delivery: inv.place_of_delivery || "",
+      total_packages: inv.total_packages != null ? inv.total_packages : "",
+      net_weight_kg: inv.net_weight_kg || "",
+      gross_weight_kg: inv.gross_weight_kg || "",
+      bl_awb_no: inv.bl_awb_no || "",
       notes_to_buyer: inv.notes_to_buyer || "",
       internal_notes: inv.internal_notes || "",
       declaration_text: inv.declaration_text || "",
@@ -742,6 +837,9 @@ const InvoiceAddEdit = () => {
         product_expenses_snapshot: Array.isArray(l.product_expenses_snapshot)
           ? l.product_expenses_snapshot
           : [],
+        packages: l.packages != null ? l.packages : "",
+        net_weight: l.net_weight || "",
+        gross_weight: l.gross_weight || "",
       }))
     );
     setBankSnapshots(inv.bank_snapshots || []);
@@ -839,6 +937,31 @@ const InvoiceAddEdit = () => {
   // Import / Export of Step 3 line items.
   const [linesImportOpen, setLinesImportOpen] = useState(false);
   const [linesExporting, setLinesExporting] = useState(false);
+
+  // "+ Add items from another SO" — same-customer multi-SO picker.
+  const [soPickerOpen, setSoPickerOpen] = useState(false);
+  const appendSoLines = (picked) => {
+    setSoPickerOpen(false);
+    if (!picked?.length) return;
+    setLines((prev) => {
+      const next = prev.slice();
+      for (const row of picked) {
+        // Merge same SO line (sum qty); else append.
+        const idx = next.findIndex(
+          (l) => l.purchase_order_line_id === row.purchase_order_line_id
+        );
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            qty: String(Number(next[idx].qty || 0) + Number(row.qty || 0)),
+          };
+        } else {
+          next.push(row);
+        }
+      }
+      return next.map((l, i) => ({ ...l, seq: i + 1 }));
+    });
+  };
 
   const openAddFromPo = useCallback(async () => {
     if (!form.purchase_order_id) return;
@@ -1181,11 +1304,24 @@ const InvoiceAddEdit = () => {
       "pfi_id",
       "quotation_id",
       "shipping_id",
+      // Shipment & Shipping Bill — blank → undefined so @IsEnum/@IsUUID/
+      // @IsDateString/@IsNumberString don't run on empty strings.
+      "mode",
+      "shipping_bill_date",
+      "port_of_loading_id",
+      "port_of_discharge_id",
+      "net_weight_kg",
+      "gross_weight_kg",
     ];
     const cleaned = { ...form };
     OPTIONAL_NULLABLE.forEach((k) => {
       if (cleaned[k] === "") cleaned[k] = undefined;
     });
+    // total_packages is @IsInt — send a number or omit.
+    cleaned.total_packages =
+      cleaned.total_packages === "" || cleaned.total_packages == null
+        ? undefined
+        : Number(cleaned.total_packages);
     return {
     ...cleaned,
     lines: lines.map((l) => ({
@@ -1208,6 +1344,19 @@ const InvoiceAddEdit = () => {
       igst_rate_pct: String(l.igst_rate_pct || 0),
       product_rebates_snapshot: l.product_rebates_snapshot || [],
       product_expenses_snapshot: l.product_expenses_snapshot || [],
+      // Packing List (§3b) — blank → omit so optional validators don't run.
+      packages:
+        l.packages === "" || l.packages == null
+          ? undefined
+          : Number(l.packages),
+      net_weight:
+        l.net_weight === "" || l.net_weight == null
+          ? undefined
+          : String(l.net_weight),
+      gross_weight:
+        l.gross_weight === "" || l.gross_weight == null
+          ? undefined
+          : String(l.gross_weight),
     })),
     bank_snapshots: (() => {
       // Build one snapshot per picked bank id. Falls back to any
@@ -1890,6 +2039,160 @@ const InvoiceAddEdit = () => {
         </div>
       </div>
 
+      {/* ── Shipment & Shipping Bill (optional now; recorded after goods ship) ── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+          {t("Shipment & Shipping Bill")}
+          <small className="text-muted ms-1">
+            ({t("optional — record after the goods ship")})
+          </small>
+        </h5>
+        <div>
+          <Row>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Mode")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={SHIPPING_MODE_OPTIONS}
+                value={
+                  SHIPPING_MODE_OPTIONS.find((o) => o.value === form.mode) ||
+                  null
+                }
+                onChange={(opt) => onF("mode", opt ? opt.value : "")}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Export Scheme")}</Label>
+              <Select
+                classNamePrefix="select"
+                options={SHIPPING_BILL_TYPE_OPTIONS}
+                value={
+                  SHIPPING_BILL_TYPE_OPTIONS.find(
+                    (o) => o.value === form.shipping_bill_type
+                  ) || SHIPPING_BILL_TYPE_OPTIONS[0]
+                }
+                onChange={(opt) =>
+                  onF("shipping_bill_type", opt ? opt.value : "free")
+                }
+              />
+              <small className="text-muted">
+                {t('Renders "Export Under <scheme>" on the invoice PDF.')}
+              </small>
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">
+                {isSeaMode ? "BL No." : "AWB / BL No."}
+              </Label>
+              <Input
+                value={form.bl_awb_no}
+                onChange={(e) => onF("bl_awb_no", e.target.value)}
+                maxLength={60}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Shipping Bill No.")}</Label>
+              <Input
+                value={form.shipping_bill_no}
+                onChange={(e) => onF("shipping_bill_no", e.target.value)}
+                maxLength={60}
+                placeholder={t("Record-only (issued by CHA)")}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Shipping Bill Date")}</Label>
+              <DateInput
+                id="inv-shipping-bill-date"
+                value={form.shipping_bill_date}
+                onChange={(_d, _s, iso) => onF("shipping_bill_date", iso || "")}
+              />
+            </Col>
+          </Row>
+
+          <Row>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Pre-Carriage By")}</Label>
+              <Input
+                value={form.pre_carriage_by}
+                onChange={(e) => onF("pre_carriage_by", e.target.value)}
+                maxLength={80}
+                placeholder="ROAD / OWN VEHICLE"
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Place of Receipt")}</Label>
+              <Input
+                value={form.place_of_receipt}
+                onChange={(e) => onF("place_of_receipt", e.target.value)}
+                maxLength={80}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Port of Loading")}</Label>
+              <PortSelect
+                value={form.port_of_loading_snapshot}
+                countryCode="IN"
+                placeholder={t("Search port by code or name…")}
+                onChange={(port) => {
+                  onF("port_of_loading_id", port?._id || "");
+                  onF("port_of_loading_snapshot", port || null);
+                }}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Port of Discharge")}</Label>
+              <PortSelect
+                value={form.port_of_discharge_snapshot}
+                countryCode={null}
+                placeholder={t("Search port by code or name…")}
+                onChange={(port) => {
+                  onF("port_of_discharge_id", port?._id || "");
+                  onF("port_of_discharge_snapshot", port || null);
+                }}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Place of Delivery")}</Label>
+              <Input
+                value={form.place_of_delivery}
+                onChange={(e) => onF("place_of_delivery", e.target.value)}
+                maxLength={80}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Total Packages")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={form.total_packages}
+                onChange={(e) => onF("total_packages", e.target.value)}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Net Weight (kg)")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.net_weight_kg}
+                onChange={(e) => onF("net_weight_kg", e.target.value)}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Gross Weight (kg)")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.gross_weight_kg}
+                onChange={(e) => onF("gross_weight_kg", e.target.value)}
+              />
+            </Col>
+          </Row>
+        </div>
+      </div>
+
         </Fragment>
       )}
 
@@ -1934,6 +2237,18 @@ const InvoiceAddEdit = () => {
               >
                 <Plus size={14} className="me-1" />
                 {t("Add lines from SO")}
+              </Button>
+            )}
+            {form.customer_id && (
+              <Button
+                size="sm"
+                color="primary"
+                outline
+                onClick={() => setSoPickerOpen(true)}
+                type="button"
+              >
+                <Plus size={14} className="me-1" />
+                {t("Add items from another SO")}
               </Button>
             )}
           </div>
@@ -2173,7 +2488,7 @@ const InvoiceAddEdit = () => {
                             target={`inv-line-edit-${i}`}
                             placement="top"
                           >
-                            {t("Edit rebates / expenses")}
+                            {t("Edit rebates / expenses / packing")}
                           </UncontrolledTooltip>
                           <Button
                             id={`inv-line-del-${i}`}
@@ -2570,6 +2885,20 @@ const InvoiceAddEdit = () => {
       </Card>
     </div>
 
+      {/* ── Add items from another SO (same customer/currency/country) ── */}
+      <MultiSoPickerModal
+        isOpen={soPickerOpen}
+        toggle={() => setSoPickerOpen(false)}
+        customerId={form.customer_id || undefined}
+        lockCurrency={form.currency_code || undefined}
+        lockCountry={form.country_of_destination || undefined}
+        excludeInvoiceId={editId || undefined}
+        existingPoLineIds={lines
+          .map((l) => l.purchase_order_line_id)
+          .filter(Boolean)}
+        onConfirm={appendSoLines}
+      />
+
       {/* ── Add lines from PO modal ───────────────────────────────────── */}
       <Modal
         isOpen={addModalOpen}
@@ -2885,7 +3214,7 @@ const CostingModal = ({
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="lg" backdrop="static">
       <ModalHeader toggle={toggle}>
-        {t("Rebates & Expenses")} —{" "}
+        {t("Line Details")} —{" "}
         <code className="ms-1">{line?.product_code || line?.product_name}</code>
       </ModalHeader>
       <ModalBody>
@@ -3027,6 +3356,45 @@ const CostingModal = ({
           {t(
             "Per-line costing — line_total = ((qty × price) + Σ expenses − Σ rebates) × (1 − discount/100). Frozen at issue."
           )}
+        </div>
+
+        {/* ── Packing (per-line, for the Packing List) ──────────────── */}
+        <hr className="my-2" />
+        <Label className="form-label fw-bold">{t("Packing")}</Label>
+        <Row className="g-1">
+          <Col md="4">
+            <Label className="form-label small">{t("Packages")}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={line?.packages ?? ""}
+              onChange={(e) => onChange({ packages: e.target.value })}
+            />
+          </Col>
+          <Col md="4">
+            <Label className="form-label small">{t("Net Weight (kg)")}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.001"
+              value={line?.net_weight ?? ""}
+              onChange={(e) => onChange({ net_weight: e.target.value })}
+            />
+          </Col>
+          <Col md="4">
+            <Label className="form-label small">{t("Gross Weight (kg)")}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.001"
+              value={line?.gross_weight ?? ""}
+              onChange={(e) => onChange({ gross_weight: e.target.value })}
+            />
+          </Col>
+        </Row>
+        <div className="small text-muted mt-1">
+          {t("Optional — prints on the Packing List per line.")}
         </div>
       </ModalBody>
       <ModalFooter>

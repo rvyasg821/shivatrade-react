@@ -477,6 +477,26 @@ const SHIPPING_EVENT_TYPE_LABEL = SHIPPING_EVENT_TYPE_OPTIONS.reduce(
   }
 );
 
+// Manual invoice tracking-event types (SHIPPING_INVOICE_MERGE_PLAN §8).
+// Independent of the shipping options above so the shipping module teardown
+// (TKT-6) doesn't break the invoice "Tracking" tab. Manual events only.
+const INVOICE_EVENT_TYPE_OPTIONS = [
+  { value: "doc_handover", label: "Document Handover" },
+  { value: "container_loaded", label: "Container Loaded" },
+  { value: "gate_in", label: "Gate In" },
+  { value: "vessel_departed", label: "Vessel Departed" },
+  { value: "port_of_transhipment", label: "Port of Transhipment" },
+  { value: "delay_reported", label: "Delay Reported" },
+  { value: "document_dispatched", label: "Document Dispatched" },
+  { value: "payment_received", label: "Payment Received" },
+  { value: "other", label: "Other" },
+];
+
+const INVOICE_EVENT_TYPE_LABEL = INVOICE_EVENT_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {}
+);
+
 // Status → next-step transition modal config. Drives the dynamic button
 // label + which date field the SweetAlert collects.
 const SHIPPING_NEXT_STEP = {
@@ -537,4 +557,6 @@ export {
   SHIPPING_NEXT_STEP,
   SHIPPING_EVENT_TYPE_OPTIONS,
   SHIPPING_EVENT_TYPE_LABEL,
+  INVOICE_EVENT_TYPE_OPTIONS,
+  INVOICE_EVENT_TYPE_LABEL,
 };

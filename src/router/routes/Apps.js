@@ -19,7 +19,6 @@ import {
   purchaseOrdersModuleSlug,
   poVendorsModuleSlug,
   invoicesModuleSlug,
-  shippingModuleSlug,
   trackingModuleSlug,
   inventoryModuleSlug,
 } from '@constant/defaultValues';
@@ -86,10 +85,6 @@ const InvoiceList = lazy(() => import('@src/views/invoices'));
 const ViewInvoice = lazy(() => import('@src/views/invoices/view'));
 const AddInvoice = lazy(() => import('@src/views/invoices/add'));
 const EditInvoice = lazy(() => import('@src/views/invoices/add'));
-const ShippingList = lazy(() => import('@src/views/shipping'));
-const ViewShipping = lazy(() => import('@src/views/shipping/view'));
-const AddShipping = lazy(() => import('@src/views/shipping/add'));
-const EditShipping = lazy(() => import('@src/views/shipping/add'));
 const TrackingFeed = lazy(() => import('@src/views/tracking'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
@@ -806,26 +801,6 @@ const AppRoutes = [
       permissionId: invoicesModuleSlug,
       action: 'update',
     },
-  },
-  {
-    path: `${appsRoot}/shipping`,
-    element: <ShippingList />,
-    meta: { permissionId: shippingModuleSlug, action: 'list' },
-  },
-  {
-    path: `${appsRoot}/shipping/view/:id`,
-    element: <ViewShipping />,
-    meta: { permissionId: shippingModuleSlug, action: 'list' },
-  },
-  {
-    path: `${appsRoot}/shipping/add`,
-    element: <AddShipping />,
-    meta: { permissionId: shippingModuleSlug, action: 'add' },
-  },
-  {
-    path: `${appsRoot}/shipping/edit/:id`,
-    element: <EditShipping />,
-    meta: { permissionId: shippingModuleSlug, action: 'update' },
   },
   {
     path: `${appsRoot}/tracking`,

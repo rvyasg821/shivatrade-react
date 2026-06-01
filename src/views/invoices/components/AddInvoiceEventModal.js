@@ -1,9 +1,8 @@
-// Shipping-owned manual event modal. Independent from POV's
-// AddTrackingEventModal — different parent FK, different event type
-// vocabulary, different store thunk.
+// Invoice-owned manual tracking-event modal (SHIPPING_INVOICE_MERGE_PLAN §8).
+// Re-homed from AddShippingEventModal — same UX (type, when, location, notes,
+// single attachment) but posts multipart to /admin/invoice/event/:invoiceId.
 
-import { Fragment, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect, useState } from "react";
 import {
   Modal,
   ModalHeader,
@@ -21,10 +20,10 @@ import Flatpickr from "react-flatpickr";
 import "@styles/react/libs/flatpickr/flatpickr.scss";
 import { useTranslation } from "react-i18next";
 
-import { createShippingEvent } from "@src/views/shipping/store";
-import { SHIPPING_EVENT_TYPE_OPTIONS } from "@constant/options";
-
-const nowDate = () => new Date();
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import Notification from "@components/toast/notification";
+import { INVOICE_EVENT_TYPE_OPTIONS } from "@constant/options";
 
 const initial = {
   type: "",
@@ -34,8 +33,16 @@ const initial = {
   notes: "",
 };
 
-const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
-  const dispatch = useDispatch();
+const ALLOWED = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "application/pdf",
+];
+
+const AddInvoiceEventModal = ({ open, toggle, invoiceId, onCreated }) => {
   const { t } = useTranslation();
 
   const [form, setForm] = useState(initial);
@@ -45,20 +52,11 @@ const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
 
   useEffect(() => {
     if (open) {
-      setForm({ ...initial, occurred_at: nowDate() });
+      setForm({ ...initial, occurred_at: new Date() });
       setErrors({});
       setAttachment(null);
     }
   }, [open]);
-
-  const ALLOWED = [
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "image/heic",
-    "application/pdf",
-  ];
 
   const onFile = (e) => {
     const f = e.target.files?.[0];
@@ -98,31 +96,44 @@ const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
     return Object.keys(next).length === 0;
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!validate()) return;
     setBusy(true);
-    // Flatpickr stores a Date object — convert to a real ISO instant so the
-    // BE records the actual moment (not midnight-UTC of the date).
     const occurredDate =
       form.occurred_at instanceof Date
         ? form.occurred_at
         : new Date(form.occurred_at);
-    const payload = {
-      type: form.type,
-      occurred_at: occurredDate.toISOString(),
-    };
-    if (form.type === "other") payload.type_other = form.type_other.trim();
-    if (form.location?.trim()) payload.location = form.location.trim();
-    if (form.notes?.trim()) payload.notes = form.notes.trim();
 
-    dispatch(createShippingEvent({ shippingId, data: payload, attachment }))
-      .unwrap()
-      .then(() => {
-        onCreated?.();
-        toggle();
-      })
-      .catch(() => {})
-      .finally(() => setBusy(false));
+    const fd = new FormData();
+    fd.append("type", form.type);
+    fd.append("occurred_at", occurredDate.toISOString());
+    if (form.type === "other") fd.append("type_other", form.type_other.trim());
+    if (form.location?.trim()) fd.append("location", form.location.trim());
+    if (form.notes?.trim()) fd.append("notes", form.notes.trim());
+    if (attachment) fd.append("attachment", attachment);
+
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.invoices.event}/${invoiceId}`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      Notification(
+        "Success",
+        resp?.data?.message || t("Tracking event added."),
+        "success"
+      );
+      onCreated?.();
+      toggle();
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Failed to add event"),
+        "warning"
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -136,9 +147,9 @@ const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
             </Label>
             <Select
               classNamePrefix="select"
-              options={SHIPPING_EVENT_TYPE_OPTIONS}
+              options={INVOICE_EVENT_TYPE_OPTIONS}
               value={
-                SHIPPING_EVENT_TYPE_OPTIONS.find((o) => o.value === form.type) ||
+                INVOICE_EVENT_TYPE_OPTIONS.find((o) => o.value === form.type) ||
                 null
               }
               onChange={(opt) => setF("type", opt ? opt.value : "")}
@@ -224,9 +235,7 @@ const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
               </div>
             )}
             {errors.attachment && (
-              <div className="text-danger small mt-25">
-                {errors.attachment}
-              </div>
+              <div className="text-danger small mt-25">{errors.attachment}</div>
             )}
           </Col>
         </Row>
@@ -243,4 +252,4 @@ const AddShippingEventModal = ({ open, toggle, shippingId, onCreated }) => {
   );
 };
 
-export default AddShippingEventModal;
+export default AddInvoiceEventModal;

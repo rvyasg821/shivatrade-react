@@ -79,7 +79,6 @@ import {
   nonComplianceModuleSlug,
   containerStuffingModuleSlug,
   invoicesModuleSlug,
-  shippingModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
   // HRM Modules (permission slugs)
@@ -173,15 +172,6 @@ const navigationItems = [
         navLink: `${appsRoot}/invoices`,
         permissionId: invoicesModuleSlug,
         resource: invoicesModuleSlug,
-        companyOnly: true,
-      },
-      {
-        id: shippingModuleSlug,
-        title: rolePermissionName[shippingModuleSlug],
-        icon: <Truck size={20} />,
-        navLink: `${appsRoot}/shipping`,
-        permissionId: shippingModuleSlug,
-        resource: shippingModuleSlug,
         companyOnly: true,
       },
     ],
