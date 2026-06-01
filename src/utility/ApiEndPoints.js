@@ -268,6 +268,10 @@ export const API_ENDPOINTS = {
     cancel: `/admin/po-vendor`, // append /:id/cancel
     pdf: `/admin/po-vendor`, // append /:id/pdf
   },
+  inventory: {
+    list: `/admin/inventory/list`,
+    receipt: `/admin/inventory/receipt`, // append /:povLineId
+  },
   invoices: {
     list: `/admin/invoice/list`,
     get: `/admin/invoice/get`, // append /:id

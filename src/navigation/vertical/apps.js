@@ -72,6 +72,7 @@ import {
   purchaseOrdersModuleSlug,
   poVendorsModuleSlug,
   trackingModuleSlug,
+  inventoryModuleSlug,
   // Warehouse
   warehouseGroupSlug,
   grnModuleSlug,
@@ -281,6 +282,17 @@ const navigationItems = [
     navLink: `${appsRoot}/po-vendors`,
     permissionId: poVendorsModuleSlug,
     resource: poVendorsModuleSlug,
+    companyOnly: true,
+  },
+
+  // Inventory - received-goods register (read-only view of POV closures).
+  {
+    id: inventoryModuleSlug,
+    title: rolePermissionName[inventoryModuleSlug],
+    icon: <Box size={20} />,
+    navLink: `${appsRoot}/inventory`,
+    permissionId: inventoryModuleSlug,
+    resource: inventoryModuleSlug,
     companyOnly: true,
   },
 

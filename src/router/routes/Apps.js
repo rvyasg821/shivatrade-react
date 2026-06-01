@@ -21,6 +21,7 @@ import {
   invoicesModuleSlug,
   shippingModuleSlug,
   trackingModuleSlug,
+  inventoryModuleSlug,
 } from '@constant/defaultValues';
 
 // **
@@ -80,6 +81,7 @@ const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
 const PurchaseOrderPublicView = lazy(() => import('@src/views/purchase-orders/public'));
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
+const InventoryList = lazy(() => import('@src/views/inventory'));
 const InvoiceList = lazy(() => import('@src/views/invoices'));
 const ViewInvoice = lazy(() => import('@src/views/invoices/view'));
 const AddInvoice = lazy(() => import('@src/views/invoices/add'));
@@ -762,6 +764,14 @@ const AppRoutes = [
     element: <ViewPoVendor />,
     meta: {
       permissionId: poVendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/inventory`,
+    element: <InventoryList />,
+    meta: {
+      permissionId: inventoryModuleSlug,
       action: 'list',
     },
   },
