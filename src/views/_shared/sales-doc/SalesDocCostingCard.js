@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import { fmt, num, round2 } from "./_helpers";
 import { getCurrencySymbol } from "@src/utility/currency";
 
-// All breakdown lines are in the base currency (INR by default). Render
-// the ₹ prefix so a quick scan tells the user "this is rupees", with the
-// foreign-currency Grand Total only at the bottom.
-const inr = (v) => `₹${fmt(v)}`;
+// All breakdown lines are in the base currency (INR by default) — the local
+// `money` helper renders the ₹ prefix so a quick scan reads "this is rupees",
+// with the foreign-currency Grand Total only at the bottom. When a doc-mode
+// `currencyView` is supplied the whole breakdown is converted instead.
 
 /**
  * Costing card - shared by Quotation / PFI / PO forms and detail pages.
@@ -24,9 +24,26 @@ const SalesDocCostingCard = ({
   /** Quotation: capture per-line GST for reference but don't display
    *  the GST row or roll it into the grand total. */
   hideGst = false,
+  /**
+   * Optional currency-view descriptor `{ mode, rate, sym, code }`.
+   * When omitted (or mode === 'base') the card renders exactly as before:
+   * the full breakdown in INR with a single foreign Grand Total box.
+   * When mode === 'doc' the whole breakdown is converted to the doc
+   * currency (× rate) and shown with that symbol, with INR demoted to a
+   * reference line. Used by the Quotation detail-page currency toggle.
+   */
+  currencyView,
 }) => {
   const { t } = useTranslation();
   const currencySym = getCurrencySymbol(currencyCode);
+
+  // `view.mode === 'doc'` flips every breakdown line into the doc currency.
+  const docView = currencyView && currencyView.mode === "doc";
+  const viewRate = docView ? num(currencyView.rate) || 1 : 1;
+  const viewSym = docView ? currencyView.sym || currencySym || "" : "₹";
+  // `money` replaces the old `inr` for breakdown rows: identity in base
+  // mode (so output is byte-for-byte the same), × rate in doc mode.
+  const money = (v) => `${viewSym}${fmt(num(v) * viewRate)}`;
 
   return (
     <Card style={sticky ? { position: "sticky", top: 80 } : undefined}>
@@ -40,53 +57,53 @@ const SalesDocCostingCard = ({
           <>
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>{t("Gross")}</span>
-              <span>{inr(totals.gross_total)}</span>
+              <span>{money(totals.gross_total)}</span>
             </div>
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>− {t("Discount")}</span>
-              <span>{inr(totals.discount_total)}</span>
+              <span>{money(totals.discount_total)}</span>
             </div>
           </>
         )}
         <div className="d-flex justify-content-between mb-1">
           <span>{t("Subtotal")}</span>
-          <strong>{inr(totals.subtotal)}</strong>
+          <strong>{money(totals.subtotal)}</strong>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>+ {t("Expenses")}</span>
-          <strong>{inr(totals.product_expenses_total)}</strong>
+          <strong>{money(totals.product_expenses_total)}</strong>
         </div>
         {num(totals.expenses_pct_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Rate-based")}</span>
-            <span>{inr(totals.expenses_pct_total)}</span>
+            <span>{money(totals.expenses_pct_total)}</span>
           </div>
         )}
         {num(totals.expenses_fixed_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Flat amount")}</span>
-            <span>{inr(totals.expenses_fixed_total)}</span>
+            <span>{money(totals.expenses_fixed_total)}</span>
           </div>
         )}
         <div className="d-flex justify-content-between mb-1">
           <span>− {t("Rebates")}</span>
-          <strong>{inr(totals.product_rebates_total)}</strong>
+          <strong>{money(totals.product_rebates_total)}</strong>
         </div>
         {num(totals.rebates_pct_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Rate-based")}</span>
-            <span>{inr(totals.rebates_pct_total)}</span>
+            <span>{money(totals.rebates_pct_total)}</span>
           </div>
         )}
         {num(totals.rebates_fixed_total) > 0 && (
           <div className="d-flex justify-content-between mb-1 ps-2 small text-muted">
             <span>· {t("Flat amount")}</span>
-            <span>{inr(totals.rebates_fixed_total)}</span>
+            <span>{money(totals.rebates_fixed_total)}</span>
           </div>
         )}
         <div className="d-flex justify-content-between mb-1 text-muted">
           <span>= {t("Net")}</span>
-          <span>{inr(totals.net)}</span>
+          <span>{money(totals.net)}</span>
         </div>
         <div className="d-flex justify-content-between mb-1">
           <span>
@@ -95,7 +112,7 @@ const SalesDocCostingCard = ({
               ? ` (${round2(num(totals.margin_pct))}%)`
               : ""}
           </span>
-          <strong>{inr(totals.margin_amount)}</strong>
+          <strong>{money(totals.margin_amount)}</strong>
         </div>
         {totals.margin_uniform ? (
           <div className="d-flex justify-content-between mb-1 text-muted small">
@@ -110,7 +127,7 @@ const SalesDocCostingCard = ({
                 className="d-flex justify-content-between mb-1 ps-2 small text-muted"
               >
                 <span>· {round2(num(rate))}%</span>
-                <span>{inr(amt)}</span>
+                <span>{money(amt)}</span>
               </div>
             ))
         )}
@@ -123,7 +140,7 @@ const SalesDocCostingCard = ({
                   ? ` (${round2(num(totals.gst_pct))}%)`
                   : ""}
               </span>
-              <strong>{inr(totals.tax_total)}</strong>
+              <strong>{money(totals.tax_total)}</strong>
             </div>
             {!totals.gst_uniform &&
               Object.entries(totals.gst_by_rate || {})
@@ -134,47 +151,86 @@ const SalesDocCostingCard = ({
                     className="d-flex justify-content-between mb-1 ps-2 small text-muted"
                   >
                     <span>· {round2(num(rate))}%</span>
-                    <span>{inr(amt)}</span>
+                    <span>{money(amt)}</span>
                   </div>
                 ))}
           </>
         )}
         <hr className="my-2" />
-        <div className="d-flex justify-content-between mb-1 text-muted">
-          <span>{t("Grand Total")}</span>
-          <span>₹ {fmt(totals.grand_inr_raw)}</span>
-        </div>
-        {num(totals.round_off) !== 0 && (
-          <div className="d-flex justify-content-between mb-1 text-muted">
-            <span>{t("Round Off")}</span>
-            <span>
-              {num(totals.round_off) >= 0 ? "+ " : "− "}₹{" "}
-              {fmt(Math.abs(num(totals.round_off)))}
-            </span>
-          </div>
+        {docView ? (
+          <>
+            <div className="d-flex justify-content-between mb-1 text-muted">
+              <span>{t("Grand Total")}</span>
+              <span>{money(totals.grand_inr_raw)}</span>
+            </div>
+            {num(totals.round_off) !== 0 && (
+              <div className="d-flex justify-content-between mb-1 text-muted">
+                <span>{t("Round Off")}</span>
+                <span>
+                  {num(totals.round_off) >= 0 ? "+ " : "− "}
+                  {money(Math.abs(num(totals.round_off)))}
+                </span>
+              </div>
+            )}
+            <div
+              className="d-flex justify-content-between p-2 mt-1 rounded"
+              style={{ background: "#f6f6f9" }}
+            >
+              <span className="fw-bold">
+                {t("Grand Total")}
+                {viewSym ? ` (${viewSym})` : ""}
+              </span>
+              <span className="fw-bold">
+                {viewSym}
+                {fmt(totals.grand_currency)}
+              </span>
+            </div>
+            <div className="d-flex justify-content-between mt-1 text-muted">
+              <small>
+                {t("In INR")} (× {t("Rate")} {num(totals.rate)})
+              </small>
+              <small>₹ {fmt(totals.grand_inr)}</small>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="d-flex justify-content-between mb-1 text-muted">
+              <span>{t("Grand Total")}</span>
+              <span>₹ {fmt(totals.grand_inr_raw)}</span>
+            </div>
+            {num(totals.round_off) !== 0 && (
+              <div className="d-flex justify-content-between mb-1 text-muted">
+                <span>{t("Round Off")}</span>
+                <span>
+                  {num(totals.round_off) >= 0 ? "+ " : "− "}₹{" "}
+                  {fmt(Math.abs(num(totals.round_off)))}
+                </span>
+              </div>
+            )}
+            <div className="d-flex justify-content-between mb-1">
+              <span className="fw-bold">{t("Grand Total (INR)")}</span>
+              <strong>₹ {fmt(totals.grand_inr)}</strong>
+            </div>
+            <div className="d-flex justify-content-between mb-1 text-muted">
+              <small>
+                × {t("Rate")} {num(totals.rate)}
+              </small>
+            </div>
+            <div
+              className="d-flex justify-content-between p-2 mt-1 rounded"
+              style={{ background: "#f6f6f9" }}
+            >
+              <span className="fw-bold">
+                {t("Grand Total")}
+                {currencySym ? ` (${currencySym})` : currencyCode ? ` (${currencyCode})` : ""}
+              </span>
+              <span className="fw-bold">
+                {currencySym || (currencyCode ? `${currencyCode} ` : "")}
+                {fmt(totals.grand_currency)}
+              </span>
+            </div>
+          </>
         )}
-        <div className="d-flex justify-content-between mb-1">
-          <span className="fw-bold">{t("Grand Total (INR)")}</span>
-          <strong>₹ {fmt(totals.grand_inr)}</strong>
-        </div>
-        <div className="d-flex justify-content-between mb-1 text-muted">
-          <small>
-            × {t("Rate")} {num(totals.rate)}
-          </small>
-        </div>
-        <div
-          className="d-flex justify-content-between p-2 mt-1 rounded"
-          style={{ background: "#f6f6f9" }}
-        >
-          <span className="fw-bold">
-            {t("Grand Total")}
-            {currencySym ? ` (${currencySym})` : currencyCode ? ` (${currencyCode})` : ""}
-          </span>
-          <span className="fw-bold">
-            {currencySym || (currencyCode ? `${currencyCode} ` : "")}
-            {fmt(totals.grand_currency)}
-          </span>
-        </div>
       </CardBody>
     </Card>
   );

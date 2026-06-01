@@ -263,7 +263,7 @@ const PfiWizard = () => {
       return;
     }
     const shouldWriteToField =
-      !isEdit && autoFilledForCurrency.current !== liveCurrencyCode;
+      autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
     const defaultOpt = options.find((o) => o.is_default);
     instance
@@ -321,6 +321,9 @@ const PfiWizard = () => {
   useEffect(() => {
     if (isEdit && store?.pfiItem?._id) {
       const p = store.pfiItem;
+      // Seed the saved currency so the rate effect preserves the persisted
+      // exchange_rate on load and only auto-fills on a later currency change.
+      autoFilledForCurrency.current = p.currency_code || null;
       reset({
         ...initPfiItem,
         ...p,

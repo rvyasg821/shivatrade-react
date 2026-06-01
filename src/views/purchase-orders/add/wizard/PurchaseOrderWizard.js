@@ -220,6 +220,9 @@ const PurchaseOrderWizard = () => {
   useEffect(() => {
     if (isEdit && store?.purchaseOrderItem?._id) {
       const p = store.purchaseOrderItem;
+      // Seed the saved currency so the rate effect preserves the persisted
+      // exchange_rate on load and only auto-fills on a later currency change.
+      autoFilledForCurrency.current = p.currency_code || null;
       reset({
         ...initPurchaseOrderItem,
         ...p,
@@ -294,7 +297,7 @@ const PurchaseOrderWizard = () => {
       return;
     }
     const shouldWriteToField =
-      !isEdit && autoFilledForCurrency.current !== liveCurrencyCode;
+      autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
     const defaultOpt = options.find((o) => o.is_default);
     instance

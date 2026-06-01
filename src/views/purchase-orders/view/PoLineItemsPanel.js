@@ -78,7 +78,11 @@ const PoLineItemsPanel = ({ bare = false }) => {
                     {l.product_name || l.product_code || "-"}
                   </td>
                   <td className="text-end">
-                    {l.qty ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}` : "-"}
+                    {l.qty
+                      ? `${num(l.qty).toFixed(2)}${
+                          l.unit ? ` ${l.unit}` : ""
+                        }`
+                      : "-"}
                   </td>
                   <td className="text-end">
                     {num(l.qty) > 0

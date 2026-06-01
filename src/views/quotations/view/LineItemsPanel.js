@@ -14,23 +14,21 @@ import {
 } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import { DetailPanel } from "@src/views/_shared/detail-page";
-import { getCurrencySymbol } from "@src/utility/currency";
+import { useQuotationCurrency } from "./CurrencyToggleContext";
 
 const LineItemsPanel = ({ bare = false }) => {
   const { t } = useTranslation();
   const { quotationItem } = useSelector((s) => s.quotation);
   const q = quotationItem || {};
   const lines = q?.lines || [];
-  const sym =
-    getCurrencySymbol(q?.currency_code) ||
-    q?.currency_symbol ||
-    q?.currency_code ||
-    "";
-  // line_total is stored in the base currency (INR). The doc Grand Total is
-  // grand_inr × exchange_rate — apply the same conversion per line so the
-  // table reads in the doc's currency to match the costing card.
-  const rate = num(q?.exchange_rate) || 1;
-  const toDocCcy = (v) => num(v) * rate;
+
+  // Currency view is driven by the detail-page toggle:
+  //   • base (default) → show INR (line_total is already stored in INR)
+  //   • doc            → multiply by the exchange rate (doc units per ₹1)
+  const { sym, fromInr, view } = useQuotationCurrency();
+  // line_total is stored in the base currency (INR); `fromInr` applies the
+  // active currency view so the table matches the costing card and KPIs.
+  const toDocCcy = (v) => fromInr(num(v));
 
   const totals = useMemo(
     () => computeDocTotals(lines, q?.exchange_rate, { excludeGst: true }),
@@ -81,7 +79,9 @@ const LineItemsPanel = ({ bare = false }) => {
                   </td>
                   <td className="text-end">
                     {l.qty
-                      ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                      ? `${num(l.qty).toFixed(2)}${
+                          l.unit ? ` ${l.unit}` : ""
+                        }`
                       : "-"}
                   </td>
                   <td className="text-end">
@@ -147,6 +147,7 @@ const LineItemsPanel = ({ bare = false }) => {
           <SalesDocCostingCard
             totals={totals}
             currencyCode={q?.currency_code}
+            currencyView={view}
             sticky={false}
             hideGst
           />
