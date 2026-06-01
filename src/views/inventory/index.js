@@ -63,6 +63,12 @@ const InventoryView = () => {
   const store = useSelector((s) => s.inventory);
   const vendorStore = useSelector((s) => s.vendor);
   const categoryStore = useSelector((s) => s.category);
+  // Top-level header location switcher — scopes the register to the
+  // deliver-to location stored on each POV (Locations master id). The
+  // header auto-selects a default, so this is normally always set.
+  const selectedLocationId = useSelector(
+    (s) => s.locationContext?.selectedLocationId
+  );
 
   const [params, setParams] = useSearchParams();
   const receiptId = params.get("receipt");
@@ -94,6 +100,7 @@ const InventoryView = () => {
       };
       if (categoryId) p.category_id = categoryId;
       if (vendorId) p.vendor_id = vendorId;
+      if (selectedLocationId) p.location_id = selectedLocationId;
       if (from) p.date_from = from;
       if (to) p.date_to = to;
       dispatch(getInventoryList(p));
@@ -104,6 +111,7 @@ const InventoryView = () => {
       searchInput,
       categoryFilter,
       vendorFilter,
+      selectedLocationId,
       dateFrom,
       dateTo,
       dispatch,
@@ -154,7 +162,14 @@ const InventoryView = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, categoryFilter, vendorFilter, dateFrom, dateTo]);
+  }, [
+    searchInput,
+    categoryFilter,
+    vendorFilter,
+    selectedLocationId,
+    dateFrom,
+    dateTo,
+  ]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
