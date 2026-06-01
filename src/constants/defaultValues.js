@@ -124,6 +124,7 @@ const purchaseGroupSlug = "purchase";
 const purchaseOrdersModuleSlug = "purchase-orders";
 const poVendorsModuleSlug = "po-vendors";
 const trackingModuleSlug = "tracking";
+const inventoryModuleSlug = "inventory";
 
 // Warehouse
 const warehouseGroupSlug = "warehouse";
@@ -217,6 +218,7 @@ const rolePermissionName = {
   [purchaseOrdersModuleSlug]: "Sales Orders",
   [poVendorsModuleSlug]: "PO Vendors",
   [trackingModuleSlug]: "Tracking",
+  [inventoryModuleSlug]: "Inventory",
 
   // Warehouse
   [grnModuleSlug]: "GRN",
@@ -541,6 +543,7 @@ export {
   purchaseOrdersModuleSlug,
   poVendorsModuleSlug,
   trackingModuleSlug,
+  inventoryModuleSlug,
   // Warehouse
   warehouseGroupSlug,
   grnModuleSlug,
