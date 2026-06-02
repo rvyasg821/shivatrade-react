@@ -239,6 +239,11 @@ const MultiSoPickerModal = ({
           product_expenses_snapshot: Array.isArray(l.product_expenses_snapshot)
             ? l.product_expenses_snapshot
             : [],
+          // Packing carried from the SO line (originally from quotation).
+          packages: l.package_count != null ? String(l.package_count) : "",
+          net_weight: l.net_weight_kg != null ? String(l.net_weight_kg) : "",
+          gross_weight:
+            l.gross_weight_kg != null ? String(l.gross_weight_kg) : "",
         });
       }
     }

@@ -989,6 +989,17 @@ const InvoiceAddEdit = () => {
       ),
     [],
   );
+  // Clear a per-line validation error live, so the red border disappears as
+  // soon as the operator fixes the field (instead of waiting for re-validation).
+  const clearLineError = useCallback((idx, key) => {
+    setErrors((prev) => {
+      const k = `line_${idx}_${key}`;
+      if (!prev[k]) return prev;
+      const next = { ...prev };
+      delete next[k];
+      return next;
+    });
+  }, []);
   const removeLine = useCallback(
     (idx) => setLines((prev) => prev.filter((_, i) => i !== idx)),
     [],
@@ -1137,6 +1148,11 @@ const InvoiceAddEdit = () => {
         product_expenses_snapshot: Array.isArray(row.product_expenses_snapshot)
           ? row.product_expenses_snapshot
           : [],
+        // Packing carried from the SO line (originally from quotation).
+        packages: row.package_count != null ? String(row.package_count) : "",
+        net_weight: row.net_weight_kg != null ? String(row.net_weight_kg) : "",
+        gross_weight:
+          row.gross_weight_kg != null ? String(row.gross_weight_kg) : "",
       });
     }
     if (toAppend.length) {
@@ -1186,6 +1202,9 @@ const InvoiceAddEdit = () => {
             unit_price: l.unit_price,
             discount_pct: l.discount_pct,
             igst_rate_pct: l.igst_rate_pct,
+            packages: l.packages,
+            net_weight: l.net_weight,
+            gross_weight: l.gross_weight,
             product_rebates_snapshot: l.product_rebates_snapshot,
             product_expenses_snapshot: l.product_expenses_snapshot,
           })),
@@ -1254,6 +1273,12 @@ const InvoiceAddEdit = () => {
           )
             ? data.product_expenses_snapshot
             : [],
+          // Packing List — operator-editable in the sheet; feeds the
+          // auto-summed cargo totals in the Shipment section.
+          packages: data.packages != null ? String(data.packages) : "",
+          net_weight: data.net_weight != null ? String(data.net_weight) : "",
+          gross_weight:
+            data.gross_weight != null ? String(data.gross_weight) : "",
         };
         const codeKey = (data.product_code || "").toLowerCase();
         const targetIdx = codeKey ? idxByProductCode.get(codeKey) : undefined;
@@ -2244,9 +2269,10 @@ const InvoiceAddEdit = () => {
                       <td>
                         <Input
                                     value={l.hsn_code || ""}
-                          onChange={(e) =>
-                            updateLine(i, { hsn_code: e.target.value })
-                          }
+                          onChange={(e) => {
+                            updateLine(i, { hsn_code: e.target.value });
+                            if (e.target.value.trim()) clearLineError(i, "hsn");
+                          }}
                           invalid={!!errors[`line_${i}_hsn`]}
                           placeholder="HSN"
                         />
@@ -2294,7 +2320,11 @@ const InvoiceAddEdit = () => {
                           step="0.01"
                           className="text-end"
                           value={l.qty}
-                          onChange={(e) => updateLine(i, { qty: e.target.value })}
+                          onChange={(e) => {
+                            updateLine(i, { qty: e.target.value });
+                            if (Number(e.target.value) > 0)
+                              clearLineError(i, "qty");
+                          }}
                           onBlur={(e) => {
                             const v = e.target.value;
                             if (v === "" || v === null) return;
@@ -3203,6 +3233,7 @@ const InvoiceAddEdit = () => {
         toggle={() => setLinesImportOpen((o) => !o)}
         purchaseOrderId={form.purchase_order_id}
         invoiceId={editId}
+        draftLines={lines}
         onConfirm={applyResolvedLines}
       />
     </Fragment>
