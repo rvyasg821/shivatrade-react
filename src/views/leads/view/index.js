@@ -46,14 +46,14 @@ import {
   LEAD_SOURCE_OPTIONS,
 } from "@constant/options";
 
-import { Row, Col, Button } from "reactstrap";
+import { Row, Col, Button, Table, Input } from "reactstrap";
+import ReactPaginate from "react-paginate";
 
 import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
   DetailFieldList,
-  DetailChips,
   DetailSocials,
   DetailTwoPanel,
   DetailPanel,
@@ -115,6 +115,11 @@ const ViewLead = () => {
   // Activity composer visibility — collapsed by default. The header "+"
   // action opens it; submitting a note auto-collapses it again.
   const [showActivityComposer, setShowActivityComposer] = useState(false);
+
+  // Pagination for the Requirement Items table (matches the quotation/SO
+  // detail line-item tables).
+  const [reqPage, setReqPage] = useState(0);
+  const [reqPageSize, setReqPageSize] = useState(10);
 
   // Right-side Activity panel height tracks the left column's rendered
   // height so the two columns visually match. Excess feed scrolls inside.
@@ -206,6 +211,13 @@ const ViewLead = () => {
   );
   const productChips = resolveNames(l?.interested_products, productNameById);
   const vendorChips = resolveNames(l?.preferred_vendors, vendorNameById);
+
+  const requirementLines = Array.isArray(l?.lines) ? l.lines : [];
+  const reqTotal = requirementLines.length;
+  const reqPageCount = Math.max(1, Math.ceil(reqTotal / reqPageSize));
+  const reqSafePage = Math.min(reqPage, reqPageCount - 1);
+  const reqStart = reqSafePage * reqPageSize;
+  const reqPageLines = requirementLines.slice(reqStart, reqStart + reqPageSize);
 
   const quotationsCount = (quotationStore?.quotationItems || []).filter(
     (q) => q?.lead_id === id
@@ -377,7 +389,11 @@ const ViewLead = () => {
             null
           }
           meta={
-            l?._id ? `${t("Lead ID")}: #${l._id.slice(-8).toUpperCase()}` : null
+            l?.voucher_no
+              ? l.voucher_no
+              : l?._id
+              ? `${t("Lead ID")}: #${l._id.slice(-8).toUpperCase()}`
+              : null
           }
           badge={{
             label: statusLabel,
@@ -412,6 +428,103 @@ const ViewLead = () => {
                   </Row>
                 ))}
 
+                {/* Requirement line items (replaces the interested
+                    categories/products chips). */}
+                {requirementLines.length > 0 && (
+                  <>
+                    <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
+                      {t("Requirement Items")}
+                    </h5>
+                    <div className="table-responsive mb-1">
+                      <Table size="sm" bordered className="mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th style={{ width: 30 }}>#</th>
+                            <th>{t("Product")}</th>
+                            <th className="text-end">{t("Qty")}</th>
+                            <th>{t("Unit")}</th>
+                            <th className="text-end">{t("Price")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reqPageLines.map((ln, i) => (
+                            <tr key={ln._id || reqStart + i}>
+                              <td>{reqStart + i + 1}</td>
+                              <td>
+                                <div className="fw-semibold">
+                                  {ln.product_name || ln.product_code || "-"}
+                                </div>
+                                {ln.product_name && ln.product_code ? (
+                                  <div className="text-muted small">
+                                    {ln.product_code}
+                                  </div>
+                                ) : null}
+                                {ln.description ? (
+                                  <div className="text-muted small">
+                                    {ln.description}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td className="text-end">
+                                {ln.qty != null && ln.qty !== ""
+                                  ? Number(ln.qty).toLocaleString()
+                                  : "-"}
+                              </td>
+                              <td>{ln.unit || "-"}</td>
+                              <td className="text-end">
+                                {ln.unit_price != null &&
+                                ln.unit_price !== "" &&
+                                Number(ln.unit_price) > 0
+                                  ? formatMoney(ln.unit_price, "INR")
+                                  : "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
+                      <div className="d-flex align-items-center small text-muted">
+                        <span className="me-50">{t("Show")}</span>
+                        <Input
+                          type="select"
+                          bsSize="sm"
+                          value={reqPageSize}
+                          onChange={(e) => {
+                            setReqPageSize(Number(e.target.value) || 10);
+                            setReqPage(0);
+                          }}
+                          style={{ width: 80 }}
+                        >
+                          {[10, 25, 50, 100].map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </Input>
+                        <span className="ms-50">
+                          {t("of")} {reqTotal} {t("rows")}
+                        </span>
+                      </div>
+                      <ReactPaginate
+                        previousLabel=""
+                        nextLabel=""
+                        pageCount={reqPageCount}
+                        activeClassName="active"
+                        forcePage={reqSafePage}
+                        onPageChange={({ selected }) => setReqPage(selected)}
+                        pageClassName="page-item"
+                        nextLinkClassName="page-link"
+                        nextClassName="page-item next"
+                        previousClassName="page-item prev"
+                        previousLinkClassName="page-link"
+                        pageLinkClassName="page-link"
+                        containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                      />
+                    </div>
+                  </>
+                )}
+
                 {/* Render the whole Opportunity section only when there's
                     at least one populated field — otherwise users see an
                     empty heading with nothing under it. */}
@@ -426,9 +539,6 @@ const ViewLead = () => {
                   if (!hasOpportunity) return null;
                   return (
                     <>
-                      <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
-                        {t("Opportunity")}
-                      </h5>
                       {(() => {
                         const opportunityBlocks = [];
                   if (budget) {
@@ -444,16 +554,6 @@ const ViewLead = () => {
                       />
                     );
                   }
-                  if (categoryChips.length) {
-                    opportunityBlocks.push(
-                      <DetailChips
-                        title={t("Interested Categories")}
-                        items={categoryChips}
-                        bg="#eef0f3"
-                        fg="#1a2238"
-                      />
-                    );
-                  }
                   if (l?.follow_up_date) {
                     opportunityBlocks.push(
                       <DetailFieldList
@@ -464,16 +564,6 @@ const ViewLead = () => {
                             value: formatDate(l.follow_up_date),
                           },
                         ]}
-                      />
-                    );
-                  }
-                  if (productChips.length) {
-                    opportunityBlocks.push(
-                      <DetailChips
-                        title={t("Interested Products")}
-                        items={productChips}
-                        bg="#eef0f3"
-                        fg="#1a2238"
                       />
                     );
                   }
@@ -516,6 +606,8 @@ const ViewLead = () => {
                     </>
                   );
                 })()}
+
+                <hr className="my-2" />
 
                 <DetailSocials
                   title={t("Social")}

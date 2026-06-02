@@ -12,7 +12,8 @@ import {
 } from "../store";
 import { getCustomerDropdown, getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
-import { getCategoryDropdown } from "../../categories/store";
+import { getRebateDropdown } from "../../rebates/store";
+import { getExpenseDropdown } from "../../expenses/store";
 import { getExchangeRateOptions } from "../../currencies/store";
 import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
@@ -28,11 +29,10 @@ import {
   Input,
   Button,
   FormFeedback,
-  Table,
 } from "reactstrap";
 
 // ** Form
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Select from "react-select";
@@ -46,12 +46,16 @@ import DateInput from "@components/date-input";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, FileText, Briefcase, Target, MapPin, Plus, Trash2 } from "react-feather";
+import { ArrowLeft, FileText, Briefcase, Target, MapPin } from "react-feather";
 
 // ** Wizard scaffolding (shared with Customer / Quotation / PFI / PO wizards)
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
 import "@src/views/_shared/wizard/wizard.scss";
+
+// ** Shared line-item table (same component the Quotation/PFI/PO wizards use).
+import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
+import { initQuotationLineItem } from "@constant/reduxConstant";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
@@ -98,7 +102,8 @@ const LeadForm = () => {
   const store = useSelector((state) => state.lead);
   const customerStore = useSelector((state) => state.customer);
   const productStore = useSelector((state) => state.product);
-  const categoryStore = useSelector((state) => state.category);
+  const rebateStore = useSelector((state) => state.rebate);
+  const expenseStore = useSelector((state) => state.expense);
   const vendorStore = useSelector((state) => state.vendor);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
@@ -151,13 +156,6 @@ const LeadForm = () => {
     defaultValues: initLeadItem,
   });
 
-  // Requirement line items (replaces interested categories/products).
-  const {
-    fields: lineFields,
-    append: appendLine,
-    remove: removeLine,
-  } = useFieldArray({ control, name: "lines" });
-
   // ── Wizard navigation state ─────────────────────────────────────────
   const [activeStep, setActiveStep] = useState(0);
   const [visited, setVisited] = useState(new Set([0]));
@@ -194,7 +192,8 @@ const LeadForm = () => {
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
-    dispatch(getCategoryDropdown());
+    dispatch(getRebateDropdown());
+    dispatch(getExpenseDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getVendorDropdown());
     if (isEditMode) {
@@ -215,13 +214,22 @@ const LeadForm = () => {
         interested_products: store.leadItem.interested_products || [],
         lines: (store.leadItem.lines || []).map((l) => ({
           product_id: l.product_id || "",
-          category_id: l.category_id || "",
+          vendor_id: l.vendor_id || "",
           description: l.description || "",
+          customer_reference: l.customer_reference || "",
           qty: l.qty != null ? String(l.qty) : "",
           unit: l.unit || "",
-          target_price: l.target_price != null ? String(l.target_price) : "",
-          customer_reference: l.customer_reference || "",
-          notes: l.notes || "",
+          unit_price: l.unit_price != null ? String(l.unit_price) : "",
+          discount_pct: l.discount_pct != null ? String(l.discount_pct) : "0",
+          tax_pct: l.tax_pct != null ? String(l.tax_pct) : "0",
+          margin_pct: l.margin_pct != null ? String(l.margin_pct) : "0",
+          product_rebates_snapshot: l.product_rebates_snapshot || [],
+          product_expenses_snapshot: l.product_expenses_snapshot || [],
+          hs_code: l.hs_code || "",
+          net_weight_kg: l.net_weight_kg != null ? String(l.net_weight_kg) : "0",
+          gross_weight_kg:
+            l.gross_weight_kg != null ? String(l.gross_weight_kg) : "0",
+          package_count: l.package_count != null ? Number(l.package_count) : 0,
         })),
         social_media_urls: store.leadItem.social_media_urls || {},
         preferred_vendors: store.leadItem.preferred_vendors || [],
@@ -341,28 +349,43 @@ const LeadForm = () => {
         data.expected_value === "" || data.expected_value === null
           ? undefined
           : Number(data.expected_value),
-      // Requirement line items (replaces interested categories/products).
-      // The deprecated interested_* arrays are intentionally omitted so any
-      // legacy values on existing leads are preserved, not wiped.
+      // Requirement line items (quotation line shape — managed by the shared
+      // SalesDocLineItems component). Deprecated interested_* arrays are
+      // omitted so legacy values on existing leads are preserved.
       lines: (data.lines || [])
-        .filter(
-          (l) =>
-            l.product_id || l.category_id || (l.description || "").trim()
-        )
-        .map((l, i) => ({
-          product_id: l.product_id || undefined,
-          category_id: l.category_id || undefined,
-          description: (l.description || "").trim() || undefined,
-          qty: l.qty === "" || l.qty == null ? undefined : String(l.qty),
-          unit: l.unit?.trim() || undefined,
-          target_price:
-            l.target_price === "" || l.target_price == null
-              ? undefined
-              : String(l.target_price),
-          customer_reference: l.customer_reference?.trim() || undefined,
-          notes: l.notes?.trim() || undefined,
-          seq: i + 1,
-        })),
+        .filter((l) => l.product_id)
+        .map((l, i) => {
+          const numOrU = (v) =>
+            v === "" || v == null ? undefined : String(v);
+          return {
+            product_id: l.product_id,
+            vendor_id: l.vendor_id || undefined,
+            description: l.description || undefined,
+            customer_reference: l.customer_reference || undefined,
+            qty: numOrU(l.qty),
+            unit: l.unit || undefined,
+            unit_price: numOrU(l.unit_price),
+            discount_pct: numOrU(l.discount_pct),
+            tax_pct: numOrU(l.tax_pct),
+            margin_pct: numOrU(l.margin_pct),
+            product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
+              ? l.product_rebates_snapshot
+              : undefined,
+            product_expenses_snapshot: Array.isArray(
+              l.product_expenses_snapshot
+            )
+              ? l.product_expenses_snapshot
+              : undefined,
+            hs_code: l.hs_code || undefined,
+            net_weight_kg: numOrU(l.net_weight_kg),
+            gross_weight_kg: numOrU(l.gross_weight_kg),
+            package_count:
+              l.package_count === "" || l.package_count == null
+                ? undefined
+                : Number(l.package_count),
+            seq: i + 1,
+          };
+        }),
       website_url: data.website_url?.trim() || undefined,
       social_media_urls:
         data.social_media_urls &&
@@ -392,58 +415,24 @@ const LeadForm = () => {
     label: c.company_name,
   }));
 
-  const categoryOptions = (categoryStore?.categoryDropdown || []).map((c) => ({
-    value: c._id,
-    label: c.name,
-  }));
-
-  // Per-line product picker — all products (each line carries its own product
-  // / category, so no global category filter).
-  const productOptions = (productStore?.productDropdown || []).map((p) => ({
+  // Option shapes for the shared SalesDocLineItems component (same as the
+  // Quotation wizard). `raw` carries the full product/master record so the
+  // component can auto-fill price (price list), HS code, weights, etc.
+  const allProductOptions = (productStore?.productDropdown || []).map((p) => ({
     value: p._id,
-    label: p.code
-      ? `${p.code} — ${p.name || p.product_name}`
-      : p.name || p.product_name,
+    label: `${p.code ? p.code + " - " : ""}${p.name || p.product_name}`,
     raw: p,
   }));
-
-  // Picking a product auto-fills the line's category, description (if blank)
-  // and unit from the product master.
-  const onPickLineProduct = (idx, opt) => {
-    const p = opt?.raw;
-    setValue(`lines.${idx}.product_id`, opt?.value || "");
-    if (p) {
-      if (p.category_id) setValue(`lines.${idx}.category_id`, p.category_id);
-      const curDesc = watch(`lines.${idx}.description`);
-      if (!curDesc) {
-        setValue(`lines.${idx}.description`, p.name || p.product_name || "");
-      }
-      const curUnit = watch(`lines.${idx}.unit`);
-      if (!curUnit && p.unit_of_measure) {
-        setValue(`lines.${idx}.unit`, p.unit_of_measure);
-      }
-      // Seed the target price from the product's standard selling price as a
-      // starting reference (price-list is vendor cost, resolved later at RFQ).
-      const curTarget = watch(`lines.${idx}.target_price`);
-      if (
-        (curTarget === "" || curTarget == null) &&
-        p.selling_price != null &&
-        String(p.selling_price) !== ""
-      ) {
-        setValue(`lines.${idx}.target_price`, String(p.selling_price));
-      }
-    }
-  };
-
-  const addRequirementLine = () =>
-    appendLine({
-      product_id: "",
-      category_id: "",
-      description: "",
-      qty: "",
-      unit: "",
-      target_price: "",
-    });
+  const rebateOptions = (rebateStore?.rebateDropdown || []).map((r) => ({
+    value: r._id,
+    label: r.name,
+    raw: r,
+  }));
+  const expenseOptions = (expenseStore?.expenseDropdown || []).map((e) => ({
+    value: e._id,
+    label: e.name,
+    raw: e,
+  }));
 
   const currencyOptions = (currencyStore?.exchangeOptions || []).map((c) => ({
     value: c.code,
@@ -734,182 +723,30 @@ const LeadForm = () => {
               </h4>
               <Row>
                 <Col md="12" className="mb-3">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <Label className="form-label mb-0">
-                      {t("Requirement Items")}
-                    </Label>
-                    <Button
-                      size="sm"
-                      color="primary"
-                      outline
-                      type="button"
-                      onClick={addRequirementLine}
-                    >
-                      <Plus size={14} className="me-25" /> {t("Add Item")}
-                    </Button>
-                  </div>
-                  <small className="text-muted d-block mb-1">
+                  <h5 className="mb-1">{t("Requirement Items")}</h5>
+                  <small className="text-muted d-block mb-2">
                     {t(
-                      "What the customer wants — pick a product or type a free-text item. Used to source vendor pricing."
+                      "What the customer wants. Price auto-fills from the cheapest current vendor in the price list. Use Import / Export for bulk entry."
                     )}
                   </small>
-                  {lineFields.length === 0 ? (
-                    <div className="text-muted small border rounded p-2 text-center">
-                      {t(
-                        "No items yet. Click \"Add Item\" to capture the requirement."
-                      )}
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <Table size="sm" bordered className="mb-0 align-middle">
-                        <thead className="table-light">
-                          <tr>
-                            <th style={{ width: 30 }}>#</th>
-                            <th style={{ minWidth: 200 }}>{t("Product")}</th>
-                            <th style={{ minWidth: 150 }}>{t("Category")}</th>
-                            <th style={{ minWidth: 200 }}>{t("Description")}</th>
-                            <th style={{ width: 90 }}>{t("Qty")}</th>
-                            <th style={{ width: 90 }}>{t("Unit")}</th>
-                            <th style={{ width: 120 }}>{t("Target Price")}</th>
-                            <th style={{ width: 40 }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lineFields.map((f, idx) => (
-                            <tr key={f.id}>
-                              <td>{idx + 1}</td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.product_id`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Select
-                                      classNamePrefix="select"
-                                      isClearable
-                                      options={productOptions}
-                                      menuPortalTarget={document.body}
-                                      styles={{
-                                        menuPortal: (b) => ({
-                                          ...b,
-                                          zIndex: 9999,
-                                        }),
-                                      }}
-                                      value={
-                                        productOptions.find(
-                                          (o) => o.value === field.value
-                                        ) || null
-                                      }
-                                      onChange={(opt) =>
-                                        onPickLineProduct(idx, opt)
-                                      }
-                                      placeholder={t("Pick product")}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.category_id`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Select
-                                      classNamePrefix="select"
-                                      isClearable
-                                      options={categoryOptions}
-                                      menuPortalTarget={document.body}
-                                      styles={{
-                                        menuPortal: (b) => ({
-                                          ...b,
-                                          zIndex: 9999,
-                                        }),
-                                      }}
-                                      value={
-                                        categoryOptions.find(
-                                          (o) => o.value === field.value
-                                        ) || null
-                                      }
-                                      onChange={(opt) =>
-                                        field.onChange(opt?.value || "")
-                                      }
-                                      placeholder={t("Category")}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.description`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Input
-                                      bsSize="sm"
-                                      {...field}
-                                      placeholder={t("Item / spec")}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.qty`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Input
-                                      bsSize="sm"
-                                      type="number"
-                                      step="any"
-                                      min="0"
-                                      {...field}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.unit`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Input
-                                      bsSize="sm"
-                                      {...field}
-                                      placeholder={t("e.g. PCS")}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td>
-                                <Controller
-                                  name={`lines.${idx}.target_price`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Input
-                                      bsSize="sm"
-                                      type="number"
-                                      step="any"
-                                      min="0"
-                                      {...field}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              <td className="text-center">
-                                <Button
-                                  size="sm"
-                                  color="flat-danger"
-                                  className="p-25"
-                                  type="button"
-                                  onClick={() => removeLine(idx)}
-                                  title={t("Remove")}
-                                >
-                                  <Trash2 size={15} />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </div>
-                  )}
+                  <SalesDocLineItems
+                    control={control}
+                    setValue={setValue}
+                    productOptions={allProductOptions}
+                    allProductOptions={allProductOptions}
+                    initLineItem={initQuotationLineItem}
+                    rebateOptions={rebateOptions}
+                    expenseOptions={expenseOptions}
+                    currencyCode={watch("currency") || "INR"}
+                    baseCurrencyCode="INR"
+                    exchangeRate={1}
+                    tableLayout="detailed"
+                    displayInBase
+                    docType="lead"
+                    docNumber=""
+                    hideGst
+                    showExportFields
+                  />
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="expected_value">

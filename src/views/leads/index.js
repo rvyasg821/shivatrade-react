@@ -254,6 +254,9 @@ const LeadList = () => {
             >
               {nameNode}
             </Link>
+            {row?.voucher_no && (
+              <div className="small text-muted">{row.voucher_no}</div>
+            )}
             {row?.contact_name && (
               <div className="text-capitalize small">{row.contact_name}</div>
             )}
