@@ -28,10 +28,11 @@ import {
   Input,
   Button,
   FormFeedback,
+  Table,
 } from "reactstrap";
 
 // ** Form
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Select from "react-select";
@@ -45,7 +46,7 @@ import DateInput from "@components/date-input";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, FileText, Briefcase, Target, MapPin } from "react-feather";
+import { ArrowLeft, FileText, Briefcase, Target, MapPin, Plus, Trash2 } from "react-feather";
 
 // ** Wizard scaffolding (shared with Customer / Quotation / PFI / PO wizards)
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -125,11 +126,6 @@ const LeadForm = () => {
         contact_phone: yup.string().trim().nullable().notRequired(),
         source: yup.string().required(t("Source is required")),
         status: yup.string().required(t("Status is required")),
-        interested_categories: yup
-          .array()
-          .of(yup.string())
-          .nullable()
-          .notRequired(),
         expected_value: yup
           .number()
           .transform((v, o) => (o === "" || o === null ? undefined : v))
@@ -154,6 +150,13 @@ const LeadForm = () => {
     resolver: yupResolver(schema),
     defaultValues: initLeadItem,
   });
+
+  // Requirement line items (replaces interested categories/products).
+  const {
+    fields: lineFields,
+    append: appendLine,
+    remove: removeLine,
+  } = useFieldArray({ control, name: "lines" });
 
   // ── Wizard navigation state ─────────────────────────────────────────
   const [activeStep, setActiveStep] = useState(0);
@@ -210,6 +213,16 @@ const LeadForm = () => {
         expected_value: store.leadItem.expected_value ?? "",
         interested_categories: store.leadItem.interested_categories || [],
         interested_products: store.leadItem.interested_products || [],
+        lines: (store.leadItem.lines || []).map((l) => ({
+          product_id: l.product_id || "",
+          category_id: l.category_id || "",
+          description: l.description || "",
+          qty: l.qty != null ? String(l.qty) : "",
+          unit: l.unit || "",
+          target_price: l.target_price != null ? String(l.target_price) : "",
+          customer_reference: l.customer_reference || "",
+          notes: l.notes || "",
+        })),
         social_media_urls: store.leadItem.social_media_urls || {},
         preferred_vendors: store.leadItem.preferred_vendors || [],
         follow_up_date: (store.leadItem.follow_up_date || "").slice(0, 10),
@@ -328,8 +341,28 @@ const LeadForm = () => {
         data.expected_value === "" || data.expected_value === null
           ? undefined
           : Number(data.expected_value),
-      interested_categories: data.interested_categories || [],
-      interested_products: data.interested_products || [],
+      // Requirement line items (replaces interested categories/products).
+      // The deprecated interested_* arrays are intentionally omitted so any
+      // legacy values on existing leads are preserved, not wiped.
+      lines: (data.lines || [])
+        .filter(
+          (l) =>
+            l.product_id || l.category_id || (l.description || "").trim()
+        )
+        .map((l, i) => ({
+          product_id: l.product_id || undefined,
+          category_id: l.category_id || undefined,
+          description: (l.description || "").trim() || undefined,
+          qty: l.qty === "" || l.qty == null ? undefined : String(l.qty),
+          unit: l.unit?.trim() || undefined,
+          target_price:
+            l.target_price === "" || l.target_price == null
+              ? undefined
+              : String(l.target_price),
+          customer_reference: l.customer_reference?.trim() || undefined,
+          notes: l.notes?.trim() || undefined,
+          seq: i + 1,
+        })),
       website_url: data.website_url?.trim() || undefined,
       social_media_urls:
         data.social_media_urls &&
@@ -364,30 +397,43 @@ const LeadForm = () => {
     label: c.name,
   }));
 
-  const watchCategories = watch("interested_categories") || [];
-  const productOptions = (productStore?.productDropdown || [])
-    .filter(
-      (p) => !p.category_id || watchCategories.includes(p.category_id)
-    )
-    .map((p) => ({
-      value: p._id,
-      label: p.name || p.product_name,
-    }));
+  // Per-line product picker — all products (each line carries its own product
+  // / category, so no global category filter).
+  const productOptions = (productStore?.productDropdown || []).map((p) => ({
+    value: p._id,
+    label: p.code
+      ? `${p.code} — ${p.name || p.product_name}`
+      : p.name || p.product_name,
+    raw: p,
+  }));
 
-  // Drop products whose category is no longer selected.
-  useEffect(() => {
-    const allowed = new Set(watchCategories);
-    const current = watch("interested_products") || [];
-    const filtered = current.filter((pid) => {
-      const product = (productStore?.productDropdown || []).find(
-        (p) => p._id === pid
-      );
-      return !product?.category_id || allowed.has(product.category_id);
-    });
-    if (filtered.length !== current.length) {
-      setValue("interested_products", filtered, { shouldValidate: true });
+  // Picking a product auto-fills the line's category, description (if blank)
+  // and unit from the product master.
+  const onPickLineProduct = (idx, opt) => {
+    const p = opt?.raw;
+    setValue(`lines.${idx}.product_id`, opt?.value || "");
+    if (p) {
+      if (p.category_id) setValue(`lines.${idx}.category_id`, p.category_id);
+      const curDesc = watch(`lines.${idx}.description`);
+      if (!curDesc) {
+        setValue(`lines.${idx}.description`, p.name || p.product_name || "");
+      }
+      const curUnit = watch(`lines.${idx}.unit`);
+      if (!curUnit && p.unit_of_measure) {
+        setValue(`lines.${idx}.unit`, p.unit_of_measure);
+      }
     }
-  }, [JSON.stringify(watchCategories)]);
+  };
+
+  const addRequirementLine = () =>
+    appendLine({
+      product_id: "",
+      category_id: "",
+      description: "",
+      qty: "",
+      unit: "",
+      target_price: "",
+    });
 
   const currencyOptions = (currencyStore?.exchangeOptions || []).map((c) => ({
     value: c.code,
@@ -677,70 +723,183 @@ const LeadForm = () => {
                 <small className="text-muted fw-normal">({t("Optional")})</small>
               </h4>
               <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="interested_categories">
-                    {t("Interested Categories")}
-                  </Label>
-                  <Controller
-                    name="interested_categories"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="interested_categories"
-                        isMulti
-                        isClearable
-                        options={categoryOptions}
-                        value={categoryOptions.filter((o) =>
-                          (field.value || []).includes(o.value)
-                        )}
-                        onChange={(opts) =>
-                          field.onChange((opts || []).map((o) => o.value))
-                        }
-                        placeholder={t("Select categories")}
-                        classNamePrefix="select"
-                      />
+                <Col md="12" className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <Label className="form-label mb-0">
+                      {t("Requirement Items")}
+                    </Label>
+                    <Button
+                      size="sm"
+                      color="primary"
+                      outline
+                      type="button"
+                      onClick={addRequirementLine}
+                    >
+                      <Plus size={14} className="me-25" /> {t("Add Item")}
+                    </Button>
+                  </div>
+                  <small className="text-muted d-block mb-1">
+                    {t(
+                      "What the customer wants — pick a product or type a free-text item. Used to source vendor pricing."
                     )}
-                  />
-                  {errors.interested_categories && (
-                    <FormFeedback className="d-block">
-                      {errors.interested_categories.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="interested_products">
-                    {t("Interested Products")}
-                  </Label>
-                  <Controller
-                    name="interested_products"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="interested_products"
-                        isMulti
-                        isClearable
-                        isDisabled={watchCategories.length === 0}
-                        options={productOptions}
-                        value={productOptions.filter((o) =>
-                          (field.value || []).includes(o.value)
-                        )}
-                        onChange={(opts) =>
-                          field.onChange(
-                            (opts || []).map((o) => o.value)
-                          )
-                        }
-                        placeholder={
-                          watchCategories.length === 0
-                            ? t("Select categories first")
-                            : t("Refine with specific products")
-                        }
-                        classNamePrefix="select"
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("Optional. Filtered by selected categories.")}
                   </small>
+                  {lineFields.length === 0 ? (
+                    <div className="text-muted small border rounded p-2 text-center">
+                      {t(
+                        "No items yet. Click \"Add Item\" to capture the requirement."
+                      )}
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <Table size="sm" bordered className="mb-0 align-middle">
+                        <thead className="table-light">
+                          <tr>
+                            <th style={{ width: 30 }}>#</th>
+                            <th style={{ minWidth: 200 }}>{t("Product")}</th>
+                            <th style={{ minWidth: 150 }}>{t("Category")}</th>
+                            <th style={{ minWidth: 200 }}>{t("Description")}</th>
+                            <th style={{ width: 90 }}>{t("Qty")}</th>
+                            <th style={{ width: 90 }}>{t("Unit")}</th>
+                            <th style={{ width: 120 }}>{t("Target Price")}</th>
+                            <th style={{ width: 40 }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineFields.map((f, idx) => (
+                            <tr key={f.id}>
+                              <td>{idx + 1}</td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.product_id`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select
+                                      classNamePrefix="select"
+                                      isClearable
+                                      options={productOptions}
+                                      menuPortalTarget={document.body}
+                                      styles={{
+                                        menuPortal: (b) => ({
+                                          ...b,
+                                          zIndex: 9999,
+                                        }),
+                                      }}
+                                      value={
+                                        productOptions.find(
+                                          (o) => o.value === field.value
+                                        ) || null
+                                      }
+                                      onChange={(opt) =>
+                                        onPickLineProduct(idx, opt)
+                                      }
+                                      placeholder={t("Pick product")}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.category_id`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select
+                                      classNamePrefix="select"
+                                      isClearable
+                                      options={categoryOptions}
+                                      menuPortalTarget={document.body}
+                                      styles={{
+                                        menuPortal: (b) => ({
+                                          ...b,
+                                          zIndex: 9999,
+                                        }),
+                                      }}
+                                      value={
+                                        categoryOptions.find(
+                                          (o) => o.value === field.value
+                                        ) || null
+                                      }
+                                      onChange={(opt) =>
+                                        field.onChange(opt?.value || "")
+                                      }
+                                      placeholder={t("Category")}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.description`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Input
+                                      bsSize="sm"
+                                      {...field}
+                                      placeholder={t("Item / spec")}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.qty`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Input
+                                      bsSize="sm"
+                                      type="number"
+                                      step="any"
+                                      min="0"
+                                      {...field}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.unit`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Input
+                                      bsSize="sm"
+                                      {...field}
+                                      placeholder={t("e.g. PCS")}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td>
+                                <Controller
+                                  name={`lines.${idx}.target_price`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Input
+                                      bsSize="sm"
+                                      type="number"
+                                      step="any"
+                                      min="0"
+                                      {...field}
+                                    />
+                                  )}
+                                />
+                              </td>
+                              <td className="text-center">
+                                <Button
+                                  size="sm"
+                                  color="flat-danger"
+                                  className="p-25"
+                                  type="button"
+                                  onClick={() => removeLine(idx)}
+                                  title={t("Remove")}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  )}
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="expected_value">
