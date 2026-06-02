@@ -422,6 +422,16 @@ const LeadForm = () => {
       if (!curUnit && p.unit_of_measure) {
         setValue(`lines.${idx}.unit`, p.unit_of_measure);
       }
+      // Seed the target price from the product's standard selling price as a
+      // starting reference (price-list is vendor cost, resolved later at RFQ).
+      const curTarget = watch(`lines.${idx}.target_price`);
+      if (
+        (curTarget === "" || curTarget == null) &&
+        p.selling_price != null &&
+        String(p.selling_price) !== ""
+      ) {
+        setValue(`lines.${idx}.target_price`, String(p.selling_price));
+      }
     }
   };
 
