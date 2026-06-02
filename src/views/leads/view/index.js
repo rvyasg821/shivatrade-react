@@ -27,12 +27,14 @@ import {
   Layers,
   Hash,
   X,
+  Send,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import { getLead, cleanLeadMessage, convertLead } from "@src/views/leads/store";
+import { createRfqFromLead } from "@src/views/rfq/store";
 import { formatMoney } from "@src/utility/currency";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getProductDropdown } from "@src/views/products/store";
@@ -256,7 +258,30 @@ const ViewLead = () => {
       });
   };
 
+  const onCreateRfq = async () => {
+    try {
+      const res = await dispatch(createRfqFromLead({ leadId: id })).unwrap();
+      const newId = res?.rfqItem?._id;
+      if (newId) {
+        navigate(`${appsRoot}/rfq/view/${newId}`);
+      } else if (res?.error) {
+        Notification("Error", res.error, "warning");
+      }
+    } catch (e) {
+      Notification("Error", t("Could not create the RFQ."), "warning");
+    }
+  };
+
   const headerActions = [
+    {
+      icon: Send,
+      label: t("Create RFQ"),
+      onClick: onCreateRfq,
+      // Needs requirement items to source.
+      hidden: requirementLines.length === 0,
+      color: "primary",
+      outline: false,
+    },
     {
       icon: UserPlus,
       label: t("Convert to Customer"),
