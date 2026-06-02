@@ -331,6 +331,17 @@ export const API_ENDPOINTS = {
     convert: `/admin/lead/convert`,
     activity: `/admin/lead`, // append `/${leadId}/activity[/<activityId>]`
   },
+  rfq: {
+    list: `/admin/rfq/list`,
+    get: `/admin/rfq/get`, // append /:id
+    fromLead: `/admin/rfq/from-lead`, // append /:leadId
+    update: `/admin/rfq/update`, // append /:id
+    delete: `/admin/rfq/delete`, // append /:id
+    vendors: `/admin/rfq`, // append /:id/vendors  (POST add, DELETE /:vendorId)
+    prices: `/admin/rfq`, // append /:id/prices
+    select: `/admin/rfq`, // append /:id/select
+    pdf: `/admin/rfq`, // append /:id/pdf?vendor_id=
+  },
   rebates: {
     list: `/admin/rebate/list`,
     get: `/admin/rebate/get`,

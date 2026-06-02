@@ -54,6 +54,8 @@ const LeadList = lazy(() => import('@src/views/leads'));
 const AddLead = lazy(() => import('@src/views/leads/add'));
 const EditLead = lazy(() => import('@src/views/leads/add'));
 const ViewLead = lazy(() => import('@src/views/leads/view'));
+const RfqList = lazy(() => import('@src/views/rfq'));
+const RfqView = lazy(() => import('@src/views/rfq/view'));
 const RebateList = lazy(() => import('@src/views/rebates'));
 const AddRebate = lazy(() => import('@src/views/rebates/add'));
 const EditRebate = lazy(() => import('@src/views/rebates/add'));
@@ -519,6 +521,22 @@ const AppRoutes = [
   {
     path: `${appsRoot}/leads/view/:id`,
     element: <ViewLead />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/rfq`,
+    element: <RfqList />,
+    meta: {
+      permissionId: leadsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/rfq/view/:id`,
+    element: <RfqView />,
     meta: {
       permissionId: leadsModuleSlug,
       action: 'list',
