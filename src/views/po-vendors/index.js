@@ -360,7 +360,9 @@ const PoVendorView = () => {
           </div>
           <div className="small text-nowrap mt-25">
             <span className="text-muted me-50">{t("Arrival")} -</span>
-            {row?.expected_arrival_date
+            {row?.actual_arrival_date
+              ? formatDate(row.actual_arrival_date)
+              : row?.expected_arrival_date
               ? formatDate(row.expected_arrival_date)
               : ""}
           </div>

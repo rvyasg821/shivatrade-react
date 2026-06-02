@@ -100,6 +100,7 @@ const InvoiceLineImportModal = ({
   toggle,
   purchaseOrderId,
   invoiceId,
+  draftLines = [],
   onConfirm,
 }) => {
   const { t } = useTranslation();
@@ -159,6 +160,14 @@ const InvoiceLineImportModal = ({
         purchase_order_id: purchaseOrderId,
         invoice_id: invoiceId || undefined,
         rows,
+        // Send the form's current draft so new-vs-updated is computed against
+        // what the merge will actually target (not just the saved invoice).
+        draft_lines: (draftLines || []).map((l) => ({
+          _id: l._id,
+          product_code: l.product_code,
+          purchase_order_line_id: l.purchase_order_line_id,
+          qty: l.qty,
+        })),
       });
       const sc = resp?.data?.statusCode;
       if (sc === 200 || sc === 201) {
@@ -264,7 +273,7 @@ const InvoiceLineImportModal = ({
             </div>
 
             {noisyRows.length === 0 && validRows.length > 0 && (
-              <div className="alert alert-success small d-flex align-items-center gap-1">
+              <div className="alert alert-success small d-flex align-items-center gap-1 p-2">
                 <CheckCircle size={14} />
                 {t("{{n}} row(s) ready to apply.", {
                   n: validRows.length,

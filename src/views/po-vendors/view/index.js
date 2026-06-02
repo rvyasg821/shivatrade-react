@@ -282,7 +282,7 @@ const ViewPoVendor = () => {
   ].filter(Boolean);
 
   const meta = (
-    <span className="d-inline-flex align-items-center flex-wrap gap-1">
+    <span className="d-inline-flex align-items-center flex-wrap gap-1 pt-50">
       {p?._id ? (
         <span>
           <Hash size={12} className="me-25" />
@@ -317,7 +317,13 @@ const ViewPoVendor = () => {
         <DetailHeader
           avatarText="V"
           title={p?.voucher_no || "-"}
-          subtitle={subtitleParts.join(" · ") || null}
+          subtitle={
+            subtitleParts.length ? (
+              <span className="d-block pt-50 text-muted">
+                {subtitleParts.join(" · ")}
+              </span>
+            ) : null
+          }
           meta={meta}
           badge={{
             label: statusLabel,

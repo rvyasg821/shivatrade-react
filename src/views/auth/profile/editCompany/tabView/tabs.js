@@ -12,6 +12,7 @@ import { getSubscriptionList } from "@src/views/subscription/store/"; // adjust 
 // ** Icons Imports
 import { User, FileText, CreditCard } from "react-feather";
 import { useSelector } from "react-redux";
+import { IS_SINGLE_TENANT } from "../../../../../configs/appMode";
 
 const Tabs = ({ active, accountKey, subscriptionKey, paymentKey, toggleTab }) => {
   const { t } = useTranslation();
@@ -20,11 +21,13 @@ const Tabs = ({ active, accountKey, subscriptionKey, paymentKey, toggleTab }) =>
   const roleName = user?.authUserItem?.role?.name;
   const isSystemUser = user?.authUserItem?.isSystemUser;
 
-  // Company Admins and System Admins should be able to see administration tabs
+  // Company Admins and System Admins should be able to see administration tabs.
+  // Single-tenant build hides the SaaS Subscription/Payment tabs entirely.
   const canSeeAdminTabs =
-    roleName === "Company Admin" ||
-    roleName === "Admin" ||
-    isSystemUser;
+    !IS_SINGLE_TENANT &&
+    (roleName === "Company Admin" ||
+      roleName === "Admin" ||
+      isSystemUser);
 
   return (
     <Fragment>

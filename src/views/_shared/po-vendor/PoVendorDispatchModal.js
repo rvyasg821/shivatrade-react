@@ -23,6 +23,7 @@ import {
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "react-feather";
+import ReactPaginate from "react-paginate";
 
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
@@ -52,6 +53,10 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
   const [qtyByLine, setQtyByLine] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Client-side pagination for the per-line table ──
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+
   // Pre-fill qty: dispatched = full ordered_qty per line.
   useEffect(() => {
     if (!isOpen) return;
@@ -72,6 +77,7 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
     setEwayDate((p.eway_bill_date || "").slice(0, 10) || "");
     setNotes(p.notes || "");
     setShortReason("");
+    setPage(0);
   }, [isOpen, lines, p]);
 
   const { totals, totalShort, shortLineCount, overLineCount } = useMemo(() => {
@@ -100,6 +106,15 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
       overLineCount,
     };
   }, [lines, qtyByLine]);
+
+  const totalRows = lines.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageLines = lines.slice(pageStart, pageStart + pageSize);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
 
   const handleQtyChange = (lineId, raw) => {
     setQtyByLine((prev) => ({ ...prev, [lineId]: raw }));
@@ -270,14 +285,15 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l, idx) => {
+            {pageLines.map((l, idx) => {
+              const rowNum = pageStart + idx + 1;
               const ordered = num(l.ordered_qty);
               const dispatched = num(qtyByLine[l._id]);
               const short = ordered - dispatched;
               const over = short < -1e-6;
               return (
                 <tr key={l._id}>
-                  <td>{idx + 1}</td>
+                  <td>{rowNum}</td>
                   <td>
                     <div className="fw-semibold">
                       {l?.product_name || "-"}
@@ -314,26 +330,74 @@ const PoVendorDispatchModal = ({ isOpen, toggle }) => {
               );
             })}
           </tbody>
-          <tfoot>
-            <tr className="table-light">
-              <td colSpan="3" className="text-end fw-bold">
-                {t("Totals")}
-              </td>
-              <td className="text-end fw-bold">
-                {totals.ordered.toLocaleString()}
-              </td>
-              <td className="text-end fw-bold">
-                {totals.dispatched.toLocaleString()}
-              </td>
-              <td className="text-end fw-bold text-warning">
-                {totalShort > 1e-6 ? totalShort.toLocaleString() : "-"}
-              </td>
-            </tr>
-          </tfoot>
         </Table>
 
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
+          <div className="d-flex align-items-center small text-muted">
+            <span className="me-50">{t("Show")}</span>
+            <Input
+              type="select"
+              bsSize="sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) || 10);
+                setPage(0);
+              }}
+              style={{ width: 80 }}
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Input>
+            <span className="ms-50">
+              {t("of")} {totalRows} {t("rows")}
+            </span>
+          </div>
+          <ReactPaginate
+            previousLabel=""
+            nextLabel=""
+            pageCount={pageCount}
+            activeClassName="active"
+            forcePage={safePage}
+            onPageChange={({ selected }) => setPage(selected)}
+            pageClassName="page-item"
+            nextLinkClassName="page-link"
+            nextClassName="page-item next"
+            previousClassName="page-item prev"
+            previousLinkClassName="page-link"
+            pageLinkClassName="page-link"
+            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+          />
+        </div>
+
+        {/* Totals shown OUTSIDE the table (after pagination) so they always
+            reflect every line, not just the current page. */}
+        <div
+          className="d-flex justify-content-end flex-wrap gap-2 fw-bold mb-1"
+          style={{ fontSize: "1.05rem" }}
+        >
+          <span>
+            <span className="text-muted me-50">{t("Total Ordered")}:</span>
+            {totals.ordered.toLocaleString()}
+          </span>
+          <span className="text-muted">·</span>
+          <span>
+            <span className="text-muted me-50">{t("Total Dispatched")}:</span>
+            {totals.dispatched.toLocaleString()}
+          </span>
+          <span className="text-muted">·</span>
+          <span>
+            <span className="text-muted me-50">{t("Total Short")}:</span>
+            <span className="text-warning">
+              {totalShort > 1e-6 ? totalShort.toLocaleString() : "-"}
+            </span>
+          </span>
+        </div>
+
         {totalShort > 1e-6 && (
-          <Alert color="warning" className="d-flex align-items-start mb-0">
+          <Alert color="warning" className="d-flex align-items-start mb-0 p-2">
             <AlertTriangle size={16} className="me-1 mt-25 flex-shrink-0" />
             <div className="flex-grow-1">
               <div className="fw-semibold mb-25">

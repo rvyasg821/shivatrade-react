@@ -27,9 +27,6 @@ import {
   UserPlus,
   TrendingUp,
   ShoppingCart,
-  Archive,
-  Inbox,
-  AlertTriangle,
   Box,
   Gift,
 } from 'react-feather';
@@ -73,11 +70,6 @@ import {
   poVendorsModuleSlug,
   trackingModuleSlug,
   inventoryModuleSlug,
-  // Warehouse
-  warehouseGroupSlug,
-  grnModuleSlug,
-  nonComplianceModuleSlug,
-  containerStuffingModuleSlug,
   invoicesModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
@@ -113,6 +105,7 @@ import {
 } from '@constant/defaultValues';
 
 import { CiDiscount1 } from "react-icons/ci";
+import { HIDDEN_NAV_IDS } from '../../configs/appMode';
 
 const navigationItems = [
   {
@@ -285,37 +278,6 @@ const navigationItems = [
     resource: inventoryModuleSlug,
     companyOnly: true,
   },
-
-  // Warehouse
-  // {
-  //   id: warehouseGroupSlug,
-  //   title: 'Warehouse',
-  //   icon: <Archive size={20} />,
-  //   companyOnly: true,
-  //   children: [
-  //     {
-  //       id: grnModuleSlug,
-  //       title: rolePermissionName[grnModuleSlug],
-  //       icon: <Inbox size={20} />,
-  //       navLink: '',
-  //       companyOnly: true,
-  //     },
-  //     {
-  //       id: nonComplianceModuleSlug,
-  //       title: rolePermissionName[nonComplianceModuleSlug],
-  //       icon: <AlertTriangle size={20} />,
-  //       navLink: '',
-  //       companyOnly: true,
-  //     },
-  //     {
-  //       id: containerStuffingModuleSlug,
-  //       title: rolePermissionName[containerStuffingModuleSlug],
-  //       icon: <Box size={20} />,
-  //       navLink: '',
-  //       companyOnly: true,
-  //     },
-  //   ],
-  // },
 
   // People group (Employees + HRM tools)
   // Admin tier sees this labeled "People" (management view).
@@ -570,4 +532,13 @@ const navigationItems = [
 //   rolePermissionName[toolsModuleSlug],
 // );
 
-export default navigationItems;
+// Single-tenant mode: drop hidden nav items (and any parent left empty).
+const filterNav = (items) =>
+  items
+    .filter((item) => !HIDDEN_NAV_IDS.includes(item.id))
+    .map((item) =>
+      item.children ? { ...item, children: filterNav(item.children) } : item
+    )
+    .filter((item) => !item.children || item.children.length > 0);
+
+export default filterNav(navigationItems);
