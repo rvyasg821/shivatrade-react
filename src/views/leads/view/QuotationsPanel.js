@@ -4,9 +4,10 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Table, Button, UncontrolledTooltip, Badge } from "reactstrap";
+import { Table, Button, UncontrolledTooltip, Badge, Input } from "reactstrap";
 import { Edit, PlusCircle, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
+import ReactPaginate from "react-paginate";
 
 import {
   getQuotationList,
@@ -66,6 +67,24 @@ const QuotationsPanel = () => {
 
   const rows = store?.quotationItems || [];
 
+  // Client-side pagination (not a datatable) — same pattern as the line-item panels.
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const totalRows = rows.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageRows = rows.slice(pageStart, pageStart + pageSize);
+
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
+
+  // Reset to the first page when the lead changes.
+  useEffect(() => {
+    setPage(0);
+  }, [id]);
+
   const createBtn = canCreate ? (
     <Button
       color="primary"
@@ -90,8 +109,9 @@ const QuotationsPanel = () => {
           }
         />
       ) : (
-        <div className="table-responsive">
-          <Table size="sm" className="mb-0">
+        <Fragment>
+          <div className="table-responsive">
+            <Table size="sm" bordered className="mb-0">
             <thead>
               <tr>
                 <th>{t("Date")}</th>
@@ -102,7 +122,7 @@ const QuotationsPanel = () => {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {pageRows.map((row) => {
                 const sym = row?.currency_symbol || row?.currency_code || "";
                 return (
                   <tr key={row?._id}>
@@ -148,8 +168,51 @@ const QuotationsPanel = () => {
                 );
               })}
             </tbody>
-          </Table>
-        </div>
+            </Table>
+          </div>
+
+          {totalRows > pageSize && (
+            <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
+              <div className="d-flex align-items-center small text-muted">
+                <span className="me-50">{t("Show")}</span>
+                <Input
+                  type="select"
+                  bsSize="sm"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value) || 10);
+                    setPage(0);
+                  }}
+                  style={{ width: 80 }}
+                >
+                  {[10, 25, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Input>
+                <span className="ms-50">
+                  {t("of")} {totalRows} {t("rows")}
+                </span>
+              </div>
+              <ReactPaginate
+                previousLabel=""
+                nextLabel=""
+                pageCount={pageCount}
+                activeClassName="active"
+                forcePage={safePage}
+                onPageChange={({ selected }) => setPage(selected)}
+                pageClassName="page-item"
+                nextLinkClassName="page-link"
+                nextClassName="page-item next"
+                previousClassName="page-item prev"
+                previousLinkClassName="page-link"
+                pageLinkClassName="page-link"
+                containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+              />
+            </div>
+          )}
+        </Fragment>
       )}
     </DetailPanel>
   );

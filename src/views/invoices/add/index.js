@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -333,6 +333,63 @@ const InvoiceAddEdit = () => {
 
   const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
+  // ── Packing totals: auto-sum from line items, editable override ──────
+  // Header Total Packages / Net / Gross default to the sum of the per-line
+  // packing fields and keep tracking the lines — until the operator edits a
+  // field, which marks it manual (e.g. to add pallet/packaging weight).
+  const packingAuto = useRef({
+    total_packages: true,
+    net_weight_kg: true,
+    gross_weight_kg: true,
+  });
+
+  const packingSums = useMemo(() => {
+    const calc = (key, decimals) => {
+      let sum = 0;
+      let anySet = false;
+      for (const l of lines) {
+        const v = l?.[key];
+        if (v !== "" && v != null && !Number.isNaN(Number(v))) {
+          sum += Number(v);
+          anySet = true;
+        }
+      }
+      if (!anySet) return "";
+      return decimals != null ? String(Number(sum.toFixed(decimals))) : String(sum);
+    };
+    return {
+      total_packages: calc("packages", null),
+      net_weight_kg: calc("net_weight", 3),
+      gross_weight_kg: calc("gross_weight", 3),
+    };
+  }, [lines]);
+
+  // Push the computed sums into any header field still in "auto" mode.
+  useEffect(() => {
+    setForm((prev) => {
+      let next = prev;
+      for (const field of [
+        "total_packages",
+        "net_weight_kg",
+        "gross_weight_kg",
+      ]) {
+        if (!packingAuto.current[field]) continue;
+        const v = packingSums[field];
+        if (String(prev[field] ?? "") !== String(v)) {
+          if (next === prev) next = { ...prev };
+          next[field] = v;
+        }
+      }
+      return next;
+    });
+  }, [packingSums]);
+
+  // Header edit → that field stops auto-tracking the lines.
+  const onPackingF = (k, v) => {
+    packingAuto.current[k] = false;
+    onF(k, v);
+  };
+
   // Sea modes show a "BL No." label; air / unset show "AWB / BL No.".
   const isSeaMode = SHIPPING_SEA_MODES.includes(form.mode);
 
@@ -584,6 +641,12 @@ const InvoiceAddEdit = () => {
           product_expenses_snapshot: Array.isArray(l.product_expenses_snapshot)
             ? l.product_expenses_snapshot
             : [],
+          // Packing carried from the SO line (originally from quotation, where
+          // the operator may have overridden the product defaults).
+          packages: l.package_count != null ? String(l.package_count) : "",
+          net_weight: l.net_weight_kg != null ? String(l.net_weight_kg) : "",
+          gross_weight:
+            l.gross_weight_kg != null ? String(l.gross_weight_kg) : "",
         };
       });
       setLines(mapped);
@@ -812,6 +875,13 @@ const InvoiceAddEdit = () => {
       bank_account_ids: [],
       company_address_id: inv.company_address_id || "",
     }));
+    // Preserve saved packing totals — a field with a stored value is treated
+    // as a manual override so the auto-sum effect won't clobber it on load.
+    packingAuto.current = {
+      total_packages: inv.total_packages == null || inv.total_packages === "",
+      net_weight_kg: !inv.net_weight_kg,
+      gross_weight_kg: !inv.gross_weight_kg,
+    };
     setLines(
       (inv.lines || []).map((l, i) => ({
         _id: l._id,
@@ -2039,166 +2109,13 @@ const InvoiceAddEdit = () => {
         </div>
       </div>
 
-      {/* ── Shipment & Shipping Bill (optional now; recorded after goods ship) ── */}
-      <div className="mb-3">
-        <h5 className="mt-2 mb-2">
-          {t("Shipment & Shipping Bill")}
-          <small className="text-muted ms-1">
-            ({t("optional — record after the goods ship")})
-          </small>
-        </h5>
-        <div>
-          <Row>
-            <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Mode")}</Label>
-              <Select
-                classNamePrefix="select"
-                isClearable
-                options={SHIPPING_MODE_OPTIONS}
-                value={
-                  SHIPPING_MODE_OPTIONS.find((o) => o.value === form.mode) ||
-                  null
-                }
-                onChange={(opt) => onF("mode", opt ? opt.value : "")}
-              />
-            </Col>
-            <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Export Scheme")}</Label>
-              <Select
-                classNamePrefix="select"
-                options={SHIPPING_BILL_TYPE_OPTIONS}
-                value={
-                  SHIPPING_BILL_TYPE_OPTIONS.find(
-                    (o) => o.value === form.shipping_bill_type
-                  ) || SHIPPING_BILL_TYPE_OPTIONS[0]
-                }
-                onChange={(opt) =>
-                  onF("shipping_bill_type", opt ? opt.value : "free")
-                }
-              />
-              <small className="text-muted">
-                {t('Renders "Export Under <scheme>" on the invoice PDF.')}
-              </small>
-            </Col>
-            <Col md="4" className="mb-2">
-              <Label className="form-label">
-                {isSeaMode ? "BL No." : "AWB / BL No."}
-              </Label>
-              <Input
-                value={form.bl_awb_no}
-                onChange={(e) => onF("bl_awb_no", e.target.value)}
-                maxLength={60}
-              />
-            </Col>
-            <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Shipping Bill No.")}</Label>
-              <Input
-                value={form.shipping_bill_no}
-                onChange={(e) => onF("shipping_bill_no", e.target.value)}
-                maxLength={60}
-                placeholder={t("Record-only (issued by CHA)")}
-              />
-            </Col>
-            <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Shipping Bill Date")}</Label>
-              <DateInput
-                id="inv-shipping-bill-date"
-                value={form.shipping_bill_date}
-                onChange={(_d, _s, iso) => onF("shipping_bill_date", iso || "")}
-              />
-            </Col>
-          </Row>
-
-          <Row>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Pre-Carriage By")}</Label>
-              <Input
-                value={form.pre_carriage_by}
-                onChange={(e) => onF("pre_carriage_by", e.target.value)}
-                maxLength={80}
-                placeholder="ROAD / OWN VEHICLE"
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Place of Receipt")}</Label>
-              <Input
-                value={form.place_of_receipt}
-                onChange={(e) => onF("place_of_receipt", e.target.value)}
-                maxLength={80}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Port of Loading")}</Label>
-              <PortSelect
-                value={form.port_of_loading_snapshot}
-                countryCode="IN"
-                placeholder={t("Search port by code or name…")}
-                onChange={(port) => {
-                  onF("port_of_loading_id", port?._id || "");
-                  onF("port_of_loading_snapshot", port || null);
-                }}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Port of Discharge")}</Label>
-              <PortSelect
-                value={form.port_of_discharge_snapshot}
-                countryCode={null}
-                placeholder={t("Search port by code or name…")}
-                onChange={(port) => {
-                  onF("port_of_discharge_id", port?._id || "");
-                  onF("port_of_discharge_snapshot", port || null);
-                }}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Place of Delivery")}</Label>
-              <Input
-                value={form.place_of_delivery}
-                onChange={(e) => onF("place_of_delivery", e.target.value)}
-                maxLength={80}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Total Packages")}</Label>
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={form.total_packages}
-                onChange={(e) => onF("total_packages", e.target.value)}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Net Weight (kg)")}</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.001"
-                value={form.net_weight_kg}
-                onChange={(e) => onF("net_weight_kg", e.target.value)}
-              />
-            </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Gross Weight (kg)")}</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.001"
-                value={form.gross_weight_kg}
-                onChange={(e) => onF("gross_weight_kg", e.target.value)}
-              />
-            </Col>
-          </Row>
-        </div>
-      </div>
-
         </Fragment>
       )}
 
-      {/* ─── STEP 3 of 4 — Items & Charges ──────────────────────────── */}
+      {/* ─── STEP 3 of 4 — Items & Charges (Shipment + Line Items) ──── */}
       {activeStep === 2 && (
         <Fragment>
+
       {/* ── Lines ────────────────────────────────────────────────────── */}
       <div className="mb-3">
         <div className="d-flex justify-content-between align-items-center mt-2 mb-2">
@@ -2609,6 +2526,169 @@ const InvoiceAddEdit = () => {
           {errors.lines && (
             <div className="text-danger small mt-1">{errors.lines}</div>
           )}
+        </div>
+      </div>
+
+      {/* ── Shipment & Shipping Bill (optional now; recorded after goods ship) ── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">
+          {t("Shipment & Shipping Bill")}
+          <small className="text-muted ms-1">
+            ({t("optional — record after the goods ship")})
+          </small>
+        </h5>
+        <div>
+          <Row>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Mode")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={SHIPPING_MODE_OPTIONS}
+                value={
+                  SHIPPING_MODE_OPTIONS.find((o) => o.value === form.mode) ||
+                  null
+                }
+                onChange={(opt) => onF("mode", opt ? opt.value : "")}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Export Scheme")}</Label>
+              <Select
+                classNamePrefix="select"
+                options={SHIPPING_BILL_TYPE_OPTIONS}
+                value={
+                  SHIPPING_BILL_TYPE_OPTIONS.find(
+                    (o) => o.value === form.shipping_bill_type
+                  ) || SHIPPING_BILL_TYPE_OPTIONS[0]
+                }
+                onChange={(opt) =>
+                  onF("shipping_bill_type", opt ? opt.value : "free")
+                }
+              />
+              <small className="text-muted">
+                {t('Renders "Export Under <scheme>" on the invoice PDF.')}
+              </small>
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">
+                {isSeaMode ? "BL No." : "AWB / BL No."}
+              </Label>
+              <Input
+                value={form.bl_awb_no}
+                onChange={(e) => onF("bl_awb_no", e.target.value)}
+                maxLength={60}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Shipping Bill No.")}</Label>
+              <Input
+                value={form.shipping_bill_no}
+                onChange={(e) => onF("shipping_bill_no", e.target.value)}
+                maxLength={60}
+                placeholder={t("Record-only (issued by CHA)")}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Shipping Bill Date")}</Label>
+              <DateInput
+                id="inv-shipping-bill-date"
+                value={form.shipping_bill_date}
+                onChange={(_d, _s, iso) => onF("shipping_bill_date", iso || "")}
+              />
+            </Col>
+          </Row>
+
+          <Row>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Pre-Carriage By")}</Label>
+              <Input
+                value={form.pre_carriage_by}
+                onChange={(e) => onF("pre_carriage_by", e.target.value)}
+                maxLength={80}
+                placeholder="ROAD / OWN VEHICLE"
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Place of Receipt")}</Label>
+              <Input
+                value={form.place_of_receipt}
+                onChange={(e) => onF("place_of_receipt", e.target.value)}
+                maxLength={80}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Port of Loading")}</Label>
+              <PortSelect
+                value={form.port_of_loading_snapshot}
+                countryCode="IN"
+                placeholder={t("Search port by code or name…")}
+                onChange={(port) => {
+                  onF("port_of_loading_id", port?._id || "");
+                  onF("port_of_loading_snapshot", port || null);
+                }}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Port of Discharge")}</Label>
+              <PortSelect
+                value={form.port_of_discharge_snapshot}
+                countryCode={null}
+                placeholder={t("Search port by code or name…")}
+                onChange={(port) => {
+                  onF("port_of_discharge_id", port?._id || "");
+                  onF("port_of_discharge_snapshot", port || null);
+                }}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Place of Delivery")}</Label>
+              <Input
+                value={form.place_of_delivery}
+                onChange={(e) => onF("place_of_delivery", e.target.value)}
+                maxLength={80}
+              />
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Total Packages")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={form.total_packages}
+                onChange={(e) => onPackingF("total_packages", e.target.value)}
+              />
+              <small className="text-muted">
+                {t("Auto-summed from line items; editable")}
+              </small>
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Net Weight (kg)")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.net_weight_kg}
+                onChange={(e) => onPackingF("net_weight_kg", e.target.value)}
+              />
+              <small className="text-muted">
+                {t("Auto-summed from line items; editable")}
+              </small>
+            </Col>
+            <Col md="3" className="mb-2">
+              <Label className="form-label">{t("Gross Weight (kg)")}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.001"
+                value={form.gross_weight_kg}
+                onChange={(e) => onPackingF("gross_weight_kg", e.target.value)}
+              />
+              <small className="text-muted">
+                {t("Auto-summed from line items; editable")}
+              </small>
+            </Col>
+          </Row>
         </div>
       </div>
 

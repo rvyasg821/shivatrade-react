@@ -20,6 +20,7 @@ import Notification from "@components/toast/notification"
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from "react-feather"
 import { appsRoot } from "@constant/defaultValues"
+import { isPermissionSlugHidden } from "../../configs/appMode"
 
 const ModulePermission = () => {
   const { id } = useParams()
@@ -282,6 +283,8 @@ const ModulePermission = () => {
               .map((child) => {
                 const slug =
                   child.slug || child.title.toLowerCase().replace(/\s+/g, "_");
+                // Single-tenant: hide rows for SaaS / dropped-HRM modules.
+                if (isPermissionSlugHidden(slug)) return null;
                 const mod = indexedRolePerms[slug];
                 if (!mod) return null;
                 return { ...mod, displayTitle: child.title };

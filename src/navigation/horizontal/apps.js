@@ -15,8 +15,9 @@ import {
   usersModuleSlug,
   rolesModuleSlug,
 } from "@constant/defaultValues"
+import { HIDDEN_NAV_IDS } from '../../configs/appMode'
 
-export default [
+const horizontalNav = [
   {
     id: "dashboards",
     title: "Dashboard",
@@ -45,3 +46,14 @@ export default [
     ]
   },
 ]
+
+// Single-tenant mode: drop hidden nav items (and any parent left empty).
+const filterNav = (items) =>
+  items
+    .filter((item) => !HIDDEN_NAV_IDS.includes(item.id))
+    .map((item) =>
+      item.children ? { ...item, children: filterNav(item.children) } : item
+    )
+    .filter((item) => !item.children || item.children.length > 0)
+
+export default filterNav(horizontalNav)

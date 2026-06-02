@@ -1,6 +1,9 @@
 // ** React Imports
 import { lazy } from 'react';
 
+// ** App-mode (single-tenant) route filtering
+import { isRouteHidden } from '../../configs/appMode';
+
 // ** Constant
 import {
   appsRoot,
@@ -1175,4 +1178,5 @@ const AppRoutes = [
   },
 ];
 
-export default AppRoutes;
+// Single-tenant mode: unregister hidden routes so direct URLs 404 / redirect.
+export default AppRoutes.filter((r) => !isRouteHidden(r.path));

@@ -130,11 +130,9 @@ const ExpensesTab = () => {
           },
         }),
       ).unwrap();
-      Notification(
-        t("Success"),
-        t("Vendor charges saved."),
-        "success",
-      );
+      // Success toast is shown once by the page-level effect in view/index.js
+      // (it surfaces the store's "PO Vendor updated successfully." message).
+      // Adding another here produced a duplicate toast.
       dispatch(getPoVendor(p._id));
     } catch (err) {
       Notification(

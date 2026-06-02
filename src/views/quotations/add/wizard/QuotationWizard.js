@@ -354,6 +354,14 @@ const QuotationWizard = () => {
       }));
       setCustomerAddressOptions(opts);
 
+      // Default the currency from the customer record when not already set.
+      // The lead's currency only fills if the lead itself carried one; this
+      // also covers manually-picked customers and lead-converted customers
+      // whose currency was set on the customer, not the lead.
+      if (cust.currency && !watch("currency_code")) {
+        setValue("currency_code", cust.currency);
+      }
+
       // Auto-pick an address when none is bound yet — covers the
       // "New Quotation from Lead" flow where the lead has only a
       // customer link (no specific address). Prefer the explicit
