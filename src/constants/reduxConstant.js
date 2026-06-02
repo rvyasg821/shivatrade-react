@@ -892,6 +892,7 @@ const initLeadItem = {
   source: "web",
   interested_categories: [],
   interested_products: [],
+  lines: [],
   expected_value: "",
   currency: "",
   website_url: "",
