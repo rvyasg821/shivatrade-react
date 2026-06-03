@@ -45,6 +45,7 @@ import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -391,7 +392,8 @@ const ViewQuotation = () => {
       icon: FileText,
       label: t("Convert to PFI"),
       onClick: handleConvertToPfi,
-      hidden: !isApproved || !canConvertToPfi || hasLivePfi,
+      // PFI retired (S4) — Quotation → Sales Order is the path now.
+      hidden: PFI_RETIRED || !isApproved || !canConvertToPfi || hasLivePfi,
       outline: false,
       color: "success",
     },

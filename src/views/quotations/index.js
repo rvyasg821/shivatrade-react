@@ -48,6 +48,7 @@ import { formatDate } from "@src/utility/dateFormat";
 
 // ** PFI conversion
 import { createPfiFromQuotation } from "../pfi/store";
+import { PFI_RETIRED } from "@src/configs/appMode";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -402,7 +403,7 @@ const QuotationView = () => {
                 <Edit size={20} />
               </Link>
             )}
-            {isApproved && canConvertToPfi && (
+            {!PFI_RETIRED && isApproved && canConvertToPfi && (
               <>
                 <FileText
                   size={20}

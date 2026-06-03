@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import LineItemsPanel from "./LineItemsPanel";
 import PfisPanel from "./PfisPanel";
 import SourceCoveragePanel from "@src/views/_shared/sales-doc/SourceCoveragePanel";
+import { PFI_RETIRED } from "@src/configs/appMode";
 
 const RelatedDocsTabs = () => {
   const { t } = useTranslation();
@@ -55,36 +56,39 @@ const RelatedDocsTabs = () => {
               ) : null}
             </NavLink>
           </NavItem>
-          <NavItem>
-            <NavLink
-              active={active === "pfis"}
-              onClick={() => setActive("pfis")}
-              style={{
-                color: active === "pfis" ? "#fff" : "#1a2238",
-                display: "inline-flex",
-                alignItems: "center",
-                height: 38,
-                padding: "0 14px",
-              }}
-            >
-              <FileText size={16} className="me-50" />
-              {t("PFIs")}
-              {pfisCount > 0 ? (
-                <span
-                  className="badge ms-1"
-                  style={{
-                    background:
-                      active === "pfis"
-                        ? "rgba(255,255,255,0.25)"
-                        : "#eef0f3",
-                    color: active === "pfis" ? "#fff" : "#1a2238",
-                  }}
-                >
-                  {pfisCount}
-                </span>
-              ) : null}
-            </NavLink>
-          </NavItem>
+          {/* PFIs tab hidden — PFI retired from the workflow (S4). */}
+          {!PFI_RETIRED && (
+            <NavItem>
+              <NavLink
+                active={active === "pfis"}
+                onClick={() => setActive("pfis")}
+                style={{
+                  color: active === "pfis" ? "#fff" : "#1a2238",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: 38,
+                  padding: "0 14px",
+                }}
+              >
+                <FileText size={16} className="me-50" />
+                {t("PFIs")}
+                {pfisCount > 0 ? (
+                  <span
+                    className="badge ms-1"
+                    style={{
+                      background:
+                        active === "pfis"
+                          ? "rgba(255,255,255,0.25)"
+                          : "#eef0f3",
+                      color: active === "pfis" ? "#fff" : "#1a2238",
+                    }}
+                  >
+                    {pfisCount}
+                  </span>
+                ) : null}
+              </NavLink>
+            </NavItem>
+          )}
           <NavItem>
             <NavLink
               active={active === "coverage"}
@@ -107,9 +111,11 @@ const RelatedDocsTabs = () => {
           <TabPane tabId="lines">
             <LineItemsPanel bare />
           </TabPane>
-          <TabPane tabId="pfis">
-            <PfisPanel bare />
-          </TabPane>
+          {!PFI_RETIRED && (
+            <TabPane tabId="pfis">
+              <PfisPanel bare />
+            </TabPane>
+          )}
           <TabPane tabId="coverage">
             {active === "coverage" && quotationId && (
               <SourceCoveragePanel
