@@ -92,6 +92,39 @@ export const STATS_CONFIG = {
     ],
   },
 
+  grn: {
+    endpointKey: "grn", // → API_ENDPOINTS.grn.stats
+    tiles: [
+      {
+        key: "total",
+        label: "Total GRNs",
+        icon: "Clipboard",
+        color: "info",
+      },
+      {
+        key: "confirmed",
+        label: "Confirmed",
+        statuses: ["confirmed"],
+        icon: "CheckCircle",
+        color: "success",
+      },
+      {
+        key: "draft",
+        label: "Draft",
+        statuses: ["draft"],
+        icon: "Clock",
+        color: "warning",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        statuses: ["cancelled"],
+        icon: "XCircle",
+        color: "danger",
+      },
+    ],
+  },
+
   quotation: {
     endpointKey: "quotations", // → API_ENDPOINTS.quotations.stats
     tiles: [

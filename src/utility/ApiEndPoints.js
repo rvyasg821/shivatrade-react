@@ -343,6 +343,16 @@ export const API_ENDPOINTS = {
     select: `/admin/rfq`, // append /:id/select
     pdf: `/admin/rfq`, // append /:id/pdf?vendor_id=
   },
+  grn: {
+    list: `/admin/grn/list`,
+    stats: `/admin/grn/stats`,
+    sourcePovs: `/admin/grn/source-povs`,
+    fromPov: `/admin/grn/from-pov`, // append /:povId
+    get: `/admin/grn/get`, // append /:id
+    update: `/admin/grn/update`, // append /:id
+    delete: `/admin/grn/delete`, // append /:id
+    pdf: `/admin/grn`, // append /:id/pdf
+  },
   rebates: {
     list: `/admin/rebate/list`,
     get: `/admin/rebate/get`,
