@@ -1,0 +1,436 @@
+// GRN detail — reference chain header + receipt lines with an editable
+// quality check (accepted / rejected qty), save, status, and PDF.
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  Input,
+  Button,
+  Badge,
+  Spinner,
+  Table,
+} from "reactstrap";
+import ReactPaginate from "react-paginate";
+import { ArrowLeft, Download, Save, CheckCircle } from "react-feather";
+import { useTranslation } from "react-i18next";
+
+import { getGrn, updateGrn, cleanGrnMessage } from "../store";
+import { stopLoading } from "../../loadingstore";
+import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { appsRoot } from "@constant/defaultValues";
+import { formatDate } from "@src/utility/dateFormat";
+
+const STATUS_COLOR = {
+  draft: "secondary",
+  confirmed: "success",
+  cancelled: "danger",
+};
+
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const GrnView = () => {
+  const { id } = useParams();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const store = useSelector((s) => s.grn);
+  const grn = store?.grnItem;
+
+  // Editable quality-check map keyed by grn line id.
+  const [qc, setQc] = useState({});
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    dispatch(stopLoading());
+    dispatch(getGrn(id));
+  }, [id, dispatch]);
+
+  // Seed the editable QC fields from the loaded GRN lines.
+  useEffect(() => {
+    if (!grn?.lines) return;
+    const m = {};
+    for (const l of grn.lines) {
+      m[l._id] = {
+        accepted_qty: String(l.accepted_qty ?? ""),
+        rejected_qty: String(l.rejected_qty ?? ""),
+        batch_no: l.batch_no || "",
+        remarks: l.remarks || "",
+      };
+    }
+    setQc(m);
+  }, [grn?._id, grn?.lines?.length]);
+
+  useEffect(() => {
+    if (store?.success) Notification("Success", store.success, "success");
+    if (store?.error) Notification("Error", store.error, "warning");
+    if (store?.success || store?.error) dispatch(cleanGrnMessage());
+  }, [store?.success, store?.error, store?.actionFlag]);
+
+  const lines = grn?.lines || [];
+  const isLocked = (grn?.status || "") === "cancelled";
+
+  // Client-side pagination for the line table (not a DataTable).
+  const totalLines = lines.length;
+  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageLines = lines.slice(pageStart, pageStart + pageSize);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
+
+  const totals = useMemo(() => {
+    let received = 0;
+    let accepted = 0;
+    let rejected = 0;
+    for (const l of lines) {
+      received += num(l.received_qty);
+      accepted += num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
+      rejected += num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
+    }
+    return { received, accepted, rejected };
+  }, [lines, qc]);
+
+  const setField = (lineId, field, value) =>
+    setQc((m) => ({ ...m, [lineId]: { ...m[lineId], [field]: value } }));
+
+  // Accepted + Rejected always split the Received qty — editing one
+  // auto-adjusts the other (clamped to received), so they can never exceed it.
+  const onQtyChange = (l, field, raw) => {
+    const received = Math.round(num(l.received_qty) * 10000) / 10000;
+    let v = num(raw);
+    if (!Number.isFinite(v) || v < 0) v = 0;
+    if (v > received) v = received;
+    const otherField =
+      field === "accepted_qty" ? "rejected_qty" : "accepted_qty";
+    const other = Math.round((received - v) * 10000) / 10000;
+    setQc((m) => ({
+      ...m,
+      [l._id]: {
+        ...m[l._id],
+        [field]: raw === "" ? "" : String(v),
+        [otherField]: String(other),
+      },
+    }));
+  };
+
+  const onSave = (statusOverride) => {
+    const payload = {
+      lines: lines.map((l) => ({
+        _id: l._id,
+        accepted_qty: String(qc[l._id]?.accepted_qty ?? l.accepted_qty ?? "0"),
+        rejected_qty: String(qc[l._id]?.rejected_qty ?? l.rejected_qty ?? "0"),
+        batch_no: qc[l._id]?.batch_no ?? l.batch_no ?? "",
+        remarks: qc[l._id]?.remarks ?? l.remarks ?? "",
+      })),
+    };
+    if (statusOverride) payload.status = statusOverride;
+    dispatch(updateGrn({ id, data: payload }));
+  };
+
+  const downloadPdf = () => {
+    setPdfLoading(true);
+    instance
+      .get(`${API_ENDPOINTS.grn.pdf}/${id}/pdf`, { responseType: "blob" })
+      .then((resp) => {
+        const blob = new Blob([resp.data], { type: "application/pdf" });
+        const link = document.createElement("a");
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `GRN-${grn?.voucher_no || id}.pdf`;
+        link.click();
+      })
+      .catch(() =>
+        Notification("Error", t("Could not generate the PDF."), "warning")
+      )
+      .finally(() => setPdfLoading(false));
+  };
+
+  if (!grn) {
+    return (
+      <div className="d-flex justify-content-center py-5">
+        <Spinner color="primary" />
+      </div>
+    );
+  }
+
+  const chip = (label, value) =>
+    value ? (
+      <span className="me-1">
+        {label}: <span className="fw-semibold">{value}</span>
+      </span>
+    ) : null;
+
+  return (
+    <Fragment>
+      <Card className="mb-1">
+        <CardBody className="d-flex flex-wrap justify-content-between align-items-start gap-1">
+          <div>
+            <h4 className="mb-0">
+              {grn.voucher_no || t("GRN")}{" "}
+              <Badge
+                color={`light-${STATUS_COLOR[grn.status] || "secondary"}`}
+                className="text-capitalize ms-1"
+              >
+                {grn.status}
+              </Badge>
+            </h4>
+            <div className="mt-50">
+              <div
+                className="text-uppercase text-muted fw-bold"
+                style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}
+              >
+                {t("Reference Chain")}
+              </div>
+              {grn.vendor_name && (
+                <div className="fw-semibold text-capitalize mt-25">
+                  {grn.vendor_name}
+                </div>
+              )}
+              <div className="text-muted small d-flex flex-wrap gap-1">
+                {chip(t("VPO"), grn.po_vendor_voucher_no)}
+                {chip(t("SO"), grn.purchase_order_voucher_no)}
+                {chip(t("Customer PO"), grn.customer_po_number)}
+                {chip(t("Date"), grn.grn_date ? formatDate(grn.grn_date) : null)}
+              </div>
+            </div>
+          </div>
+          <div className="d-flex gap-1">
+            <Button
+              color="secondary"
+              outline
+              size="sm"
+              onClick={downloadPdf}
+              disabled={pdfLoading}
+            >
+              {pdfLoading ? (
+                <>
+                  <Spinner size="sm" className="me-25" /> {t("Generating…")}
+                </>
+              ) : (
+                <>
+                  <Download size={14} className="me-25" /> {t("PDF")}
+                </>
+              )}
+            </Button>
+            <Button
+              color="secondary"
+              outline
+              size="sm"
+              onClick={() => navigate(`${appsRoot}/grn`)}
+            >
+              <ArrowLeft size={14} /> {t("Back")}
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader className="d-flex justify-content-between align-items-center">
+          <CardTitle tag="h6" className="mb-0">
+            {t("Receipt & Quality Check")}
+          </CardTitle>
+          {!isLocked && (
+            <div className="d-flex gap-1">
+              <Button color="primary" size="sm" outline onClick={() => onSave()}>
+                <Save size={14} className="me-25" /> {t("Save")}
+              </Button>
+              {grn.status === "draft" && (
+                <Button
+                  color="success"
+                  size="sm"
+                  onClick={() => onSave("confirmed")}
+                >
+                  <CheckCircle size={14} className="me-25" /> {t("Save & Confirm")}
+                </Button>
+              )}
+            </div>
+          )}
+        </CardHeader>
+        <CardBody className="px-0">
+          <div className="table-responsive px-2">
+            <style>{`
+              .grn-qc-table th,
+              .grn-qc-table td { padding: 0.6rem 0.85rem; }
+            `}</style>
+            <Table
+              bordered
+              size="sm"
+              className="mb-0 align-middle grn-qc-table"
+            >
+              <thead className="table-light">
+                <tr>
+                  <th style={{ width: 30 }}>#</th>
+                  <th style={{ minWidth: 200 }}>{t("Item")}</th>
+                  <th className="text-end">{t("Received")}</th>
+                  <th className="text-end" style={{ width: 130 }}>
+                    {t("Accepted")}
+                  </th>
+                  <th className="text-end" style={{ width: 130 }}>
+                    {t("Rejected")}
+                  </th>
+                  <th style={{ width: 140 }}>{t("Batch")}</th>
+                  <th style={{ minWidth: 160 }}>{t("Remarks")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageLines.map((l, i) => {
+                  const received = num(l.received_qty);
+                  const acc = num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
+                  const rej = num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
+                  const over = acc + rej > received + 1e-6;
+                  return (
+                    <tr key={l._id}>
+                      <td>{pageStart + i + 1}</td>
+                      <td>
+                        <div className="fw-semibold">
+                          {l.product_name || "-"}
+                        </div>
+                        {l.product_code && (
+                          <div className="text-muted small">
+                            {l.product_code}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-end">
+                        {num(l.received_qty).toFixed(2)} {l.unit || ""}
+                      </td>
+                      <td>
+                        <Input
+                          type="number"
+                          bsSize="sm"
+                          className="text-end"
+                          style={{ fontSize: "inherit" }}
+                          min="0"
+                          step="any"
+                          disabled={isLocked}
+                          invalid={over}
+                          value={qc[l._id]?.accepted_qty ?? ""}
+                          onChange={(e) =>
+                            onQtyChange(l, "accepted_qty", e.target.value)
+                          }
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          type="number"
+                          bsSize="sm"
+                          className="text-end"
+                          style={{ fontSize: "inherit" }}
+                          min="0"
+                          step="any"
+                          disabled={isLocked}
+                          invalid={over}
+                          value={qc[l._id]?.rejected_qty ?? ""}
+                          onChange={(e) =>
+                            onQtyChange(l, "rejected_qty", e.target.value)
+                          }
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          bsSize="sm"
+                          style={{ fontSize: "inherit" }}
+                          maxLength={60}
+                          disabled={isLocked}
+                          value={qc[l._id]?.batch_no ?? ""}
+                          onChange={(e) =>
+                            setField(l._id, "batch_no", e.target.value)
+                          }
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          bsSize="sm"
+                          style={{ fontSize: "inherit" }}
+                          maxLength={300}
+                          disabled={isLocked}
+                          value={qc[l._id]?.remarks ?? ""}
+                          onChange={(e) =>
+                            setField(l._id, "remarks", e.target.value)
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="table-light fw-bold">
+                <tr>
+                  <td colSpan={2} className="text-end">
+                    {t("Total")}
+                  </td>
+                  <td className="text-end">{totals.received.toFixed(2)}</td>
+                  <td className="text-end">{totals.accepted.toFixed(2)}</td>
+                  <td className="text-end">{totals.rejected.toFixed(2)}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </Table>
+
+            {totalLines > 0 && (
+              <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 px-1 gap-1">
+                <div className="d-flex align-items-center small text-muted">
+                  <span className="me-50">{t("Show")}</span>
+                  <Input
+                    type="select"
+                    bsSize="sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value) || 10);
+                      setPage(0);
+                    }}
+                    style={{ width: 80 }}
+                  >
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Input>
+                  <span className="ms-50">
+                    {t("of")} {totalLines} {t("rows")}
+                  </span>
+                </div>
+                <ReactPaginate
+                  previousLabel=""
+                  nextLabel=""
+                  pageCount={pageCount}
+                  activeClassName="active"
+                  forcePage={safePage}
+                  onPageChange={({ selected }) => setPage(selected)}
+                  pageClassName="page-item"
+                  nextLinkClassName="page-link"
+                  nextClassName="page-item next"
+                  previousClassName="page-item prev"
+                  previousLinkClassName="page-link"
+                  pageLinkClassName="page-link"
+                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                />
+              </div>
+            )}
+
+            <div className="small text-muted mt-1 px-1">
+              {t(
+                "Accepted + Rejected must not exceed Received per line. Save & Confirm finalises the quality check."
+              )}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    </Fragment>
+  );
+};
+
+export default GrnView;
