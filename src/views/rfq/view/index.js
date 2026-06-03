@@ -16,7 +16,8 @@ import {
   Spinner,
 } from "reactstrap";
 import Select from "react-select";
-import { ArrowLeft, Plus, X, Download, Save } from "react-feather";
+import ReactPaginate from "react-paginate";
+import { ArrowLeft, Plus, X, Download, Save, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -28,11 +29,11 @@ import {
   cleanRfqMessage,
 } from "../store";
 import { getVendorDropdown } from "@src/views/vendors/store";
+import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
-import { formatDate } from "@src/utility/dateFormat";
 
 const STATUS_COLOR = {
   draft: "secondary",
@@ -55,8 +56,14 @@ const RfqView = () => {
 
   const [priceMap, setPriceMap] = useState({});
   const [addVendorId, setAddVendorId] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
+    // Clear any global overlay left on by the list page; the detail page
+    // shows its own local spinner while the RFQ loads.
+    dispatch(stopLoading());
     dispatch(getRfq(id));
     dispatch(getVendorDropdown());
   }, [id, dispatch]);
@@ -79,6 +86,17 @@ const RfqView = () => {
 
   const lines = rfq?.lines || [];
   const vendors = rfq?.vendors || [];
+
+  // Client-side pagination for the comparison grid — mirrors the
+  // quotation detail's line-item table.
+  const totalLines = lines.length;
+  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageLines = lines.slice(pageStart, pageStart + pageSize);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
 
   // selected vendor per line (for the "Best" radio)
   const selectedByLine = useMemo(() => {
@@ -128,6 +146,7 @@ const RfqView = () => {
 
   const downloadPdf = (vendorId) => {
     const url = `${API_ENDPOINTS.rfq.pdf}/${id}/pdf${vendorId ? `?vendor_id=${vendorId}` : ""}`;
+    setPdfLoading(true);
     instance
       .get(url, { responseType: "blob" })
       .then((resp) => {
@@ -139,7 +158,8 @@ const RfqView = () => {
       })
       .catch(() =>
         Notification("Error", t("Could not generate the PDF."), "warning")
-      );
+      )
+      .finally(() => setPdfLoading(false));
   };
 
   if (!rfq) {
@@ -153,7 +173,7 @@ const RfqView = () => {
   return (
     <Fragment>
       <Card className="mb-1">
-        <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1">
+        <CardBody className="d-flex flex-wrap justify-content-between align-items-start gap-1">
           <div>
             <h4 className="mb-0">
               {rfq.voucher_no || t("RFQ")}{" "}
@@ -164,15 +184,73 @@ const RfqView = () => {
                 {rfq.status}
               </Badge>
             </h4>
-            <div className="text-muted small mt-25">
-              {rfq.lead_voucher_no ? `${t("Lead")}: ${rfq.lead_voucher_no} · ` : ""}
-              {rfq.rfq_date ? formatDate(rfq.rfq_date) : ""}
-            </div>
+            {(rfq.lead_company_name ||
+              rfq.lead_voucher_no ||
+              rfq.lead_contact_name) && (
+              <div className="mt-50">
+                <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
+                  {t("Lead Details")}
+                </div>
+                {rfq.lead_company_name && (
+                  <div className="fw-semibold text-capitalize mt-25">
+                    {rfq.lead_company_name}
+                  </div>
+                )}
+                <div className="text-muted small d-flex flex-wrap gap-1">
+                  {rfq.lead_voucher_no && (
+                    <span>
+                      {t("Lead")}: {rfq.lead_voucher_no}
+                    </span>
+                  )}
+                  {rfq.lead_contact_name && (
+                    <span className="text-capitalize">
+                      · {rfq.lead_contact_name}
+                    </span>
+                  )}
+                  {rfq.lead_contact_email && (
+                    <span>· {rfq.lead_contact_email}</span>
+                  )}
+                  {rfq.lead_contact_phone && (
+                    <span>· {rfq.lead_contact_phone}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="d-flex gap-1">
-            <Button color="secondary" outline size="sm" onClick={() => downloadPdf()}>
-              <Download size={14} className="me-25" /> {t("Quote Request PDF")}
-            </Button>
+            {Object.keys(selectedByLine).length > 0 && (
+              <Button
+                color="primary"
+                size="sm"
+                onClick={() =>
+                  navigate(
+                    `${appsRoot}/quotations/add?rfq_id=${id}` +
+                      (rfq.lead_id ? `&lead_id=${rfq.lead_id}` : "")
+                  )
+                }
+              >
+                <FileText size={14} className="me-25" /> {t("Create Quotation")}
+              </Button>
+            )}
+            {vendors.length > 0 && (
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                onClick={() => downloadPdf()}
+                disabled={pdfLoading}
+              >
+                {pdfLoading ? (
+                  <>
+                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} className="me-25" /> {t("Quote Request PDF")}
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               color="secondary"
               outline
@@ -259,21 +337,21 @@ const RfqView = () => {
                         {v.vendor_name || v.vendor_id}
                       </th>
                     ))}
-                    <th className="text-center" style={{ width: 90 }}>
+                    <th className="text-center" style={{ width: 220, minWidth: 220 }}>
                       {t("Best")}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((l, i) => (
+                  {pageLines.map((l, i) => (
                     <tr key={l._id}>
-                      <td>{i + 1}</td>
+                      <td>{pageStart + i + 1}</td>
                       <td>
                         <div className="fw-semibold">
-                          {l.product_name || l.product_code || "-"}
+                          {l.product_name || "-"}
                         </div>
-                        {l.description && (
-                          <div className="text-muted small">{l.description}</div>
+                        {l.product_code && (
+                          <div className="text-muted small">{l.product_code}</div>
                         )}
                       </td>
                       <td className="text-end">
@@ -288,6 +366,7 @@ const RfqView = () => {
                               type="number"
                               bsSize="sm"
                               className="text-end"
+                              style={{ fontSize: "inherit" }}
                               min="0"
                               step="any"
                               value={priceMap[k] ?? ""}
@@ -326,6 +405,49 @@ const RfqView = () => {
                   ))}
                 </tbody>
               </Table>
+
+              {totalLines > 0 && (
+                <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 px-1 gap-1">
+                  <div className="d-flex align-items-center small text-muted">
+                    <span className="me-50">{t("Show")}</span>
+                    <Input
+                      type="select"
+                      bsSize="sm"
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value) || 10);
+                        setPage(0);
+                      }}
+                      style={{ width: 80 }}
+                    >
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </Input>
+                    <span className="ms-50">
+                      {t("of")} {totalLines} {t("rows")}
+                    </span>
+                  </div>
+                  <ReactPaginate
+                    previousLabel=""
+                    nextLabel=""
+                    pageCount={pageCount}
+                    activeClassName="active"
+                    forcePage={safePage}
+                    onPageChange={({ selected }) => setPage(selected)}
+                    pageClassName="page-item"
+                    nextLinkClassName="page-link"
+                    nextClassName="page-item next"
+                    previousClassName="page-item prev"
+                    previousLinkClassName="page-link"
+                    pageLinkClassName="page-link"
+                    containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                  />
+                </div>
+              )}
+
               <div className="small text-muted mt-1 px-1">
                 {t(
                   "Enter vendor prices, Save, then pick the Best price per line. Selecting best for every line completes the RFQ."
