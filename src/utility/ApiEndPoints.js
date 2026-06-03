@@ -333,6 +333,7 @@ export const API_ENDPOINTS = {
   },
   rfq: {
     list: `/admin/rfq/list`,
+    stats: `/admin/rfq/stats`,
     get: `/admin/rfq/get`, // append /:id
     fromLead: `/admin/rfq/from-lead`, // append /:leadId
     update: `/admin/rfq/update`, // append /:id

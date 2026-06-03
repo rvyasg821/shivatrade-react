@@ -648,7 +648,7 @@ const SalesDocLineItems = ({
                           <td className="text-end">
                             {l.qty ? (
                               <Fragment>
-                                <div>{l.qty}</div>
+                                <div>{num(l.qty).toFixed(2)}</div>
                                 {l.unit ? (
                                   <small className="text-muted">{l.unit}</small>
                                 ) : null}
@@ -688,7 +688,9 @@ const SalesDocLineItems = ({
                         <>
                           <td className="text-end">
                             {l.qty
-                              ? `${l.qty}${l.unit ? ` ${l.unit}` : ""}`
+                              ? `${num(l.qty).toFixed(2)}${
+                                  l.unit ? ` ${l.unit}` : ""
+                                }`
                               : "-"}
                           </td>
                           <td className="text-end">
@@ -733,12 +735,11 @@ const SalesDocLineItems = ({
           </Table>
         )}
 
-        {/* Paginator + per-page selector — visible whenever the row count
-            *could* benefit from pagination at the smallest page size, so the
-            selector stays reachable even after the user bumps page size up
-            past the current total. The ReactPaginate widget itself collapses
-            to a single page when `pageCount === 1`. */}
-        {totalRows > 10 && (
+        {/* Paginator + per-page selector — shown whenever there's at least
+            one row, so the "Show N / of N rows" control is always visible
+            (even for a single item). The ReactPaginate widget itself
+            collapses to a single page when `pageCount === 1`. */}
+        {totalRows > 0 && (
           <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
             <div className="d-flex align-items-center small text-muted">
               <span className="me-50">{t("Show")}</span>

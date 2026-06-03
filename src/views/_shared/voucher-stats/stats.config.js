@@ -59,6 +59,39 @@ export const STATS_CONFIG = {
     ],
   },
 
+  rfq: {
+    endpointKey: "rfq", // → API_ENDPOINTS.rfq.stats
+    tiles: [
+      {
+        key: "total",
+        label: "Total RFQs",
+        icon: "Send",
+        color: "info",
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        statuses: ["completed"],
+        icon: "CheckCircle",
+        color: "success",
+      },
+      {
+        key: "in_progress",
+        label: "Draft + Sent + Quoting",
+        statuses: ["draft", "sent", "quoting"],
+        icon: "Clock",
+        color: "warning",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        statuses: ["cancelled"],
+        icon: "XCircle",
+        color: "danger",
+      },
+    ],
+  },
+
   quotation: {
     endpointKey: "quotations", // → API_ENDPOINTS.quotations.stats
     tiles: [

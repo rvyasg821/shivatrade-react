@@ -407,6 +407,7 @@ const initQuotationItem = {
   _id: "",
   voucher_no: "",
   lead_id: "",
+  rfq_id: "",
   customer_id: "",
   customer_address_id: "",
   quotation_date: new Date().toISOString().slice(0, 10),

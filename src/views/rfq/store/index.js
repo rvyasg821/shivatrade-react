@@ -13,6 +13,7 @@ export const getRfqList = createAsyncThunk(
       const body = resp?.data;
       return {
         rfqItems: ok(body) ? body.data || [] : [],
+        pagination: ok(body) ? body?._metadata?.pagination || null : null,
         actionFlag: "RFQ_LST",
         success: "",
         error: ok(body) ? "" : body?.message || "Failed to load RFQs",
@@ -20,6 +21,7 @@ export const getRfqList = createAsyncThunk(
     } catch (error) {
       return {
         rfqItems: [],
+        pagination: null,
         actionFlag: "RFQ_LST_ERR",
         success: "",
         error: error?.response?.data?.message || error.message || error,
@@ -115,6 +117,7 @@ export const selectRfqPrice = mutate("selectRfqPrice", "RFQ_SEL", ({ id, data })
 const initialState = {
   rfqItems: [],
   rfqItem: null,
+  pagination: null,
   actionFlag: "",
   success: "",
   error: "",
@@ -124,6 +127,7 @@ const initialState = {
 const applyResult = (state, action) => {
   const p = action.payload || {};
   if (p.rfqItems !== undefined) state.rfqItems = p.rfqItems;
+  if (p.pagination !== undefined) state.pagination = p.pagination;
   if (p.rfqItem !== undefined && p.rfqItem !== null) state.rfqItem = p.rfqItem;
   state.actionFlag = p.actionFlag || "";
   state.success = p.success || "";
