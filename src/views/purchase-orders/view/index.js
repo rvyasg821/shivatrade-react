@@ -35,8 +35,11 @@ import {
   DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
+import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+
 import PoRelatedDocsTabs from "./PoRelatedDocsTabs";
 import PoShareLinkPanel from "./PoShareLinkPanel";
+import PoCustomerOrderPanel from "./PoCustomerOrderPanel";
 
 const PIPELINE_STEPS = [
   { value: "draft", label: "Draft" },
@@ -114,12 +117,22 @@ const ViewPurchaseOrder = () => {
 
   const linesCount = (p?.lines || []).length;
 
+  // Recompute the grand total from the lines with the SAME helper the
+  // costing breakdown card uses, so the header KPI matches it exactly
+  // (the stored grand_total carries a 2-decimal rounding drift).
+  const headerTotals = useMemo(
+    () => computeDocTotals(p?.lines || [], p?.exchange_rate, { excludeGst: true }),
+    [p?.lines, p?.exchange_rate]
+  );
+
   const kpiItems = [
     {
       key: "total",
       label: t("Grand Total"),
       value:
-        p?.grand_total !== undefined ? `${sym} ${fmt(p.grand_total)}` : "-",
+        p?.grand_total !== undefined
+          ? `${sym} ${fmt(headerTotals.grand_currency)}`
+          : "-",
       icon: DollarSign,
       tone: "secondary",
     },
@@ -236,7 +249,12 @@ const ViewPurchaseOrder = () => {
         <DetailTwoPanel
           ratio="9-3"
           left={<PoRelatedDocsTabs />}
-          right={<PoShareLinkPanel />}
+          right={
+            <Fragment>
+              <PoShareLinkPanel />
+              <PoCustomerOrderPanel />
+            </Fragment>
+          }
         />
       </div>
     </Fragment>
