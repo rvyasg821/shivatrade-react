@@ -63,6 +63,7 @@ import {
 } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
 import { formatMoney } from "@src/utility/currency";
+import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 
 const PurchaseOrderView = () => {
   const { t } = useTranslation();
@@ -256,7 +257,17 @@ const PurchaseOrderView = () => {
     [vendorStore?.vendorDropdown]
   );
 
-  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
+  // Recompute from the lines with the same helper the detail page + costing
+  // card use, so the listed amount matches them (the stored grand_total
+  // carries a 2-decimal rounding drift in foreign currency).
+  const formatTotal = (row) => {
+    const lines = row?.lines || [];
+    const amount = lines.length
+      ? computeDocTotals(lines, row?.exchange_rate, { excludeGst: true })
+          .grand_currency
+      : row?.grand_total;
+    return formatMoney(amount, row?.currency_code);
+  };
 
   const columns = [
     {

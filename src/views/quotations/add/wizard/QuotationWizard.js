@@ -30,6 +30,7 @@ import { getProductDropdown } from "../../../products/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
 import { getLead } from "../../../leads/store";
+import { getRfq, cleanRfqItem } from "../../../rfq/store";
 import { getVendorDropdown } from "../../../vendors/store";
 import { startLoading, stopLoading } from "../../../loadingstore";
 
@@ -60,6 +61,7 @@ const QuotationWizard = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const urlLeadId = searchParams.get("lead_id") || "";
+  const urlRfqId = searchParams.get("rfq_id") || "";
   const isEdit = !!id;
 
   const store = useSelector((s) => s.quotation);
@@ -69,6 +71,7 @@ const QuotationWizard = () => {
   const expenseStore = useSelector((s) => s.expense);
   const rebateStore = useSelector((s) => s.rebate);
   const leadStore = useSelector((s) => s.lead);
+  const rfqStore = useSelector((s) => s.rfq);
   const vendorStore = useSelector((s) => s.vendor);
 
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +106,7 @@ const QuotationWizard = () => {
         margin_pct: yup.string().nullable(),
         status: yup.string().nullable(),
         lead_id: yup.string().nullable(),
+        rfq_id: yup.string().nullable(),
         lines: yup
           .array()
           .of(
@@ -122,7 +126,8 @@ const QuotationWizard = () => {
     resolver: yupResolver(schema),
     defaultValues: initQuotationItem,
   });
-  const { control, handleSubmit, reset, setValue, watch, trigger } = form;
+  const { control, handleSubmit, reset, setValue, watch, trigger, getValues } =
+    form;
 
   // ── Wizard navigation state ─────────────────────────────────────────
   const [activeStep, setActiveStep] = useState(0);
@@ -224,6 +229,110 @@ const QuotationWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadStore?.leadItem, watchedLeadId]);
 
+  // ── URL rfq_id seeding (one-time): tag the quotation + fetch the RFQ ──
+  useEffect(() => {
+    if (urlRfqId && !isEdit) {
+      setValue("rfq_id", urlRfqId);
+      // Drop any RFQ left in the store from the detail page so the line
+      // seed below fires on the FRESH fetch — i.e. AFTER the wizard's
+      // mount reset() — and isn't wiped by it.
+      dispatch(cleanRfqItem());
+      dispatch(getRfq(urlRfqId));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlRfqId]);
+
+  // Seed line items (and lead) from the loaded RFQ, once. Each line's
+  // SELECTED vendor price becomes its unit_price — i.e. the cost basis the
+  // costing sheet then marks up (cost → margin → selling). Lines without a
+  // selected best price seed at 0 for the salesperson to fill.
+  const rfqSeededRef = useRef(false);
+  const formReadyRef = useRef(false);
+  useEffect(() => {
+    const rfq = rfqStore?.rfqItem;
+    // Wait for the mount reset (formReadyRef) before seeding — otherwise a
+    // stale rfqItem (left in the store by the detail page) seeds during the
+    // mount pass and the reset immediately wipes it. Don't consume the
+    // one-time guard until we actually seed.
+    if (isEdit || !urlRfqId || !formReadyRef.current || rfqSeededRef.current)
+      return;
+    if (!rfq || rfq._id !== urlRfqId) return;
+
+    // The RFQ only carries product/qty/unit/hs_code; the costing fields
+    // (discount, tax, margin, rebates, expenses) and export/shipping fields
+    // live on the source LEAD line. So wait for the lead's full lines and
+    // merge them in — overriding only the cost (unit_price) and vendor with
+    // the RFQ's selected best price. Match lead line ↔ rfq line via
+    // lead_line_id.
+    const lead = leadStore?.leadItem;
+    if (rfq.lead_id && !(lead && lead._id === rfq.lead_id)) return; // wait
+
+    rfqSeededRef.current = true;
+
+    const leadLineById = {};
+    (lead?.lines || []).forEach((ll) => {
+      if (ll?._id) leadLineById[ll._id] = ll;
+    });
+    const prices = rfq.prices || [];
+
+    const seeded = (rfq.lines || [])
+      .filter((ln) => ln.product_id)
+      .map((ln) => {
+        const ll = ln.lead_line_id ? leadLineById[ln.lead_line_id] : null;
+        const sel = prices.find(
+          (p) => p.rfq_line_id === ln._id && p.is_selected
+        );
+        // Full costing/export carried over from the lead requirement line.
+        const carried = ll
+          ? {
+              discount_pct:
+                ll.discount_pct != null ? String(ll.discount_pct) : "0",
+              tax_pct: ll.tax_pct != null ? String(ll.tax_pct) : "0",
+              margin_pct: ll.margin_pct != null ? String(ll.margin_pct) : "0",
+              product_rebates_snapshot: ll.product_rebates_snapshot || [],
+              product_expenses_snapshot: ll.product_expenses_snapshot || [],
+              net_weight_kg:
+                ll.net_weight_kg != null ? String(ll.net_weight_kg) : "0",
+              gross_weight_kg:
+                ll.gross_weight_kg != null ? String(ll.gross_weight_kg) : "0",
+              package_count:
+                ll.package_count != null ? Number(ll.package_count) : 0,
+            }
+          : {};
+        return {
+          ...initQuotationLineItem,
+          ...carried,
+          product_id: ln.product_id,
+          description: ln.description || ll?.description || "",
+          customer_reference:
+            ln.customer_reference || ll?.customer_reference || "",
+          qty: String(ln.qty ?? ll?.qty ?? ""),
+          unit: ln.unit || ll?.unit || "",
+          hs_code: ln.hs_code || ll?.hs_code || "",
+          // Cost basis: RFQ-selected vendor price wins; else fall back to the
+          // lead line's price.
+          unit_price: sel
+            ? String(sel.unit_price ?? "0")
+            : ll?.unit_price != null
+            ? String(ll.unit_price)
+            : "0",
+          vendor_id: sel ? sel.vendor_id : ll?.vendor_id || "",
+        };
+      });
+
+    // Seed via reset() (not setValue) — SalesDocLineItems renders from
+    // useFieldArray.fields, which only re-syncs on a form-level reset, not
+    // a setValue("lines", …). Merge current values so the lead/customer/
+    // currency already seeded above are preserved.
+    const cur = getValues();
+    reset({
+      ...cur,
+      lead_id: cur.lead_id || rfq.lead_id || "",
+      lines: seeded.length ? seeded : cur.lines,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfqStore?.rfqItem, leadStore?.leadItem, urlRfqId]);
+
   // Exchange rate lookup on currency pick. The fetched master rate ALWAYS
   // populates `rateMeta` (the "Auto-filled / Custom" comparison hint). The
   // form field is auto-written whenever the currency CHANGES to a code we
@@ -283,7 +392,14 @@ const QuotationWizard = () => {
       dispatch(getQuotation(id));
     } else {
       dispatch(cleanQuotationState());
-      reset({ ...initQuotationItem, lead_id: urlLeadId || "" });
+      reset({
+        ...initQuotationItem,
+        lead_id: urlLeadId || "",
+        rfq_id: urlRfqId || "",
+      });
+      // Mount reset done — the RFQ line seed may now run safely (any value
+      // it writes won't be wiped by this reset).
+      formReadyRef.current = true;
     }
     return () => {
       dispatch(cleanQuotationMessage());
@@ -475,6 +591,7 @@ const QuotationWizard = () => {
     }
     return {
       lead_id: values.lead_id || undefined,
+      rfq_id: values.rfq_id || undefined,
       customer_id: values.customer_id || undefined,
       customer_address_id: values.customer_address_id || undefined,
       quotation_date: values.quotation_date,

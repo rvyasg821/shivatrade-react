@@ -12,7 +12,8 @@ import {
 } from "../store";
 import { getCustomerDropdown, getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
-import { getCategoryDropdown } from "../../categories/store";
+import { getRebateDropdown } from "../../rebates/store";
+import { getExpenseDropdown } from "../../expenses/store";
 import { getExchangeRateOptions } from "../../currencies/store";
 import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
@@ -51,6 +52,10 @@ import { ArrowLeft, FileText, Briefcase, Target, MapPin } from "react-feather";
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
 import "@src/views/_shared/wizard/wizard.scss";
+
+// ** Shared line-item table (same component the Quotation/PFI/PO wizards use).
+import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
+import { initQuotationLineItem } from "@constant/reduxConstant";
 
 // ** Constants
 import { appsRoot } from "@constant/defaultValues";
@@ -97,7 +102,8 @@ const LeadForm = () => {
   const store = useSelector((state) => state.lead);
   const customerStore = useSelector((state) => state.customer);
   const productStore = useSelector((state) => state.product);
-  const categoryStore = useSelector((state) => state.category);
+  const rebateStore = useSelector((state) => state.rebate);
+  const expenseStore = useSelector((state) => state.expense);
   const vendorStore = useSelector((state) => state.vendor);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
@@ -125,11 +131,6 @@ const LeadForm = () => {
         contact_phone: yup.string().trim().nullable().notRequired(),
         source: yup.string().required(t("Source is required")),
         status: yup.string().required(t("Status is required")),
-        interested_categories: yup
-          .array()
-          .of(yup.string())
-          .nullable()
-          .notRequired(),
         expected_value: yup
           .number()
           .transform((v, o) => (o === "" || o === null ? undefined : v))
@@ -191,7 +192,8 @@ const LeadForm = () => {
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
-    dispatch(getCategoryDropdown());
+    dispatch(getRebateDropdown());
+    dispatch(getExpenseDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getVendorDropdown());
     if (isEditMode) {
@@ -210,6 +212,25 @@ const LeadForm = () => {
         expected_value: store.leadItem.expected_value ?? "",
         interested_categories: store.leadItem.interested_categories || [],
         interested_products: store.leadItem.interested_products || [],
+        lines: (store.leadItem.lines || []).map((l) => ({
+          product_id: l.product_id || "",
+          vendor_id: l.vendor_id || "",
+          description: l.description || "",
+          customer_reference: l.customer_reference || "",
+          qty: l.qty != null ? String(l.qty) : "",
+          unit: l.unit || "",
+          unit_price: l.unit_price != null ? String(l.unit_price) : "",
+          discount_pct: l.discount_pct != null ? String(l.discount_pct) : "0",
+          tax_pct: l.tax_pct != null ? String(l.tax_pct) : "0",
+          margin_pct: l.margin_pct != null ? String(l.margin_pct) : "0",
+          product_rebates_snapshot: l.product_rebates_snapshot || [],
+          product_expenses_snapshot: l.product_expenses_snapshot || [],
+          hs_code: l.hs_code || "",
+          net_weight_kg: l.net_weight_kg != null ? String(l.net_weight_kg) : "0",
+          gross_weight_kg:
+            l.gross_weight_kg != null ? String(l.gross_weight_kg) : "0",
+          package_count: l.package_count != null ? Number(l.package_count) : 0,
+        })),
         social_media_urls: store.leadItem.social_media_urls || {},
         preferred_vendors: store.leadItem.preferred_vendors || [],
         follow_up_date: (store.leadItem.follow_up_date || "").slice(0, 10),
@@ -328,8 +349,43 @@ const LeadForm = () => {
         data.expected_value === "" || data.expected_value === null
           ? undefined
           : Number(data.expected_value),
-      interested_categories: data.interested_categories || [],
-      interested_products: data.interested_products || [],
+      // Requirement line items (quotation line shape — managed by the shared
+      // SalesDocLineItems component). Deprecated interested_* arrays are
+      // omitted so legacy values on existing leads are preserved.
+      lines: (data.lines || [])
+        .filter((l) => l.product_id)
+        .map((l, i) => {
+          const numOrU = (v) =>
+            v === "" || v == null ? undefined : String(v);
+          return {
+            product_id: l.product_id,
+            vendor_id: l.vendor_id || undefined,
+            description: l.description || undefined,
+            customer_reference: l.customer_reference || undefined,
+            qty: numOrU(l.qty),
+            unit: l.unit || undefined,
+            unit_price: numOrU(l.unit_price),
+            discount_pct: numOrU(l.discount_pct),
+            tax_pct: numOrU(l.tax_pct),
+            margin_pct: numOrU(l.margin_pct),
+            product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
+              ? l.product_rebates_snapshot
+              : undefined,
+            product_expenses_snapshot: Array.isArray(
+              l.product_expenses_snapshot
+            )
+              ? l.product_expenses_snapshot
+              : undefined,
+            hs_code: l.hs_code || undefined,
+            net_weight_kg: numOrU(l.net_weight_kg),
+            gross_weight_kg: numOrU(l.gross_weight_kg),
+            package_count:
+              l.package_count === "" || l.package_count == null
+                ? undefined
+                : Number(l.package_count),
+            seq: i + 1,
+          };
+        }),
       website_url: data.website_url?.trim() || undefined,
       social_media_urls:
         data.social_media_urls &&
@@ -359,35 +415,24 @@ const LeadForm = () => {
     label: c.company_name,
   }));
 
-  const categoryOptions = (categoryStore?.categoryDropdown || []).map((c) => ({
-    value: c._id,
-    label: c.name,
+  // Option shapes for the shared SalesDocLineItems component (same as the
+  // Quotation wizard). `raw` carries the full product/master record so the
+  // component can auto-fill price (price list), HS code, weights, etc.
+  const allProductOptions = (productStore?.productDropdown || []).map((p) => ({
+    value: p._id,
+    label: `${p.code ? p.code + " - " : ""}${p.name || p.product_name}`,
+    raw: p,
   }));
-
-  const watchCategories = watch("interested_categories") || [];
-  const productOptions = (productStore?.productDropdown || [])
-    .filter(
-      (p) => !p.category_id || watchCategories.includes(p.category_id)
-    )
-    .map((p) => ({
-      value: p._id,
-      label: p.name || p.product_name,
-    }));
-
-  // Drop products whose category is no longer selected.
-  useEffect(() => {
-    const allowed = new Set(watchCategories);
-    const current = watch("interested_products") || [];
-    const filtered = current.filter((pid) => {
-      const product = (productStore?.productDropdown || []).find(
-        (p) => p._id === pid
-      );
-      return !product?.category_id || allowed.has(product.category_id);
-    });
-    if (filtered.length !== current.length) {
-      setValue("interested_products", filtered, { shouldValidate: true });
-    }
-  }, [JSON.stringify(watchCategories)]);
+  const rebateOptions = (rebateStore?.rebateDropdown || []).map((r) => ({
+    value: r._id,
+    label: r.name,
+    raw: r,
+  }));
+  const expenseOptions = (expenseStore?.expenseDropdown || []).map((e) => ({
+    value: e._id,
+    label: e.name,
+    raw: e,
+  }));
 
   const currencyOptions = (currencyStore?.exchangeOptions || []).map((c) => ({
     value: c.code,
@@ -677,70 +722,31 @@ const LeadForm = () => {
                 <small className="text-muted fw-normal">({t("Optional")})</small>
               </h4>
               <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="interested_categories">
-                    {t("Interested Categories")}
-                  </Label>
-                  <Controller
-                    name="interested_categories"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="interested_categories"
-                        isMulti
-                        isClearable
-                        options={categoryOptions}
-                        value={categoryOptions.filter((o) =>
-                          (field.value || []).includes(o.value)
-                        )}
-                        onChange={(opts) =>
-                          field.onChange((opts || []).map((o) => o.value))
-                        }
-                        placeholder={t("Select categories")}
-                        classNamePrefix="select"
-                      />
+                <Col md="12" className="mb-3">
+                  <h5 className="mb-1">{t("Requirement Items")}</h5>
+                  <small className="text-muted d-block mb-2">
+                    {t(
+                      "What the customer wants. Price auto-fills from the cheapest current vendor in the price list. Use Import / Export for bulk entry."
                     )}
-                  />
-                  {errors.interested_categories && (
-                    <FormFeedback className="d-block">
-                      {errors.interested_categories.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="interested_products">
-                    {t("Interested Products")}
-                  </Label>
-                  <Controller
-                    name="interested_products"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="interested_products"
-                        isMulti
-                        isClearable
-                        isDisabled={watchCategories.length === 0}
-                        options={productOptions}
-                        value={productOptions.filter((o) =>
-                          (field.value || []).includes(o.value)
-                        )}
-                        onChange={(opts) =>
-                          field.onChange(
-                            (opts || []).map((o) => o.value)
-                          )
-                        }
-                        placeholder={
-                          watchCategories.length === 0
-                            ? t("Select categories first")
-                            : t("Refine with specific products")
-                        }
-                        classNamePrefix="select"
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("Optional. Filtered by selected categories.")}
                   </small>
+                  <SalesDocLineItems
+                    control={control}
+                    setValue={setValue}
+                    productOptions={allProductOptions}
+                    allProductOptions={allProductOptions}
+                    initLineItem={initQuotationLineItem}
+                    rebateOptions={rebateOptions}
+                    expenseOptions={expenseOptions}
+                    currencyCode={watch("currency") || "INR"}
+                    baseCurrencyCode="INR"
+                    exchangeRate={1}
+                    tableLayout="detailed"
+                    displayInBase
+                    docType="lead"
+                    docNumber=""
+                    hideGst
+                    showExportFields
+                  />
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="expected_value">

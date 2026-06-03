@@ -87,10 +87,14 @@ const LineItemsPanel = ({ bare = false }) => {
                         }`
                       : "-"}
                   </td>
+                  {/* Show the entered unit price (cost basis) so this column
+                      matches the wizard's Step 2 "Price" column. Note the
+                      Total includes discount/expenses/rebates/margin, so
+                      Price × Qty won't equal Total — the breakdown lives in
+                      the costing card / edit form. */}
                   <td className="text-end">
-                    {num(l.qty) > 0
-                      ? `${sym}${fmt(toDocCcy(l.line_total) / num(l.qty))}`
-                      : `${sym}${fmt(toDocCcy(l.unit_price))}`}
+                    {sym}
+                    {fmt(toDocCcy(l.unit_price))}
                   </td>
                   <td className="text-end fw-bold">
                     {sym}

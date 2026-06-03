@@ -26,6 +26,7 @@ import { useDispatch, useSelector } from "react-redux";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import DateInput from "@components/date-input";
 import { appsRoot } from "@constant/defaultValues";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 import { getExpenseDropdown } from "@src/views/expenses/store";
@@ -65,6 +66,14 @@ const PoGeneratePreviewModal = ({
   // Deliver-to address (applies to every PO created in this batch).
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [locations, setLocations] = useState([]);
+  // Customer order reference + advance (S4) — captured on the Sales Order.
+  const [customerPoNumber, setCustomerPoNumber] = useState("");
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceDate, setAdvanceDate] = useState("");
+  const [advanceNotes, setAdvanceNotes] = useState("");
+  // Source doc grand total (customer currency) — advance must be below it.
+  const [sourceGrandTotal, setSourceGrandTotal] = useState(0);
+  const [sourceCurrencySym, setSourceCurrencySym] = useState("");
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
   // 2-step UX: 1 = Product listing, 2 = Vendor charges.
@@ -112,6 +121,10 @@ const PoGeneratePreviewModal = ({
     setVendorExpenses({});
     setStep(1);
     setPage(0);
+    setCustomerPoNumber("");
+    setAdvanceAmount("");
+    setAdvanceDate("");
+    setAdvanceNotes("");
     // Reset deliver-to on every open so we re-derive from the response
     // (existing PO's address if any, else LocationSelect's auto-default).
     setDeliveryAddressId("");
@@ -121,6 +134,8 @@ const PoGeneratePreviewModal = ({
         const data = resp?.data?.data || {};
         const lines = data.lines || [];
         setPreviewLines(lines);
+        setSourceGrandTotal(Number(data?.source?.grand_total) || 0);
+        setSourceCurrencySym(data?.source?.currency_symbol || "");
         const seeded = {};
         const seedDropped = {};
         for (const l of lines) {
@@ -250,6 +265,19 @@ const PoGeneratePreviewModal = ({
       );
       return;
     }
+    // Advance must be below the order's grand total.
+    if (
+      advanceAmount !== "" &&
+      sourceGrandTotal > 0 &&
+      Number(advanceAmount) >= sourceGrandTotal
+    ) {
+      Notification(
+        "Validation",
+        t("Advance amount must be less than the order total."),
+        "warning"
+      );
+      return;
+    }
     setCreating(true);
     try {
       // Trim out empty vendor blocks (no rows) and rows missing expense_id.
@@ -268,6 +296,13 @@ const PoGeneratePreviewModal = ({
         assignments,
         delivery_address_id: deliveryAddressId,
         vendor_expenses: trimmedExpenses,
+        customer_po_number: customerPoNumber?.trim() || undefined,
+        advance_amount:
+          advanceAmount === "" || advanceAmount == null
+            ? undefined
+            : String(advanceAmount),
+        advance_date: advanceDate || undefined,
+        advance_notes: advanceNotes?.trim() || undefined,
       });
       const purchaseOrder = resp?.data?.data?.purchase_order;
       const povs = resp?.data?.data?.po_vendors || [];
@@ -302,6 +337,12 @@ const PoGeneratePreviewModal = ({
       setCreating(false);
     }
   };
+
+  // Advance must stay below the order's grand total.
+  const advanceTooHigh =
+    advanceAmount !== "" &&
+    sourceGrandTotal > 0 &&
+    Number(advanceAmount) >= sourceGrandTotal;
 
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
@@ -413,6 +454,75 @@ const PoGeneratePreviewModal = ({
                   </a>
                 </div>
               )}
+            </div>
+
+            {/* Customer order reference + advance — stored on the Sales Order. */}
+            <div className="row g-2 mb-2">
+              <div className="col-md-4">
+                <label className="form-label fw-semibold">
+                  {t("Customer PO #")}
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  maxLength={100}
+                  value={customerPoNumber}
+                  onChange={(e) => setCustomerPoNumber(e.target.value)}
+                  placeholder={t("Buyer's own PO number")}
+                />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label fw-semibold">
+                  {t("Advance Amount")}
+                  {sourceCurrencySym ? ` (${sourceCurrencySym})` : ""}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={`form-control${
+                    advanceTooHigh ? " is-invalid" : ""
+                  }`}
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                />
+                {advanceTooHigh ? (
+                  <small className="text-danger">
+                    {t("Must be less than the order total")} (
+                    {sourceCurrencySym}
+                    {sourceGrandTotal.toLocaleString()})
+                  </small>
+                ) : (
+                  sourceGrandTotal > 0 && (
+                    <small className="text-muted">
+                      {t("Order total")}: {sourceCurrencySym}
+                      {sourceGrandTotal.toLocaleString()}
+                    </small>
+                  )
+                )}
+              </div>
+              <div className="col-md-2">
+                <label className="form-label fw-semibold">
+                  {t("Advance Date")}
+                </label>
+                <DateInput
+                  id="po-advance-date"
+                  value={advanceDate}
+                  onChange={(_d, _s, iso) => setAdvanceDate(iso || "")}
+                />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label fw-semibold">
+                  {t("Advance Notes")}
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  maxLength={200}
+                  value={advanceNotes}
+                  onChange={(e) => setAdvanceNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             <p className="text-muted small mb-2">
@@ -902,7 +1012,8 @@ const PoGeneratePreviewModal = ({
               loading ||
               hasUnassignedActiveLines ||
               vendorSummary.length === 0 ||
-              !deliveryAddressId
+              !deliveryAddressId ||
+              advanceTooHigh
             }
           >
             {t("Next")} →
@@ -916,7 +1027,8 @@ const PoGeneratePreviewModal = ({
               loading ||
               hasUnassignedActiveLines ||
               vendorSummary.length === 0 ||
-              !deliveryAddressId
+              !deliveryAddressId ||
+              advanceTooHigh
             }
           >
             {creating ? <Spinner size="sm" /> : null}{" "}

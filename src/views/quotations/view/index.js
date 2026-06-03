@@ -41,10 +41,11 @@ import {
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
 } from "@constant/options";
-import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -328,15 +329,26 @@ const ViewQuotation = () => {
 
   const linesCount = (q?.lines || []).length;
 
+  // Recompute the grand total from the lines with the SAME helper the costing
+  // breakdown card uses, so the header KPI matches it exactly. (Reversing the
+  // stored doc-currency grand_total back to INR via /rate amplifies the
+  // 2-decimal rounding of the doc value into a visible ₹ discrepancy.)
+  const headerTotals = useMemo(
+    () => computeDocTotals(q?.lines || [], q?.exchange_rate, { excludeGst: true }),
+    [q?.lines, q?.exchange_rate]
+  );
+
   const kpiItems = [
     {
       key: "total",
       label: t("Grand Total"),
-      // grand_total is stored in the doc currency (INR × rate). Re-derive
-      // the INR base, then re-project into whichever currency is active.
+      // grand_inr = rounded whole-INR total; grand_currency = grand_inr × rate.
+      // Pick by the active currency view — identical to the costing card.
       value: q?.grand_total
         ? `${activeSym}${fmt(
-            currencyCtx.fromInr(Number(q.grand_total || 0) / rateForConv)
+            showDocEffective
+              ? headerTotals.grand_currency
+              : headerTotals.grand_inr
           )}`
         : "-",
       icon: DollarSign,
@@ -380,7 +392,8 @@ const ViewQuotation = () => {
       icon: FileText,
       label: t("Convert to PFI"),
       onClick: handleConvertToPfi,
-      hidden: !isApproved || !canConvertToPfi || hasLivePfi,
+      // PFI retired (S4) — Quotation → Sales Order is the path now.
+      hidden: PFI_RETIRED || !isApproved || !canConvertToPfi || hasLivePfi,
       outline: false,
       color: "success",
     },
@@ -483,14 +496,25 @@ const ViewQuotation = () => {
             [q?.customer_name, q?.customer_email].filter(Boolean).join(" · ") ||
             null
           }
-          meta={
-            q?._id ? (
+          meta={(() => {
+            // Prefer the source RFQ number, then the source lead's RQ number,
+            // and only fall back to the quotation's own id hash.
+            const sourceNo = q?.rfq_voucher_no || q?.lead_voucher_no;
+            if (sourceNo) {
+              return (
+                <span>
+                  <Hash size={12} className="me-25" />
+                  {sourceNo}
+                </span>
+              );
+            }
+            return q?._id ? (
               <span>
                 <Hash size={12} className="me-25" />
                 {q._id.slice(-8).toUpperCase()}
               </span>
-            ) : null
-          }
+            ) : null;
+          })()}
           badge={{
             label: statusLabel,
             color:

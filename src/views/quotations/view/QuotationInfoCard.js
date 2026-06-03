@@ -30,6 +30,7 @@ import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { QUOTATION_STATUS_BADGE_COLOR } from "@constant/options";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
+import { PFI_RETIRED } from "@src/configs/appMode";
 
 const InfoRow = ({ icon: Icon, value }) => {
   if (!value) return null;
@@ -208,7 +209,9 @@ const QuotationInfoCard = () => {
                 </UncontrolledTooltip>
               </>
             )}
-            {canConvertToPfi && (q?.status || "").toLowerCase() === "approved" && (
+            {!PFI_RETIRED &&
+              canConvertToPfi &&
+              (q?.status || "").toLowerCase() === "approved" && (
               <>
                 <Button
                   color="info"
