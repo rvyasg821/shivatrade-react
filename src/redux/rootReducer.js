@@ -35,6 +35,7 @@ import quotation from "@src/views/quotations/store";
 import pfi from "@src/views/pfi/store";
 import purchaseOrder from "@src/views/purchase-orders/store";
 import poVendor from "@src/views/po-vendors/store";
+import grn from "@src/views/grn/store";
 import inventory from "@src/views/inventory/store";
 import invoice from "@src/views/invoices/store";
 import trackingEvent from "@src/views/tracking/store";
@@ -119,6 +120,7 @@ const rootReducer = {
   pfi,
   purchaseOrder,
   poVendor,
+  grn,
   inventory,
   invoice,
   trackingEvent,
