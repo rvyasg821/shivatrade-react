@@ -32,7 +32,8 @@ const renderAction = (a, idx) => {
     outline: a.outline ?? true,
     size: "sm",
     id,
-    className: "d-flex align-items-center",
+    className: `d-flex align-items-center ${a.className || ""}`.trim(),
+    ...(a.style ? { style: a.style } : {}),
   };
   return (
     <Fragment key={id}>

@@ -279,10 +279,8 @@ const PurchaseOrderView = () => {
       selector: (row) => {
         const c = STATUS_COLOR_MAP[row?.status] || "#6c757d";
         const label = (row?.status || "-").replace(/_/g, " ");
-        const refVoucher = row?.pfi_voucher_no || row?.quotation_voucher_no;
-        const refTo = row?.pfi_id
-          ? `${appsRoot}/pfi/view/${row.pfi_id}`
-          : row?.quotation_id
+        const refVoucher = row?.quotation_voucher_no || row?.pfi_voucher_no;
+        const refTo = row?.quotation_id
           ? `${appsRoot}/quotations/view/${row.quotation_id}`
           : null;
         return (
@@ -300,12 +298,12 @@ const PurchaseOrderView = () => {
                     to={refTo}
                     className="small text-muted text-nowrap d-inline-flex align-items-center"
                   >
-                    PFI - {refVoucher}
+                    Quotation - {refVoucher}
                     <ExternalLink size={12} className="ms-1" />
                   </Link>
                 ) : (
                   <span className="small text-muted text-nowrap">
-                    PFI - {refVoucher}
+                    Quotation - {refVoucher}
                   </span>
                 )}
               </div>

@@ -580,6 +580,13 @@ const InvoiceAddEdit = () => {
         delivery_terms: po.delivery_terms || "",
         country_of_destination:
           po.country_of_final_destination || po.country_of_destination || "",
+        // Carry the buyer's PO# + advance already collected from the source
+        // Sales Order (S4) so they're visible/editable before save.
+        customer_po_no: po.customer_po_number || s.customer_po_no || "",
+        advance_received:
+          po.advance_amount != null && po.advance_amount !== ""
+            ? String(po.advance_amount)
+            : s.advance_received,
       }));
 
       // Map PO lines → invoice lines. qty defaults to dispatched-but-not-
@@ -632,7 +639,10 @@ const InvoiceAddEdit = () => {
           uqc_code: mapUomToUqc(l.unit),
           qty: String(cap),
           unit_price: String(l.unit_price || 0),
-          discount_pct: "0",
+          // Carry the full costing from the SO line so the invoice total
+          // equals the SO total (was hardcoded 0 / margin dropped).
+          discount_pct: String(l.discount_pct || 0),
+          margin_pct: String(l.margin_pct || 0),
           tax_pct: "0",
           igst_rate_pct: String(l.tax_pct || 0),
           product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
@@ -899,6 +909,7 @@ const InvoiceAddEdit = () => {
         qty: l.qty,
         unit_price: l.unit_price,
         discount_pct: l.discount_pct,
+        margin_pct: l.margin_pct,
         tax_pct: l.tax_pct,
         igst_rate_pct: l.igst_rate_pct,
         product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
@@ -935,22 +946,19 @@ const InvoiceAddEdit = () => {
   const totals = useMemo(() => {
     let subtotalInr = 0;
     for (const l of lines) {
-      // Sequential — match the per-line cell math.
-      //   base → − discount → − rebate → + expense
-      const base = round2(num(l.qty) * num(l.unit_price));
-      const discounted = round2(
-        base * (1 - num(l.discount_pct) / 100),
-      );
-      const rebatesTotal = sumRebates(
-        l.product_rebates_snapshot,
-        discounted,
-      );
-      const afterRebate = round2(discounted - rebatesTotal);
-      const expensesTotal = sumExpenses(
-        l.product_expenses_snapshot,
-        afterRebate,
-      );
-      subtotalInr = round2(subtotalInr + afterRebate + expensesTotal);
+      // MUST mirror the backend recompute() + Quotation engine. SEQUENTIAL:
+      //   taxable = qty × price × (1 − disc/100)
+      //   − rebates (on taxable) → + expenses (on after-rebate)
+      //   → + margin (on after-expense)
+      const taxable =
+        num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
+      const rebatesTotal = sumRebates(l.product_rebates_snapshot, taxable);
+      const afterRebate = taxable - rebatesTotal;
+      const expensesTotal = sumExpenses(l.product_expenses_snapshot, afterRebate);
+      const afterExpense = afterRebate + expensesTotal;
+      const marginAmt = (afterExpense * num(l.margin_pct)) / 100;
+      const lineNet = round2(afterExpense + marginAmt);
+      subtotalInr = round2(subtotalInr + lineNet);
     }
     const rate = num(form.exchange_rate) || 1;
     const subtotal = round2(subtotalInr * rate); // in doc currency
@@ -1139,7 +1147,10 @@ const InvoiceAddEdit = () => {
         uqc_code: mapUomToUqc(row.unit),
         qty: String(qty),
         unit_price: String(row.unit_price || 0),
-        discount_pct: "0",
+        // Carry the full costing from the SO line so the invoice total
+        // equals the SO total (was hardcoded 0 / margin dropped).
+        discount_pct: String(row.discount_pct || 0),
+        margin_pct: String(row.margin_pct || 0),
         tax_pct: "0",
         igst_rate_pct: String(row.tax_pct || 0),
         product_rebates_snapshot: Array.isArray(row.product_rebates_snapshot)
@@ -1201,6 +1212,7 @@ const InvoiceAddEdit = () => {
             uqc_code: l.uqc_code,
             unit_price: l.unit_price,
             discount_pct: l.discount_pct,
+            margin_pct: l.margin_pct,
             igst_rate_pct: l.igst_rate_pct,
             packages: l.packages,
             net_weight: l.net_weight,
@@ -1264,6 +1276,7 @@ const InvoiceAddEdit = () => {
           uqc_code: data.uqc_code || "",
           unit_price: String(data.unit_price ?? "0"),
           discount_pct: String(data.discount_pct ?? "0"),
+          margin_pct: String(data.margin_pct ?? "0"),
           igst_rate_pct: String(data.igst_rate_pct ?? "0"),
           product_rebates_snapshot: Array.isArray(data.product_rebates_snapshot)
             ? data.product_rebates_snapshot
@@ -1435,6 +1448,7 @@ const InvoiceAddEdit = () => {
       qty: String(l.qty),
       unit_price: String(l.unit_price),
       discount_pct: String(l.discount_pct || 0),
+      margin_pct: String(l.margin_pct || 0),
       tax_pct: String(l.tax_pct || 0),
       igst_rate_pct: String(l.igst_rate_pct || 0),
       product_rebates_snapshot: l.product_rebates_snapshot || [],
@@ -2241,26 +2255,25 @@ const InvoiceAddEdit = () => {
                   const pageLines = lines.slice(start, start + linesPageSize);
                   return pageLines.map((l, pi) => {
                     const i = start + pi;
-                  // Sequential per BE spec: each step applies to the
-                  // running balance, not the gross base.
-                  //   base → − discount  → − rebates → + expenses
-                  // % rebates use the discounted amount, then %
-                  // expenses use (discounted − rebate) so they're
-                  // computed on the running total, not the gross.
-                  const base = round2(num(l.qty) * num(l.unit_price));
-                  const discounted = round2(
-                    base * (1 - num(l.discount_pct) / 100),
-                  );
+                  // Mirror the backend recompute() + Quotation/PO engine:
+                  //   taxable = qty × price × (1 − disc/100)
+                  //   rebates/expenses computed on `taxable`
+                  //   margin  = (taxable + expenses − rebates) × margin/100
+                  //   lineTotal = taxable + expenses − rebates + margin
+                  const taxable =
+                    num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
                   const rebatesTotal = sumRebates(
                     l.product_rebates_snapshot,
-                    discounted,
+                    taxable,
                   );
-                  const afterRebate = round2(discounted - rebatesTotal);
+                  const afterRebate = taxable - rebatesTotal;
                   const expensesTotal = sumExpenses(
                     l.product_expenses_snapshot,
                     afterRebate,
                   );
-                  const lineTotal = round2(afterRebate + expensesTotal);
+                  const afterExpense = afterRebate + expensesTotal;
+                  const marginAmt = (afterExpense * num(l.margin_pct)) / 100;
+                  const lineTotal = round2(afterExpense + marginAmt);
                   const rebateCount = (l.product_rebates_snapshot || []).length;
                   const expenseCount = (l.product_expenses_snapshot || []).length;
                   return (
@@ -2377,11 +2390,24 @@ const InvoiceAddEdit = () => {
                       </td>
                       <td className="text-end fw-semibold">
                         ₹{fmt(lineTotal)}
-                        {(rebateCount > 0 || expenseCount > 0) && (
+                        {(rebateCount > 0 ||
+                          expenseCount > 0 ||
+                          num(l.discount_pct) > 0 ||
+                          num(l.margin_pct) > 0) && (
                           <div
                             className="d-flex flex-column align-items-end gap-1 mt-25"
                             style={{ fontSize: "0.85rem" }}
                           >
+                            {num(l.discount_pct) > 0 && (
+                              <span className="badge badge-light-danger">
+                                {t("Discount")} {fmt(num(l.discount_pct))}%
+                              </span>
+                            )}
+                            {num(l.margin_pct) > 0 && (
+                              <span className="badge badge-light-info">
+                                {t("Margin")} {fmt(num(l.margin_pct))}%
+                              </span>
+                            )}
                             {expenseCount > 0 && (
                               <span
                                 className="badge badge-light-warning"
