@@ -256,6 +256,7 @@ const LeadForm = () => {
     const opts = { shouldValidate: true };
     setValue("company_name", c.company_name || "", opts);
     setValue("source", "existing_customer", opts);
+    if (c.currency) setValue("currency", c.currency, opts);
     if (c.primary_contact_name)
       setValue("contact_name", c.primary_contact_name, opts);
     if (c.primary_contact_email)
@@ -557,6 +558,7 @@ const LeadForm = () => {
                             setValue("country", "India");
                             setValue("postcode", "");
                             setValue("source", "web", blankOpts);
+                            setValue("currency", "", blankOpts);
                             setAutoFillFromCustomer(false);
                           }
                         }}
@@ -681,6 +683,24 @@ const LeadForm = () => {
                   />
                 </Col>
                 <Col md="6" className="mb-2">
+                  <Label className="form-label" for="website_url">
+                    {t("Website")}
+                  </Label>
+                  <Controller
+                    name="website_url"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="website_url"
+                        type="text"
+                        placeholder="https://"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="6" className="mb-2">
                   <Label className="form-label" for="status">
                     {t("Status")} {requiredMark}
                   </Label>
@@ -722,7 +742,7 @@ const LeadForm = () => {
                 <small className="text-muted fw-normal">({t("Optional")})</small>
               </h4>
               <Row>
-                <Col md="12" className="mb-3">
+                <Col md="12" className="mb-0">
                   <h5 className="mb-1">{t("Requirement Items")}</h5>
                   <small className="text-muted d-block mb-2">
                     {t(
@@ -748,30 +768,7 @@ const LeadForm = () => {
                     showExportFields
                   />
                 </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="expected_value">
-                    {t("Expected Value")}
-                  </Label>
-                  <Controller
-                    name="expected_value"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="expected_value"
-                        type="number"
-                        step="0.01"
-                        invalid={!!errors.expected_value}
-                        {...field}
-                      />
-                    )}
-                  />
-                  {errors.expected_value && (
-                    <FormFeedback>
-                      {errors.expected_value.message}
-                    </FormFeedback>
-                  )}
-                </Col>
-                <Col md="3" className="mb-2">
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="currency">
                     {t("Currency")}
                   </Label>
@@ -797,25 +794,7 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="quantity">
-                    {t("Required Quantity")}
-                  </Label>
-                  <Controller
-                    name="quantity"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="quantity"
-                        type="text"
-                        placeholder={t("e.g. 500 PCS")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="delivery_expectation">
                     {t("Delivery Expectation")}
                   </Label>
@@ -833,7 +812,7 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="3" className="mb-2">
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="follow_up_date">
                     {t("Follow-up Date")}
                   </Label>
@@ -848,52 +827,6 @@ const LeadForm = () => {
                       />
                     )}
                   />
-                </Col>
-                <Col md="9" className="mb-2">
-                  <Label className="form-label" for="website_url">
-                    {t("Website")}
-                  </Label>
-                  <Controller
-                    name="website_url"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="website_url"
-                        type="text"
-                        placeholder="https://"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="preferred_vendors">
-                    {t("Preferred Vendors")}
-                  </Label>
-                  <Controller
-                    name="preferred_vendors"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        inputId="preferred_vendors"
-                        isMulti
-                        isClearable
-                        options={vendorOptions}
-                        value={vendorOptions.filter((o) =>
-                          (field.value || []).includes(o.value)
-                        )}
-                        onChange={(opts) =>
-                          field.onChange((opts || []).map((o) => o.value))
-                        }
-                        placeholder={t("Select preferred vendors")}
-                        classNamePrefix="select"
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("Vendors the customer named as preferred suppliers.")}
-                  </small>
                 </Col>
                 <Col md="12" className="mb-2">
                   <Label className="form-label" for="description">

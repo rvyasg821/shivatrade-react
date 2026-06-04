@@ -227,7 +227,6 @@ const LeadList = () => {
       name: t("Company"),
       sortField: "company_name",
       sortable: true,
-      grow: 2,
       selector: (row) => {
         const phone =
           row?.country_code?.formatted ||
@@ -264,19 +263,35 @@ const LeadList = () => {
               <div className="small text-muted">{row.contact_email}</div>
             )}
             {phone && <div className="small text-muted">{phone}</div>}
+            {row?.source && (
+              <div className="mt-25">
+                <Badge
+                  className="text-capitalize"
+                  ref={(el) => {
+                    if (el) {
+                      el.style.setProperty("background-color", "#09418B", "important");
+                      el.style.setProperty("color", "#fff", "important");
+                    }
+                  }}
+                >
+                  {t("Source")} -{" "}
+                  {LEAD_SOURCE_OPTIONS.find((s) => s.value === row?.source)
+                    ?.label || row.source}
+                </Badge>
+              </div>
+            )}
           </div>
         );
       },
     },
     {
-      name: t("Source"),
+      name: t("Line Items"),
       sortable: false,
-      selector: (row) => (
-        <span className="text-capitalize">
-          {LEAD_SOURCE_OPTIONS.find((s) => s.value === row?.source)?.label ||
-            "-"}
-        </span>
-      ),
+      center: true,
+      selector: (row) => {
+        const count = Number(row?.line_items_count || 0);
+        return <span className="fw-bold">{count}</span>;
+      },
     },
     {
       name: t("Status"),
@@ -323,7 +338,7 @@ const LeadList = () => {
         const overdue = open && raw < today;
         return (
           <span
-            className={overdue ? "fw-bold" : ""}
+            className={`text-nowrap ${overdue ? "fw-bold" : ""}`}
             ref={(el) => {
               if (el && overdue)
                 el.style.setProperty("color", "#dc3545", "important");

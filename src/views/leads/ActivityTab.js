@@ -14,6 +14,7 @@ import {
   FileText,
   ArrowRight,
   UserPlus,
+  Send,
   CheckCircle,
   MessageSquare,
   Flag,
@@ -44,6 +45,11 @@ const TYPE_META = {
     icon: FileText,
     color: "info",
     label: "Quotation created",
+  },
+  rfq_created: {
+    icon: Send,
+    color: "info",
+    label: "RFQ created",
   },
   assignment_change: {
     icon: CheckCircle,
@@ -85,6 +91,14 @@ const renderRow = (row, t) => {
     return (
       <span>
         {t("New quotation")}{" "}
+        <span className="fw-bold">{row?.metadata?.voucher_no || ""}</span>
+      </span>
+    );
+  }
+  if (row.type === "rfq_created") {
+    return (
+      <span>
+        {t("New RFQ")}{" "}
         <span className="fw-bold">{row?.metadata?.voucher_no || ""}</span>
       </span>
     );

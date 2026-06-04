@@ -1,6 +1,6 @@
 // RFQ detail — vendor price comparison grid (lines × vendors), select best.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Card,
@@ -26,8 +26,10 @@ import {
   selectRfqPrice,
   addRfqVendors,
   removeRfqVendor,
+  createRfqFromLead,
   cleanRfqMessage,
 } from "../store";
+import { getLead } from "@src/views/leads/store";
 import { getVendorDropdown } from "@src/views/vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
@@ -49,13 +51,25 @@ const RfqView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+
+  // Draft mode: the RFQ record is NOT created until the operator saves prices.
+  // We reach this page from a lead via /rfq/view/new?lead_id=<id>; the grid is
+  // built from the lead's requirement items + locally-added vendors, and only
+  // "Save Prices" persists the RFQ (createFromLead + setPrices in one shot).
+  const isDraft = id === "new";
+  const leadIdParam = searchParams.get("lead_id");
 
   const store = useSelector((s) => s.rfq);
   const vendorStore = useSelector((s) => s.vendor);
+  const leadStore = useSelector((s) => s.lead);
   const rfq = store?.rfqItem;
+  const draftLead = isDraft ? leadStore?.leadItem : null;
 
   const [priceMap, setPriceMap] = useState({});
   const [addVendorId, setAddVendorId] = useState("");
+  const [draftVendors, setDraftVendors] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -64,13 +78,18 @@ const RfqView = () => {
     // Clear any global overlay left on by the list page; the detail page
     // shows its own local spinner while the RFQ loads.
     dispatch(stopLoading());
-    dispatch(getRfq(id));
     dispatch(getVendorDropdown());
+    if (isDraft) {
+      if (leadIdParam) dispatch(getLead(leadIdParam));
+    } else {
+      dispatch(getRfq(id));
+    }
   }, [id, dispatch]);
 
   // Seed the editable grid from the RFQ's stored prices whenever it loads.
+  // Skipped in draft mode (no RFQ yet — the operator types fresh prices).
   useEffect(() => {
-    if (!rfq?.prices) return;
+    if (isDraft || !rfq?.prices) return;
     const m = {};
     for (const p of rfq.prices) {
       m[key(p.rfq_line_id, p.vendor_id)] = String(p.unit_price ?? "");
@@ -89,8 +108,19 @@ const RfqView = () => {
     if (store?.success || store?.error) dispatch(cleanRfqMessage());
   }, [store?.success, store?.error, store?.actionFlag]);
 
-  const lines = rfq?.lines || [];
-  const vendors = rfq?.vendors || [];
+  // In draft mode the rows come straight from the lead's requirement items
+  // (keyed by the lead-line _id) and vendors live in local state.
+  const lines = isDraft
+    ? (draftLead?.lines || []).map((l) => ({
+        _id: l._id,
+        product_id: l.product_id,
+        product_name: l.product_name,
+        product_code: l.product_code,
+        qty: l.qty,
+        unit: l.unit,
+      }))
+    : rfq?.lines || [];
+  const vendors = isDraft ? draftVendors : rfq?.vendors || [];
 
   // Client-side pagination for the comparison grid — mirrors the
   // quotation detail's line-item table.
@@ -106,11 +136,12 @@ const RfqView = () => {
   // selected vendor per line (for the "Best" radio)
   const selectedByLine = useMemo(() => {
     const m = {};
+    if (isDraft) return m;
     for (const p of rfq?.prices || []) {
       if (p.is_selected) m[p.rfq_line_id] = p.vendor_id;
     }
     return m;
-  }, [rfq?.prices]);
+  }, [rfq?.prices, isDraft]);
 
   // Cheapest vendor per line, computed live from the editable grid. Drives
   // the "Best" auto-default so the operator doesn't have to pick manually.
@@ -139,6 +170,7 @@ const RfqView = () => {
   // The ref guards against re-dispatching while a select is still in flight.
   const autoSelectedRef = useRef(new Set());
   useEffect(() => {
+    if (isDraft) return;
     const prices = rfq?.prices;
     if (!prices?.length) return;
     const best = {};
@@ -172,35 +204,160 @@ const RfqView = () => {
       label: v.vendor_code ? `${v.company_name} [${v.vendor_code}]` : v.company_name,
     }));
 
-  const onAddVendor = () => {
+  const onAddVendor = async () => {
     if (!addVendorId) return;
-    dispatch(addRfqVendors({ id, data: { vendor_ids: [addVendorId] } }));
+    if (!isDraft) {
+      dispatch(addRfqVendors({ id, data: { vendor_ids: [addVendorId] } }));
+      setAddVendorId("");
+      return;
+    }
+
+    const vendorId = addVendorId;
     setAddVendorId("");
+    if (draftVendors.some((v) => v.vendor_id === vendorId)) return;
+
+    const opt = vendorOptions.find((o) => o.value === vendorId);
+    setDraftVendors((prev) => [
+      ...prev,
+      {
+        _id: vendorId,
+        vendor_id: vendorId,
+        vendor_name: opt?.label || vendorId,
+      },
+    ]);
+
+    // Pre-fill this vendor's grid cells from the price list (current price per
+    // product) — mirrors what the persisted addVendors flow does server-side.
+    const productIds = Array.from(
+      new Set(lines.map((l) => l.product_id).filter(Boolean))
+    );
+    if (!productIds.length) return;
+    try {
+      const resp = await instance.get(API_ENDPOINTS.priceList.currentPrices, {
+        params: { vendor_id: vendorId, product_ids: productIds.join(",") },
+      });
+      const rows = resp?.data?.data || [];
+      const byProduct = {};
+      for (const r of rows) byProduct[r.product_id] = r.unit_price;
+      setPriceMap((m) => {
+        const next = { ...m };
+        for (const l of lines) {
+          const up = byProduct[l.product_id];
+          const k = key(l._id, vendorId);
+          if (up != null && (next[k] === undefined || next[k] === "")) {
+            next[k] = String(up);
+          }
+        }
+        return next;
+      });
+    } catch (e) {
+      // Non-fatal — the operator can still type prices manually.
+    }
   };
 
-  const onSavePrices = () => {
+  const onRemoveVendor = (vendorId) => {
+    if (isDraft) {
+      setDraftVendors((prev) => prev.filter((v) => v.vendor_id !== vendorId));
+    } else {
+      dispatch(removeRfqVendor({ id, vendorId }));
+    }
+  };
+
+  const collectPrices = () => {
     const prices = [];
     for (const l of lines) {
       for (const v of vendors) {
         const val = priceMap[key(l._id, v.vendor_id)];
         if (val !== undefined && String(val).trim() !== "") {
+          // `lineRef` is the lead-line _id in draft mode (mapped to the real
+          // rfq_line_id after creation) and the rfq_line_id otherwise.
           prices.push({
-            rfq_line_id: l._id,
+            lineRef: l._id,
             vendor_id: v.vendor_id,
             unit_price: String(val),
           });
         }
       }
     }
-    if (!prices.length) {
+    return prices;
+  };
+
+  const onSavePrices = async () => {
+    const collected = collectPrices();
+    if (!collected.length) {
       Notification("Validation", t("Enter at least one price."), "warning");
       return;
     }
-    dispatch(setRfqPrices({ id, data: { prices } }));
+
+    if (isDraft) {
+      if (!leadIdParam) {
+        Notification("Error", t("Missing lead reference."), "warning");
+        return;
+      }
+      setSaving(true);
+      try {
+        const res = await dispatch(
+          createRfqFromLead({
+            leadId: leadIdParam,
+            data: { vendor_ids: vendors.map((v) => v.vendor_id) },
+          })
+        ).unwrap();
+        const newRfq = res?.rfqItem;
+        if (!newRfq?._id) {
+          Notification(
+            "Error",
+            res?.error || t("Could not create the RFQ."),
+            "warning"
+          );
+          return;
+        }
+        // Map each draft price's lead-line ref to the freshly-created
+        // rfq_line_id (the new lines carry lead_line_id back).
+        const lineByLead = {};
+        for (const rl of newRfq.lines || []) {
+          if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
+        }
+        const mapped = collected
+          .map((p) => ({
+            rfq_line_id: lineByLead[p.lineRef],
+            vendor_id: p.vendor_id,
+            unit_price: p.unit_price,
+          }))
+          .filter((p) => p.rfq_line_id);
+        if (mapped.length) {
+          await dispatch(
+            setRfqPrices({ id: newRfq._id, data: { prices: mapped } })
+          ).unwrap();
+        }
+        navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
+      } catch (e) {
+        Notification("Error", t("Could not create the RFQ."), "warning");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    dispatch(
+      setRfqPrices({
+        id,
+        data: {
+          prices: collected.map((p) => ({
+            rfq_line_id: p.lineRef,
+            vendor_id: p.vendor_id,
+            unit_price: p.unit_price,
+          })),
+        },
+      })
+    );
   };
 
-  const onSelectBest = (lineId, vendorId) =>
+  const onSelectBest = (lineId, vendorId) => {
+    // Selection is persisted server-side; in draft there's no RFQ yet, so the
+    // cheapest highlight is read-only until the RFQ is saved.
+    if (isDraft) return;
     dispatch(selectRfqPrice({ id, data: { rfq_line_id: lineId, vendor_id: vendorId } }));
+  };
 
   const downloadPdf = (vendorId) => {
     const url = `${API_ENDPOINTS.rfq.pdf}/${id}/pdf${vendorId ? `?vendor_id=${vendorId}` : ""}`;
@@ -220,7 +377,7 @@ const RfqView = () => {
       .finally(() => setPdfLoading(false));
   };
 
-  if (!rfq) {
+  if (isDraft ? leadIdParam && !draftLead : !rfq) {
     return (
       <div className="d-flex justify-content-center py-5">
         <Spinner color="primary" />
@@ -228,55 +385,57 @@ const RfqView = () => {
     );
   }
 
+  // Header display values — sourced from the lead in draft mode, from the
+  // persisted RFQ otherwise.
+  const headerVoucher = isDraft ? t("New RFQ") : rfq.voucher_no || t("RFQ");
+  const headerStatus = isDraft ? "draft" : rfq.status;
+  const leadCompany = isDraft ? draftLead?.company_name : rfq.lead_company_name;
+  const leadVoucher = isDraft ? draftLead?.voucher_no : rfq.lead_voucher_no;
+  const leadContact = isDraft ? draftLead?.contact_name : rfq.lead_contact_name;
+  const leadEmail = isDraft ? draftLead?.contact_email : rfq.lead_contact_email;
+  const leadPhone = isDraft ? draftLead?.contact_phone : rfq.lead_contact_phone;
+
   return (
     <Fragment>
       <Card className="mb-1">
         <CardBody className="d-flex flex-wrap justify-content-between align-items-start gap-1">
           <div>
             <h4 className="mb-0">
-              {rfq.voucher_no || t("RFQ")}{" "}
+              {headerVoucher}{" "}
               <Badge
-                color={`light-${STATUS_COLOR[rfq.status] || "secondary"}`}
+                color={`light-${STATUS_COLOR[headerStatus] || "secondary"}`}
                 className="text-capitalize ms-1"
               >
-                {rfq.status}
+                {headerStatus}
               </Badge>
             </h4>
-            {(rfq.lead_company_name ||
-              rfq.lead_voucher_no ||
-              rfq.lead_contact_name) && (
+            {(leadCompany || leadVoucher || leadContact) && (
               <div className="mt-50">
                 <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
                   {t("Lead Details")}
                 </div>
-                {rfq.lead_company_name && (
+                {leadCompany && (
                   <div className="fw-semibold text-capitalize mt-25">
-                    {rfq.lead_company_name}
+                    {leadCompany}
                   </div>
                 )}
                 <div className="text-muted small d-flex flex-wrap gap-1">
-                  {rfq.lead_voucher_no && (
+                  {leadVoucher && (
                     <span>
-                      {t("Lead")}: {rfq.lead_voucher_no}
+                      {t("Lead")}: {leadVoucher}
                     </span>
                   )}
-                  {rfq.lead_contact_name && (
-                    <span className="text-capitalize">
-                      · {rfq.lead_contact_name}
-                    </span>
+                  {leadContact && (
+                    <span className="text-capitalize">· {leadContact}</span>
                   )}
-                  {rfq.lead_contact_email && (
-                    <span>· {rfq.lead_contact_email}</span>
-                  )}
-                  {rfq.lead_contact_phone && (
-                    <span>· {rfq.lead_contact_phone}</span>
-                  )}
+                  {leadEmail && <span>· {leadEmail}</span>}
+                  {leadPhone && <span>· {leadPhone}</span>}
                 </div>
               </div>
             )}
           </div>
           <div className="d-flex gap-1">
-            {Object.keys(selectedByLine).length > 0 && (
+            {!isDraft && Object.keys(selectedByLine).length > 0 && (
               <Button
                 color="primary"
                 size="sm"
@@ -290,7 +449,7 @@ const RfqView = () => {
                 <FileText size={14} className="me-25" /> {t("Create Quotation")}
               </Button>
             )}
-            {vendors.length > 0 && (
+            {!isDraft && vendors.length > 0 && (
               <Button
                 color="secondary"
                 outline
@@ -352,7 +511,7 @@ const RfqView = () => {
                 <X
                   size={13}
                   className="ms-50 cursor-pointer"
-                  onClick={() => dispatch(removeRfqVendor({ id, vendorId: v.vendor_id }))}
+                  onClick={() => onRemoveVendor(v.vendor_id)}
                 />
               </Badge>
             ))}
@@ -370,8 +529,22 @@ const RfqView = () => {
             {t("Price Comparison")}
           </CardTitle>
           {vendors.length > 0 && lines.length > 0 && (
-            <Button color="primary" size="sm" onClick={onSavePrices}>
-              <Save size={14} className="me-25" /> {t("Save Prices")}
+            <Button
+              color="primary"
+              size="sm"
+              onClick={onSavePrices}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Spinner size="sm" className="me-25" /> {t("Saving…")}
+                </>
+              ) : (
+                <>
+                  <Save size={14} className="me-25" />{" "}
+                  {isDraft ? t("Save Prices & Create RFQ") : t("Save Prices")}
+                </>
+              )}
             </Button>
           )}
         </CardHeader>
@@ -441,6 +614,7 @@ const RfqView = () => {
                         <Input
                           type="select"
                           bsSize="sm"
+                          disabled={isDraft}
                           value={
                             selectedByLine[l._id] || cheapestByLine[l._id] || ""
                           }

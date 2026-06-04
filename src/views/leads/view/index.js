@@ -34,7 +34,6 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import { getLead, cleanLeadMessage, convertLead } from "@src/views/leads/store";
-import { createRfqFromLead } from "@src/views/rfq/store";
 import { formatMoney } from "@src/utility/currency";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getProductDropdown } from "@src/views/products/store";
@@ -258,30 +257,14 @@ const ViewLead = () => {
       });
   };
 
-  const onCreateRfq = async () => {
-    try {
-      const res = await dispatch(createRfqFromLead({ leadId: id })).unwrap();
-      const newId = res?.rfqItem?._id;
-      if (newId) {
-        navigate(`${appsRoot}/rfq/view/${newId}`);
-      } else if (res?.error) {
-        Notification("Error", res.error, "warning");
-      }
-    } catch (e) {
-      Notification("Error", t("Could not create the RFQ."), "warning");
-    }
+  // Don't create the RFQ here — open the RFQ builder in draft mode carrying
+  // this lead's id. The RFQ record is only persisted when the user saves
+  // prices on that page.
+  const onCreateRfq = () => {
+    navigate(`${appsRoot}/rfq/view/new?lead_id=${id}`);
   };
 
   const headerActions = [
-    {
-      icon: Send,
-      label: t("Create RFQ"),
-      onClick: onCreateRfq,
-      // Needs requirement items to source.
-      hidden: requirementLines.length === 0,
-      color: "primary",
-      outline: false,
-    },
     {
       icon: UserPlus,
       label: t("Convert to Customer"),
@@ -442,24 +425,21 @@ const ViewLead = () => {
           left={
             <div ref={leftColRef}>
               <QuotationsPanel />
-              <DetailPanel title={t("Lead Summary")}>
-                {pairs.map((row, idx) => (
-                  <Row key={idx} className="g-2">
-                    {row.map((f) => (
-                      <Col md="6" key={f.label}>
-                        <DetailFieldList items={[f]} />
-                      </Col>
-                    ))}
-                  </Row>
-                ))}
-
-                {/* Requirement line items (replaces the interested
-                    categories/products chips). */}
-                {requirementLines.length > 0 && (
-                  <>
-                    <h5 className="fw-bolder border-bottom pb-50 mb-1 mt-1">
-                      {t("Requirement Items")}
-                    </h5>
+              {requirementLines.length > 0 && (
+                <DetailPanel
+                  title={t("Requirement Items")}
+                  action={
+                    <Button
+                      color="primary"
+                      size="sm"
+                      onClick={onCreateRfq}
+                      id="lead-create-rfq-btn"
+                    >
+                      <Send size={14} className="me-50" />
+                      {t("Create RFQ")}
+                    </Button>
+                  }
+                >
                     <div className="table-responsive mb-1">
                       <Table size="sm" bordered className="mb-0">
                         <thead className="table-light">
@@ -547,115 +527,8 @@ const ViewLead = () => {
                         containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
                       />
                     </div>
-                  </>
-                )}
-
-                {/* Render the whole Opportunity section only when there's
-                    at least one populated field — otherwise users see an
-                    empty heading with nothing under it. */}
-                {(() => {
-                  const hasOpportunity =
-                    !!budget ||
-                    (categoryChips && categoryChips.length > 0) ||
-                    !!l?.follow_up_date ||
-                    (productChips && productChips.length > 0) ||
-                    !!l?.quantity ||
-                    !!l?.delivery_expectation;
-                  if (!hasOpportunity) return null;
-                  return (
-                    <>
-                      {(() => {
-                        const opportunityBlocks = [];
-                  if (budget) {
-                    opportunityBlocks.push(
-                      <DetailFieldList
-                        items={[
-                          {
-                            icon: DollarSign,
-                            label: t("Expected Value"),
-                            value: budget,
-                          },
-                        ]}
-                      />
-                    );
-                  }
-                  if (l?.follow_up_date) {
-                    opportunityBlocks.push(
-                      <DetailFieldList
-                        items={[
-                          {
-                            icon: Calendar,
-                            label: t("Follow-up Date"),
-                            value: formatDate(l.follow_up_date),
-                          },
-                        ]}
-                      />
-                    );
-                  }
-                  if (l?.quantity) {
-                    opportunityBlocks.push(
-                      <DetailFieldList
-                        items={[
-                          {
-                            icon: Layers,
-                            label: t("Quantity"),
-                            value: l.quantity,
-                          },
-                        ]}
-                      />
-                    );
-                  }
-                  if (l?.delivery_expectation) {
-                    opportunityBlocks.push(
-                      <DetailFieldList
-                        items={[
-                          {
-                            icon: Truck,
-                            label: t("Delivery Expectation"),
-                            value: l.delivery_expectation,
-                          },
-                        ]}
-                      />
-                    );
-                  }
-                        return (
-                          <Row className="g-2">
-                            {opportunityBlocks.map((block, idx) => (
-                              <Col md="6" key={idx}>
-                                {block}
-                              </Col>
-                            ))}
-                          </Row>
-                        );
-                      })()}
-                    </>
-                  );
-                })()}
-
-                <hr className="my-2" />
-
-                <DetailSocials
-                  title={t("Social")}
-                  urls={l?.social_media_urls || {}}
-                />
-
-                {l?.description ? (
-                  <div className="mt-1 pt-1 border-top">
-                    <div className="text-muted small mb-50">
-                      {t("Brief / Description")}
-                    </div>
-                    <div
-                      className="text-break"
-                      style={{
-                        whiteSpace: "pre-line",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {l.description}
-                    </div>
-                  </div>
-                ) : null}
-              </DetailPanel>
+                </DetailPanel>
+              )}
             </div>
           }
           right={
