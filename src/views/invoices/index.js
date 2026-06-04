@@ -234,8 +234,6 @@ const InvoicesList = () => {
             row?.purchase_order_voucher_no || row?.pfi_voucher_no;
           const refTo = row?.purchase_order_id
             ? `${appsRoot}/purchase-orders/view/${row.purchase_order_id}`
-            : row?.pfi_id
-            ? `${appsRoot}/pfi/view/${row.pfi_id}`
             : null;
           return (
             <div className="py-1">
@@ -254,12 +252,12 @@ const InvoicesList = () => {
                       to={refTo}
                       className="small text-muted text-nowrap d-inline-flex align-items-center"
                     >
-                      PO - {refVoucher}
+                      SO - {refVoucher}
                       <ExternalLink size={12} className="ms-1" />
                     </Link>
                   ) : (
                     <span className="small text-muted text-nowrap">
-                      PO - {refVoucher}
+                      SO - {refVoucher}
                     </span>
                   )}
                 </div>

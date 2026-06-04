@@ -3393,6 +3393,27 @@ ul.navbar-nav {
   }
 }
 
+// Brand-blue button (matches the app header bar #09418B). Higher specificity
+// (.btn.btn-brand-blue) so it overrides the green .btn-primary above.
+.btn.btn-brand-blue {
+  background: #09418B !important;
+  border: 1px solid #09418B !important;
+  color: #fff !important;
+
+  &:focus,
+  &:active {
+    background: #09418B !important;
+    color: #fff !important;
+  }
+
+  &:hover {
+    box-shadow: none !important;
+    border: 1px solid #072f63 !important;
+    background: #072f63 !important;
+    color: #fff !important;
+  }
+}
+
 .btn-secondary {
   box-shadow: none !important;
   border: 1px solid #3A9E36 !important;

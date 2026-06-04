@@ -122,7 +122,8 @@ const ViewInvoice = () => {
   const openPaymentModal = () => {
     setPayForm({
       payment_date: new Date().toISOString().slice(0, 10),
-      amount: String(inv?.balance_receivable || ""),
+      // Pre-fill the outstanding balance in the document (customer) currency.
+      amount: balanceDoc > 0 ? balanceDoc.toFixed(2) : "",
       method: "bank_transfer",
       reference: "",
       notes: "",
@@ -136,8 +137,10 @@ const ViewInvoice = () => {
     if (!payForm.payment_date) e.payment_date = "Date required";
     const amt = Number(payForm.amount || 0);
     if (!(amt > 0)) e.amount = "Amount > 0";
-    const bal = Number(inv?.balance_receivable || 0);
-    if (amt > bal + 0.01) e.amount = `Cannot exceed balance ${bal}`;
+    // Validate against the document-currency balance due.
+    const bal = balanceDoc;
+    if (amt > bal + 0.01)
+      e.amount = `Cannot exceed balance due ${sym}${fmt(bal)}`;
     setPayErrors(e);
     if (Object.keys(e).length) return;
     dispatch(recordInvoicePayment({ id, data: payForm })).then((r) => {
@@ -151,12 +154,12 @@ const ViewInvoice = () => {
   // Fetch the PDF via the auth-aware axios instance, then open it as a
   // blob URL. window.open(serverUrl) would skip the Bearer header → 401.
   // Uses the global page overlay (SimpleSpinner) for the loading state.
-  const openInvoicePdf = async (doc) => {
+  const openInvoicePdf = async (doc, extraParams = {}) => {
     dispatch(startLoading());
     try {
       const resp = await instance.get(
         `${API_ENDPOINTS.invoices.pdf}/${id}/pdf`,
-        { params: { doc }, responseType: "blob" }
+        { params: { doc, ...extraParams }, responseType: "blob" }
       );
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
@@ -446,22 +449,22 @@ const ViewInvoice = () => {
         icon: Download,
         label: t("Commercial Invoice"),
         onClick: () => openInvoicePdf("commercial"),
-        color: "info",
-        outline: true,
+        outline: false,
+        className: "btn-brand-blue",
       });
       actions.push({
         icon: Download,
         label: t("Export Invoice"),
         onClick: () => openInvoicePdf("export"),
-        color: "info",
-        outline: true,
+        outline: false,
+        className: "btn-brand-blue",
       });
       actions.push({
         icon: Download,
         label: t("Packing List"),
         onClick: () => openInvoicePdf("packing-list"),
-        color: "info",
-        outline: true,
+        outline: false,
+        className: "btn-brand-blue",
       });
     }
 
@@ -752,8 +755,7 @@ const ViewInvoice = () => {
                           <th style={{ width: 40 }}>#</th>
                           <th>{t("HSN")}</th>
                           <th>{t("Product / Description")}</th>
-                          <th style={{ width: 70 }}>{t("UQC")}</th>
-                          <th style={{ width: 80 }} className="text-end">
+                          <th style={{ width: 110 }} className="text-end">
                             {t("Qty")}
                           </th>
                           <th style={{ width: 100 }} className="text-end">
@@ -790,14 +792,16 @@ const ViewInvoice = () => {
                                   {l.product_code}
                                 </small>
                               )}
-                              {l.description && (
-                                <div className="small text-muted mt-25">
-                                  {l.description}
-                                </div>
-                              )}
+                              {l.description &&
+                                l.description !== l.product_name && (
+                                  <div className="small text-muted mt-25">
+                                    {l.description}
+                                  </div>
+                                )}
                             </td>
-                            <td>{l.uqc_code || l.unit || "-"}</td>
-                            <td className="text-end">{fmt(l.qty, 2)}</td>
+                            <td className="text-end">
+                              {fmt(l.qty, 2)} {l.uqc_code || l.unit || ""}
+                            </td>
                             <td className="text-end">
                               ₹{fmt(l.unit_price, 2)}
                             </td>
@@ -811,7 +815,7 @@ const ViewInvoice = () => {
                       </tbody>
                       <tfoot className="table-light">
                         <tr>
-                          <td colSpan="6" className="text-end fw-bold">
+                          <td colSpan="5" className="text-end fw-bold">
                             {t("Subtotal")}
                           </td>
                           <td className="text-end fw-bold">
@@ -939,16 +943,18 @@ const ViewInvoice = () => {
                       </div>
                     </Col>
                     <Col md="6">
-                      <div className="d-flex justify-content-between py-25 border-top border-bottom py-1 mb-1">
-                        <span className="fw-bold">{t("Grand Total")}</span>
-                        <span className="fw-bold">{sym}{fmt(grandDoc)}</span>
-                      </div>
-                      {sym && sym !== "₹" && (
-                        <div className="d-flex justify-content-between py-25 small text-muted">
-                          <span>{t("INR equivalent")}</span>
-                          <span>₹{fmt(grandInr)}</span>
+                      <div className="border-top border-bottom py-1 mb-1">
+                        {sym && sym !== "₹" && (
+                          <div className="d-flex justify-content-between small text-muted">
+                            <span>{t("INR equivalent")}</span>
+                            <span>₹{fmt(grandInr)}</span>
+                          </div>
+                        )}
+                        <div className="d-flex justify-content-between py-25">
+                          <span className="fw-bold">{t("Grand Total")}</span>
+                          <span className="fw-bold">{sym}{fmt(grandDoc)}</span>
                         </div>
-                      )}
+                      </div>
                       <div className="d-flex justify-content-between py-25">
                         <span className="text-muted">{t("Advance Received")}</span>
                         <span>{sym}{fmt(inv?.advance_received)}</span>
@@ -1047,6 +1053,7 @@ const ViewInvoice = () => {
                             <th>{t("Method")}</th>
                             <th>{t("Reference")}</th>
                             <th>{t("Notes")}</th>
+                            <th>{t("Receipt")}</th>
                             <th className="text-end">{t("Amount")}</th>
                             <th></th>
                           </tr>
@@ -1068,6 +1075,28 @@ const ViewInvoice = () => {
                                 </td>
                                 <td>{p.reference || "-"}</td>
                                 <td>{p.notes || "-"}</td>
+                                <td>
+                                  {!voided && p.receipt_voucher_no ? (
+                                    <Button
+                                      size="sm"
+                                      color="link"
+                                      className="p-0"
+                                      title={t("Download Receipt")}
+                                      onClick={() =>
+                                        openInvoicePdf("receipt", {
+                                          paymentId: p._id,
+                                        })
+                                      }
+                                    >
+                                      <Download size={13} className="me-25" />
+                                      {p.receipt_voucher_no}
+                                    </Button>
+                                  ) : (
+                                    <span className="text-muted">
+                                      {p.receipt_voucher_no || "-"}
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="text-end">
                                   {sym}
                                   {fmt(p.amount)}
@@ -1477,7 +1506,9 @@ const ViewInvoice = () => {
             </Col>
             <Col md="6" className="mb-2">
               <Label className="form-label">
-                {t("Amount")} <span className="text-danger">*</span>
+                {t("Amount")}
+                {inv?.currency_code ? ` (${inv.currency_code})` : ""}{" "}
+                <span className="text-danger">*</span>
               </Label>
               <Input
                 type="number"
@@ -1496,7 +1527,7 @@ const ViewInvoice = () => {
               )}
               <small className="text-muted">
                 {t("Balance due")}: {sym}
-                {fmt(inv?.balance_receivable)}
+                {fmt(balanceDoc)}
               </small>
             </Col>
             <Col md="6" className="mb-2">

@@ -1,5 +1,5 @@
 // RFQ detail — vendor price comparison grid (lines × vendors), select best.
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -79,7 +79,12 @@ const RfqView = () => {
   }, [rfq?._id, rfq?.prices?.length]);
 
   useEffect(() => {
-    if (store?.success) Notification("Success", store.success, "success");
+    // "Best price selected" fires per line; with auto-select-cheapest that
+    // would stack a toast for every line. The green highlight is feedback
+    // enough, so suppress the success toast for the select action (RFQ_SEL).
+    if (store?.success && store?.actionFlag !== "RFQ_SEL") {
+      Notification("Success", store.success, "success");
+    }
     if (store?.error) Notification("Error", store.error, "warning");
     if (store?.success || store?.error) dispatch(cleanRfqMessage());
   }, [store?.success, store?.error, store?.actionFlag]);
@@ -105,6 +110,59 @@ const RfqView = () => {
       if (p.is_selected) m[p.rfq_line_id] = p.vendor_id;
     }
     return m;
+  }, [rfq?.prices]);
+
+  // Cheapest vendor per line, computed live from the editable grid. Drives
+  // the "Best" auto-default so the operator doesn't have to pick manually.
+  const cheapestByLine = useMemo(() => {
+    const best = {};
+    for (const l of lines) {
+      let bestVendor = null;
+      let bestPrice = Infinity;
+      for (const v of vendors) {
+        const raw = priceMap[key(l._id, v.vendor_id)];
+        if (raw === undefined || String(raw).trim() === "") continue;
+        const p = Number(raw);
+        if (Number.isFinite(p) && p > 0 && p < bestPrice) {
+          bestPrice = p;
+          bestVendor = v.vendor_id;
+        }
+      }
+      if (bestVendor) best[l._id] = bestVendor;
+    }
+    return best;
+  }, [lines, vendors, priceMap]);
+
+  // Auto-select the cheapest vendor for any line that has SAVED prices but no
+  // pick yet. Keyed on the server prices so it fires after a save/load (not on
+  // every keystroke); respects a manual pick and skips already-selected lines.
+  // The ref guards against re-dispatching while a select is still in flight.
+  const autoSelectedRef = useRef(new Set());
+  useEffect(() => {
+    const prices = rfq?.prices;
+    if (!prices?.length) return;
+    const best = {};
+    const selected = {};
+    for (const p of prices) {
+      if (p.is_selected) selected[p.rfq_line_id] = true;
+      const price = Number(p.unit_price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const cur = best[p.rfq_line_id];
+      if (!cur || price < cur.price) {
+        best[p.rfq_line_id] = { vendorId: p.vendor_id, price };
+      }
+    }
+    for (const lid of Object.keys(best)) {
+      if (selected[lid] || autoSelectedRef.current.has(lid)) continue;
+      autoSelectedRef.current.add(lid);
+      dispatch(
+        selectRfqPrice({
+          id,
+          data: { rfq_line_id: lid, vendor_id: best[lid].vendorId },
+        })
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfq?.prices]);
 
   const vendorOptions = (vendorStore?.vendorDropdown || [])
@@ -359,7 +417,9 @@ const RfqView = () => {
                       </td>
                       {vendors.map((v) => {
                         const k = key(l._id, v.vendor_id);
-                        const isBest = selectedByLine[l._id] === v.vendor_id;
+                        const isBest =
+                          (selectedByLine[l._id] || cheapestByLine[l._id]) ===
+                          v.vendor_id;
                         return (
                           <td key={v._id} className={isBest ? "table-success" : ""}>
                             <Input
@@ -381,7 +441,9 @@ const RfqView = () => {
                         <Input
                           type="select"
                           bsSize="sm"
-                          value={selectedByLine[l._id] || ""}
+                          value={
+                            selectedByLine[l._id] || cheapestByLine[l._id] || ""
+                          }
                           onChange={(e) =>
                             e.target.value && onSelectBest(l._id, e.target.value)
                           }
