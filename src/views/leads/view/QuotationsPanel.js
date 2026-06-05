@@ -5,18 +5,25 @@ import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Button, UncontrolledTooltip, Badge, Input } from "reactstrap";
-import { Edit, PlusCircle, FileText } from "react-feather";
+import { Edit, PlusCircle, FileText, ExternalLink, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import ReactPaginate from "react-paginate";
 
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
+
 import {
   getQuotationList,
+  deleteQuotation,
   cleanQuotationMessage,
 } from "@src/views/quotations/store";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import Notification from "@components/toast/notification";
 
 import { DetailPanel, DetailEmptyState } from "@src/views/_shared/detail-page";
+
+const mySwal = withReactContent(Swal);
 
 const QUOTATION_STATUS_COLOR = {
   draft: "secondary",
@@ -25,7 +32,7 @@ const QUOTATION_STATUS_COLOR = {
   rejected: "danger",
 };
 
-const QuotationsPanel = () => {
+const QuotationsPanel = ({ embedded = false }) => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -42,12 +49,14 @@ const QuotationsPanel = () => {
     isAdmin || quotationPerms?.can_all || quotationPerms?.can_add;
   const canEditQuotation =
     isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
+  const canDeleteQuotation =
+    isAdmin || quotationPerms?.can_all || quotationPerms?.can_delete;
 
   const currentStatus = leadStore?.leadItem?.status;
   const canCreate =
     currentStatus && currentStatus !== "lost" && canAddQuotation;
 
-  useEffect(() => {
+  const reload = () => {
     if (!id) return;
     dispatch(
       getQuotationList({
@@ -59,11 +68,50 @@ const QuotationsPanel = () => {
         lead_id: id,
       })
     );
+  };
+
+  useEffect(() => {
+    reload();
     setLoaded(true);
     return () => {
       dispatch(cleanQuotationMessage(null));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, dispatch]);
+
+  const onDelete = (qId) => {
+    mySwal
+      .fire({
+        title: t("Are you sure?"),
+        text: t("You won't be able to revert this!"),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, delete it!"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        try {
+          const payload = await dispatch(deleteQuotation(qId)).unwrap();
+          if (payload?.error) {
+            Notification("Error", payload.error, "warning");
+          } else {
+            Notification(
+              "Success",
+              payload?.success || t("Quotation deleted"),
+              "success"
+            );
+            reload();
+          }
+        } catch (e) {
+          Notification("Error", e?.message || t("Delete failed"), "warning");
+        }
+      });
+  };
 
   const rows = store?.quotationItems || [];
 
@@ -96,9 +144,8 @@ const QuotationsPanel = () => {
     </Button>
   ) : null;
 
-  return (
-    <DetailPanel title={t("Quotations")} action={createBtn}>
-      {loaded && rows.length === 0 ? (
+  const content =
+    loaded && rows.length === 0 ? (
         <DetailEmptyState
           icon={FileText}
           title={t("No quotations yet")}
@@ -114,6 +161,7 @@ const QuotationsPanel = () => {
             <Table size="sm" bordered className="mb-0">
             <thead>
               <tr>
+                <th style={{ width: 30 }}>#</th>
                 <th>{t("Date")}</th>
                 <th>{t("Quote #")}</th>
                 <th>{t("Total")}</th>
@@ -122,12 +170,32 @@ const QuotationsPanel = () => {
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row) => {
+              {pageRows.map((row, idx) => {
                 const sym = row?.currency_symbol || row?.currency_code || "";
                 return (
                   <tr key={row?._id}>
+                    <td>{pageStart + idx + 1}</td>
                     <td>{row?.quotation_date ? formatDate(row.quotation_date) : "-"}</td>
-                    <td className="text-wrap">{row?.voucher_no || "-"}</td>
+                    <td className="text-wrap">
+                      <Link
+                        to={`${appsRoot}/quotations/view/${row?._id}`}
+                        className="text-primary fw-semibold d-inline-flex align-items-center"
+                      >
+                        {row?.voucher_no || "-"}
+                        <ExternalLink size={13} className="ms-50" />
+                      </Link>
+                      {row?.rfq_id && row?.rfq_voucher_no ? (
+                        <div className="small mt-25">
+                          <Link
+                            to={`${appsRoot}/rfq/view/${row.rfq_id}`}
+                            className="text-muted d-inline-flex align-items-center"
+                          >
+                            {row.rfq_voucher_no}
+                            <ExternalLink size={12} className="ms-50" />
+                          </Link>
+                        </div>
+                      ) : null}
+                    </td>
                     <td>
                       {row?.grand_total !== null &&
                       row?.grand_total !== undefined
@@ -145,11 +213,12 @@ const QuotationsPanel = () => {
                       </Badge>
                     </td>
                     <td className="text-center">
-                      {canEditQuotation ? (
+                      {canEditQuotation && (
                         <>
                           <Link
                             to={`${appsRoot}/quotations/edit/${row?._id}`}
                             id={`lead-qt-edit-${row?._id}`}
+                            className="me-1"
                           >
                             <Edit size={16} />
                           </Link>
@@ -160,9 +229,24 @@ const QuotationsPanel = () => {
                             {t("Open")}
                           </UncontrolledTooltip>
                         </>
-                      ) : (
-                        "-"
                       )}
+                      {canDeleteQuotation && (
+                        <>
+                          <Trash2
+                            size={16}
+                            className="cursor-pointer text-danger"
+                            id={`lead-qt-del-${row?._id}`}
+                            onClick={() => onDelete(row?._id)}
+                          />
+                          <UncontrolledTooltip
+                            placement="top"
+                            target={`lead-qt-del-${row?._id}`}
+                          >
+                            {t("Delete")}
+                          </UncontrolledTooltip>
+                        </>
+                      )}
+                      {!canEditQuotation && !canDeleteQuotation && "-"}
                     </td>
                   </tr>
                 );
@@ -171,7 +255,7 @@ const QuotationsPanel = () => {
             </Table>
           </div>
 
-          {totalRows > pageSize && (
+          {totalRows > 0 && (
             <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
               <div className="d-flex align-items-center small text-muted">
                 <span className="me-50">{t("Show")}</span>
@@ -213,7 +297,24 @@ const QuotationsPanel = () => {
             </div>
           )}
         </Fragment>
-      )}
+      );
+
+  // Embedded (inside the docs tab view): render the action + content without
+  // the card/title wrapper.
+  if (embedded) {
+    return (
+      <Fragment>
+        {createBtn && (
+          <div className="d-flex justify-content-end mb-1">{createBtn}</div>
+        )}
+        {content}
+      </Fragment>
+    );
+  }
+
+  return (
+    <DetailPanel title={t("Quotations")} action={createBtn}>
+      {content}
     </DetailPanel>
   );
 };

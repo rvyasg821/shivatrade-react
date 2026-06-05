@@ -78,6 +78,27 @@ export const formatMoney2 = (amount, code, opts = {}) =>
     ...opts,
   });
 
+/**
+ * Convert a base-INR amount into `code` using live exchange options. Each
+ * option is `{ code, rate }` where the doc amount = INR × rate (the base
+ * currency itself has rate 1). Returns the raw amount when no rate is found
+ * (best-effort) or when the code is the base/INR.
+ *
+ * @param {number|string} amount  - amount stored in base (INR)
+ * @param {string} code           - target currency code (e.g. "USD")
+ * @param {Array<{code:string, rate:number|string}>} [exchangeOptions]
+ */
+export const convertFromInr = (amount, code, exchangeOptions = []) => {
+  const n = Number(amount);
+  if (Number.isNaN(n)) return amount;
+  if (!code || String(code).toUpperCase() === "INR") return n;
+  const opt = (exchangeOptions || []).find(
+    (c) => String(c?.code).toUpperCase() === String(code).toUpperCase()
+  );
+  const rate = Number(opt?.rate);
+  return rate > 0 ? n * rate : n;
+};
+
 /** Read-only access to the resolved static map — useful for debugging /
  *  tests. Do not mutate the returned object. */
 export const CURRENCY_SYMBOLS = { ...STATIC_SYMBOLS };

@@ -27,9 +27,12 @@ import {
   CardBody,
   Label,
   Input,
+  InputGroup,
+  InputGroupText,
   Button,
   FormFeedback,
 } from "reactstrap";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 // ** Form
 import { useForm, Controller } from "react-hook-form";
@@ -189,6 +192,44 @@ const LeadForm = () => {
 
   const watchCustomerId = watch("customer_id");
 
+  // Exchange rate for the selected currency (doc = INR × rate; base = 1).
+  const watchCurrency = watch("currency");
+  const leadRate = (() => {
+    if (!watchCurrency || String(watchCurrency).toUpperCase() === "INR")
+      return 1;
+    const opt = (currencyStore?.exchangeOptions || []).find(
+      (c) => String(c?.code).toUpperCase() === String(watchCurrency).toUpperCase()
+    );
+    const r = Number(opt?.rate);
+    return r > 0 ? r : 1;
+  })();
+
+  // Keep Expected Value synced to the live requirement-items total (Σ qty ×
+  // price), shown in the selected currency. Editable — a manual override holds
+  // until a line or the currency changes. Line item prices are base (INR), so
+  // the displayed value is total × rate; it's converted back to INR on save.
+  const watchedLines = watch("lines");
+  useEffect(() => {
+    const productLines = (watchedLines || []).filter((l) => l && l.product_id);
+    // Don't touch a loaded value when there are no requirement lines yet.
+    if (!productLines.length) return;
+    const totalInr = productLines.reduce(
+      (s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0),
+      0
+    );
+    const display = totalInr * leadRate;
+    setValue(
+      "expected_value",
+      display > 0 ? Number(display.toFixed(2)) : ""
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    leadRate,
+    JSON.stringify(
+      (watchedLines || []).map((l) => [l?.product_id, l?.qty, l?.unit_price])
+    ),
+  ]);
+
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
@@ -346,10 +387,11 @@ const LeadForm = () => {
       assigned_to: data.assigned_to || undefined,
       currency: data.currency || undefined,
       country_code: data.country_code || undefined,
+      // Field is shown in the selected currency; store it back in base (INR).
       expected_value:
         data.expected_value === "" || data.expected_value === null
           ? undefined
-          : Number(data.expected_value),
+          : Number(data.expected_value) / (leadRate || 1),
       // Requirement line items (quotation line shape — managed by the shared
       // SalesDocLineItems component). Deprecated interested_* arrays are
       // omitted so legacy values on existing leads are preserved.
@@ -768,7 +810,7 @@ const LeadForm = () => {
                     showExportFields
                   />
                 </Col>
-                <Col md="4" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="currency">
                     {t("Currency")}
                   </Label>
@@ -794,7 +836,32 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="4" className="mb-2">
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="expected_value">
+                    {t("Expected Value")}
+                  </Label>
+                  <Controller
+                    name="expected_value"
+                    control={control}
+                    render={({ field }) => (
+                      <InputGroup>
+                        <InputGroupText>
+                          {getCurrencySymbol(watchCurrency || "INR") || "₹"}
+                        </InputGroupText>
+                        <Input
+                          id="expected_value"
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder={t("Auto from items")}
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </InputGroup>
+                    )}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="delivery_expectation">
                     {t("Delivery Expectation")}
                   </Label>
@@ -812,7 +879,7 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="4" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="follow_up_date">
                     {t("Follow-up Date")}
                   </Label>

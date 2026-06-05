@@ -46,7 +46,8 @@ import {
   LEAD_STATUS_OPTIONS,
   LEAD_STATUS_BADGE_COLOR,
 } from "@constant/options";
-import { formatMoney } from "@src/utility/currency";
+import { formatMoney, convertFromInr } from "@src/utility/currency";
+import { getExchangeRateOptions } from "@src/views/currencies/store";
 
 const LeadList = () => {
   const { t } = useTranslation();
@@ -55,6 +56,9 @@ const LeadList = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.lead);
+  const exchangeOptions = useSelector(
+    (state) => state.currency?.exchangeOptions || []
+  );
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -153,6 +157,10 @@ const LeadList = () => {
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    dispatch(getExchangeRateOptions());
+  }, [dispatch]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -324,7 +332,12 @@ const LeadList = () => {
       name: t("Budget"),
       sortable: false,
       selector: (row) =>
-        row?.expected_value ? formatMoney(row.expected_value, row?.currency) : "-",
+        row?.expected_value
+          ? formatMoney(
+              convertFromInr(row.expected_value, row?.currency, exchangeOptions),
+              row?.currency
+            )
+          : "-",
     },
     {
       name: t("Follow-up"),
