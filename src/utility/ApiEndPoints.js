@@ -343,6 +343,9 @@ export const API_ENDPOINTS = {
     prices: `/admin/rfq`, // append /:id/prices
     select: `/admin/rfq`, // append /:id/select
     pdf: `/admin/rfq`, // append /:id/pdf?vendor_id=
+    vendorPriceSheets: `/admin/rfq/vendor-price-sheets`, // ?lead_id=&vendor_ids= (zip)
+    vendorPriceSheet: `/admin/rfq/vendor-price-sheet`, // ?lead_id=&vendor_id=&product_ids= (single xlsx)
+    importVendorPrices: `/admin/rfq/import-vendor-prices`, // POST multipart
   },
   grn: {
     list: `/admin/grn/list`,

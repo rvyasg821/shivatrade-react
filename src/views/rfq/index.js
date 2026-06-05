@@ -61,6 +61,7 @@ const RfqList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statsRefresh, setStatsRefresh] = useState(0);
 
   const handleRfqLists = useCallback(
     (
@@ -124,7 +125,10 @@ const RfqList = () => {
   }, []);
 
   useEffect(() => {
-    if (store?.actionFlag === "RFQ_DLTD") handleRfqLists();
+    if (store?.actionFlag === "RFQ_DLTD") {
+      handleRfqLists();
+      setStatsRefresh((n) => n + 1); // re-fetch the KPI tiles after a delete
+    }
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
     if (store?.actionFlag || store?.success || store?.error) {
@@ -274,6 +278,7 @@ const RfqList = () => {
 
         <VoucherStatsTiles
           module="rfq"
+          refreshKey={statsRefresh}
           filters={{
             status: statusFilter || undefined,
             search: searchInput || undefined,

@@ -54,6 +54,9 @@ const VoucherStatsTiles = ({
   filters = {},
   activeStatuses = "",
   onStatusClick,
+  // Bump this from the parent (e.g. after a delete) to force a re-fetch even
+  // when `filters` haven't changed.
+  refreshKey = 0,
 }) => {
   const { t } = useTranslation();
   const config = STATS_CONFIG[module];
@@ -88,7 +91,7 @@ const VoucherStatsTiles = ({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey, endpoint]);
+  }, [filterKey, endpoint, refreshKey]);
 
   if (!config) return null;
 
