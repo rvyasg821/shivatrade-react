@@ -27,6 +27,7 @@ const RfqImportModal = ({
   toggle,
   vendorId = "",
   vendorLabel = "",
+  rfqId = "",
   onImported,
 }) => {
   const { t } = useTranslation();
@@ -59,7 +60,12 @@ const RfqImportModal = ({
   const post = (isPreview) => {
     const form = new FormData();
     form.append("file", file);
-    const qs = `?vendor_id=${vendorId}${isPreview ? "&preview=true" : ""}`;
+    // Pass rfq_id so the backend stamps imported price-list rows with
+    // source_type='rfq' (provenance back to this RFQ).
+    const qs =
+      `?vendor_id=${vendorId}` +
+      (rfqId ? `&rfq_id=${rfqId}` : "") +
+      (isPreview ? "&preview=true" : "");
     return instance.post(
       `${API_ENDPOINTS.rfq.importVendorPrices}${qs}`,
       form,

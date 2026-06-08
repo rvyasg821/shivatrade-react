@@ -573,9 +573,9 @@ const RfqView = () => {
             )}
           </div>
           <div className="d-flex gap-1">
-            {/* Create Quotation — hidden. */}
-            {false &&
-              !isDraft &&
+            {/* Create Quotation — seeds the wizard from this RFQ's lead and
+                auto-picks the cheapest current price-list row per line. */}
+            {!isDraft &&
               (rfq?.prices || []).some((p) => Number(p.unit_price) > 0) && (
               <Button
                 color="primary"
@@ -845,6 +845,7 @@ const RfqView = () => {
         toggle={() => setImportModalOpen((v) => !v)}
         vendorId={activeVendorId}
         vendorLabel={activeVendorLabel}
+        rfqId={isDraft ? "" : id}
         onImported={handleImported}
       />
     </Fragment>

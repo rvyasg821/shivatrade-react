@@ -808,6 +808,7 @@ const LeadForm = () => {
                     docNumber=""
                     hideGst
                     showExportFields
+                    requirementMode
                   />
                 </Col>
                 <Col md="3" className="mb-2">
