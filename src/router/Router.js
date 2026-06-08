@@ -18,6 +18,7 @@ import { getCompanyData } from "../redux/authentication";
 import { appsRoot } from "@constant/defaultValues";
 import Wizard from "../views/auth/register/Wizard";
 import PreserveSearchRedirect from "../views/assessmentforms/PreserveSearchRedirect";
+import { APP_MODE } from "../configs/appMode";
 
 // ** Components
 const Login = lazy(() => import("@src/views/auth/login"));
@@ -56,9 +57,20 @@ const Router = ({ allRoutes }) => {
       element: <Navigate replace to="/apps/dashboard" />,
     },
     {
+      // Single-tenant mode blocks self-signup — the one company is seeded.
       path: "/register",
       element: <BlankLayout />,
-      children: [{ path: "/register", element: < Wizard /> }],
+      children: [
+        {
+          path: "/register",
+          element:
+            APP_MODE === "single" ? (
+              <Navigate replace to="/login" />
+            ) : (
+              <Wizard />
+            ),
+        },
+      ],
     },
     {
       path: "/login",
