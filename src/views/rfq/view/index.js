@@ -660,40 +660,8 @@ const RfqView = () => {
                 </UncontrolledButtonDropdown>
               )}
             </h4>
-            {vendors.length > 0 && (
-              <div className="mt-50 d-flex flex-wrap align-items-center gap-50">
-                <span className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
-                  {vendors.length > 1 ? t("Vendors") : t("Vendor")}:
-                </span>{" "}
-                {vendors.map((v) => {
-                  const label = v.vendor_code
-                    ? `${v.vendor_name || ""} [${v.vendor_code}]`
-                    : v.vendor_name || "";
-                  return (
-                    <Badge
-                      key={v.vendor_id}
-                      color="light-secondary"
-                      className="d-inline-flex align-items-center"
-                    >
-                      <span className="fw-semibold">{label}</span>
-                      {/* Detach this vendor — saved RFQ only. */}
-                      {!isDraft && (
-                        <Button
-                          color="link"
-                          size="sm"
-                          className="p-0 ms-50 text-danger lh-1"
-                          disabled={store?.loading}
-                          title={t("Remove vendor")}
-                          onClick={() => onRemoveVendor(v.vendor_id)}
-                        >
-                          <X size={14} />
-                        </Button>
-                      )}
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
+            {/* Vendors are shown + managed in the "Collect Vendor Prices"
+                card below; no need to duplicate them in this header. */}
             {(leadCompany || leadVoucher) && (
               <div className="mt-50">
                 <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
