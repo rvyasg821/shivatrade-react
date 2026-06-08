@@ -204,6 +204,16 @@ const ViewLead = () => {
       )
     : null;
 
+  // Fallback when no manual Expected Value: a computed estimate from the
+  // requirement items × each product's master selling price (Σ qty × price).
+  const estimatedSales = (l?.lines || []).reduce(
+    (s, ln) =>
+      s + (Number(ln?.qty) || 0) * (Number(ln?.product_selling_price) || 0),
+    0
+  );
+  const estimatedDisplay =
+    estimatedSales > 0 ? `~ ₹${estimatedSales.toLocaleString("en-IN")}` : null;
+
   const followUp = useFollowUpStatus(l?.follow_up_date);
 
   const categoryChips = resolveNames(
@@ -283,8 +293,8 @@ const ViewLead = () => {
   const kpiItems = [
     {
       key: "value",
-      label: t("Expected Value"),
-      value: budget || "-",
+      label: budget ? t("Expected Value") : t("Est. Value"),
+      value: budget || estimatedDisplay || "-",
       icon: DollarSign,
       tone: "secondary",
     },
