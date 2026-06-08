@@ -13,6 +13,7 @@ import Notification from '@components/toast/notification';
 import useFormLoading from '@src/hooks/useFormLoading';
 import { useNavigate } from 'react-router-dom';
 import { appsRoot } from '@constant/defaultValues';
+import { APP_MODE } from '@src/configs/appMode';
 import instance from '@src/utility/AxiosConfig';
 import { API_ENDPOINTS } from '@src/utility/ApiEndPoints';
 import FaceClockModal from './FaceClockModal';
@@ -517,7 +518,9 @@ const Dashboard = () => {
         // so an inactive subscription always wins. Inactive → upgrade page.
         // Also refreshes the localStorage flag so PrivateRoute / RoleWrapper see
         // the latest state (e.g. after a fresh upgrade in a different tab).
-        if (isCompanyAdmin) {
+        // Skipped entirely in single-tenant mode (no subscriptions; the upgrade
+        // page is hidden so a redirect would dead-end on a 404).
+        if (isCompanyAdmin && APP_MODE !== 'single') {
             instance.get(API_ENDPOINTS.subscription.myStatus)
                 .then(res => {
                     const data = res.data?.data;
