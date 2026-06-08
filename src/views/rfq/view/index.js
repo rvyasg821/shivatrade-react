@@ -790,6 +790,23 @@ const RfqView = () => {
                 // Only lock while a mutation is in flight — both draft and saved
                 // RFQs now hold multiple vendors.
                 isDisabled={store?.loading}
+                // Shrink the control to match the adjacent btn-sm height so the
+                // add-vendor box and the 3 buttons line up on one row.
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    minHeight: 31,
+                    height: 31,
+                  }),
+                  valueContainer: (base) => ({
+                    ...base,
+                    height: 31,
+                    padding: "0 8px",
+                  }),
+                  input: (base) => ({ ...base, margin: 0, padding: 0 }),
+                  indicatorsContainer: (base) => ({ ...base, height: 31 }),
+                  indicatorSeparator: () => ({ display: "none" }),
+                }}
               />
             </div>
             {/* Export the active vendor's sheet only. */}
