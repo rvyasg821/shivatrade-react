@@ -306,6 +306,14 @@ const RfqView = () => {
     }
   };
 
+  // Advance a draft RFQ to "sent" (fire-and-forget) — called when sheets are
+  // exported. Only acts on a draft; never walks back a later stage.
+  const markSentIfDraft = (rfqId, status) => {
+    if (rfqId && status === "draft") {
+      dispatch(updateRfq({ id: rfqId, data: { status: "sent" } }));
+    }
+  };
+
   // Detach a vendor from a saved RFQ (confirmed). Refresh after; if it drops to
   // zero, the grid's "select a vendor" empty state takes over.
   const onRemoveVendor = (vendorId) => {
@@ -525,10 +533,17 @@ const RfqView = () => {
     // Auto-save a draft before exporting so the sheet always ties to a real
     // RFQ (and a later import can stamp source_rfq_id). The page navigates to
     // the saved RFQ; the export below still runs off the (unchanged) lead.
+    let sentRfqId = id;
+    let sentStatus = rfq?.status;
     if (isDraft) {
       const newId = await persistDraftRfq();
       if (!newId) return;
+      sentRfqId = newId;
+      sentStatus = "draft"; // freshly created RFQ
     }
+    // Exporting = the request has been issued to the vendor → advance draft to
+    // "sent" (no walk-back of a later stage).
+    markSentIfDraft(sentRfqId, sentStatus);
     const checks = checkedByVendor[addVendorId] || {};
     const productIds = lines
       .filter((l) => checks[l._id] && l.product_id)
@@ -581,10 +596,15 @@ const RfqView = () => {
       return;
     }
     // Auto-save a draft before exporting (see exportVendorSheet).
+    let sentRfqId = id;
+    let sentStatus = rfq?.status;
     if (isDraft) {
       const newId = await persistDraftRfq();
       if (!newId) return;
+      sentRfqId = newId;
+      sentStatus = "draft";
     }
+    markSentIfDraft(sentRfqId, sentStatus);
     setExporting(true);
     const sanitize = (s) =>
       (s || "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -1063,6 +1083,87 @@ const RfqView = () => {
           )}
         </CardBody>
       </Card>
+
+      {/* Price comparison matrix — read-only items × vendors view of every
+          quoted price (lowest per item highlighted). Saved RFQ with ≥2
+          vendors and at least one captured price. */}
+      {!isDraft &&
+        vendors.length >= 2 &&
+        Object.keys(priceMap).length > 0 && (
+          <Card className="mb-1">
+            <CardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-1 py-1">
+              <CardTitle tag="h6" className="mb-0">
+                {t("Price Comparison")}
+              </CardTitle>
+              <span className="text-muted small">
+                {t("Lowest price per item is highlighted")}
+              </span>
+            </CardHeader>
+            <CardBody className="p-0">
+              <Table responsive bordered size="sm" className="mb-0 align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>{t("Product")}</th>
+                    <th className="text-end">{t("Qty")}</th>
+                    {vendors.map((v) => (
+                      <th key={v.vendor_id} className="text-end text-nowrap">
+                        {v.vendor_code || v.vendor_name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l) => {
+                    const cells = vendors.map((v) => {
+                      const p = num(priceMap[key(l._id, v.vendor_id)]);
+                      const d = num(discountMap[key(l._id, v.vendor_id)]);
+                      const eff = p > 0 ? p * (1 - d / 100) : null;
+                      return { vid: v.vendor_id, eff };
+                    });
+                    const valid = cells
+                      .filter((c) => c.eff != null)
+                      .map((c) => c.eff);
+                    const min = valid.length ? Math.min(...valid) : null;
+                    return (
+                      <tr key={l._id}>
+                        <td className="text-wrap" style={{ minWidth: 200 }}>
+                          {[l.product_code, l.product_name]
+                            .filter(Boolean)
+                            .join(" - ") || "-"}
+                        </td>
+                        <td className="text-end text-nowrap">
+                          {l.qty
+                            ? `${num(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
+                            : "-"}
+                        </td>
+                        {cells.map((c) => {
+                          const isMin = c.eff != null && c.eff === min;
+                          const txt =
+                            c.eff != null
+                              ? `₹${c.eff.toLocaleString("en-IN", {
+                                  maximumFractionDigits: 2,
+                                })}`
+                              : "—";
+                          return (
+                            <td key={c.vid} className="text-end">
+                              {isMin ? (
+                                <Badge color="light-success">{txt}</Badge>
+                              ) : (
+                                <span className={c.eff == null ? "text-muted" : ""}>
+                                  {txt}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </CardBody>
+          </Card>
+        )}
 
       <RfqImportModal
         isOpen={importModalOpen}
