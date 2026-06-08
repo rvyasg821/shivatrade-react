@@ -249,6 +249,35 @@ const ProductList = () => {
       selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "-"}</span>,
     },
     {
+      name: t("HSN / GST"),
+      sortField: "hsn_code",
+      sortable: false,
+      selector: (row) => (
+        <span className="text-wrap">
+          {row?.hsn_code || "-"}
+          {row?.tax_pct != null && row?.tax_pct !== "" ? (
+            <span className="text-muted"> · {Number(row.tax_pct)}%</span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      name: t("Price"),
+      sortField: "selling_price",
+      sortable: false,
+      selector: (row) =>
+        row?.selling_price != null && row?.selling_price !== "" ? (
+          <span className="text-wrap">
+            ₹{Number(row.selling_price).toLocaleString("en-IN")}
+            {row?.margin_pct != null && row?.margin_pct !== "" ? (
+              <span className="text-muted"> · {Number(row.margin_pct)}% mgn</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-muted">-</span>
+        ),
+    },
+    {
       name: t("Status"),
       sortField: "status",
       sortable: false,
