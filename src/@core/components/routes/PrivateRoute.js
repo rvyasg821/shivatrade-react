@@ -5,6 +5,7 @@ import { Navigate } from 'react-router-dom'
 // ** Utils
 import { getCurrentUser } from "@utils"
 import { getCompanyData } from "@src/redux/authentication"
+import { APP_MODE } from "@src/configs/appMode"
 
 
 const PrivateRoute = ({ children, route }) => {
@@ -45,7 +46,10 @@ const PrivateRoute = ({ children, route }) => {
     // subscription is inactive, so they should never reach this guard.
     // Company Admin is allowed in but pinned to the upgrade page until they
     // renew. Super Admin / impersonators bypass entirely.
-    if (currentUser && !isSystemAdmin) {
+    // Single-tenant mode has no subscriptions — skip the inactive-subscription
+    // gate entirely (the upgrade route is hidden, so redirecting there would
+    // land on a 404 / "page not found").
+    if (currentUser && !isSystemAdmin && APP_MODE !== "single") {
       const isInactive = currentUser?.subscription_inactive === true
       if (isInactive) {
         // Company Admin → upgrade page (only allowed destination)
