@@ -818,8 +818,7 @@ const LeadForm = () => {
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="expected_value">
-                    {t("Expected Value")}{" "}
-                    <span className="text-muted">({t("optional forecast")})</span>
+                    {t("Expected Value")}
                   </Label>
                   <Controller
                     name="expected_value"
