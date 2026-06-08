@@ -627,7 +627,7 @@ const RfqView = () => {
   return (
     <Fragment>
       <Card className="mb-1">
-        <CardBody className="d-flex flex-wrap justify-content-between align-items-start gap-1">
+        <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
           <div>
             <h4 className="mb-0 d-flex flex-wrap align-items-center gap-1">
               <span>{headerVoucher}</span>
@@ -661,24 +661,20 @@ const RfqView = () => {
               )}
             </h4>
             {/* Vendors are shown + managed in the "Collect Vendor Prices"
-                card below; no need to duplicate them in this header. */}
+                card below. Lead info kept to one compact muted line so the
+                pricing grid surfaces higher. */}
             {(leadCompany || leadVoucher) && (
-              <div className="mt-50">
-                <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
-                  {t("Lead Details")}
-                </div>
+              <div className="text-muted small mt-25 d-flex flex-wrap align-items-center gap-50">
                 {leadCompany && (
-                  <div className="fw-semibold text-capitalize mt-25">
+                  <span className="fw-semibold text-capitalize text-body">
                     {leadCompany}
-                  </div>
+                  </span>
                 )}
-                <div className="text-muted small d-flex flex-wrap gap-1">
-                  {leadVoucher && (
-                    <span>
-                      {t("Lead")}: {leadVoucher}
-                    </span>
-                  )}
-                </div>
+                {leadVoucher && (
+                  <span>
+                    · {t("Lead")} {leadVoucher}
+                  </span>
+                )}
               </div>
             )}
           </div>
