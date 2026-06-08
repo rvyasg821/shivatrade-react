@@ -201,6 +201,7 @@ export const API_ENDPOINTS = {
     delete: `/admin/price-list/delete`,
     byProduct: `/admin/price-list/by-product`,
     currentPrices: `/admin/price-list/current-prices`,
+    bestPrices: `/admin/price-list/best-prices`,
     import: `/admin/price-list/import`,
     export: `/admin/price-list/export`,
     sampleExcel: `/admin/price-list/sample-excel`,

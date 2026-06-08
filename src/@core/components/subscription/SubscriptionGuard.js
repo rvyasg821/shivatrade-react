@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getUserData } from '@src/redux/authentication';
+import { APP_MODE } from '@src/configs/appMode';
 
 /**
  * SubscriptionGuard - Enforces subscription requirement for all routes
@@ -25,6 +26,12 @@ const SubscriptionGuard = ({ children }) => {
   ];
 
   useEffect(() => {
+    // Single-tenant mode has no subscriptions — never redirect to the (hidden)
+    // upgrade page, which would otherwise trap the user on a 404/loop.
+    if (APP_MODE === 'single') {
+      return;
+    }
+
     const currentPath = location.pathname;
 
     // Check if current path is in allowed paths or starts with allowed path

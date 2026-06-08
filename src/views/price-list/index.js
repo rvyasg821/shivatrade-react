@@ -284,6 +284,30 @@ const PriceListView = () => {
       },
     },
     {
+      name: t("Source"),
+      sortable: false,
+      selector: (row) => {
+        if (row?.source_type === "rfq") {
+          const label = row?.source_rfq_voucher_no || t("RFQ");
+          return row?.source_rfq_id ? (
+            <Link to={`${appsRoot}/rfq/view/${row.source_rfq_id}`}>
+              <Badge color="light-info" className="text-wrap">
+                {label}
+              </Badge>
+            </Link>
+          ) : (
+            <Badge color="light-info" className="text-wrap">
+              {label}
+            </Badge>
+          );
+        }
+        const type = row?.source_type || "manual";
+        return (
+          <span className="text-muted text-capitalize">{t(type)}</span>
+        );
+      },
+    },
+    {
       name: t("Lead Time"),
       sortable: false,
       selector: (row) =>

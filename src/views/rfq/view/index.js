@@ -12,6 +12,10 @@ import {
   Button,
   Badge,
   Spinner,
+  UncontrolledButtonDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
 } from "reactstrap";
 import Select from "react-select";
 import ReactPaginate from "react-paginate";
@@ -21,13 +25,18 @@ import {
   Upload,
   Save,
   FileText,
+  X,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import {
   getRfq,
   setRfqPrices,
   addRfqVendors,
+  removeRfqVendor,
+  updateRfq,
   createRfqFromLead,
   cleanRfqMessage,
 } from "../store";
@@ -47,6 +56,10 @@ const STATUS_COLOR = {
   completed: "success",
   cancelled: "danger",
 };
+
+const STATUS_OPTIONS = ["draft", "sent", "quoting", "completed", "cancelled"];
+
+const mySwal = withReactContent(Swal);
 
 const key = (lineId, vendorId) => `${lineId}|${vendorId}`;
 
@@ -95,6 +108,22 @@ const RfqView = () => {
   const [page, setPage] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Unsaved-work flag: a draft with vendors added, or typed prices not yet
+  // saved. Drives the "leave anyway?" guard on tab close / refresh.
+  const [dirty, setDirty] = useState(false);
+
+  // Warn before the browser unloads (close / refresh / back) if there's
+  // unsaved RFQ work — pairs with auto-save-on-export to prevent data loss.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   useEffect(() => {
     // Clear any global overlay left on by the list page; the detail page
@@ -225,15 +254,17 @@ const RfqView = () => {
 
   const alreadyAdded = (vId) => vendors.some((rv) => rv.vendor_id === vId);
 
-  // Single-vendor RFQ: selecting a vendor attaches it directly (no Add step).
-  // Draft holds it locally (until Save); a saved RFQ persists it immediately.
+  // Multi-vendor RFQ: the Select is an "Add vendor" control. Each pick APPENDS
+  // a vendor (deduped) and makes it the active one; a saved RFQ persists it
+  // immediately via addRfqVendors, a draft holds it locally until Save.
   const onSelectVendor = (vendorId) => {
-    setAddVendorId(vendorId);
-    if (!vendorId) {
-      if (isDraft) setDraftVendors([]);
+    if (!vendorId) return;
+    if (alreadyAdded(vendorId)) {
+      // Already present — just switch to it as the active column.
+      setAddVendorId(vendorId);
       return;
     }
-    if (alreadyAdded(vendorId)) return;
+    setAddVendorId(vendorId);
     if (!isDraft) {
       dispatch(addRfqVendors({ id, data: { vendor_ids: [vendorId] } }));
       return;
@@ -242,7 +273,8 @@ const RfqView = () => {
       (x) => x._id === vendorId
     );
     const opt = vendorOptions.find((o) => o.value === vendorId);
-    setDraftVendors([
+    setDraftVendors((prev) => [
+      ...prev,
       {
         _id: vendorId,
         vendor_id: vendorId,
@@ -250,6 +282,58 @@ const RfqView = () => {
         vendor_code: raw?.vendor_code || "",
       },
     ]);
+    setDirty(true);
+  };
+
+  // Remove a vendor's column from a draft RFQ (local only, no confirm).
+  const onRemoveDraftVendor = (vendorId) => {
+    setDraftVendors((prev) => prev.filter((v) => v.vendor_id !== vendorId));
+    if (addVendorId === vendorId) {
+      const next = draftVendors.find((v) => v.vendor_id !== vendorId);
+      setAddVendorId(next?.vendor_id || "");
+    }
+  };
+
+  // Change the RFQ status on a saved record. Any → any (ops may correct
+  // mistakes). The redux success/error effect handles the toast; refresh after.
+  const onChangeStatus = async (newStatus) => {
+    if (isDraft || !newStatus || newStatus === rfq?.status) return;
+    try {
+      await dispatch(updateRfq({ id, data: { status: newStatus } })).unwrap();
+      dispatch(getRfq(id));
+    } catch (e) {
+      Notification("Error", t("Could not update the status."), "warning");
+    }
+  };
+
+  // Detach a vendor from a saved RFQ (confirmed). Refresh after; if it drops to
+  // zero, the grid's "select a vendor" empty state takes over.
+  const onRemoveVendor = (vendorId) => {
+    if (isDraft || !vendorId) return;
+    mySwal
+      .fire({
+        title: t("Are you sure?"),
+        text: t("This vendor will be removed from the RFQ."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, remove it!"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        try {
+          await dispatch(removeRfqVendor({ id, vendorId })).unwrap();
+          // Drop the dropdown selection if it pointed at the removed vendor.
+          if (addVendorId === vendorId) setAddVendorId("");
+          dispatch(getRfq(id));
+        } catch (e) {
+          Notification("Error", t("Could not remove the vendor."), "warning");
+        }
+      });
   };
 
   // Called by the import modal after a confirmed import → seed that vendor's
@@ -275,6 +359,8 @@ const RfqView = () => {
       }
       return next;
     });
+    // Imported prices aren't persisted to the RFQ until Save.
+    setDirty(true);
   };
 
   const collectPrices = () => {
@@ -302,72 +388,79 @@ const RfqView = () => {
     return prices;
   };
 
+  // Persist a draft RFQ (createFromLead + any typed prices/checks) and navigate
+  // to the saved record. Returns the new rfq id, or null on failure. Shared by
+  // Save AND Export so an exported sheet can never reference an unsaved RFQ.
+  const persistDraftRfq = async () => {
+    if (!leadIdParam) {
+      Notification("Error", t("Missing lead reference."), "warning");
+      return null;
+    }
+    if (!vendors.length) {
+      Notification("Validation", t("Add at least one vendor."), "warning");
+      return null;
+    }
+    setSaving(true);
+    try {
+      const res = await dispatch(
+        createRfqFromLead({
+          leadId: leadIdParam,
+          data: { vendor_ids: vendors.map((v) => v.vendor_id) },
+        })
+      ).unwrap();
+      const newRfq = res?.rfqItem;
+      if (!newRfq?._id) {
+        Notification(
+          "Error",
+          res?.error || t("Could not create the RFQ."),
+          "warning"
+        );
+        return null;
+      }
+      // Map each draft price's lead-line ref to the freshly-created
+      // rfq_line_id (the new lines carry lead_line_id back).
+      const lineByLead = {};
+      for (const rl of newRfq.lines || []) {
+        if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
+      }
+      const collected = collectPrices();
+      const mapped = collected
+        .map((p) => ({
+          rfq_line_id: lineByLead[p.lineRef],
+          vendor_id: p.vendor_id,
+          unit_price: p.unit_price,
+          discount_pct: p.discount_pct,
+        }))
+        .filter((p) => p.rfq_line_id);
+      const checks = checkedByVendor[activeVendorId] || {};
+      const checkedLineIds = lines
+        .filter((l) => checks[l._id])
+        .map((l) => lineByLead[l._id])
+        .filter(Boolean);
+      if (mapped.length || checkedLineIds.length) {
+        await dispatch(
+          setRfqPrices({
+            id: newRfq._id,
+            data: { prices: mapped, checked_line_ids: checkedLineIds },
+          })
+        ).unwrap();
+      }
+      setDirty(false);
+      navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
+      return newRfq._id;
+    } catch (e) {
+      Notification("Error", t("Could not create the RFQ."), "warning");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onSavePrices = async () => {
     const collected = collectPrices();
 
     if (isDraft) {
-      // Persist the RFQ as soon as vendors are chosen — prices arrive days
-      // later via the Excel round-trip, so the RFQ must survive a navigate-away.
-      // Prices are optional at this point.
-      if (!leadIdParam) {
-        Notification("Error", t("Missing lead reference."), "warning");
-        return;
-      }
-      if (!vendors.length) {
-        Notification("Validation", t("Add at least one vendor."), "warning");
-        return;
-      }
-      setSaving(true);
-      try {
-        const res = await dispatch(
-          createRfqFromLead({
-            leadId: leadIdParam,
-            data: { vendor_ids: vendors.map((v) => v.vendor_id) },
-          })
-        ).unwrap();
-        const newRfq = res?.rfqItem;
-        if (!newRfq?._id) {
-          Notification(
-            "Error",
-            res?.error || t("Could not create the RFQ."),
-            "warning"
-          );
-          return;
-        }
-        // Map each draft price's lead-line ref to the freshly-created
-        // rfq_line_id (the new lines carry lead_line_id back).
-        const lineByLead = {};
-        for (const rl of newRfq.lines || []) {
-          if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
-        }
-        const mapped = collected
-          .map((p) => ({
-            rfq_line_id: lineByLead[p.lineRef],
-            vendor_id: p.vendor_id,
-            unit_price: p.unit_price,
-            discount_pct: p.discount_pct,
-          }))
-          .filter((p) => p.rfq_line_id);
-        // Persist the export checkbox state (lead-line ids → rfq_line ids).
-        const checks = checkedByVendor[activeVendorId] || {};
-        const checkedLineIds = lines
-          .filter((l) => checks[l._id])
-          .map((l) => lineByLead[l._id])
-          .filter(Boolean);
-        if (mapped.length || checkedLineIds.length) {
-          await dispatch(
-            setRfqPrices({
-              id: newRfq._id,
-              data: { prices: mapped, checked_line_ids: checkedLineIds },
-            })
-          ).unwrap();
-        }
-        navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
-      } catch (e) {
-        Notification("Error", t("Could not create the RFQ."), "warning");
-      } finally {
-        setSaving(false);
-      }
+      await persistDraftRfq();
       return;
     }
 
@@ -396,6 +489,7 @@ const RfqView = () => {
           },
         })
       ).unwrap();
+      setDirty(false);
     } catch (e) {
       Notification("Error", t("Could not save prices."), "warning");
     } finally {
@@ -423,10 +517,17 @@ const RfqView = () => {
 
   // Export a single vendor's price-request sheet (one .xlsx) — only the checked
   // products (the ones this vendor supplies). One vendor at a time.
-  const exportVendorSheet = () => {
+  const exportVendorSheet = async () => {
     if (!exportLeadId || !addVendorId) {
       Notification("Validation", t("Select a vendor first."), "warning");
       return;
+    }
+    // Auto-save a draft before exporting so the sheet always ties to a real
+    // RFQ (and a later import can stamp source_rfq_id). The page navigates to
+    // the saved RFQ; the export below still runs off the (unchanged) lead.
+    if (isDraft) {
+      const newId = await persistDraftRfq();
+      if (!newId) return;
     }
     const checks = checkedByVendor[addVendorId] || {};
     const productIds = lines
@@ -472,6 +573,46 @@ const RfqView = () => {
       .finally(() => setExporting(false));
   };
 
+  // Export EVERY vendor's price-request sheet at once — the backend returns a
+  // zip of per-vendor .xlsx files. Mirrors the single-sheet blob/anchor flow.
+  const exportAllSheets = async () => {
+    if (!exportLeadId || !vendors.length) {
+      Notification("Validation", t("Add at least one vendor first."), "warning");
+      return;
+    }
+    // Auto-save a draft before exporting (see exportVendorSheet).
+    if (isDraft) {
+      const newId = await persistDraftRfq();
+      if (!newId) return;
+    }
+    setExporting(true);
+    const sanitize = (s) =>
+      (s || "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+    const base =
+      sanitize(rfq?.voucher_no) ||
+      sanitize(leadVoucher) ||
+      (exportLeadId ? `LEAD-${exportLeadId.slice(0, 6)}` : "RFQ");
+    instance
+      .get(API_ENDPOINTS.rfq.vendorPriceSheets, {
+        params: {
+          lead_id: exportLeadId,
+          vendor_ids: vendors.map((v) => v.vendor_id).join(","),
+        },
+        responseType: "blob",
+      })
+      .then((resp) => {
+        const blob = new Blob([resp.data], { type: "application/zip" });
+        const link = document.createElement("a");
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `RFQ-${base}-sheets.zip`;
+        link.click();
+      })
+      .catch(() =>
+        Notification("Error", t("Could not export the sheets."), "warning")
+      )
+      .finally(() => setExporting(false));
+  };
+
   // Export checkboxes for the active (single) vendor.
   const activeChecks = checkedByVendor[activeVendorId] || {};
   const toggleCheck = (lineId) => {
@@ -511,9 +652,6 @@ const RfqView = () => {
   const headerStatus = isDraft ? "draft" : rfq.status;
   const leadCompany = isDraft ? draftLead?.company_name : rfq.lead_company_name;
   const leadVoucher = isDraft ? draftLead?.voucher_no : rfq.lead_voucher_no;
-  const leadContact = isDraft ? draftLead?.contact_name : rfq.lead_contact_name;
-  const leadEmail = isDraft ? draftLead?.contact_email : rfq.lead_contact_email;
-  const leadPhone = isDraft ? draftLead?.contact_phone : rfq.lead_contact_phone;
   const exportLeadId = isDraft ? leadIdParam : rfq?.lead_id;
 
   // The RFQ's single vendor (for the header label).
@@ -528,7 +666,7 @@ const RfqView = () => {
   return (
     <Fragment>
       <Card className="mb-1">
-        <CardBody className="d-flex flex-wrap justify-content-between align-items-start gap-1">
+        <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
           <div>
             <h4 className="mb-0 d-flex flex-wrap align-items-center gap-1">
               <span>{headerVoucher}</span>
@@ -538,44 +676,51 @@ const RfqView = () => {
               >
                 {headerStatus}
               </Badge>
+              {/* Editable status — only on a saved RFQ (a draft has no id yet).
+                  Any → any transition; ops may need to correct mistakes. */}
+              {!isDraft && (
+                <UncontrolledButtonDropdown>
+                  <DropdownToggle color="flat-secondary" size="sm" caret>
+                    {t("Change Status")}
+                  </DropdownToggle>
+                  <DropdownMenu>
+                    {STATUS_OPTIONS.map((s) => (
+                      <DropdownItem
+                        key={s}
+                        className="text-capitalize"
+                        active={s === rfq?.status}
+                        disabled={store?.loading}
+                        onClick={() => onChangeStatus(s)}
+                      >
+                        {t(s)}
+                      </DropdownItem>
+                    ))}
+                  </DropdownMenu>
+                </UncontrolledButtonDropdown>
+              )}
             </h4>
-            {activeVendorLabel && (
-              <div className="mt-50">
-                <span className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
-                  {t("Vendor")}:
-                </span>{" "}
-                <span className="fw-semibold">{activeVendorLabel}</span>
-              </div>
-            )}
-            {(leadCompany || leadVoucher || leadContact) && (
-              <div className="mt-50">
-                <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
-                  {t("Lead Details")}
-                </div>
+            {/* Vendors are shown + managed in the "Collect Vendor Prices"
+                card below. Lead info kept to one compact muted line so the
+                pricing grid surfaces higher. */}
+            {(leadCompany || leadVoucher) && (
+              <div className="text-muted small mt-25 d-flex flex-wrap align-items-center gap-50">
                 {leadCompany && (
-                  <div className="fw-semibold text-capitalize mt-25">
+                  <span className="fw-semibold text-capitalize text-body">
                     {leadCompany}
-                  </div>
+                  </span>
                 )}
-                <div className="text-muted small d-flex flex-wrap gap-1">
-                  {leadVoucher && (
-                    <span>
-                      {t("Lead")}: {leadVoucher}
-                    </span>
-                  )}
-                  {leadContact && (
-                    <span className="text-capitalize">· {leadContact}</span>
-                  )}
-                  {leadEmail && <span>· {leadEmail}</span>}
-                  {leadPhone && <span>· {leadPhone}</span>}
-                </div>
+                {leadVoucher && (
+                  <span>
+                    · {t("Lead")} {leadVoucher}
+                  </span>
+                )}
               </div>
             )}
           </div>
           <div className="d-flex gap-1">
-            {/* Create Quotation — hidden. */}
-            {false &&
-              !isDraft &&
+            {/* Create Quotation — seeds the wizard from this RFQ's lead and
+                auto-picks the cheapest current price-list row per line. */}
+            {!isDraft &&
               (rfq?.prices || []).some((p) => Number(p.unit_price) > 0) && (
               <Button
                 color="primary"
@@ -624,31 +769,57 @@ const RfqView = () => {
 
       {/* Comparison grid */}
       <Card>
-        <CardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-1">
-          <CardTitle tag="h6" className="mb-0">
-            {t("Vendor Prices")}
-          </CardTitle>
-          <div className="d-flex align-items-center flex-wrap gap-1">
-            <div style={{ minWidth: 220 }}>
+        <CardHeader className="d-flex justify-content-between align-items-start flex-wrap gap-1">
+          <div>
+            <CardTitle tag="h6" className="mb-25">
+              {t("Collect Vendor Prices")}
+            </CardTitle>
+            <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+              {t(
+                "Add vendors, export their price sheets, then import each filled sheet to update the price list."
+              )}
+            </div>
+          </div>
+          <div className="d-flex align-items-center flex-wrap gap-50">
+            <div style={{ minWidth: 200 }}>
               <Select
                 classNamePrefix="select"
                 options={vendorOptions}
-                value={
-                  vendorOptions.find((o) => o.value === activeVendorId) || null
-                }
+                // "Add vendor" control — clears after each pick so the user can
+                // immediately add another vendor (the active one shows via chips).
+                value={null}
                 onChange={(opt) => onSelectVendor(opt?.value || "")}
-                placeholder={t("Select a vendor…")}
-                // Once persisted on a saved RFQ the vendor is fixed; a draft can
-                // still re-select before it's saved.
-                isDisabled={!isDraft && vendors.length >= 1}
+                placeholder={t("+ Add vendor")}
+                // Only lock while a mutation is in flight — both draft and saved
+                // RFQs now hold multiple vendors.
+                isDisabled={store?.loading}
+                // Shrink the control to match the adjacent btn-sm height so the
+                // add-vendor box and the 3 buttons line up on one row.
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    minHeight: 31,
+                    height: 31,
+                  }),
+                  valueContainer: (base) => ({
+                    ...base,
+                    height: 31,
+                    padding: "0 8px",
+                  }),
+                  input: (base) => ({ ...base, margin: 0, padding: 0 }),
+                  indicatorsContainer: (base) => ({ ...base, height: 31 }),
+                  indicatorSeparator: () => ({ display: "none" }),
+                }}
               />
             </div>
+            {/* Export the active vendor's sheet only. */}
             <Button
-              color="success"
+              color="secondary"
               size="sm"
               outline
               onClick={exportVendorSheet}
               disabled={exporting || !addVendorId}
+              title={t("Export the selected vendor's sheet")}
             >
               {exporting ? (
                 <>
@@ -656,24 +827,77 @@ const RfqView = () => {
                 </>
               ) : (
                 <>
-                  <Download size={14} className="me-25" /> {t("Export Excel")}
+                  <Download size={14} className="me-25" /> {t("This Vendor")}
                 </>
               )}
             </Button>
+            {/* Export one sheet per vendor as a zip — the main multi-vendor action. */}
+            <Button
+              color="primary"
+              size="sm"
+              outline
+              onClick={exportAllSheets}
+              disabled={exporting || vendors.length === 0}
+              title={t("Export a sheet for every vendor (zip)")}
+            >
+              <Download size={14} className="me-25" />{" "}
+              {t("All Sheets")}
+              {vendors.length > 0 ? ` (${vendors.length})` : ""}
+            </Button>
             {vendors.length > 0 && (
               <Button
-                color="success"
+                color="primary"
                 size="sm"
-                outline
                 onClick={() => setImportModalOpen(true)}
+                title={t("Import a vendor's filled price sheet")}
               >
-                <Upload size={14} className="me-25" />{" "}
-                {t("Import vendor prices")}
+                <Upload size={14} className="me-25" /> {t("Import Prices")}
               </Button>
             )}
           </div>
         </CardHeader>
         <CardBody>
+          {/* Vendor chip bar — click a chip to make it the active column,
+              × removes it (draft: local; saved: confirmed via onRemoveVendor). */}
+          {vendors.length > 0 && (
+            <div className="d-flex flex-wrap align-items-center gap-50 mb-1">
+              <span className="text-uppercase text-muted fw-bold me-25" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
+                {t("Vendors")}:
+              </span>
+              {vendors.map((v) => {
+                const isActive = v.vendor_id === activeVendorId;
+                const label = v.vendor_code
+                  ? `${v.vendor_name || ""} [${v.vendor_code}]`
+                  : v.vendor_name || "";
+                return (
+                  <Badge
+                    key={v.vendor_id}
+                    color={isActive ? "light-primary" : "light-secondary"}
+                    className={`d-inline-flex align-items-center cursor-pointer${
+                      isActive ? " border border-primary" : ""
+                    }`}
+                    role="button"
+                    onClick={() => setAddVendorId(v.vendor_id)}
+                    title={t("Show this vendor's prices")}
+                  >
+                    <span className="fw-semibold">{label}</span>
+                    <span
+                      className="ms-50 lh-1 d-inline-flex"
+                      title={t("Remove vendor")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (store?.loading) return;
+                        if (isDraft) onRemoveDraftVendor(v.vendor_id);
+                        else onRemoveVendor(v.vendor_id);
+                      }}
+                    >
+                      <X size={14} />
+                    </span>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
           {lines.length === 0 ? (
             <div className="text-center text-muted py-3">
               {t("This lead has no requirement items.")}
@@ -683,7 +907,7 @@ const RfqView = () => {
               {!addVendorId && (
                 <div className="text-muted small mb-1">
                   {t(
-                    "Select a vendor above to tick the products they supply and export their sheet."
+                    "Add a vendor above to tick the products they supply and export their sheet."
                   )}
                 </div>
               )}
@@ -845,6 +1069,7 @@ const RfqView = () => {
         toggle={() => setImportModalOpen((v) => !v)}
         vendorId={activeVendorId}
         vendorLabel={activeVendorLabel}
+        rfqId={isDraft ? "" : id}
         onImported={handleImported}
       />
     </Fragment>

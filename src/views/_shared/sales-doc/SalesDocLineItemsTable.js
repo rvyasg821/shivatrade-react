@@ -22,6 +22,10 @@ const SalesDocLineItemsTable = ({
   // Lead lines have no real line_total (pricing isn't finalised yet), so the
   // caller asks for Total = qty × unit_price instead of the stored line_total.
   totalFromQtyPrice = false,
+  // Lead requirement lines carry no vendor/price — vendor & pricing are
+  // decided later at the quotation. In this mode the table drops the Vendor
+  // badge + Price + Total columns and shows HSN instead.
+  requirementMode = false,
 }) => {
   const { t } = useTranslation();
   const [pageSize, setPageSize] = useState(10);
@@ -36,7 +40,8 @@ const SalesDocLineItemsTable = ({
     if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
   }, [pageCount, page]);
 
-  const colCount = showTotal ? 5 : 4;
+  const showMoney = !requirementMode;
+  const colCount = requirementMode ? 4 : showTotal ? 5 : 4;
 
   return (
     <Fragment>
@@ -45,9 +50,12 @@ const SalesDocLineItemsTable = ({
           <tr>
             <th style={{ width: 36 }}>#</th>
             <th>{t("Product")}</th>
+            {requirementMode && <th>{t("HSN")}</th>}
             <th className="text-end">{t("Qty")}</th>
-            <th className="text-end">{t("Price")}</th>
-            {showTotal && <th className="text-end">{t("Total")}</th>}
+            {showMoney && <th className="text-end">{t("Price")}</th>}
+            {showMoney && showTotal && (
+              <th className="text-end">{t("Total")}</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -75,41 +83,62 @@ const SalesDocLineItemsTable = ({
                   <td>{rowNum}</td>
                   <td className="text-wrap" style={{ minWidth: 240 }}>
                     <div className="fw-semibold">{product}</div>
-                    {vendor ? (
-                      <span
-                        className="badge mt-25 d-inline-block"
-                        // Forced via ref because the global `.table td` rule sets
-                        // text/background with !important, which a class/inline
-                        // style can't override.
-                        ref={(el) => {
-                          if (el) {
-                            el.style.setProperty(
-                              "background-color",
-                              "rgba(9, 65, 139, 0.12)",
-                              "important"
-                            );
-                            el.style.setProperty(
-                              "color",
-                              "#09418B",
-                              "important"
-                            );
-                          }
-                        }}
-                      >
-                        {vendor}
-                      </span>
-                    ) : null}
+                    <div className="d-flex flex-wrap gap-25 mt-25">
+                      {showMoney && vendor ? (
+                        <span
+                          className="badge d-inline-block"
+                          // Forced via ref because the global `.table td` rule
+                          // sets text/background with !important, which a
+                          // class/inline style can't override.
+                          ref={(el) => {
+                            if (el) {
+                              el.style.setProperty(
+                                "background-color",
+                                "rgba(9, 65, 139, 0.12)",
+                                "important"
+                              );
+                              el.style.setProperty("color", "#09418B", "important");
+                            }
+                          }}
+                        >
+                          {vendor}
+                        </span>
+                      ) : null}
+                      {showMoney && l.source_rfq_voucher_no ? (
+                        <span
+                          className="badge d-inline-block"
+                          title={t("Price sourced from this RFQ")}
+                          ref={(el) => {
+                            if (el) {
+                              el.style.setProperty(
+                                "background-color",
+                                "rgba(11, 94, 215, 0.12)",
+                                "important"
+                              );
+                              el.style.setProperty("color", "#0b5ed7", "important");
+                            }
+                          }}
+                        >
+                          {t("from RFQ")} {l.source_rfq_voucher_no}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
+                  {requirementMode && (
+                    <td className="text-nowrap">{l.hs_code || "-"}</td>
+                  )}
                   <td className="text-end">
                     {l.qty
                       ? `${num(l.qty).toFixed(2)}${l.unit ? ` ${l.unit}` : ""}`
                       : "-"}
                   </td>
-                  <td className="text-end">
-                    {sym}
-                    {fmt(toDocCcy(l.unit_price))}
-                  </td>
-                  {showTotal && (
+                  {showMoney && (
+                    <td className="text-end">
+                      {sym}
+                      {fmt(toDocCcy(l.unit_price))}
+                    </td>
+                  )}
+                  {showMoney && showTotal && (
                     <td className="text-end fw-bold">
                       {sym}
                       {fmt(toDocCcy(lineTotal))}

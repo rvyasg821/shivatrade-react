@@ -382,6 +382,10 @@ const initQuotationLineItem = {
   discount_pct: "0",
   tax_pct: "0",
   margin_pct: "0",
+  // ── Pricing source provenance (auto-pick from price-list best price) ──
+  price_list_id: "",
+  source_rfq_id: "",
+  source_rfq_voucher_no: "",
   // ── Export / Shipping (same shape PFI uses) ──
   hs_code: "",
   net_weight_kg: "0",
