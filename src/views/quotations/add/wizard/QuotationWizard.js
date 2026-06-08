@@ -75,6 +75,7 @@ const QuotationWizard = () => {
   const vendorStore = useSelector((s) => s.vendor);
 
   const [submitting, setSubmitting] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
   const [rateMeta, setRateMeta] = useState(null);
 
@@ -327,8 +328,10 @@ const QuotationWizard = () => {
 
     if (!productIds.length) {
       applyAndReset({});
+      setPricingLoading(false);
       return;
     }
+    setPricingLoading(true);
     instance
       .get(API_ENDPOINTS.priceList.bestPrices, {
         params: { product_ids: productIds.join(",") },
@@ -338,8 +341,12 @@ const QuotationWizard = () => {
         const byProduct = {};
         for (const r of rows) byProduct[r.product_id] = r;
         applyAndReset(byProduct);
+        setPricingLoading(false);
       })
-      .catch(() => applyAndReset({}));
+      .catch(() => {
+        applyAndReset({});
+        setPricingLoading(false);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadStore?.leadItem, urlLeadId, urlRfqId]);
 
@@ -714,6 +721,7 @@ const QuotationWizard = () => {
   const stepCtx = {
     isEdit,
     isLocked,
+    pricingLoading,
     rateMeta,
     customerOptions,
     customerAddressOptions,

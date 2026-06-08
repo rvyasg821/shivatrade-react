@@ -10,7 +10,6 @@ import { Send } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
-import { getCurrencySymbol, convertFromInr } from "@src/utility/currency";
 import { DetailPanel, DetailEmptyState } from "@src/views/_shared/detail-page";
 import SalesDocLineItemsTable from "@src/views/_shared/sales-doc/SalesDocLineItemsTable";
 
@@ -20,11 +19,7 @@ const RequirementItemsPanel = ({ embedded = false }) => {
   const { t } = useTranslation();
 
   const l = useSelector((s) => s.lead?.leadItem);
-  const exchangeOptions = useSelector((s) => s.currency?.exchangeOptions || []);
   const lines = Array.isArray(l?.lines) ? l.lines : [];
-
-  const sym = getCurrencySymbol(l?.currency || "INR") || "₹";
-  const toDocCcy = (v) => convertFromInr(v, l?.currency, exchangeOptions);
 
   const onCreateRfq = () => navigate(`${appsRoot}/rfq/view/new?lead_id=${id}`);
 
@@ -50,12 +45,7 @@ const RequirementItemsPanel = ({ embedded = false }) => {
     ) : (
       <Fragment>
         <div className="d-flex justify-content-end mb-1">{createBtn}</div>
-        <SalesDocLineItemsTable
-          lines={lines}
-          sym={sym}
-          toDocCcy={toDocCcy}
-          totalFromQtyPrice
-        />
+        <SalesDocLineItemsTable lines={lines} requirementMode />
       </Fragment>
     );
 

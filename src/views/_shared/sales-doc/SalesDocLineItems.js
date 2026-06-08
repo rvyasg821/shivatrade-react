@@ -1057,9 +1057,17 @@ const SalesDocLineItems = ({
                           </div>
                         );
                       }
+                      const multipleVendors = editingVendorOpts.length > 1;
                       return (
                         <div className="d-flex flex-column gap-1">
-                          {editingVendorOpts.map((opt) => {
+                          {multipleVendors && (
+                            <div className="text-muted small mb-50">
+                              {t(
+                                "Cheapest current price is selected by default — pick another vendor to override."
+                              )}
+                            </div>
+                          )}
+                          {editingVendorOpts.map((opt, vIdx) => {
                             const r = opt.raw || {};
                             const checked = f.value === opt.value;
                             const id = `vendor-radio-${editingIdx}-${opt.value}`;
@@ -1099,6 +1107,38 @@ const SalesDocLineItems = ({
                                         [{r.vendor_code}]
                                       </small>
                                     )}
+                                    <div className="mt-25">
+                                      {multipleVendors && vIdx === 0 && (
+                                        <span
+                                          className="badge d-inline-block me-50"
+                                          style={{
+                                            background: "#e6f7ee",
+                                            color: "#1a7f4b",
+                                            fontWeight: 500,
+                                          }}
+                                          title={t(
+                                            "Lowest current price — selected by default"
+                                          )}
+                                        >
+                                          {t("Cheapest")}
+                                        </span>
+                                      )}
+                                      {r.source_rfq_voucher_no && (
+                                        <span
+                                          className="badge d-inline-block"
+                                          style={{
+                                            background: "#eef7ff",
+                                            color: "#0b5ed7",
+                                            fontWeight: 500,
+                                          }}
+                                          title={t(
+                                            "Price sourced from this RFQ"
+                                          )}
+                                        >
+                                          {t("from RFQ")}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="text-end">

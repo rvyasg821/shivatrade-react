@@ -218,10 +218,12 @@ const LeadForm = () => {
       0
     );
     const display = totalInr * leadRate;
-    setValue(
-      "expected_value",
-      display > 0 ? Number(display.toFixed(2)) : ""
-    );
+    // Requirement lines carry no price (vendor/pricing decided later at the
+    // quotation), so the computed total is 0. Don't blank a manually-entered
+    // Expected Value in that case — only auto-sync when we have a real total.
+    if (display > 0) {
+      setValue("expected_value", Number(display.toFixed(2)));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     leadRate,
