@@ -12,6 +12,10 @@ import {
   Button,
   Badge,
   Spinner,
+  UncontrolledButtonDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
 } from "reactstrap";
 import Select from "react-select";
 import ReactPaginate from "react-paginate";
@@ -21,13 +25,18 @@ import {
   Upload,
   Save,
   FileText,
+  X,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import {
   getRfq,
   setRfqPrices,
   addRfqVendors,
+  removeRfqVendor,
+  updateRfq,
   createRfqFromLead,
   cleanRfqMessage,
 } from "../store";
@@ -47,6 +56,10 @@ const STATUS_COLOR = {
   completed: "success",
   cancelled: "danger",
 };
+
+const STATUS_OPTIONS = ["draft", "sent", "quoting", "completed", "cancelled"];
+
+const mySwal = withReactContent(Swal);
 
 const key = (lineId, vendorId) => `${lineId}|${vendorId}`;
 
@@ -250,6 +263,48 @@ const RfqView = () => {
         vendor_code: raw?.vendor_code || "",
       },
     ]);
+  };
+
+  // Change the RFQ status on a saved record. Any → any (ops may correct
+  // mistakes). The redux success/error effect handles the toast; refresh after.
+  const onChangeStatus = async (newStatus) => {
+    if (isDraft || !newStatus || newStatus === rfq?.status) return;
+    try {
+      await dispatch(updateRfq({ id, data: { status: newStatus } })).unwrap();
+      dispatch(getRfq(id));
+    } catch (e) {
+      Notification("Error", t("Could not update the status."), "warning");
+    }
+  };
+
+  // Detach a vendor from a saved RFQ (confirmed). Refresh after; if it drops to
+  // zero, the grid's "select a vendor" empty state takes over.
+  const onRemoveVendor = (vendorId) => {
+    if (isDraft || !vendorId) return;
+    mySwal
+      .fire({
+        title: t("Are you sure?"),
+        text: t("This vendor will be removed from the RFQ."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, remove it!"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        try {
+          await dispatch(removeRfqVendor({ id, vendorId })).unwrap();
+          // Drop the dropdown selection if it pointed at the removed vendor.
+          if (addVendorId === vendorId) setAddVendorId("");
+          dispatch(getRfq(id));
+        } catch (e) {
+          Notification("Error", t("Could not remove the vendor."), "warning");
+        }
+      });
   };
 
   // Called by the import modal after a confirmed import → seed that vendor's
@@ -538,13 +593,61 @@ const RfqView = () => {
               >
                 {headerStatus}
               </Badge>
+              {/* Editable status — only on a saved RFQ (a draft has no id yet).
+                  Any → any transition; ops may need to correct mistakes. */}
+              {!isDraft && (
+                <UncontrolledButtonDropdown>
+                  <DropdownToggle color="flat-secondary" size="sm" caret>
+                    {t("Change Status")}
+                  </DropdownToggle>
+                  <DropdownMenu>
+                    {STATUS_OPTIONS.map((s) => (
+                      <DropdownItem
+                        key={s}
+                        className="text-capitalize"
+                        active={s === rfq?.status}
+                        disabled={store?.loading}
+                        onClick={() => onChangeStatus(s)}
+                      >
+                        {t(s)}
+                      </DropdownItem>
+                    ))}
+                  </DropdownMenu>
+                </UncontrolledButtonDropdown>
+              )}
             </h4>
-            {activeVendorLabel && (
-              <div className="mt-50">
+            {vendors.length > 0 && (
+              <div className="mt-50 d-flex flex-wrap align-items-center gap-50">
                 <span className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
-                  {t("Vendor")}:
+                  {vendors.length > 1 ? t("Vendors") : t("Vendor")}:
                 </span>{" "}
-                <span className="fw-semibold">{activeVendorLabel}</span>
+                {vendors.map((v) => {
+                  const label = v.vendor_code
+                    ? `${v.vendor_name || ""} [${v.vendor_code}]`
+                    : v.vendor_name || "";
+                  return (
+                    <Badge
+                      key={v.vendor_id}
+                      color="light-secondary"
+                      className="d-inline-flex align-items-center"
+                    >
+                      <span className="fw-semibold">{label}</span>
+                      {/* Detach this vendor — saved RFQ only. */}
+                      {!isDraft && (
+                        <Button
+                          color="link"
+                          size="sm"
+                          className="p-0 ms-50 text-danger lh-1"
+                          disabled={store?.loading}
+                          title={t("Remove vendor")}
+                          onClick={() => onRemoveVendor(v.vendor_id)}
+                        >
+                          <X size={14} />
+                        </Button>
+                      )}
+                    </Badge>
+                  );
+                })}
               </div>
             )}
             {(leadCompany || leadVoucher || leadContact) && (
@@ -638,11 +741,24 @@ const RfqView = () => {
                 }
                 onChange={(opt) => onSelectVendor(opt?.value || "")}
                 placeholder={t("Select a vendor…")}
-                // Once persisted on a saved RFQ the vendor is fixed; a draft can
-                // still re-select before it's saved.
-                isDisabled={!isDraft && vendors.length >= 1}
+                // A saved RFQ may now hold multiple vendors; only lock the
+                // selector while a mutation is in flight. A draft is single-
+                // vendor (re-selectable until saved).
+                isDisabled={store?.loading || (isDraft && vendors.length >= 1)}
               />
             </div>
+            {/* Detach the active vendor from a saved RFQ. */}
+            {!isDraft && activeVendorId && alreadyAdded(activeVendorId) && (
+              <Button
+                color="flat-danger"
+                size="sm"
+                disabled={store?.loading}
+                title={t("Remove vendor")}
+                onClick={() => onRemoveVendor(activeVendorId)}
+              >
+                <X size={14} className="me-25" /> {t("Remove vendor")}
+              </Button>
+            )}
             <Button
               color="success"
               size="sm"
