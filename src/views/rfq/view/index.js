@@ -26,6 +26,7 @@ import {
   Save,
   FileText,
   X,
+  Check,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -708,20 +709,53 @@ const RfqView = () => {
               {!isDraft && (
                 <UncontrolledButtonDropdown>
                   <DropdownToggle color="outline-secondary" size="sm" caret>
-                    {t("Status")}
+                    {t("Change Status")}
                   </DropdownToggle>
-                  <DropdownMenu>
-                    {STATUS_OPTIONS.map((s) => (
-                      <DropdownItem
-                        key={s}
-                        className="text-capitalize"
-                        active={s === rfq?.status}
-                        disabled={store?.loading}
-                        onClick={() => onChangeStatus(s)}
-                      >
-                        {t(s)}
-                      </DropdownItem>
-                    ))}
+                  <DropdownMenu end className="rfq-status-menu">
+                    {/* The theme turns dropdown-item text white on hover with
+                        no fill → invisible on the white menu. Force a readable
+                        light-primary hover instead. */}
+                    <style>{`
+                      .rfq-status-menu .dropdown-item {
+                        display: flex;
+                        align-items: center;
+                        width: 100%;
+                        margin: 0 !important;
+                        border-radius: 0 !important;
+                      }
+                      .rfq-status-menu .dropdown-item:hover,
+                      .rfq-status-menu .dropdown-item:focus {
+                        background-color: rgba(115,103,240,0.12) !important;
+                        color: #7367f0 !important;
+                      }
+                    `}</style>
+                    <DropdownItem header className="text-uppercase small">
+                      {t("Set status")}
+                    </DropdownItem>
+                    {STATUS_OPTIONS.map((s) => {
+                      const isCurrent = s === rfq?.status;
+                      return (
+                        <DropdownItem
+                          key={s}
+                          className={`text-capitalize d-flex align-items-center${
+                            isCurrent ? " fw-bold" : ""
+                          }`}
+                          disabled={store?.loading || isCurrent}
+                          onClick={() => onChangeStatus(s)}
+                        >
+                          <span
+                            className={`bg-${
+                              STATUS_COLOR[s] || "secondary"
+                            } rounded-circle d-inline-block me-50`}
+                            style={{ width: 8, height: 8 }}
+                          />
+                          {t(s)}
+                          {isCurrent && (
+                            <Check size={14} className="ms-auto" />
+                          )}
+                        </DropdownItem>
+                      );
+                    })}
                   </DropdownMenu>
                 </UncontrolledButtonDropdown>
               )}
