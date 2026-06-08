@@ -56,7 +56,10 @@ const RequirementItemsPanel = ({ embedded = false }) => {
       />
     ) : (
       <Fragment>
-        <div className="d-flex justify-content-end mb-1">{createBtn}</div>
+        {/* In the tabbed (embedded) view the action lives on the tab bar. */}
+        {!embedded && (
+          <div className="d-flex justify-content-end mb-1">{createBtn}</div>
+        )}
         <SalesDocLineItemsTable lines={lines} requirementMode />
         {estimatedSales > 0 && (
           <div className="d-flex justify-content-end align-items-baseline mt-1 gap-1">

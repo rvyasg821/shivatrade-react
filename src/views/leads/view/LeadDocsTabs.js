@@ -2,6 +2,7 @@
 // Quotation. Pill-style tabs matching the quotation detail page.
 
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Card,
   CardBody,
@@ -10,18 +11,40 @@ import {
   NavLink,
   TabContent,
   TabPane,
+  Button,
 } from "reactstrap";
-import { Layers, Send, FileText } from "react-feather";
+import { Layers, Send, FileText, Plus } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
+import { appsRoot } from "@constant/defaultValues";
 import RequirementItemsPanel from "./RequirementItemsPanel";
 import RfqsPanel from "./RfqsPanel";
 import QuotationsPanel from "./QuotationsPanel";
 
 const LeadDocsTabs = () => {
   const { t } = useTranslation();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [active, setActive] = useState("requirement");
+
+  // Context-aware shortcut on the right of the tab bar — its action follows
+  // the active tab: add a requirement line, raise an RFQ, or start a
+  // quotation, each pre-linked to this lead.
+  const headerAction = {
+    requirement: {
+      label: t("Add Line"),
+      onClick: () => navigate(`${appsRoot}/leads/edit/${id}`),
+    },
+    rfq: {
+      label: t("RFQ"),
+      onClick: () => navigate(`${appsRoot}/rfq/view/new?lead_id=${id}`),
+    },
+    quotation: {
+      label: t("Quote"),
+      onClick: () => navigate(`${appsRoot}/quotations/add?lead_id=${id}`),
+    },
+  }[active];
 
   const reqCount = (useSelector((s) => s.lead?.leadItem?.lines) || []).length;
   const rfqCount = (useSelector((s) => s.rfq?.rfqItems) || []).length;
@@ -36,7 +59,8 @@ const LeadDocsTabs = () => {
   return (
     <Card className="mb-1">
       <CardBody>
-        <Nav pills className="mb-2 flex-wrap">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
+        <Nav pills className="flex-wrap mb-0">
           {tabs.map((tab) => {
             const isActive = active === tab.key;
             const Icon = tab.icon;
@@ -74,6 +98,13 @@ const LeadDocsTabs = () => {
             );
           })}
         </Nav>
+          {headerAction && (
+            <Button color="primary" size="sm" onClick={headerAction.onClick}>
+              <Plus size={14} className="me-25" />
+              {headerAction.label}
+            </Button>
+          )}
+        </div>
 
         <TabContent activeTab={active}>
           <TabPane tabId="requirement">
