@@ -236,12 +236,6 @@ const LeadList = () => {
       sortField: "company_name",
       sortable: true,
       selector: (row) => {
-        const phone =
-          row?.country_code?.formatted ||
-          (row?.country_code?.dial_code && row?.contact_phone
-            ? `${row.country_code.dial_code} ${row.contact_phone}`
-            : row?.contact_phone) ||
-          "";
         const nameNode = (
           <span
             className="fw-bold text-capitalize"
@@ -264,13 +258,6 @@ const LeadList = () => {
             {row?.voucher_no && (
               <div className="small text-muted">{row.voucher_no}</div>
             )}
-            {row?.contact_name && (
-              <div className="text-capitalize small">{row.contact_name}</div>
-            )}
-            {row?.contact_email && (
-              <div className="small text-muted">{row.contact_email}</div>
-            )}
-            {phone && <div className="small text-muted">{phone}</div>}
             {row?.source && (
               <div className="mt-25">
                 <Badge
@@ -293,12 +280,51 @@ const LeadList = () => {
       },
     },
     {
-      name: t("Line Items"),
+      name: t("Contact"),
       sortable: false,
-      center: true,
+      selector: (row) => {
+        const phone =
+          row?.country_code?.formatted ||
+          (row?.country_code?.dial_code && row?.contact_phone
+            ? `${row.country_code.dial_code} ${row.contact_phone}`
+            : row?.contact_phone) ||
+          "";
+        if (!row?.contact_name && !row?.contact_email && !phone) {
+          return <span className="text-muted">-</span>;
+        }
+        return (
+          <div className="py-1">
+            {row?.contact_name && (
+              <div className="text-capitalize fw-semibold small">
+                {row.contact_name}
+              </div>
+            )}
+            {row?.contact_email && (
+              <div className="small text-muted">{row.contact_email}</div>
+            )}
+            {phone && <div className="small text-muted">{phone}</div>}
+          </div>
+        );
+      },
+    },
+    {
+      name: t("Items & Value"),
+      sortable: false,
       selector: (row) => {
         const count = Number(row?.line_items_count || 0);
-        return <span className="fw-bold">{count}</span>;
+        const val = Number(row?.estimated_sales_value || 0);
+        return (
+          <div className="py-1">
+            <div className="fw-bold">
+              {count} {count === 1 ? t("item") : t("items")}
+            </div>
+            {val > 0 ? (
+              <div className="small text-muted">
+                ~ ₹{val.toLocaleString("en-IN")}
+              </div>
+            ) : null}
+          </div>
+        );
       },
     },
     {
@@ -327,17 +353,6 @@ const LeadList = () => {
           </span>
         );
       },
-    },
-    {
-      name: t("Budget"),
-      sortable: false,
-      selector: (row) =>
-        row?.expected_value
-          ? formatMoney(
-              convertFromInr(row.expected_value, row?.currency, exchangeOptions),
-              row?.currency
-            )
-          : "-",
     },
     {
       name: t("Follow-up"),
