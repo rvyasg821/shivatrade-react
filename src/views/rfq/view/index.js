@@ -842,8 +842,10 @@ const RfqView = () => {
                 return (
                   <Badge
                     key={v.vendor_id}
-                    color={isActive ? "primary" : "light-secondary"}
-                    className="d-inline-flex align-items-center cursor-pointer"
+                    color={isActive ? "light-primary" : "light-secondary"}
+                    className={`d-inline-flex align-items-center cursor-pointer${
+                      isActive ? " border border-primary" : ""
+                    }`}
                     role="button"
                     onClick={() => setAddVendorId(v.vendor_id)}
                     title={t("Show this vendor's prices")}
