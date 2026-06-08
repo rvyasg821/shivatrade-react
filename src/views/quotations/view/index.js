@@ -22,6 +22,8 @@ import {
   Percent,
   FileText,
   CheckCircle,
+  Send,
+  XCircle,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -205,6 +207,47 @@ const ViewQuotation = () => {
       });
   };
 
+  // One-click status transitions (no need to open the edit wizard).
+  const changeStatus = (status, failMsg) =>
+    dispatch(updateQuotation({ id, data: { status } }))
+      .unwrap()
+      .then(() => dispatch(getQuotation(id)))
+      .catch((err) => Notification("Error", err || failMsg, "warning"));
+
+  const handleSend = () => {
+    mySwal
+      .fire({
+        title: t("Mark as Sent?"),
+        text: t("Records that this quotation has been sent to the customer."),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, mark sent"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("sent", t("Could not mark sent")));
+  };
+
+  const handleReject = () => {
+    mySwal
+      .fire({
+        title: t("Reject this quotation?"),
+        text: t("Marks the quotation as rejected. You can revert to draft later."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, reject"),
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("rejected", t("Could not reject")));
+  };
+
   useEffect(() => {
     if (id) dispatch(getQuotation(id));
     // Pull live currency master so symbols + base currency are dynamic.
@@ -306,6 +349,10 @@ const ViewQuotation = () => {
   // can't change status (mirrors the Edit button gate).
   const canApprove =
     canEdit && (statusLower === "draft" || statusLower === "sent");
+  // Send: draft → sent. Reject: draft/sent → rejected.
+  const canSend = canEdit && statusLower === "draft";
+  const canReject =
+    canEdit && (statusLower === "draft" || statusLower === "sent");
 
   const statusLabel = labelize(statusLower, QUOTATION_STATUS_OPTIONS);
 
@@ -381,12 +428,28 @@ const ViewQuotation = () => {
   // ── Header actions ──
   const headerActions = [
     {
+      icon: Send,
+      label: t("Mark as Sent"),
+      onClick: handleSend,
+      hidden: !canSend,
+      outline: true,
+      color: "primary",
+    },
+    {
       icon: CheckCircle,
       label: t("Mark as Approve"),
       onClick: handleApprove,
       hidden: !canApprove,
       outline: false,
       color: "success",
+    },
+    {
+      icon: XCircle,
+      label: t("Reject"),
+      onClick: handleReject,
+      hidden: !canReject,
+      outline: true,
+      color: "danger",
     },
     {
       icon: FileText,
