@@ -238,15 +238,17 @@ const RfqView = () => {
 
   const alreadyAdded = (vId) => vendors.some((rv) => rv.vendor_id === vId);
 
-  // Single-vendor RFQ: selecting a vendor attaches it directly (no Add step).
-  // Draft holds it locally (until Save); a saved RFQ persists it immediately.
+  // Multi-vendor RFQ: the Select is an "Add vendor" control. Each pick APPENDS
+  // a vendor (deduped) and makes it the active one; a saved RFQ persists it
+  // immediately via addRfqVendors, a draft holds it locally until Save.
   const onSelectVendor = (vendorId) => {
-    setAddVendorId(vendorId);
-    if (!vendorId) {
-      if (isDraft) setDraftVendors([]);
+    if (!vendorId) return;
+    if (alreadyAdded(vendorId)) {
+      // Already present — just switch to it as the active column.
+      setAddVendorId(vendorId);
       return;
     }
-    if (alreadyAdded(vendorId)) return;
+    setAddVendorId(vendorId);
     if (!isDraft) {
       dispatch(addRfqVendors({ id, data: { vendor_ids: [vendorId] } }));
       return;
@@ -255,7 +257,8 @@ const RfqView = () => {
       (x) => x._id === vendorId
     );
     const opt = vendorOptions.find((o) => o.value === vendorId);
-    setDraftVendors([
+    setDraftVendors((prev) => [
+      ...prev,
       {
         _id: vendorId,
         vendor_id: vendorId,
@@ -263,6 +266,15 @@ const RfqView = () => {
         vendor_code: raw?.vendor_code || "",
       },
     ]);
+  };
+
+  // Remove a vendor's column from a draft RFQ (local only, no confirm).
+  const onRemoveDraftVendor = (vendorId) => {
+    setDraftVendors((prev) => prev.filter((v) => v.vendor_id !== vendorId));
+    if (addVendorId === vendorId) {
+      const next = draftVendors.find((v) => v.vendor_id !== vendorId);
+      setAddVendorId(next?.vendor_id || "");
+    }
   };
 
   // Change the RFQ status on a saved record. Any → any (ops may correct
@@ -527,6 +539,41 @@ const RfqView = () => {
       .finally(() => setExporting(false));
   };
 
+  // Export EVERY vendor's price-request sheet at once — the backend returns a
+  // zip of per-vendor .xlsx files. Mirrors the single-sheet blob/anchor flow.
+  const exportAllSheets = () => {
+    if (!exportLeadId || !vendors.length) {
+      Notification("Validation", t("Add at least one vendor first."), "warning");
+      return;
+    }
+    setExporting(true);
+    const sanitize = (s) =>
+      (s || "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+    const base =
+      sanitize(rfq?.voucher_no) ||
+      sanitize(leadVoucher) ||
+      (exportLeadId ? `LEAD-${exportLeadId.slice(0, 6)}` : "RFQ");
+    instance
+      .get(API_ENDPOINTS.rfq.vendorPriceSheets, {
+        params: {
+          lead_id: exportLeadId,
+          vendor_ids: vendors.map((v) => v.vendor_id).join(","),
+        },
+        responseType: "blob",
+      })
+      .then((resp) => {
+        const blob = new Blob([resp.data], { type: "application/zip" });
+        const link = document.createElement("a");
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `RFQ-${base}-sheets.zip`;
+        link.click();
+      })
+      .catch(() =>
+        Notification("Error", t("Could not export the sheets."), "warning")
+      )
+      .finally(() => setExporting(false));
+  };
+
   // Export checkboxes for the active (single) vendor.
   const activeChecks = checkedByVendor[activeVendorId] || {};
   const toggleCheck = (lineId) => {
@@ -566,9 +613,6 @@ const RfqView = () => {
   const headerStatus = isDraft ? "draft" : rfq.status;
   const leadCompany = isDraft ? draftLead?.company_name : rfq.lead_company_name;
   const leadVoucher = isDraft ? draftLead?.voucher_no : rfq.lead_voucher_no;
-  const leadContact = isDraft ? draftLead?.contact_name : rfq.lead_contact_name;
-  const leadEmail = isDraft ? draftLead?.contact_email : rfq.lead_contact_email;
-  const leadPhone = isDraft ? draftLead?.contact_phone : rfq.lead_contact_phone;
   const exportLeadId = isDraft ? leadIdParam : rfq?.lead_id;
 
   // The RFQ's single vendor (for the header label).
@@ -650,7 +694,7 @@ const RfqView = () => {
                 })}
               </div>
             )}
-            {(leadCompany || leadVoucher || leadContact) && (
+            {(leadCompany || leadVoucher) && (
               <div className="mt-50">
                 <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
                   {t("Lead Details")}
@@ -666,11 +710,6 @@ const RfqView = () => {
                       {t("Lead")}: {leadVoucher}
                     </span>
                   )}
-                  {leadContact && (
-                    <span className="text-capitalize">· {leadContact}</span>
-                  )}
-                  {leadEmail && <span>· {leadEmail}</span>}
-                  {leadPhone && <span>· {leadPhone}</span>}
                 </div>
               </div>
             )}
@@ -736,29 +775,16 @@ const RfqView = () => {
               <Select
                 classNamePrefix="select"
                 options={vendorOptions}
-                value={
-                  vendorOptions.find((o) => o.value === activeVendorId) || null
-                }
+                // "Add vendor" control — clears after each pick so the user can
+                // immediately add another vendor (the active one shows via chips).
+                value={null}
                 onChange={(opt) => onSelectVendor(opt?.value || "")}
-                placeholder={t("Select a vendor…")}
-                // A saved RFQ may now hold multiple vendors; only lock the
-                // selector while a mutation is in flight. A draft is single-
-                // vendor (re-selectable until saved).
-                isDisabled={store?.loading || (isDraft && vendors.length >= 1)}
+                placeholder={t("Add a vendor…")}
+                // Only lock while a mutation is in flight — both draft and saved
+                // RFQs now hold multiple vendors.
+                isDisabled={store?.loading}
               />
             </div>
-            {/* Detach the active vendor from a saved RFQ. */}
-            {!isDraft && activeVendorId && alreadyAdded(activeVendorId) && (
-              <Button
-                color="flat-danger"
-                size="sm"
-                disabled={store?.loading}
-                title={t("Remove vendor")}
-                onClick={() => onRemoveVendor(activeVendorId)}
-              >
-                <X size={14} className="me-25" /> {t("Remove vendor")}
-              </Button>
-            )}
             <Button
               color="success"
               size="sm"
@@ -776,6 +802,17 @@ const RfqView = () => {
                 </>
               )}
             </Button>
+            <Button
+              color="success"
+              size="sm"
+              outline
+              onClick={exportAllSheets}
+              disabled={exporting || vendors.length === 0}
+              title={t("Export a sheet for every vendor (zip)")}
+            >
+              <Download size={14} className="me-25" />{" "}
+              {t("Export Sheets (All Vendors)")}
+            </Button>
             {vendors.length > 0 && (
               <Button
                 color="success"
@@ -790,6 +827,45 @@ const RfqView = () => {
           </div>
         </CardHeader>
         <CardBody>
+          {/* Vendor chip bar — click a chip to make it the active column,
+              × removes it (draft: local; saved: confirmed via onRemoveVendor). */}
+          {vendors.length > 0 && (
+            <div className="d-flex flex-wrap align-items-center gap-50 mb-1">
+              <span className="text-uppercase text-muted fw-bold me-25" style={{ fontSize: "0.7rem", letterSpacing: "0.5px" }}>
+                {t("Vendors")}:
+              </span>
+              {vendors.map((v) => {
+                const isActive = v.vendor_id === activeVendorId;
+                const label = v.vendor_code
+                  ? `${v.vendor_name || ""} [${v.vendor_code}]`
+                  : v.vendor_name || "";
+                return (
+                  <Badge
+                    key={v.vendor_id}
+                    color={isActive ? "primary" : "light-secondary"}
+                    className="d-inline-flex align-items-center cursor-pointer"
+                    role="button"
+                    onClick={() => setAddVendorId(v.vendor_id)}
+                    title={t("Show this vendor's prices")}
+                  >
+                    <span className="fw-semibold">{label}</span>
+                    <span
+                      className="ms-50 lh-1 d-inline-flex"
+                      title={t("Remove vendor")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (store?.loading) return;
+                        if (isDraft) onRemoveDraftVendor(v.vendor_id);
+                        else onRemoveVendor(v.vendor_id);
+                      }}
+                    >
+                      <X size={14} />
+                    </span>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
           {lines.length === 0 ? (
             <div className="text-center text-muted py-3">
               {t("This lead has no requirement items.")}
@@ -799,7 +875,7 @@ const RfqView = () => {
               {!addVendorId && (
                 <div className="text-muted small mb-1">
                   {t(
-                    "Select a vendor above to tick the products they supply and export their sheet."
+                    "Add a vendor above to tick the products they supply and export their sheet."
                   )}
                 </div>
               )}
