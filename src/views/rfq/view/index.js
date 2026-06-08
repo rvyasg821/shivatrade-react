@@ -108,6 +108,22 @@ const RfqView = () => {
   const [page, setPage] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Unsaved-work flag: a draft with vendors added, or typed prices not yet
+  // saved. Drives the "leave anyway?" guard on tab close / refresh.
+  const [dirty, setDirty] = useState(false);
+
+  // Warn before the browser unloads (close / refresh / back) if there's
+  // unsaved RFQ work — pairs with auto-save-on-export to prevent data loss.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   useEffect(() => {
     // Clear any global overlay left on by the list page; the detail page
@@ -266,6 +282,7 @@ const RfqView = () => {
         vendor_code: raw?.vendor_code || "",
       },
     ]);
+    setDirty(true);
   };
 
   // Remove a vendor's column from a draft RFQ (local only, no confirm).
@@ -342,6 +359,8 @@ const RfqView = () => {
       }
       return next;
     });
+    // Imported prices aren't persisted to the RFQ until Save.
+    setDirty(true);
   };
 
   const collectPrices = () => {
@@ -369,72 +388,79 @@ const RfqView = () => {
     return prices;
   };
 
+  // Persist a draft RFQ (createFromLead + any typed prices/checks) and navigate
+  // to the saved record. Returns the new rfq id, or null on failure. Shared by
+  // Save AND Export so an exported sheet can never reference an unsaved RFQ.
+  const persistDraftRfq = async () => {
+    if (!leadIdParam) {
+      Notification("Error", t("Missing lead reference."), "warning");
+      return null;
+    }
+    if (!vendors.length) {
+      Notification("Validation", t("Add at least one vendor."), "warning");
+      return null;
+    }
+    setSaving(true);
+    try {
+      const res = await dispatch(
+        createRfqFromLead({
+          leadId: leadIdParam,
+          data: { vendor_ids: vendors.map((v) => v.vendor_id) },
+        })
+      ).unwrap();
+      const newRfq = res?.rfqItem;
+      if (!newRfq?._id) {
+        Notification(
+          "Error",
+          res?.error || t("Could not create the RFQ."),
+          "warning"
+        );
+        return null;
+      }
+      // Map each draft price's lead-line ref to the freshly-created
+      // rfq_line_id (the new lines carry lead_line_id back).
+      const lineByLead = {};
+      for (const rl of newRfq.lines || []) {
+        if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
+      }
+      const collected = collectPrices();
+      const mapped = collected
+        .map((p) => ({
+          rfq_line_id: lineByLead[p.lineRef],
+          vendor_id: p.vendor_id,
+          unit_price: p.unit_price,
+          discount_pct: p.discount_pct,
+        }))
+        .filter((p) => p.rfq_line_id);
+      const checks = checkedByVendor[activeVendorId] || {};
+      const checkedLineIds = lines
+        .filter((l) => checks[l._id])
+        .map((l) => lineByLead[l._id])
+        .filter(Boolean);
+      if (mapped.length || checkedLineIds.length) {
+        await dispatch(
+          setRfqPrices({
+            id: newRfq._id,
+            data: { prices: mapped, checked_line_ids: checkedLineIds },
+          })
+        ).unwrap();
+      }
+      setDirty(false);
+      navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
+      return newRfq._id;
+    } catch (e) {
+      Notification("Error", t("Could not create the RFQ."), "warning");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onSavePrices = async () => {
     const collected = collectPrices();
 
     if (isDraft) {
-      // Persist the RFQ as soon as vendors are chosen — prices arrive days
-      // later via the Excel round-trip, so the RFQ must survive a navigate-away.
-      // Prices are optional at this point.
-      if (!leadIdParam) {
-        Notification("Error", t("Missing lead reference."), "warning");
-        return;
-      }
-      if (!vendors.length) {
-        Notification("Validation", t("Add at least one vendor."), "warning");
-        return;
-      }
-      setSaving(true);
-      try {
-        const res = await dispatch(
-          createRfqFromLead({
-            leadId: leadIdParam,
-            data: { vendor_ids: vendors.map((v) => v.vendor_id) },
-          })
-        ).unwrap();
-        const newRfq = res?.rfqItem;
-        if (!newRfq?._id) {
-          Notification(
-            "Error",
-            res?.error || t("Could not create the RFQ."),
-            "warning"
-          );
-          return;
-        }
-        // Map each draft price's lead-line ref to the freshly-created
-        // rfq_line_id (the new lines carry lead_line_id back).
-        const lineByLead = {};
-        for (const rl of newRfq.lines || []) {
-          if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
-        }
-        const mapped = collected
-          .map((p) => ({
-            rfq_line_id: lineByLead[p.lineRef],
-            vendor_id: p.vendor_id,
-            unit_price: p.unit_price,
-            discount_pct: p.discount_pct,
-          }))
-          .filter((p) => p.rfq_line_id);
-        // Persist the export checkbox state (lead-line ids → rfq_line ids).
-        const checks = checkedByVendor[activeVendorId] || {};
-        const checkedLineIds = lines
-          .filter((l) => checks[l._id])
-          .map((l) => lineByLead[l._id])
-          .filter(Boolean);
-        if (mapped.length || checkedLineIds.length) {
-          await dispatch(
-            setRfqPrices({
-              id: newRfq._id,
-              data: { prices: mapped, checked_line_ids: checkedLineIds },
-            })
-          ).unwrap();
-        }
-        navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
-      } catch (e) {
-        Notification("Error", t("Could not create the RFQ."), "warning");
-      } finally {
-        setSaving(false);
-      }
+      await persistDraftRfq();
       return;
     }
 
@@ -463,6 +489,7 @@ const RfqView = () => {
           },
         })
       ).unwrap();
+      setDirty(false);
     } catch (e) {
       Notification("Error", t("Could not save prices."), "warning");
     } finally {
@@ -490,10 +517,17 @@ const RfqView = () => {
 
   // Export a single vendor's price-request sheet (one .xlsx) — only the checked
   // products (the ones this vendor supplies). One vendor at a time.
-  const exportVendorSheet = () => {
+  const exportVendorSheet = async () => {
     if (!exportLeadId || !addVendorId) {
       Notification("Validation", t("Select a vendor first."), "warning");
       return;
+    }
+    // Auto-save a draft before exporting so the sheet always ties to a real
+    // RFQ (and a later import can stamp source_rfq_id). The page navigates to
+    // the saved RFQ; the export below still runs off the (unchanged) lead.
+    if (isDraft) {
+      const newId = await persistDraftRfq();
+      if (!newId) return;
     }
     const checks = checkedByVendor[addVendorId] || {};
     const productIds = lines
@@ -541,10 +575,15 @@ const RfqView = () => {
 
   // Export EVERY vendor's price-request sheet at once — the backend returns a
   // zip of per-vendor .xlsx files. Mirrors the single-sheet blob/anchor flow.
-  const exportAllSheets = () => {
+  const exportAllSheets = async () => {
     if (!exportLeadId || !vendors.length) {
       Notification("Validation", t("Add at least one vendor first."), "warning");
       return;
+    }
+    // Auto-save a draft before exporting (see exportVendorSheet).
+    if (isDraft) {
+      const newId = await persistDraftRfq();
+      if (!newId) return;
     }
     setExporting(true);
     const sanitize = (s) =>
