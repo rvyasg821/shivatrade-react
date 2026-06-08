@@ -37,11 +37,11 @@ const LeadDocsTabs = () => {
       onClick: () => navigate(`${appsRoot}/leads/edit/${id}`),
     },
     rfq: {
-      label: t("RFQ"),
+      label: t("Create RFQ"),
       onClick: () => navigate(`${appsRoot}/rfq/view/new?lead_id=${id}`),
     },
     quotation: {
-      label: t("Quote"),
+      label: t("Create Quote"),
       onClick: () => navigate(`${appsRoot}/quotations/add?lead_id=${id}`),
     },
   }[active];
