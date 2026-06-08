@@ -769,7 +769,7 @@ const RfqView = () => {
         <CardHeader className="d-flex justify-content-between align-items-start flex-wrap gap-1">
           <div>
             <CardTitle tag="h6" className="mb-25">
-              {t("Vendor Pricing")}
+              {t("Collect Vendor Prices")}
             </CardTitle>
             <div className="text-muted" style={{ fontSize: "0.75rem" }}>
               {t(
