@@ -272,27 +272,64 @@ const QuotationWizard = () => {
     // triggered by the watchedLeadId effect once lead_id is set on the form.
     if (!lead || !(lead.lines || []).length) return;
     if (urlLeadId && lead._id !== urlLeadId) return;
+    // Wait for the product dropdown so the master fallback (price / margin /
+    // rebates / expenses) is available before we seed the lines.
+    if (!(productStore?.productDropdown || []).length) return;
 
     leadSeededRef.current = true;
 
+    // Product master lookup (selling_price / tax_pct / margin_pct / hsn_code /
+    // product_rebates / product_expenses) — the fallback source when a product
+    // has no price-list row.
+    const masterById = {};
+    (productStore?.productDropdown || []).forEach((p) => {
+      if (p?._id) masterById[p._id] = p;
+    });
+    const mapRebates = (m) =>
+      (m?.product_rebates || []).map((r) => ({
+        rebate_id: r.rebate_id,
+        code: r.code,
+        name: r.name,
+        type: r.type ?? "percent",
+        pct: String(r.pct ?? "0"),
+      }));
+    const mapExpenses = (m) =>
+      (m?.product_expenses || []).map((e) => ({
+        expense_id: e.expense_id,
+        code: e.code,
+        name: e.name,
+        type: e.type ?? "fixed",
+        value: String(e.value ?? "0"),
+      }));
+
     const seeded = (lead.lines || [])
       .filter((ll) => ll.product_id)
-      .map((ll) => ({
-        ...initQuotationLineItem,
-        product_id: ll.product_id,
-        description: ll.description || "",
-        customer_reference: ll.customer_reference || "",
-        qty: ll.qty != null ? String(ll.qty) : "",
-        unit: ll.unit || "",
-        hs_code: ll.hs_code || "",
-        net_weight_kg: ll.net_weight_kg != null ? String(ll.net_weight_kg) : "0",
-        gross_weight_kg:
-          ll.gross_weight_kg != null ? String(ll.gross_weight_kg) : "0",
-        package_count: ll.package_count != null ? Number(ll.package_count) : 0,
-        // vendor/price filled below from price-list best-prices.
-        unit_price: "0",
-        vendor_id: "",
-      }));
+      .map((ll) => {
+        const m = masterById[ll.product_id];
+        return {
+          ...initQuotationLineItem,
+          product_id: ll.product_id,
+          description: ll.description || "",
+          customer_reference: ll.customer_reference || "",
+          qty: ll.qty != null ? String(ll.qty) : "",
+          unit: ll.unit || m?.unit_of_measure || "",
+          hs_code: ll.hs_code || (m?.hsn_code != null ? String(m.hsn_code) : ""),
+          // GST %, margin, and rebate/expense snapshots come from the product
+          // master (source of truth); all overridable per line.
+          tax_pct: m?.tax_pct != null ? String(m.tax_pct) : "0",
+          margin_pct: m?.margin_pct != null ? String(m.margin_pct) : "0",
+          product_rebates_snapshot: mapRebates(m),
+          product_expenses_snapshot: mapExpenses(m),
+          net_weight_kg: ll.net_weight_kg != null ? String(ll.net_weight_kg) : "0",
+          gross_weight_kg:
+            ll.gross_weight_kg != null ? String(ll.gross_weight_kg) : "0",
+          package_count: ll.package_count != null ? Number(ll.package_count) : 0,
+          // Cost basis: price-list best price overrides below; otherwise the
+          // product master's default selling price stands.
+          unit_price: m?.selling_price != null ? String(m.selling_price) : "0",
+          vendor_id: "",
+        };
+      });
 
     if (!seeded.length) return;
 
@@ -303,13 +340,22 @@ const QuotationWizard = () => {
     const applyAndReset = (bestByProduct) => {
       const filled = seeded.map((l) => {
         const r = bestByProduct[l.product_id];
+        // No price-list row → keep the product-master fallback already seeded
+        // (selling_price / margin / rebates / expenses).
         if (!r) return l;
+        // Price-list row wins for the cost basis + vendor; margin falls back to
+        // the master when the price-list row carries none; rebate/expense
+        // snapshots stay from the master (product-intrinsic).
         return {
           ...l,
           vendor_id: r.vendor_id || "",
-          unit_price: r.unit_price != null ? String(r.unit_price) : "0",
+          unit_price: r.unit_price != null ? String(r.unit_price) : l.unit_price,
           discount_pct:
             r.discount_pct != null ? String(r.discount_pct) : "0",
+          margin_pct:
+            r.margin_pct != null && r.margin_pct !== ""
+              ? String(r.margin_pct)
+              : l.margin_pct,
           price_list_id: r.price_list_id || "",
           source_rfq_id: r.source_type === "rfq" ? r.source_rfq_id || "" : "",
           source_rfq_voucher_no:
@@ -348,7 +394,7 @@ const QuotationWizard = () => {
         setPricingLoading(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadStore?.leadItem, urlLeadId, urlRfqId]);
+  }, [leadStore?.leadItem, urlLeadId, urlRfqId, productStore?.productDropdown]);
 
   // Exchange rate lookup on currency pick. The fetched master rate ALWAYS
   // populates `rateMeta` (the "Auto-filled / Custom" comparison hint). The
