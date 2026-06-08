@@ -766,12 +766,19 @@ const RfqView = () => {
 
       {/* Comparison grid */}
       <Card>
-        <CardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-1">
-          <CardTitle tag="h6" className="mb-0">
-            {t("Vendor Prices")}
-          </CardTitle>
-          <div className="d-flex align-items-center flex-wrap gap-1">
-            <div style={{ minWidth: 220 }}>
+        <CardHeader className="d-flex justify-content-between align-items-start flex-wrap gap-1">
+          <div>
+            <CardTitle tag="h6" className="mb-25">
+              {t("Vendor Pricing")}
+            </CardTitle>
+            <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+              {t(
+                "Add vendors, export their price sheets, then import each filled sheet to update the price list."
+              )}
+            </div>
+          </div>
+          <div className="d-flex align-items-center flex-wrap gap-50">
+            <div style={{ minWidth: 200 }}>
               <Select
                 classNamePrefix="select"
                 options={vendorOptions}
@@ -779,18 +786,20 @@ const RfqView = () => {
                 // immediately add another vendor (the active one shows via chips).
                 value={null}
                 onChange={(opt) => onSelectVendor(opt?.value || "")}
-                placeholder={t("Add a vendor…")}
+                placeholder={t("+ Add vendor")}
                 // Only lock while a mutation is in flight — both draft and saved
                 // RFQs now hold multiple vendors.
                 isDisabled={store?.loading}
               />
             </div>
+            {/* Export the active vendor's sheet only. */}
             <Button
-              color="success"
+              color="secondary"
               size="sm"
               outline
               onClick={exportVendorSheet}
               disabled={exporting || !addVendorId}
+              title={t("Export the selected vendor's sheet")}
             >
               {exporting ? (
                 <>
@@ -798,12 +807,13 @@ const RfqView = () => {
                 </>
               ) : (
                 <>
-                  <Download size={14} className="me-25" /> {t("Export Excel")}
+                  <Download size={14} className="me-25" /> {t("This Vendor")}
                 </>
               )}
             </Button>
+            {/* Export one sheet per vendor as a zip — the main multi-vendor action. */}
             <Button
-              color="success"
+              color="primary"
               size="sm"
               outline
               onClick={exportAllSheets}
@@ -811,17 +821,17 @@ const RfqView = () => {
               title={t("Export a sheet for every vendor (zip)")}
             >
               <Download size={14} className="me-25" />{" "}
-              {t("Export Sheets (All Vendors)")}
+              {t("All Sheets")}
+              {vendors.length > 0 ? ` (${vendors.length})` : ""}
             </Button>
             {vendors.length > 0 && (
               <Button
-                color="success"
+                color="primary"
                 size="sm"
-                outline
                 onClick={() => setImportModalOpen(true)}
+                title={t("Import a vendor's filled price sheet")}
               >
-                <Upload size={14} className="me-25" />{" "}
-                {t("Import vendor prices")}
+                <Upload size={14} className="me-25" /> {t("Import Prices")}
               </Button>
             )}
           </div>
