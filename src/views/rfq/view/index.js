@@ -63,6 +63,12 @@ const mySwal = withReactContent(Swal);
 
 const key = (lineId, vendorId) => `${lineId}|${vendorId}`;
 
+// Lenient numeric parse for price/qty cells (blank/invalid → 0).
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 // Cap a numeric string to at most 2 decimal places. Used for Qty/Disc display.
 const limit2 = (v) => {
   if (v == null) return "";
@@ -688,11 +694,12 @@ const RfqView = () => {
       <Card className="mb-1">
         <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
           <div>
-            <h4 className="mb-0 d-flex flex-wrap align-items-center gap-1">
-              <span>{headerVoucher}</span>
+            <div className="d-flex flex-wrap align-items-center gap-1">
+              <h4 className="mb-0">{headerVoucher}</h4>
               <Badge
                 color={`light-${STATUS_COLOR[headerStatus] || "secondary"}`}
                 className="text-capitalize"
+                pill
               >
                 {headerStatus}
               </Badge>
@@ -700,8 +707,8 @@ const RfqView = () => {
                   Any → any transition; ops may need to correct mistakes. */}
               {!isDraft && (
                 <UncontrolledButtonDropdown>
-                  <DropdownToggle color="flat-secondary" size="sm" caret>
-                    {t("Change Status")}
+                  <DropdownToggle color="outline-secondary" size="sm" caret>
+                    {t("Status")}
                   </DropdownToggle>
                   <DropdownMenu>
                     {STATUS_OPTIONS.map((s) => (
@@ -718,7 +725,7 @@ const RfqView = () => {
                   </DropdownMenu>
                 </UncontrolledButtonDropdown>
               )}
-            </h4>
+            </div>
             {/* Vendors are shown + managed in the "Collect Vendor Prices"
                 card below. Lead info kept to one compact muted line so the
                 pricing grid surfaces higher. */}
