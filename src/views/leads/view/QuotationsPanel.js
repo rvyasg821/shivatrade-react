@@ -208,6 +208,7 @@ const QuotationsPanel = ({ embedded = false }) => {
                           QUOTATION_STATUS_COLOR[row?.status] || "secondary"
                         }`}
                         className="text-capitalize"
+                        pill
                       >
                         {row?.status || "-"}
                       </Badge>

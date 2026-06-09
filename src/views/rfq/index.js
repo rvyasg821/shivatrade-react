@@ -225,6 +225,7 @@ const RfqList = () => {
         <Badge
           color={`light-${STATUS_COLOR[row?.status] || "secondary"}`}
           className="text-capitalize"
+          pill
         >
           {row?.status || "-"}
         </Badge>
