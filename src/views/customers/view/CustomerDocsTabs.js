@@ -15,6 +15,8 @@ import { FileText, Truck, File, Layers } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
+import { PFI_RETIRED } from "@src/configs/appMode";
+
 import CustomerInvoicesPanel from "./CustomerInvoicesPanel";
 import CustomerPosPanel from "./CustomerPosPanel";
 import CustomerQuotationsPanel from "./CustomerQuotationsPanel";
@@ -70,7 +72,7 @@ const CustomerDocsTabs = () => {
           {tabBtn("invoices", t("Invoices"), File, 0)}
           {tabBtn("pos", t("Purchase Orders"), Truck, poCount)}
           {tabBtn("quotations", t("Quotations"), FileText, quotationCount)}
-          {tabBtn("pfis", t("PFIs"), Layers, pfiCount)}
+          {!PFI_RETIRED && tabBtn("pfis", t("PFIs"), Layers, pfiCount)}
         </Nav>
 
         <TabContent activeTab={active}>
@@ -83,9 +85,11 @@ const CustomerDocsTabs = () => {
           <TabPane tabId="quotations">
             <CustomerQuotationsPanel />
           </TabPane>
-          <TabPane tabId="pfis">
-            <CustomerPfisPanel />
-          </TabPane>
+          {!PFI_RETIRED && (
+            <TabPane tabId="pfis">
+              <CustomerPfisPanel />
+            </TabPane>
+          )}
         </TabContent>
       </CardBody>
     </Card>

@@ -25,6 +25,7 @@ import {
 } from "@src/views/purchase-orders/store";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -185,7 +186,7 @@ const ViewPurchaseOrder = () => {
           {p._id.slice(-8).toUpperCase()}
         </span>
       ) : null}
-      {p?.pfi_id ? (
+      {!PFI_RETIRED && p?.pfi_id ? (
         <a
           href={`${appsRoot}/pfi/view/${p.pfi_id}`}
           target="_blank"

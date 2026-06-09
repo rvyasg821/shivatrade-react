@@ -18,6 +18,7 @@ import {
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatDate } from "@src/utility/dateFormat";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import appLogo from "@src/assets/images/logo/login-logo.png";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
@@ -263,15 +264,21 @@ const PurchaseOrderPublicView = () => {
                     {sym} {p.currency_code || "-"}
                   </span>
                 </div>
-                {(p.pfi_voucher_no || p.quotation_voucher_no) && (
+                {(PFI_RETIRED
+                  ? p.quotation_voucher_no
+                  : p.pfi_voucher_no || p.quotation_voucher_no) && (
                   <div
                     className="party-muted"
                     style={{ fontSize: "0.85rem" }}
                   >
-                    {p.pfi_voucher_no ? t("Source PFI") : t("Source Quote")}
+                    {!PFI_RETIRED && p.pfi_voucher_no
+                      ? t("Source PFI")
+                      : t("Source Quote")}
                     :{" "}
                     <span className="fw-semibold">
-                      {p.pfi_voucher_no || p.quotation_voucher_no}
+                      {!PFI_RETIRED && p.pfi_voucher_no
+                        ? p.pfi_voucher_no
+                        : p.quotation_voucher_no}
                     </span>
                   </div>
                 )}

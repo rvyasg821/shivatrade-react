@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { getCustomer, cleanCustomerMessage } from "@src/views/customers/store";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 
 import {
   DetailHeader,
@@ -96,13 +97,17 @@ const ViewCustomer = () => {
       icon: FileText,
       tone: "secondary",
     },
-    {
-      key: "pfis",
-      label: t("PFIs"),
-      value: pfiCount,
-      icon: Layers,
-      tone: "secondary",
-    },
+    ...(PFI_RETIRED
+      ? []
+      : [
+          {
+            key: "pfis",
+            label: t("PFIs"),
+            value: pfiCount,
+            icon: Layers,
+            tone: "secondary",
+          },
+        ]),
   ];
 
   const headerActions = [
