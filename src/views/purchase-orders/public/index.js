@@ -462,7 +462,7 @@ const PurchaseOrderPublicView = () => {
 
             {/* Footer */}
             <div className="qd-footer">
-              {t("This is a computer-generated purchase order.")}
+              {t("This is a computer-generated sales order.")}
             </div>
           </div>
         </div>
