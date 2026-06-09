@@ -313,15 +313,22 @@ const LeadList = () => {
       selector: (row) => {
         const count = Number(row?.line_items_count || 0);
         const val = Number(row?.estimated_sales_value || 0);
+        // estimated_sales_value is base INR; show it in the lead currency.
+        const display =
+          val > 0
+            ? `~ ${formatMoney(
+                convertFromInr(val, row?.currency, exchangeOptions),
+                row?.currency,
+                { maximumFractionDigits: 0 }
+              )}`
+            : null;
         return (
           <div className="py-1">
             <div className="fw-bold">
               {count} {count === 1 ? t("item") : t("items")}
             </div>
-            {val > 0 ? (
-              <div className="small text-muted">
-                ~ ₹{val.toLocaleString("en-IN")}
-              </div>
+            {display ? (
+              <div className="small text-muted">{display}</div>
             ) : null}
           </div>
         );
@@ -340,13 +347,16 @@ const LeadList = () => {
           lost: "#dc3545",
         };
         const c = colorMap[row?.status] || "#6c757d";
-        // Table CSS uses !important on cell color, so React's style prop
-        // alone gets overridden. Apply with priority via ref.
+        // Pill badge with a light tint of the status color. Forced via ref
+        // because the global `.table td` rule overrides class/inline styles.
         return (
           <span
-            className="text-capitalize text-nowrap fw-bold"
+            className="badge rounded-pill text-capitalize text-nowrap"
             ref={(el) => {
-              if (el) el.style.setProperty("color", c, "important");
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
             }}
           >
             {statusLabel(row?.status)}

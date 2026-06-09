@@ -139,6 +139,7 @@ const RfqsPanel = ({ embedded = false }) => {
                         RFQ_STATUS_COLOR[row?.status] || "secondary"
                       }`}
                       className="text-capitalize"
+                      pill
                     >
                       {row?.status || "-"}
                     </Badge>

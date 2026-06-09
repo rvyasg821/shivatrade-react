@@ -26,6 +26,7 @@ import {
   Save,
   FileText,
   X,
+  Check,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -62,6 +63,12 @@ const STATUS_OPTIONS = ["draft", "sent", "quoting", "completed", "cancelled"];
 const mySwal = withReactContent(Swal);
 
 const key = (lineId, vendorId) => `${lineId}|${vendorId}`;
+
+// Lenient numeric parse for price/qty cells (blank/invalid → 0).
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 // Cap a numeric string to at most 2 decimal places. Used for Qty/Disc display.
 const limit2 = (v) => {
@@ -688,11 +695,12 @@ const RfqView = () => {
       <Card className="mb-1">
         <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
           <div>
-            <h4 className="mb-0 d-flex flex-wrap align-items-center gap-1">
-              <span>{headerVoucher}</span>
+            <div className="d-flex flex-wrap align-items-center gap-1">
+              <h4 className="mb-0">{headerVoucher}</h4>
               <Badge
                 color={`light-${STATUS_COLOR[headerStatus] || "secondary"}`}
                 className="text-capitalize"
+                pill
               >
                 {headerStatus}
               </Badge>
@@ -700,25 +708,58 @@ const RfqView = () => {
                   Any → any transition; ops may need to correct mistakes. */}
               {!isDraft && (
                 <UncontrolledButtonDropdown>
-                  <DropdownToggle color="flat-secondary" size="sm" caret>
+                  <DropdownToggle color="outline-secondary" size="sm" caret>
                     {t("Change Status")}
                   </DropdownToggle>
-                  <DropdownMenu>
-                    {STATUS_OPTIONS.map((s) => (
-                      <DropdownItem
-                        key={s}
-                        className="text-capitalize"
-                        active={s === rfq?.status}
-                        disabled={store?.loading}
-                        onClick={() => onChangeStatus(s)}
-                      >
-                        {t(s)}
-                      </DropdownItem>
-                    ))}
+                  <DropdownMenu end className="rfq-status-menu">
+                    {/* The theme turns dropdown-item text white on hover with
+                        no fill → invisible on the white menu. Force a readable
+                        light-primary hover instead. */}
+                    <style>{`
+                      .rfq-status-menu .dropdown-item {
+                        display: flex;
+                        align-items: center;
+                        width: 100%;
+                        margin: 0 !important;
+                        border-radius: 0 !important;
+                      }
+                      .rfq-status-menu .dropdown-item:hover,
+                      .rfq-status-menu .dropdown-item:focus {
+                        background-color: rgba(115,103,240,0.12) !important;
+                        color: #7367f0 !important;
+                      }
+                    `}</style>
+                    <DropdownItem header className="text-uppercase small">
+                      {t("Set status")}
+                    </DropdownItem>
+                    {STATUS_OPTIONS.map((s) => {
+                      const isCurrent = s === rfq?.status;
+                      return (
+                        <DropdownItem
+                          key={s}
+                          className={`text-capitalize d-flex align-items-center${
+                            isCurrent ? " fw-bold" : ""
+                          }`}
+                          disabled={store?.loading || isCurrent}
+                          onClick={() => onChangeStatus(s)}
+                        >
+                          <span
+                            className={`bg-${
+                              STATUS_COLOR[s] || "secondary"
+                            } rounded-circle d-inline-block me-50`}
+                            style={{ width: 8, height: 8 }}
+                          />
+                          {t(s)}
+                          {isCurrent && (
+                            <Check size={14} className="ms-auto" />
+                          )}
+                        </DropdownItem>
+                      );
+                    })}
                   </DropdownMenu>
                 </UncontrolledButtonDropdown>
               )}
-            </h4>
+            </div>
             {/* Vendors are shown + managed in the "Collect Vendor Prices"
                 card below. Lead info kept to one compact muted line so the
                 pricing grid surfaces higher. */}
