@@ -70,6 +70,7 @@ import {
 } from "@constant/options";
 import { getCurrencySymbol } from "@src/utility/currency";
 import { formatDate, formatDateTime } from "@src/utility/dateFormat";
+import { PFI_RETIRED } from "@src/configs/appMode";
 
 import {
   DetailHeader,
@@ -533,11 +534,12 @@ const ViewInvoice = () => {
       label: t("PO"),
       value: inv.purchase_order_voucher_no,
     },
-    inv?.pfi_voucher_no && {
-      icon: FileText,
-      label: t("PFI"),
-      value: inv.pfi_voucher_no,
-    },
+    !PFI_RETIRED &&
+      inv?.pfi_voucher_no && {
+        icon: FileText,
+        label: t("PFI"),
+        value: inv.pfi_voucher_no,
+      },
     inv?.quotation_voucher_no && {
       icon: FileText,
       label: t("Quotation"),

@@ -21,6 +21,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -188,7 +189,7 @@ const PurchaseOrderInfoCard = () => {
             <Fragment>
               <SectionLabel>{t("References")}</SectionLabel>
               <ul className="list-unstyled mb-2">
-                {p?.pfi_id && (
+                {!PFI_RETIRED && p?.pfi_id && (
                   <InfoRow
                     icon={FileText}
                     value={

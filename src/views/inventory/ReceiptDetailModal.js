@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 
 import { getReceiptDetail, clearReceiptDetail } from "./store";
 import { appsRoot } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import { formatDate } from "@src/utility/dateFormat";
 import { getCurrencySymbol } from "@src/utility/currency";
 
@@ -250,19 +251,21 @@ const ReceiptDetailModal = ({ isOpen, povLineId, toggle }) => {
             {chain.delivery_address ? (
               <Row label={t("Delivery")} value={chain.delivery_address} />
             ) : null}
-            <Row
-              label={t("PFI #")}
-              value={
-                <OpenLink
-                  to={
-                    chain.pfi_id
-                      ? `${appsRoot}/pfi/view/${chain.pfi_id}`
-                      : null
-                  }
-                  label={chain.pfi_voucher_no}
-                />
-              }
-            />
+            {!PFI_RETIRED && (
+              <Row
+                label={t("PFI #")}
+                value={
+                  <OpenLink
+                    to={
+                      chain.pfi_id
+                        ? `${appsRoot}/pfi/view/${chain.pfi_id}`
+                        : null
+                    }
+                    label={chain.pfi_voucher_no}
+                  />
+                }
+              />
+            )}
             <Row
               label={t("Quotation #")}
               value={

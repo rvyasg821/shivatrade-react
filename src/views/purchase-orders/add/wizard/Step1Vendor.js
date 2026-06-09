@@ -11,6 +11,7 @@ import { ExternalLink } from "react-feather";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
 import { getCurrencySymbol } from "@src/utility/currency";
@@ -75,7 +76,7 @@ const Step1Vendor = ({
         {(sourcePfiId || sourceQuotationId) && (
           <small className="text-muted">
             {t("Linked from source")}{" "}
-            {sourcePfiId ? t("PFI") : t("Quotation")}.
+            {!PFI_RETIRED && sourcePfiId ? t("PFI") : t("Quotation")}.
           </small>
         )}
       </Col>
@@ -339,15 +340,15 @@ const Step1Vendor = ({
       <Col md="12" className="mb-2">
         <Label className="form-label">{t("Source")}</Label>
         <div className="form-control bg-light d-flex justify-content-between align-items-center">
-          {sourcePfiVoucher || sourceQuotationVoucher ? (
+          {(PFI_RETIRED ? sourceQuotationVoucher : sourcePfiVoucher || sourceQuotationVoucher) ? (
             <>
               <span>
                 🔗{" "}
-                {sourcePfiVoucher
+                {!PFI_RETIRED && sourcePfiVoucher
                   ? `PFI ${sourcePfiVoucher}`
                   : `Quote ${sourceQuotationVoucher}`}
               </span>
-              {sourcePfiId && (
+              {!PFI_RETIRED && sourcePfiId && (
                 <a
                   href={`${appsRoot}/pfi/view/${sourcePfiId}`}
                   target="_blank"
@@ -357,7 +358,7 @@ const Step1Vendor = ({
                   <ExternalLink size={16} />
                 </a>
               )}
-              {!sourcePfiId && sourceQuotationId && (
+              {(PFI_RETIRED || !sourcePfiId) && sourceQuotationId && (
                 <a
                   href={`${appsRoot}/quotations/view/${sourceQuotationId}`}
                   target="_blank"
@@ -370,7 +371,9 @@ const Step1Vendor = ({
             </>
           ) : (
             <small className="text-muted">
-              {t("Standalone PO (not linked to a PFI / Quotation).")}
+              {PFI_RETIRED
+                ? t("Standalone PO (not linked to a Quotation).")
+                : t("Standalone PO (not linked to a PFI / Quotation).")}
             </small>
           )}
         </div>

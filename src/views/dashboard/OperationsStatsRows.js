@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 
 import { fetchOperationsStats } from "./store";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import { formatDate } from "@src/utility/dateFormat";
 
 const fmt = (v) =>
@@ -139,7 +140,7 @@ const OperationsStatsRows = () => {
                 />
               </Col>
             )}
-            {can("pfi") && (
+            {!PFI_RETIRED && can("pfi") && (
               <Col md="3" sm="6" className="mb-2">
                 <Tile
                   icon={FileText}
