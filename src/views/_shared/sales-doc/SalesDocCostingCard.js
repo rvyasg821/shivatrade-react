@@ -35,7 +35,7 @@ const SalesDocCostingCard = ({
    */
   currencyView,
   /** Render without the outer Card chrome + inner title/divider — for when
-   *  the caller already wraps it in a titled panel (quotation detail). */
+   *  the caller already wraps it in a titled panel (detail pages). */
   bare = false,
 }) => {
   const { t } = useTranslation();
