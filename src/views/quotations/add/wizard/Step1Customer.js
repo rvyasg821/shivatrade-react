@@ -58,6 +58,11 @@ const Step1Customer = ({
               isClearable
               isDisabled={isLocked}
               options={customerOptions}
+              placeholder={
+                watchedLeadId
+                  ? t("Auto-create from lead — or pick an existing customer")
+                  : t("Select customer")
+              }
               value={
                 customerOptions.find((o) => o.value === field.value) || null
               }
@@ -68,19 +73,22 @@ const Step1Customer = ({
             />
           )}
         />
-        {watchedLeadId &&
-          !watch("customer_id") &&
-          leadStore?.leadItem?._id === watchedLeadId && (
-            <small className="text-info d-block mt-1">
-              {t("Customer will be auto-created from lead ")}
-              <strong>
-                {leadStore.leadItem.company_name ||
+        {/* From a lead with no explicit customer: the backend auto-creates
+            (or matches by email) on save. Always surface this so the empty
+            dropdown never reads as a blocking required field. */}
+        {watchedLeadId && !watch("customer_id") && (
+          <small className="text-info d-block mt-1">
+            {t("Customer will be auto-created from lead ")}
+            <strong>
+              {leadStore?.leadItem?._id === watchedLeadId
+                ? leadStore.leadItem.company_name ||
                   leadStore.leadItem.contact_name ||
-                  "-"}
-              </strong>
-              {t(" on save (or matched by email if exists).")}
-            </small>
-          )}
+                  ""
+                : ""}
+            </strong>
+            {t(" on save (or matched by email if it already exists).")}
+          </small>
+        )}
         {errors.customer_id && (
           <FormFeedback className="d-block">
             {errors.customer_id.message}

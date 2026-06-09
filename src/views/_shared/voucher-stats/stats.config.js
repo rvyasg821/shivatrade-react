@@ -155,13 +155,6 @@ export const STATS_CONFIG = {
         icon: "XCircle",
         color: "danger",
       },
-      {
-        key: "value",
-        label: "Pipeline Total Value",
-        money: "total_amount_inr",
-        icon: "TrendingUp",
-        color: "secondary",
-      },
     ],
   },
 

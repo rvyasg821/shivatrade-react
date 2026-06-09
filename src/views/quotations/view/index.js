@@ -22,6 +22,8 @@ import {
   Percent,
   FileText,
   CheckCircle,
+  Send,
+  XCircle,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -119,14 +121,18 @@ const ViewQuotation = () => {
   const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
 
-  // Currency-view toggle: OFF (default) → ShivaTrade's base currency (INR);
-  // ON → the quotation's own currency. Persisted in localStorage so the
-  // operator's choice survives reloads.
+  // Currency-view toggle. Default → the quotation's OWN (customer/document)
+  // currency — that's what the quote is denominated in and what the customer
+  // sees; base INR is the internal reference behind the toggle. The operator's
+  // manual choice is remembered in localStorage and wins over the default.
   const [showDoc, setShowDoc] = useState(() => {
     try {
-      return localStorage.getItem(QUOTATION_CURRENCY_LS_KEY) === "1";
+      const stored = localStorage.getItem(QUOTATION_CURRENCY_LS_KEY);
+      if (stored === "1") return true;
+      if (stored === "0") return false;
+      return true; // no stored preference → show the document currency
     } catch {
-      return false;
+      return true;
     }
   });
   useEffect(() => {
@@ -203,6 +209,47 @@ const ViewQuotation = () => {
             Notification("Error", err || t("Approval failed"), "warning")
           );
       });
+  };
+
+  // One-click status transitions (no need to open the edit wizard).
+  const changeStatus = (status, failMsg) =>
+    dispatch(updateQuotation({ id, data: { status } }))
+      .unwrap()
+      .then(() => dispatch(getQuotation(id)))
+      .catch((err) => Notification("Error", err || failMsg, "warning"));
+
+  const handleSend = () => {
+    mySwal
+      .fire({
+        title: t("Mark as Sent?"),
+        text: t("Records that this quotation has been sent to the customer."),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, mark sent"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("sent", t("Could not mark sent")));
+  };
+
+  const handleReject = () => {
+    mySwal
+      .fire({
+        title: t("Reject this quotation?"),
+        text: t("Marks the quotation as rejected. You can revert to draft later."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, reject"),
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("rejected", t("Could not reject")));
   };
 
   useEffect(() => {
@@ -306,6 +353,10 @@ const ViewQuotation = () => {
   // can't change status (mirrors the Edit button gate).
   const canApprove =
     canEdit && (statusLower === "draft" || statusLower === "sent");
+  // Send: draft → sent. Reject: draft/sent → rejected.
+  const canSend = canEdit && statusLower === "draft";
+  const canReject =
+    canEdit && (statusLower === "draft" || statusLower === "sent");
 
   const statusLabel = labelize(statusLower, QUOTATION_STATUS_OPTIONS);
 
@@ -381,12 +432,28 @@ const ViewQuotation = () => {
   // ── Header actions ──
   const headerActions = [
     {
+      icon: Send,
+      label: t("Mark as Sent"),
+      onClick: handleSend,
+      hidden: !canSend,
+      outline: true,
+      color: "primary",
+    },
+    {
       icon: CheckCircle,
       label: t("Mark as Approve"),
       onClick: handleApprove,
       hidden: !canApprove,
       outline: false,
       color: "success",
+    },
+    {
+      icon: XCircle,
+      label: t("Reject"),
+      onClick: handleReject,
+      hidden: !canReject,
+      outline: true,
+      color: "danger",
     },
     {
       icon: FileText,
@@ -456,6 +523,7 @@ const ViewQuotation = () => {
   // base-currency quotations (nothing to convert).
   const currencyToggle = isBaseCurrency ? null : (
     <div className="d-flex align-items-center gap-50">
+      <span className="small text-muted me-25">{t("View")}:</span>
       <span
         className={`small fw-semibold ${
           showDocEffective ? "text-muted" : "text-primary"
