@@ -347,13 +347,16 @@ const LeadList = () => {
           lost: "#dc3545",
         };
         const c = colorMap[row?.status] || "#6c757d";
-        // Table CSS uses !important on cell color, so React's style prop
-        // alone gets overridden. Apply with priority via ref.
+        // Pill badge with a light tint of the status color. Forced via ref
+        // because the global `.table td` rule overrides class/inline styles.
         return (
           <span
-            className="text-capitalize text-nowrap fw-bold"
+            className="badge rounded-pill text-capitalize text-nowrap"
             ref={(el) => {
-              if (el) el.style.setProperty("color", c, "important");
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
             }}
           >
             {statusLabel(row?.status)}
