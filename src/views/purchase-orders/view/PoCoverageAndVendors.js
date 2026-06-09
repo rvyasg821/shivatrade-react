@@ -261,14 +261,16 @@ export const PoCoveragePanel = ({ data }) => {
                       {[
                         l?.product_code,
                         l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
-                        l?.unit ? `${t("Unit")}: ${l.unit}` : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </div>
                   </td>
                   <td className="text-end">
-                    {num(l.ordered).toLocaleString()}
+                    {num(l.ordered).toLocaleString()}{" "}
+                    {l?.unit ? (
+                      <small className="text-muted">{l.unit}</small>
+                    ) : null}
                   </td>
                   <td className="text-end">
                     {num(l.dispatched).toLocaleString()}
