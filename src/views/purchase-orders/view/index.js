@@ -8,6 +8,7 @@
 import { Fragment, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { Button } from "reactstrap";
 import {
   Calendar,
   DollarSign,
@@ -21,6 +22,8 @@ import {
   CheckSquare,
   XCircle,
   RotateCcw,
+  Eye,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -32,6 +35,8 @@ import {
   cleanPurchaseOrderMessage,
 } from "@src/views/purchase-orders/store";
 import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
@@ -42,12 +47,13 @@ import {
   DetailPipeline,
   DetailKpiStrip,
   DetailTwoPanel,
+  DetailPanel,
 } from "@src/views/_shared/detail-page";
 
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 
 import PoRelatedDocsTabs from "./PoRelatedDocsTabs";
-import PoShareLinkPanel from "./PoShareLinkPanel";
 import PoCustomerOrderPanel from "./PoCustomerOrderPanel";
 
 const PIPELINE_STEPS = [
@@ -314,6 +320,56 @@ const ViewPurchaseOrder = () => {
     onClick: () => navigate(-1),
   });
 
+  // Server-side PDF download (same endpoint the listing uses).
+  const handleDownloadPdf = async () => {
+    if (!id) return;
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf`,
+        { responseType: "blob" }
+      );
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${p?.voucher_no || "sales-order"}.pdf`;
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    }
+  };
+
+  // Bottom-of-header row: Preview (opens the print-ready page) + Download
+  // PDF, right-aligned beside the status — mirrors the quotation detail page.
+  const headerFooter = (
+    <div className="d-flex align-items-center flex-wrap justify-content-end gap-1">
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        onClick={() =>
+          window.open(`${appsRoot}/purchase-orders/preview/${id}`, "_blank")
+        }
+      >
+        <Eye size={14} className="me-50" />
+        {t("Preview")}
+      </Button>
+      <Button color="secondary" outline size="sm" onClick={handleDownloadPdf}>
+        <Download size={14} className="me-50" />
+        {t("Download PDF")}
+      </Button>
+    </div>
+  );
+
   const sourceLinks = (
     <span className="d-inline-flex align-items-center flex-wrap gap-1">
       {p?._id ? (
@@ -371,6 +427,7 @@ const ViewPurchaseOrder = () => {
               PURCHASE_ORDER_STATUS_BADGE_COLOR[statusLower] || "secondary",
           }}
           actions={headerActions}
+          actionsFooter={headerFooter}
           moreActions={[]}
           belowSlot={
             <DetailPipeline
@@ -384,11 +441,18 @@ const ViewPurchaseOrder = () => {
         <DetailKpiStrip items={kpiItems} />
 
         <DetailTwoPanel
-          ratio="9-3"
+          ratio="8-4"
           left={<PoRelatedDocsTabs />}
           right={
             <Fragment>
-              <PoShareLinkPanel />
+              <DetailPanel title={t("Costing Breakdown")}>
+                <SalesDocCostingCard
+                  totals={headerTotals}
+                  currencyCode={p?.currency_code}
+                  hideGst
+                  bare
+                />
+              </DetailPanel>
               <PoCustomerOrderPanel />
             </Fragment>
           }
