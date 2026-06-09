@@ -309,6 +309,11 @@ const PurchaseOrderView = () => {
                 {t("Buyer PO")}: {row.customer_po_number}
               </div>
             ) : null}
+            {row?.po_date ? (
+              <div className="small text-muted text-nowrap mt-25">
+                {t("Created")}: {formatDate(row.po_date)}
+              </div>
+            ) : null}
           </div>
         );
       },
@@ -365,13 +370,6 @@ const PurchaseOrderView = () => {
           </span>
         );
       },
-    },
-    {
-      name: t("Created"),
-      sortField: "po_date",
-      sortable: true,
-      minWidth: "120px",
-      selector: (row) => (row?.po_date ? formatDate(row.po_date) : "-"),
     },
     {
       name: t("Expected"),
