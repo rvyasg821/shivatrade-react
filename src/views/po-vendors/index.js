@@ -34,6 +34,7 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import { formatDate } from "@src/utility/dateFormat";
 import { formatMoney } from "@src/utility/currency";
 
@@ -463,6 +464,22 @@ const PoVendorView = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Purchase Order Vendors")}</h3>
         </div>
+
+        <VoucherStatsTiles
+          module="po_vendor"
+          filters={{
+            vendor_id: vendorFilter || undefined,
+            status: statusFilter || undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
 
         <Card className="overflow-hidden">
           <CardBody>
