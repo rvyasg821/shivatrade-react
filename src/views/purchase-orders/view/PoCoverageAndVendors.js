@@ -474,6 +474,11 @@ export const PoVendorsPanel = ({ data }) => {
                 >
                   {t("Open POV detail")}
                 </UncontrolledTooltip>
+                {p.vendor_name ? (
+                  <div className="small text-muted text-capitalize">
+                    {p.vendor_name}
+                  </div>
+                ) : null}
                 <div className="mt-25">
                   <Badge
                     color={`light-${color}`}
