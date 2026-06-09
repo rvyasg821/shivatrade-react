@@ -15,11 +15,12 @@ import {
   ModalFooter,
   UncontrolledPopover,
   PopoverBody,
+  UncontrolledTooltip,
 } from "reactstrap";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import Select from "react-select";
 import AsyncSelect from "react-select/async";
-import { Plus, Trash2, Edit, Check } from "react-feather";
+import { Plus, Trash2, Edit, Check, Info } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -610,11 +611,6 @@ const SalesDocLineItems = ({
                   <>
                     <th className="text-end">{t("Qty")}</th>
                     <th className="text-end">{t("Price")}</th>
-                    <th className="text-end">{t("Disc")}</th>
-                    <th className="text-end">{t("Expenses")}</th>
-                    <th className="text-end">{t("Rebates")}</th>
-                    {!hideGst && <th className="text-end">{t("GST")}</th>}
-                    <th className="text-end">{t("Margin")}</th>
                     <th className="text-end">{t("Total")}</th>
                   </>
                 ) : (
@@ -669,52 +665,42 @@ const SalesDocLineItems = ({
                     <tr>
                       <td className="text-muted">{idx + 1}</td>
                       <td className="text-start">
-                        <div>{productLabel}</div>
-                        {!requirementMode && vendorLabel && vendorLabel !== "-" ? (
-                          <span
-                            className="badge d-inline-block mt-50"
-                            style={{
-                              background: "#eef0f3",
-                              color: "#1a2238",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {vendorLabel}
-                          </span>
-                        ) : null}
-                        {!requirementMode && l.source_rfq_voucher_no ? (
-                          <span
-                            className="badge d-inline-block mt-50 ms-50"
-                            style={{
-                              background: "#eef7ff",
-                              color: "#0b5ed7",
-                              fontWeight: 500,
-                            }}
-                            title={t("Price sourced from this RFQ")}
-                          >
-                            {t("from RFQ")} {l.source_rfq_voucher_no}
-                          </span>
-                        ) : null}
-                        {/* Inline vendor compare/switch — quotation (detailed)
-                            only. Lists every vendor that prices this product
-                            (cheapest first); click a row to switch the line's
-                            vendor + price. */}
+                        <div className="fw-semibold">{productLabel}</div>
+                        {/* Vendor line: selected vendor on the left, inline
+                            "Compare" CTA on the right (quotation/detailed). */}
                         {!requirementMode &&
-                        !readOnly &&
                         tableLayout === "detailed" &&
-                        l.product_id &&
-                        (vendorOptionsByLine[idx] || []).length > 0 ? (
-                          <div className="mt-25">
-                            <Button
-                              id={`vcmp-${idx}`}
-                              color="link"
-                              size="sm"
-                              className="p-0 text-decoration-none small"
-                            >
-                              {t("Compare")} (
-                              {(vendorOptionsByLine[idx] || []).length})
-                            </Button>
-                            <UncontrolledPopover
+                        l.product_id ? (
+                          <div className="d-flex align-items-center justify-content-between mt-25">
+                            <span className="small text-muted text-truncate">
+                              {vendorLabel && vendorLabel !== "-" ? (
+                                <Fragment>
+                                  <span className="text-secondary">
+                                    {t("Vendor")}:
+                                  </span>{" "}
+                                  <span className="fw-semibold text-body">
+                                    {vendorLabel}
+                                  </span>
+                                </Fragment>
+                              ) : (
+                                <span className="fst-italic">
+                                  {t("No vendor selected")}
+                                </span>
+                              )}
+                            </span>
+                            {!readOnly &&
+                            (vendorOptionsByLine[idx] || []).length > 0 ? (
+                              <Fragment>
+                                <Button
+                                  id={`vcmp-${idx}`}
+                                  color="flat-primary"
+                                  size="sm"
+                                  className="py-0 px-50 ms-1 text-nowrap"
+                                >
+                                  {t("Compare")} (
+                                  {(vendorOptionsByLine[idx] || []).length})
+                                </Button>
+                                <UncontrolledPopover
                               target={`vcmp-${idx}`}
                               trigger="legacy"
                               placement="bottom-start"
@@ -772,6 +758,8 @@ const SalesDocLineItems = ({
                                 })}
                               </PopoverBody>
                             </UncontrolledPopover>
+                              </Fragment>
+                            ) : null}
                           </div>
                         ) : null}
                         {l.customer_reference ? (
@@ -810,26 +798,46 @@ const SalesDocLineItems = ({
                               ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
                               : "-"}
                           </td>
-                          <td className="text-end">
-                            {num(l.discount_pct) || 0}
-                          </td>
-                          <td className="text-end">
-                            {c.expenses > 0
-                              ? `${docSym}${fmt(toDocCcy(c.expenses))}`
-                              : "-"}
-                          </td>
-                          <td className="text-end">
-                            {c.rebates > 0
-                              ? `${docSym}${fmt(toDocCcy(c.rebates))}`
-                              : "-"}
-                          </td>
-                          {!hideGst && (
-                            <td className="text-end">{l.tax_pct || 0}</td>
-                          )}
-                          <td className="text-end">{l.margin_pct || 0}</td>
                           <td className="text-end fw-bold">
-                            {docSym}
-                            {fmt(toDocCcy(c.lineTotal))}
+                            <span className="d-inline-flex align-items-center justify-content-end">
+                              {docSym}
+                              {fmt(toDocCcy(c.lineTotal))}
+                              {/* Cost-breakdown tooltip: disc / expenses /
+                                  rebates / margin (+GST) folded out of the
+                                  table to keep it clean. */}
+                              <Info
+                                id={`lbrk-${idx}`}
+                                size={13}
+                                className="ms-50 text-muted cursor-pointer"
+                              />
+                              <UncontrolledTooltip
+                                target={`lbrk-${idx}`}
+                                placement="left"
+                              >
+                                <div className="text-start small">
+                                  <div>
+                                    {t("Discount")}: {num(l.discount_pct) || 0}%
+                                  </div>
+                                  <div>
+                                    {t("Expenses")}:{" "}
+                                    {docSym}
+                                    {fmt(toDocCcy(c.expenses || 0))}
+                                  </div>
+                                  <div>
+                                    {t("Rebates")}: {docSym}
+                                    {fmt(toDocCcy(c.rebates || 0))}
+                                  </div>
+                                  {!hideGst ? (
+                                    <div>
+                                      {t("GST")}: {l.tax_pct || 0}%
+                                    </div>
+                                  ) : null}
+                                  <div>
+                                    {t("Margin")}: {l.margin_pct || 0}%
+                                  </div>
+                                </div>
+                              </UncontrolledTooltip>
+                            </span>
                           </td>
                         </>
                       ) : (
