@@ -104,24 +104,6 @@ const SalesDocLineItemsTable = ({
                           {vendor}
                         </span>
                       ) : null}
-                      {showMoney && l.source_rfq_voucher_no ? (
-                        <span
-                          className="badge d-inline-block"
-                          title={t("Price sourced from this RFQ")}
-                          ref={(el) => {
-                            if (el) {
-                              el.style.setProperty(
-                                "background-color",
-                                "rgba(11, 94, 215, 0.12)",
-                                "important"
-                              );
-                              el.style.setProperty("color", "#0b5ed7", "important");
-                            }
-                          }}
-                        >
-                          {t("from RFQ")} {l.source_rfq_voucher_no}
-                        </span>
-                      ) : null}
                     </div>
                   </td>
                   {requirementMode && (
