@@ -259,6 +259,7 @@ export const API_ENDPOINTS = {
   },
   poVendors: {
     list: `/admin/po-vendor/list`,
+    stats: `/admin/po-vendor/stats`,
     get: `/admin/po-vendor/get`,
     update: `/admin/po-vendor/update`,
     delete: `/admin/po-vendor/delete`,
