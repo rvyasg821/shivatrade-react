@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { fmt, num, round2 } from "./_helpers";
@@ -33,6 +34,9 @@ const SalesDocCostingCard = ({
    * reference line. Used by the Quotation detail-page currency toggle.
    */
   currencyView,
+  /** Render without the outer Card chrome + inner title/divider — for when
+   *  the caller already wraps it in a titled panel (quotation detail). */
+  bare = false,
 }) => {
   const { t } = useTranslation();
   const currencySym = getCurrencySymbol(currencyCode);
@@ -45,13 +49,23 @@ const SalesDocCostingCard = ({
   // mode (so output is byte-for-byte the same), × rate in doc mode.
   const money = (v) => `${viewSym}${fmt(num(v) * viewRate)}`;
 
+  const Wrapper = bare ? Fragment : Card;
+  const Inner = bare ? Fragment : CardBody;
+  const wrapperProps = bare
+    ? {}
+    : { style: sticky ? { position: "sticky", top: 80 } : undefined };
+
   return (
-    <Card style={sticky ? { position: "sticky", top: 80 } : undefined}>
-      <CardBody>
-        <h5 className="mb-2 fw-bold text-uppercase text-muted">
-          {title || t("Costing Breakdown")}
-        </h5>
-        <hr className="mt-0 mb-2" />
+    <Wrapper {...wrapperProps}>
+      <Inner>
+        {!bare && (
+          <>
+            <h5 className="mb-2 fw-bold text-uppercase text-muted">
+              {title || t("Costing Breakdown")}
+            </h5>
+            <hr className="mt-0 mb-2" />
+          </>
+        )}
 
         {num(totals.discount_total) > 0 && (
           <>
@@ -231,8 +245,8 @@ const SalesDocCostingCard = ({
             </div>
           </>
         )}
-      </CardBody>
-    </Card>
+      </Inner>
+    </Wrapper>
   );
 };
 

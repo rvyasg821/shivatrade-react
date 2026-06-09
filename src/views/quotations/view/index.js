@@ -103,6 +103,7 @@ const CostingPanelBody = ({ lines, exchangeRate, currencyCode }) => {
       currencyView={view}
       sticky={false}
       hideGst
+      bare
     />
   );
 };
