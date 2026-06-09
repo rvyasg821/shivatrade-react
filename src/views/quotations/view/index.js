@@ -16,14 +16,13 @@ import {
   Truck,
   ArrowLeft,
   Layers,
-  CreditCard,
-  MapPin,
   Hash,
-  Percent,
   FileText,
   CheckCircle,
   Send,
   XCircle,
+  Eye,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -44,6 +43,7 @@ import {
   QUOTATION_STATUS_BADGE_COLOR,
 } from "@constant/options";
 import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
@@ -55,16 +55,15 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
-  DetailFieldList,
   DetailPanel,
   DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
 import RelatedDocsTabs from "./RelatedDocsTabs";
-import PublicLinkPanel from "./PublicLinkPanel";
 import {
   QuotationCurrencyProvider,
   QUOTATION_CURRENCY_LS_KEY,
+  useQuotationCurrency,
 } from "./CurrencyToggleContext";
 
 const PIPELINE_STEPS = [
@@ -86,6 +85,26 @@ const daysUntil = (iso) => {
   today.setHours(0, 0, 0, 0);
   target.setHours(0, 0, 0, 0);
   return Math.round((target.getTime() - today.getTime()) / 86400000);
+};
+
+// Right-column costing card. Rendered as a child of the currency provider so
+// `useQuotationCurrency()` resolves the page-level View: USD⇄INR toggle, keeping
+// the breakdown in lock-step with the table + KPI strip.
+const CostingPanelBody = ({ lines, exchangeRate, currencyCode }) => {
+  const { view } = useQuotationCurrency();
+  const totals = useMemo(
+    () => computeDocTotals(lines || [], exchangeRate, { excludeGst: true }),
+    [lines, exchangeRate]
+  );
+  return (
+    <SalesDocCostingCard
+      totals={totals}
+      currencyCode={currencyCode}
+      currencyView={view}
+      sticky={false}
+      hideGst
+    />
+  );
 };
 
 const ViewQuotation = () => {
@@ -472,6 +491,25 @@ const ViewQuotation = () => {
       outline: false,
       color: "success",
     },
+    {
+      icon: Eye,
+      label: t("Preview"),
+      onClick: () =>
+        window.open(`${appsRoot}/quotations/preview/${id}`, "_blank"),
+      outline: true,
+      color: "secondary",
+    },
+    {
+      icon: Download,
+      label: t("Download PDF"),
+      onClick: () =>
+        window.open(
+          `${appsRoot}/quotations/preview/${id}?print=1`,
+          "_blank"
+        ),
+      outline: true,
+      color: "secondary",
+    },
     ...(canEdit
       ? [
           {
@@ -485,37 +523,6 @@ const ViewQuotation = () => {
       icon: ArrowLeft,
       label: t("Back to Quotations"),
       onClick: () => navigate(`${appsRoot}/quotations`),
-    },
-  ];
-
-  // ── Side panel field lists ──
-  // Show quote currency → base (e.g. "$1 = ₹83.33") so the customer sees
-  // how much of the home currency one unit of their currency buys.
-  const inrConversionLine =
-    rate > 0 && !isBaseCurrency
-      ? `${sym}1 = ${baseCurrency.symbol}${(1 / rate).toLocaleString(
-          undefined,
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}`
-      : isBaseCurrency
-      ? t("Base currency — no conversion")
-      : null;
-
-  const moneyFields = [
-    {
-      icon: Percent,
-      label: t("Exchange Rate"),
-      value: inrConversionLine,
-    },
-  ];
-
-  const termsFields = [
-    { icon: CreditCard, label: t("Payment Terms"), value: q?.payment_terms },
-    { icon: Truck, label: t("Delivery Terms"), value: q?.delivery_terms },
-    {
-      icon: MapPin,
-      label: t("Delivery Location"),
-      value: q?.delivery_location,
     },
   ];
 
@@ -602,36 +609,16 @@ const ViewQuotation = () => {
         <DetailKpiStrip items={kpiItems} />
 
         <DetailTwoPanel
-          ratio="9-3"
+          ratio="8-4"
           left={<RelatedDocsTabs />}
           right={
-            <Fragment>
-              <PublicLinkPanel />
-              <DetailPanel title={t("Details")}>
-                <DetailFieldList items={moneyFields} />
-                {termsFields.some((f) => f.value) && (
-                  <DetailFieldList title={t("Terms")} items={termsFields} />
-                )}
-                {(q?.notes_to_client || q?.internal_notes) && (
-                  <div className="mt-1 pt-1 border-top">
-                    <div className="text-muted small mb-50">
-                      {q?.notes_to_client
-                        ? t("Notes to Client")
-                        : t("Internal Notes")}
-                    </div>
-                    <div
-                      className="text-break small"
-                      style={{
-                        whiteSpace: "pre-line",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {q?.notes_to_client || q?.internal_notes}
-                    </div>
-                  </div>
-                )}
-              </DetailPanel>
-            </Fragment>
+            <DetailPanel title={t("Costing Breakdown")}>
+              <CostingPanelBody
+                lines={q?.lines}
+                exchangeRate={q?.exchange_rate}
+                currencyCode={q?.currency_code}
+              />
+            </DetailPanel>
           }
         />
       </div>
