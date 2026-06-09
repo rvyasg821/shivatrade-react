@@ -274,8 +274,9 @@ const PurchaseOrderView = () => {
       name: t("SO #"),
       sortField: "voucher_no",
       sortable: false,
-      minWidth: "200px",
+      minWidth: "210px",
       grow: 1.5,
+      wrap: true,
       selector: (row) => {
         const refVoucher = row?.quotation_voucher_no || row?.pfi_voucher_no;
         const refTo = row?.quotation_id
@@ -293,24 +294,24 @@ const PurchaseOrderView = () => {
               refTo ? (
                 <Link
                   to={refTo}
-                  className="small text-muted text-nowrap d-inline-flex align-items-center mt-25"
+                  className="small text-muted d-inline-flex align-items-center mt-25"
                 >
                   Quotation - {refVoucher}
-                  <ExternalLink size={12} className="ms-25" />
+                  <ExternalLink size={12} className="ms-25 flex-shrink-0" />
                 </Link>
               ) : (
-                <span className="small text-muted text-nowrap d-block mt-25">
+                <span className="small text-muted d-block mt-25">
                   Quotation - {refVoucher}
                 </span>
               )
             ) : null}
             {row?.customer_po_number ? (
-              <div className="small text-muted text-nowrap">
+              <div className="small text-muted">
                 {t("Buyer PO")}: {row.customer_po_number}
               </div>
             ) : null}
             {row?.po_date ? (
-              <div className="small text-muted text-nowrap mt-25">
+              <div className="small text-muted mt-25">
                 {t("Created")}: {formatDate(row.po_date)}
               </div>
             ) : null}
@@ -322,6 +323,7 @@ const PurchaseOrderView = () => {
       name: t("Customer"),
       sortable: false,
       grow: 1.8,
+      wrap: true,
       selector: (row) => {
         if (!row?.customer_name && !row?.customer_contact_name) return "-";
         return (
