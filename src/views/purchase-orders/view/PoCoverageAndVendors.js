@@ -220,28 +220,26 @@ export const PoCoveragePanel = ({ data }) => {
         <Table responsive bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th style={{ width: 30 }}>#</th>
               <th>{t("Product")}</th>
-              <th style={{ width: 70 }}>{t("Unit")}</th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Ordered")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Dispatched")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Received")}
               </th>
               <th
                 style={{ width: 90 }}
-                className="text-end text-warning"
+                className="text-end text-nowrap text-warning"
                 title={t(
                   "Physical loss: qty that left the vendor but never arrived (dispatched − received on closed POVs). Released back to Pending so a follow-up POV can cover it."
                 )}
               >
                 {t("Short")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Pending")}
               </th>
             </tr>
@@ -252,27 +250,23 @@ export const PoCoveragePanel = ({ data }) => {
                 Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize,
                 Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize + pageSize
               )
-              .map((l, i) => {
-              const idx =
-                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) *
-                  pageSize +
-                i;
+              .map((l) => {
               const short = num(l.short);
+              const pending = num(l.pending);
               return (
                 <tr key={l.purchase_order_line_id}>
-                  <td>{idx + 1}</td>
                   <td>
                     <div className="fw-semibold">{l?.product_name || "-"}</div>
-                    {l?.product_code && (
-                      <small className="text-muted">{l.product_code}</small>
-                    )}
-                    {l?.hsn_code && (
-                      <div className="small text-muted">
-                        HSN: {l.hsn_code}
-                      </div>
-                    )}
+                    <div className="small text-muted">
+                      {[
+                        l?.product_code,
+                        l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
+                        l?.unit ? `${t("Unit")}: ${l.unit}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
                   </td>
-                  <td>{l?.unit || "-"}</td>
                   <td className="text-end">
                     {num(l.ordered).toLocaleString()}
                   </td>
@@ -289,8 +283,12 @@ export const PoCoveragePanel = ({ data }) => {
                   >
                     {short > 1e-6 ? short.toLocaleString() : "-"}
                   </td>
-                  <td className="text-end fw-bold">
-                    {num(l.pending).toLocaleString()}
+                  <td
+                    className={`text-end fw-bold ${
+                      pending > 1e-6 ? "text-warning" : "text-muted"
+                    }`}
+                  >
+                    {pending.toLocaleString()}
                   </td>
                 </tr>
               );
@@ -298,9 +296,7 @@ export const PoCoveragePanel = ({ data }) => {
           </tbody>
           <tfoot>
             <tr className="table-light">
-              <td colSpan="3" className="text-end fw-bold">
-                {t("Totals")}
-              </td>
+              <td className="text-end fw-bold">{t("Totals")}</td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.ordered).toLocaleString()}
               </td>

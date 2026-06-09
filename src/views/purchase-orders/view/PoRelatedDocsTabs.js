@@ -66,19 +66,19 @@ const PoRelatedDocsTabs = () => {
       <CardBody>
         <Nav pills className="mb-2">
           {tabBtn("lines", t("Line Items"), Layers, linesCount)}
-          {tabBtn("coverage", t("Coverage"), Activity, 0)}
           {tabBtn("vendors", t("PO Vendors"), Truck, povCount)}
+          {tabBtn("coverage", t("Coverage"), Activity, 0)}
         </Nav>
 
         <TabContent activeTab={active}>
           <TabPane tabId="lines">
             <PoLineItemsPanel bare />
           </TabPane>
-          <TabPane tabId="coverage">
-            <PoCoveragePanel data={coverageData} />
-          </TabPane>
           <TabPane tabId="vendors">
             <PoVendorsPanel data={coverageData} />
+          </TabPane>
+          <TabPane tabId="coverage">
+            <PoCoveragePanel data={coverageData} />
           </TabPane>
         </TabContent>
       </CardBody>
