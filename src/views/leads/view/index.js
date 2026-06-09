@@ -205,14 +205,21 @@ const ViewLead = () => {
     : null;
 
   // Fallback when no manual Expected Value: a computed estimate from the
-  // requirement items × each product's master selling price (Σ qty × price).
-  const estimatedSales = (l?.lines || []).reduce(
+  // requirement items × each product's master selling price (Σ qty × price),
+  // in INR (base). Converted to the lead currency + formatted for display.
+  const estimatedSalesInr = (l?.lines || []).reduce(
     (s, ln) =>
       s + (Number(ln?.qty) || 0) * (Number(ln?.product_selling_price) || 0),
     0
   );
   const estimatedDisplay =
-    estimatedSales > 0 ? `~ ₹${estimatedSales.toLocaleString("en-IN")}` : null;
+    estimatedSalesInr > 0
+      ? `~ ${formatMoney(
+          convertFromInr(estimatedSalesInr, l?.currency, exchangeOptions),
+          l?.currency,
+          { maximumFractionDigits: 0 }
+        )}`
+      : null;
 
   const followUp = useFollowUpStatus(l?.follow_up_date);
 
