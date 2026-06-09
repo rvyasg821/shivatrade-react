@@ -46,6 +46,16 @@ const STATUS_COLOR = {
   cancelled: "danger",
 };
 
+// Hex per status — used to force the pill colors via ref so the global
+// table-cell color rule can't wash them out (same pattern as the lead list).
+const STATUS_HEX = {
+  draft: "#6c757d",
+  sent: "#0dcaf0",
+  quoting: "#d39e00",
+  completed: "#198754",
+  cancelled: "#dc3545",
+};
+
 const RfqList = () => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -222,13 +232,22 @@ const RfqList = () => {
       name: t("Status"),
       sortable: false,
       selector: (row) => (
-        <Badge
-          color={`light-${STATUS_COLOR[row?.status] || "secondary"}`}
-          className="text-capitalize"
-          pill
-        >
-          {row?.status || "-"}
-        </Badge>
+        (() => {
+          const c = STATUS_HEX[row?.status] || "#6c757d";
+          return (
+            <span
+              className="badge rounded-pill text-capitalize text-nowrap"
+              ref={(el) => {
+                if (el) {
+                  el.style.setProperty("background-color", `${c}1f`, "important");
+                  el.style.setProperty("color", c, "important");
+                }
+              }}
+            >
+              {row?.status || "-"}
+            </span>
+          );
+        })()
       ),
     },
     {
