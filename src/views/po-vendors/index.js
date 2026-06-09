@@ -35,6 +35,7 @@ import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
 import { formatDate } from "@src/utility/dateFormat";
+import { formatMoney } from "@src/utility/currency";
 
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -373,6 +374,22 @@ const PoVendorView = () => {
       name: t("Qty (recv / ord)"),
       sortable: false,
       selector: renderQtyProgress,
+    },
+    {
+      name: t("Amount"),
+      sortable: false,
+      minWidth: "120px",
+      selector: (row) => {
+        const lines = row?.lines || [];
+        if (!lines.length) return "-";
+        const amount = lines.reduce((s, l) => s + num(l?.line_total), 0);
+        // POV is always INR — render with ₹ + thousands, no decimals.
+        return (
+          <span className="fw-bold text-nowrap">
+            {formatMoney(amount, "INR")}
+          </span>
+        );
+      },
     },
     {
       name: t("Action"),
