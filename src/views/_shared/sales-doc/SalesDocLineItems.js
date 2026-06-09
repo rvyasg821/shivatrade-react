@@ -13,11 +13,13 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  UncontrolledPopover,
+  PopoverBody,
 } from "reactstrap";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import Select from "react-select";
 import AsyncSelect from "react-select/async";
-import { Plus, Trash2, Edit } from "react-feather";
+import { Plus, Trash2, Edit, Check } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -692,6 +694,85 @@ const SalesDocLineItems = ({
                           >
                             {t("from RFQ")} {l.source_rfq_voucher_no}
                           </span>
+                        ) : null}
+                        {/* Inline vendor compare/switch — quotation (detailed)
+                            only. Lists every vendor that prices this product
+                            (cheapest first); click a row to switch the line's
+                            vendor + price. */}
+                        {!requirementMode &&
+                        !readOnly &&
+                        tableLayout === "detailed" &&
+                        l.product_id &&
+                        (vendorOptionsByLine[idx] || []).length > 0 ? (
+                          <div className="mt-25">
+                            <Button
+                              id={`vcmp-${idx}`}
+                              color="link"
+                              size="sm"
+                              className="p-0 text-decoration-none small"
+                            >
+                              {t("Compare")} (
+                              {(vendorOptionsByLine[idx] || []).length})
+                            </Button>
+                            <UncontrolledPopover
+                              target={`vcmp-${idx}`}
+                              trigger="legacy"
+                              placement="bottom-start"
+                            >
+                              <PopoverBody className="p-1" style={{ minWidth: 240 }}>
+                                <div className="text-uppercase text-muted fw-bold mb-1" style={{ fontSize: "0.65rem" }}>
+                                  {t("Vendor prices (cheapest first)")}
+                                </div>
+                                {(vendorOptionsByLine[idx] || []).map((opt, vi) => {
+                                  const r = opt.raw || {};
+                                  const isSel = r.vendor_id === l.vendor_id;
+                                  return (
+                                    <div
+                                      key={opt.value}
+                                      role="button"
+                                      className={`d-flex align-items-center justify-content-between px-1 py-50 rounded ${
+                                        isSel ? "bg-light-primary" : ""
+                                      }`}
+                                      style={{ cursor: "pointer" }}
+                                      onClick={() => applyPriceRow(idx, r)}
+                                    >
+                                      <div className="me-1">
+                                        <div className="small fw-semibold">
+                                          {r.vendor_name || r.vendor_code || "-"}
+                                          {vi === 0 ? (
+                                            <span className="badge bg-light-success ms-50">
+                                              {t("Cheapest")}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {r.source_type === "rfq" &&
+                                        r.source_rfq_voucher_no ? (
+                                          <div className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                            {t("from RFQ")}{" "}
+                                            {r.source_rfq_voucher_no}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      <div className="text-end text-nowrap">
+                                        <div className="small fw-bold">
+                                          {docSym}
+                                          {fmt(toDocCcy(r.unit_price))}
+                                        </div>
+                                        {num(r.discount_pct) > 0 ? (
+                                          <div className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                            -{num(r.discount_pct)}%
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      {isSel ? (
+                                        <Check size={14} className="text-primary ms-50" />
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </PopoverBody>
+                            </UncontrolledPopover>
+                          </div>
                         ) : null}
                         {l.customer_reference ? (
                           <div className="small text-muted mt-25">
