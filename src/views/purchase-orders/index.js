@@ -274,11 +274,9 @@ const PurchaseOrderView = () => {
       name: t("SO #"),
       sortField: "voucher_no",
       sortable: false,
-      minWidth: "240px",
-      grow: 1.8,
+      minWidth: "200px",
+      grow: 1.5,
       selector: (row) => {
-        const c = STATUS_COLOR_MAP[row?.status] || "#6c757d";
-        const label = (row?.status || "-").replace(/_/g, " ");
         const refVoucher = row?.quotation_voucher_no || row?.pfi_voucher_no;
         const refTo = row?.quotation_id
           ? `${appsRoot}/quotations/view/${row.quotation_id}`
@@ -287,42 +285,30 @@ const PurchaseOrderView = () => {
           <div className="py-1">
             <Link
               to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
-              className="text-nowrap d-block"
+              className="text-nowrap d-block fw-bold"
             >
               {row?.voucher_no || "-"}
             </Link>
             {refVoucher ? (
-              <div className="mt-1">
-                {refTo ? (
-                  <Link
-                    to={refTo}
-                    className="small text-muted text-nowrap d-inline-flex align-items-center"
-                  >
-                    Quotation - {refVoucher}
-                    <ExternalLink size={12} className="ms-1" />
-                  </Link>
-                ) : (
-                  <span className="small text-muted text-nowrap">
-                    Quotation - {refVoucher}
-                  </span>
-                )}
+              refTo ? (
+                <Link
+                  to={refTo}
+                  className="small text-muted text-nowrap d-inline-flex align-items-center mt-25"
+                >
+                  Quotation - {refVoucher}
+                  <ExternalLink size={12} className="ms-25" />
+                </Link>
+              ) : (
+                <span className="small text-muted text-nowrap d-block mt-25">
+                  Quotation - {refVoucher}
+                </span>
+              )
+            ) : null}
+            {row?.customer_po_number ? (
+              <div className="small text-muted text-nowrap">
+                {t("Buyer PO")}: {row.customer_po_number}
               </div>
             ) : null}
-            <div>
-              <span
-                className="badge text-capitalize mt-1 d-inline-block"
-                style={{
-                  background: `${c}1a`,
-                  color: c,
-                  border: `1px solid ${c}33`,
-                  fontWeight: 600,
-                  padding: "3px 8px",
-                  fontSize: "0.7rem",
-                }}
-              >
-                {label}
-              </span>
-            </div>
           </div>
         );
       },
@@ -330,10 +316,9 @@ const PurchaseOrderView = () => {
     {
       name: t("Customer"),
       sortable: false,
-      grow: 2,
+      grow: 1.8,
       selector: (row) => {
         if (!row?.customer_name && !row?.customer_contact_name) return "-";
-        const phone = row?.customer_contact_country_code?.formatted || "";
         return (
           <div className="py-1">
             <span className="fw-bold text-capitalize">
@@ -349,8 +334,35 @@ const PurchaseOrderView = () => {
                 {row.customer_contact_email}
               </div>
             )}
-            {phone && <div className="small text-muted">{phone}</div>}
           </div>
+        );
+      },
+    },
+    {
+      name: t("Status"),
+      sortField: "status",
+      sortable: false,
+      center: true,
+      minWidth: "130px",
+      selector: (row) => {
+        const c = STATUS_COLOR_MAP[row?.status] || "#6c757d";
+        const label =
+          PURCHASE_ORDER_STATUS_OPTIONS.find((o) => o.value === row?.status)
+            ?.label || (row?.status || "-").replace(/_/g, " ");
+        return (
+          <span
+            className="badge text-capitalize"
+            style={{
+              background: `${c}1a`,
+              color: c,
+              border: `1px solid ${c}33`,
+              fontWeight: 600,
+              padding: "4px 10px",
+              fontSize: "0.72rem",
+            }}
+          >
+            {label}
+          </span>
         );
       },
     },
@@ -358,24 +370,45 @@ const PurchaseOrderView = () => {
       name: t("Created"),
       sortField: "po_date",
       sortable: true,
-      minWidth: "130px",
-      selector: (row) =>
-        row?.po_date ? formatDate(row.po_date) : "-",
+      minWidth: "120px",
+      selector: (row) => (row?.po_date ? formatDate(row.po_date) : "-"),
     },
     {
       name: t("Expected"),
       sortField: "expected_delivery_date",
       sortable: true,
-      minWidth: "150px",
-      selector: (row) =>
-        row?.expected_delivery_date
-          ? formatDate(row.expected_delivery_date)
-          : "-",
+      minWidth: "130px",
+      selector: (row) => {
+        if (!row?.expected_delivery_date) return "-";
+        const due = new Date(row.expected_delivery_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        due.setHours(0, 0, 0, 0);
+        const overdue =
+          due.getTime() < today.getTime() &&
+          !["completed", "cancelled"].includes(row?.status);
+        return (
+          <span className={overdue ? "text-danger fw-semibold" : ""}>
+            {formatDate(row.expected_delivery_date)}
+          </span>
+        );
+      },
     },
     {
       name: t("Amount"),
       sortable: false,
-      selector: formatTotal,
+      right: true,
+      minWidth: "140px",
+      cell: (row) => (
+        <div className="py-1 text-end">
+          <div className="fw-bold">{formatTotal(row)}</div>
+          {Number(row?.advance_amount) > 0 && (
+            <div className="small text-muted text-nowrap">
+              {t("Adv")}: {formatMoney(row.advance_amount, row?.currency_code)}
+            </div>
+          )}
+        </div>
+      ),
     },
   ];
 
