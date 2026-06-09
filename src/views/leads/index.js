@@ -313,15 +313,22 @@ const LeadList = () => {
       selector: (row) => {
         const count = Number(row?.line_items_count || 0);
         const val = Number(row?.estimated_sales_value || 0);
+        // estimated_sales_value is base INR; show it in the lead currency.
+        const display =
+          val > 0
+            ? `~ ${formatMoney(
+                convertFromInr(val, row?.currency, exchangeOptions),
+                row?.currency,
+                { maximumFractionDigits: 0 }
+              )}`
+            : null;
         return (
           <div className="py-1">
             <div className="fw-bold">
               {count} {count === 1 ? t("item") : t("items")}
             </div>
-            {val > 0 ? (
-              <div className="small text-muted">
-                ~ ₹{val.toLocaleString("en-IN")}
-              </div>
+            {display ? (
+              <div className="small text-muted">{display}</div>
             ) : null}
           </div>
         );
