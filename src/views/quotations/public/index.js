@@ -6,7 +6,7 @@
 // Never renders margin / expenses / rebates / internal notes.
 
 import { Fragment, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Badge, Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -31,6 +31,7 @@ const Label = ({ children }) => (
 
 const QuotationPublicView = () => {
   const { token, id } = useParams();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
@@ -38,11 +39,21 @@ const QuotationPublicView = () => {
   const q = store?.publicItem;
   const loading = !store?.loading;
   const isPreview = !!id;
+  const autoPrint = searchParams.get("print") === "1";
 
   useEffect(() => {
     if (token) dispatch(getPublicQuotation(token));
     else if (id) dispatch(getQuotationPreview(id));
   }, [token, id, dispatch]);
+
+  // Header "Download PDF" opens this page with ?print=1 → once the doc has
+  // rendered, fire the browser print dialog so the user can Save as PDF.
+  // The small delay lets the injected <style> + logo settle first.
+  useEffect(() => {
+    if (!autoPrint || !q) return;
+    const timer = setTimeout(() => window.print(), 600);
+    return () => clearTimeout(timer);
+  }, [autoPrint, q]);
 
   const sym = q?.currency_symbol || q?.currency_code || "";
   const money = (v) => `${sym}${fmt(v)}`;
