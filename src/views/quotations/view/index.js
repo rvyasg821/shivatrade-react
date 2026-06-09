@@ -8,7 +8,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Input } from "reactstrap";
+import { Input, Button } from "reactstrap";
 import {
   Calendar,
   DollarSign,
@@ -206,7 +206,7 @@ const ViewQuotation = () => {
       .fire({
         title: t("Mark as Approved?"),
         text: t(
-          "Once approved, this quotation can be converted to a PFI or used to generate POs."
+          "Once approved, you can generate the customer Sales Order and the vendor Purchase Orders from this quotation."
         ),
         icon: "question",
         showCancelButton: true,
