@@ -23,6 +23,8 @@ import {
   X,
   Save,
   Plus,
+  Upload,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Notification from "@components/toast/notification";
@@ -50,6 +52,16 @@ const TYPE_META = {
     icon: Send,
     color: "info",
     label: "RFQ created",
+  },
+  rfq_exported: {
+    icon: Upload,
+    color: "warning",
+    label: "Price sheet exported",
+  },
+  rfq_prices_imported: {
+    icon: Download,
+    color: "success",
+    label: "Vendor prices imported",
   },
   assignment_change: {
     icon: CheckCircle,
@@ -102,6 +114,10 @@ const renderRow = (row, t) => {
         <span className="fw-bold">{row?.metadata?.voucher_no || ""}</span>
       </span>
     );
+  }
+  // Export / import carry a human-readable body (with vendor name(s)).
+  if (row.type === "rfq_exported" || row.type === "rfq_prices_imported") {
+    return row?.body || md.label;
   }
   if (row.type === "conversion") {
     return row?.metadata?.won
