@@ -121,14 +121,18 @@ const ViewQuotation = () => {
   const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
 
-  // Currency-view toggle: OFF (default) → ShivaTrade's base currency (INR);
-  // ON → the quotation's own currency. Persisted in localStorage so the
-  // operator's choice survives reloads.
+  // Currency-view toggle. Default → the quotation's OWN (customer/document)
+  // currency — that's what the quote is denominated in and what the customer
+  // sees; base INR is the internal reference behind the toggle. The operator's
+  // manual choice is remembered in localStorage and wins over the default.
   const [showDoc, setShowDoc] = useState(() => {
     try {
-      return localStorage.getItem(QUOTATION_CURRENCY_LS_KEY) === "1";
+      const stored = localStorage.getItem(QUOTATION_CURRENCY_LS_KEY);
+      if (stored === "1") return true;
+      if (stored === "0") return false;
+      return true; // no stored preference → show the document currency
     } catch {
-      return false;
+      return true;
     }
   });
   useEffect(() => {
@@ -519,6 +523,7 @@ const ViewQuotation = () => {
   // base-currency quotations (nothing to convert).
   const currencyToggle = isBaseCurrency ? null : (
     <div className="d-flex align-items-center gap-50">
+      <span className="small text-muted me-25">{t("View")}:</span>
       <span
         className={`small fw-semibold ${
           showDocEffective ? "text-muted" : "text-primary"
