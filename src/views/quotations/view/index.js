@@ -492,25 +492,6 @@ const ViewQuotation = () => {
       outline: false,
       color: "success",
     },
-    {
-      icon: Eye,
-      label: t("Preview"),
-      onClick: () =>
-        window.open(`${appsRoot}/quotations/preview/${id}`, "_blank"),
-      outline: true,
-      color: "secondary",
-    },
-    {
-      icon: Download,
-      label: t("Download PDF"),
-      onClick: () =>
-        window.open(
-          `${appsRoot}/quotations/preview/${id}?print=1`,
-          "_blank"
-        ),
-      outline: true,
-      color: "secondary",
-    },
     ...(canEdit
       ? [
           {
@@ -560,13 +541,44 @@ const ViewQuotation = () => {
     </div>
   );
 
+  // Bottom-of-header row: currency toggle (left) + Preview / Download (right),
+  // so the PDF actions sit inline with the status row instead of wrapping the
+  // main action buttons onto a second line.
+  const headerFooter = (
+    <div className="d-flex align-items-center flex-wrap justify-content-end gap-1">
+      {currencyToggle}
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        onClick={() =>
+          window.open(`${appsRoot}/quotations/preview/${id}`, "_blank")
+        }
+      >
+        <Eye size={14} className="me-50" />
+        {t("Preview")}
+      </Button>
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        onClick={() =>
+          window.open(`${appsRoot}/quotations/preview/${id}?print=1`, "_blank")
+        }
+      >
+        <Download size={14} className="me-50" />
+        {t("Download PDF")}
+      </Button>
+    </div>
+  );
+
   return (
     <QuotationCurrencyProvider value={currencyCtx}>
     <Fragment>
       <div className="app-user-view">
         <DetailHeader
           avatarText="Q"
-          actionsFooter={currencyToggle}
+          actionsFooter={headerFooter}
           title={q?.voucher_no || "-"}
           subtitle={
             [q?.customer_name, q?.customer_email].filter(Boolean).join(" · ") ||
