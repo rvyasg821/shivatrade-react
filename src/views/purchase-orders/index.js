@@ -374,27 +374,6 @@ const PurchaseOrderView = () => {
       },
     },
     {
-      name: t("Expected"),
-      sortField: "expected_delivery_date",
-      sortable: true,
-      minWidth: "130px",
-      selector: (row) => {
-        if (!row?.expected_delivery_date) return "-";
-        const due = new Date(row.expected_delivery_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        due.setHours(0, 0, 0, 0);
-        const overdue =
-          due.getTime() < today.getTime() &&
-          !["completed", "cancelled"].includes(row?.status);
-        return (
-          <span className={overdue ? "text-danger fw-semibold" : ""}>
-            {formatDate(row.expected_delivery_date)}
-          </span>
-        );
-      },
-    },
-    {
       name: t("Amount"),
       sortable: false,
       right: true,
