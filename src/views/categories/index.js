@@ -16,7 +16,6 @@ import { startLoading, stopLoading } from "../loadingstore";
 // ** Reactstrap Imports
 import {
   Col,
-  Badge,
   Row,
   Card,
   Input,
@@ -232,14 +231,16 @@ const CategoryList = () => {
           return (
             <Link
               to={`${appsRoot}/categories/edit/${row?._id || ""}`}
-              className="text-capitalize text-wrap"
+              className="text-capitalize text-wrap fw-bold"
             >
               {row?.name || ""}
             </Link>
           );
         }
         return (
-          <span className="text-wrap text-capitalize">{row?.name || ""}</span>
+          <span className="text-wrap text-capitalize fw-bold">
+            {row?.name || ""}
+          </span>
         );
       },
     },
@@ -247,11 +248,24 @@ const CategoryList = () => {
       name: t("Status"),
       sortField: "status",
       sortable: false,
-      selector: (row) => (
-        <Badge color={row?.is_active ? "light-success" : "light-warning"}>
-          {row?.is_active ? t("Active") : t("Inactive")}
-        </Badge>
-      ),
+      center: true,
+      width: "120px",
+      selector: (row) => {
+        const c = row?.is_active ? "#198754" : "#fd7e14";
+        return (
+          <span
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
+            }}
+          >
+            {row?.is_active ? t("Active") : t("Inactive")}
+          </span>
+        );
+      },
     },
   ];
 
