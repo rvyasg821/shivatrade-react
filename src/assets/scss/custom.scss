@@ -476,33 +476,56 @@ html body.swal2-height-auto {
       border-radius: 10px;
       background: transparent;
       border: 1px solid #09418B;
+      color: #09418B;
 
+      // Fill the navy background on hover so the white text stays visible
+      // (previously only color:#fff was set, leaving white text on a
+      // transparent/near-white background = invisible).
       &:hover {
         color: #fff;
+        background: #09418B;
+        border-color: #09418B;
       }
+    }
+
+    &.active .page-link {
+      color: #fff;
+      background: #09418B;
+      border-color: #09418B;
+    }
+
+    &.disabled .page-link {
+      color: #b8bcc4;
+      border-color: #e0e0e0;
     }
   }
 }
 
+// Prev / next arrows — match the numbered page pills: navy outline by
+// default, navy fill + white arrow on hover. The arrow is a tim-icons font
+// glyph, so it inherits the .page-link `color` (no image filter needed).
 .page-item {
+  &.prev,
   &.next {
     .page-link {
-      &:hover {
-        &::after {
-          filter: brightness(0) saturate(100%) invert(50%) sepia(96%) saturate(2674%) hue-rotate(7deg) brightness(92%) contrast(102%);
-        }
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      i {
+        font-size: 1rem;
+        line-height: 1;
+        color: inherit;
       }
     }
   }
 
-  &.prev {
-    .page-link {
-      &:hover {
-        &::before {
-          filter: brightness(0) saturate(100%) invert(50%) sepia(96%) saturate(2674%) hue-rotate(7deg) brightness(92%) contrast(102%);
-        }
-      }
-    }
+  &.prev .page-link {
+    margin-right: 0.4rem;
+  }
+
+  &.next .page-link {
+    margin-left: 0.4rem;
   }
 }
 
@@ -2984,14 +3007,103 @@ body #root .wrapper .ps__rail-y {
   .row {
     .react-paginate {
       .page-item {
-        border-color: inherit !important;
         box-shadow: unset !important;
 
-        &.active {
-          a {
-            background-color: #ffffff;
-            color: #09418B !important;
+        .page-link {
+          color: #09418b;
+          background-color: transparent;
+          border: 1px solid #09418b;
+          border-radius: 10px;
+          transition: background-color 0.15s ease, color 0.15s ease;
+
+          // Hover = the same navy fill / white text as the selected page,
+          // so hovering previews the selected-state styling.
+          &:hover,
+          &:focus {
+            background-color: #09418b !important;
+            color: #ffffff !important;
+            border-color: #09418b !important;
           }
+        }
+
+        // Selected page — highlighted with the navy fill + white text.
+        &.active {
+          .page-link,
+          a {
+            background-color: #09418b !important;
+            color: #ffffff !important;
+            border-color: #09418b !important;
+            font-weight: 600;
+          }
+        }
+
+        &.disabled .page-link {
+          color: #b8bcc4;
+          border-color: #e0e0e0;
+          background-color: transparent;
+        }
+
+        // Prev / next arrows. The theme draws these as a tinted background
+        // image chevron (invisible on the navy hover fill) and the tim-icons
+        // font isn't loaded, so draw the chevron from two borders of a small
+        // box — it inherits the .page-link color (navy → white on hover) and
+        // centers perfectly as a flex child of the button.
+        &.prev .page-link::before,
+        &.next .page-link::after {
+          content: "" !important;
+          background-image: none !important;
+          background: none !important;
+          width: 7px !important;
+          height: 7px !important;
+          border: 0 solid currentColor !important;
+          color: inherit !important;
+        }
+
+        &.prev .page-link::before {
+          border-left-width: 2px !important;
+          border-bottom-width: 2px !important;
+          transform: rotate(45deg);
+          margin-left: 2px; // optical centering vs. the slanted box
+        }
+
+        &.next .page-link::after {
+          border-right-width: 2px !important;
+          border-top-width: 2px !important;
+          transform: rotate(45deg);
+          margin-right: 2px;
+        }
+
+        // Arrows read as filled buttons (vs. the outline number pills): a soft
+        // navy fill when clickable, solid navy + white on hover, and a muted
+        // grey fill when disabled so they keep a button shape.
+        &.prev .page-link,
+        &.next .page-link {
+          background-color: rgba(9, 65, 139, 0.22) !important;
+          border-color: rgba(9, 65, 139, 0.55) !important;
+          color: #09418b !important;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+          padding: 0 !important;
+          min-width: 34px;
+          height: 34px;
+        }
+
+        &.prev:not(.disabled) .page-link:hover,
+        &.prev:not(.disabled) .page-link:focus,
+        &.next:not(.disabled) .page-link:hover,
+        &.next:not(.disabled) .page-link:focus {
+          background-color: #09418b !important;
+          border-color: #09418b !important;
+          color: #ffffff !important;
+        }
+
+        &.prev.disabled .page-link,
+        &.next.disabled .page-link {
+          background-color: #f1f2f6 !important;
+          border-color: #e3e6ec !important;
+          color: #c4c8d0 !important;
+          cursor: not-allowed;
         }
       }
     }

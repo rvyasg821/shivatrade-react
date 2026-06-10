@@ -379,17 +379,23 @@ const ProductForm = () => {
     }
   }, [store?.actionFlag, store?.success, store?.error]);
 
-  // On create, default the Currency field to the company's default currency
-  // once the dropdown finishes loading. Skip on edit - saved value wins.
+  // Default the Currency field once the dropdown loads (create AND edit). A
+  // saved value always wins via the watch() guard; only a blank field gets a
+  // default. Re-runs after the edit prefill (productItem._id dep) so an edited
+  // product with no saved currency still falls back. Order: flagged default →
+  // INR by code (company base currency) → first item, so it's never blank.
   useEffect(() => {
-    if (isEditMode) return;
     const list = currencyStore?.currencyDropdown || [];
     if (!list.length) return;
+    if (isEditMode && !store?.productItem?._id) return; // wait for prefill
     if (watch("currency_id")) return;
-    const def = list.find((c) => c.is_default);
+    const def =
+      list.find((c) => c.is_default) ||
+      list.find((c) => (c.code || "").toUpperCase() === "INR") ||
+      list[0];
     if (def?._id) setValue("currency_id", def._id, { shouldDirty: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyStore?.currencyDropdown, isEditMode]);
+  }, [currencyStore?.currencyDropdown, isEditMode, store?.productItem?._id]);
 
   // On create, pre-select the category when arriving with ?category_id=<id>
   // (e.g. clicked "+ Add Product" from a category detail / listing).
