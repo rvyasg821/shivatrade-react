@@ -158,16 +158,33 @@ const RfqView = () => {
     }
     setPriceMap(m);
     setDiscountMap(d);
-    // Restore the saved export checkbox state for the RFQ's vendor (only when
-    // some line was ticked — otherwise let the auto-check-sellable run).
-    const vendorId = rfq.vendors?.[0]?.vendor_id;
-    const anyChecked = (rfq.lines || []).some((l) => l.checked);
-    if (vendorId && anyChecked) {
-      const checks = {};
-      for (const l of rfq.lines || []) checks[l._id] = !!l.checked;
-      setCheckedByVendor((prev) => ({ ...prev, [vendorId]: checks }));
-    }
   }, [rfq?._id, rfq?.prices?.length]);
+
+  // Authoritative per-vendor checkbox seed. Rebuilds each vendor's ticks from
+  // its persisted checked_line_ids whenever the server data changes — keyed on
+  // a CONTENT signature, not just rfq._id, so SPA back-navigation (same id,
+  // freshly-fetched data) re-applies the saved marks instead of leaving the
+  // sellable default in place. Overwrites (not clobber-guarded) so it always
+  // wins the race with the auto-check-sellable seed. A locally-edited (unsaved)
+  // tick survives because the signature only changes when the server set does.
+  const checkedSig = (rfq?.vendors || [])
+    .map((v) => `${v.vendor_id}:${(v.checked_line_ids || []).join(",")}`)
+    .join("|");
+  useEffect(() => {
+    if (isDraft || !rfq) return;
+    setCheckedByVendor((prev) => {
+      const next = { ...prev };
+      for (const v of rfq.vendors || []) {
+        const ids = Array.isArray(v.checked_line_ids) ? v.checked_line_ids : [];
+        if (!ids.length) continue; // no saved set → let sellable seed defaults
+        const checks = {};
+        for (const lid of ids) checks[lid] = true;
+        next[v.vendor_id] = checks;
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfq?._id, checkedSig]);
 
   useEffect(() => {
     // "Best price selected" fires per line; with auto-select-cheapest that
@@ -209,11 +226,16 @@ const RfqView = () => {
   // dropdown, defaulting to the RFQ's saved vendor.
   const activeVendorId = addVendorId || vendors[0]?.vendor_id || "";
 
-  // On a saved RFQ, default the dropdown selection to its vendor.
+  // On a saved RFQ, default the active column to the first vendor so its saved
+  // checks show on land. Re-default when the current selection isn't part of
+  // the loaded RFQ (e.g. a stale addVendorId carried over from a previously
+  // viewed RFQ via the cached rfqItem) — otherwise the grid stays blank until
+  // the user clicks a chip. A valid in-list selection is left untouched.
   useEffect(() => {
     if (isDraft) return;
-    const v = rfq?.vendors?.[0]?.vendor_id;
-    if (v && !addVendorId) setAddVendorId(v);
+    const ids = (rfq?.vendors || []).map((v) => v.vendor_id);
+    if (!ids.length) return;
+    if (!addVendorId || !ids.includes(addVendorId)) setAddVendorId(ids[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfq?._id, rfq?.vendors?.length]);
 
@@ -223,6 +245,25 @@ const RfqView = () => {
   useEffect(() => {
     if (!addVendorId) return;
     if (checkedByVendor[addVendorId]) return; // preserve existing checks
+    // Saved selection wins over the sellable default. Without this, on SPA
+    // back-navigation the price-list seed can race the restore effect and the
+    // "don't clobber" guard then drops the saved ticks (only a hard refresh,
+    // with different timing, showed them). Seed straight from the vendor's
+    // persisted checked_line_ids when present.
+    const savedVendor = (rfq?.vendors || []).find(
+      (v) => v.vendor_id === addVendorId
+    );
+    const savedIds = Array.isArray(savedVendor?.checked_line_ids)
+      ? savedVendor.checked_line_ids
+      : [];
+    if (savedIds.length) {
+      const checks = {};
+      for (const lid of savedIds) checks[lid] = true;
+      setCheckedByVendor((m) =>
+        m[addVendorId] ? m : { ...m, [addVendorId]: checks }
+      );
+      return;
+    }
     const productIds = Array.from(
       new Set(lines.map((l) => l.product_id).filter(Boolean))
     );
@@ -456,7 +497,11 @@ const RfqView = () => {
         await dispatch(
           setRfqPrices({
             id: newRfq._id,
-            data: { prices: mapped, checked_line_ids: checkedLineIds },
+            data: {
+              prices: mapped,
+              checked_line_ids: checkedLineIds,
+              checked_vendor_id: activeVendorId || undefined,
+            },
           })
         ).unwrap();
       }
@@ -501,6 +546,7 @@ const RfqView = () => {
               discount_pct: p.discount_pct,
             })),
             checked_line_ids: checkedLineIds,
+            checked_vendor_id: activeVendorId || undefined,
           },
         })
       ).unwrap();

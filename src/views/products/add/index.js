@@ -70,6 +70,7 @@ const STEPS = [
     icon: DollarSign,
     fields: [
       "hsn_code",
+      "part_no",
       "tax_pct",
       "selling_price",
       "margin_pct",
@@ -83,7 +84,6 @@ const STEPS = [
     label: "Logistics",
     icon: Truck,
     fields: [
-      "part_no",
       "pack_size",
       "country_of_origin",
       "net_weight_per_unit",
@@ -697,7 +697,7 @@ const ProductForm = () => {
               {/* ── Pricing ── */}
               <h4 className="mt-1 mb-2">{t("Pricing")}</h4>
               <Row>
-                <Col md="6" className="mb-2">
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="hsn_code">
                     {t("HSN Code")}
                   </Label>
@@ -714,7 +714,7 @@ const ProductForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="tax_pct">
                     {t("GST %")}
                   </Label>
@@ -740,6 +740,23 @@ const ProductForm = () => {
                       {errors.tax_pct.message}
                     </FormFeedback>
                   )}
+                </Col>
+                <Col md="4" className="mb-2">
+                  <Label className="form-label" for="part_no">
+                    {t("Part No / OEM No")}
+                  </Label>
+                  <Controller
+                    name="part_no"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="part_no"
+                        placeholder={t("Optional")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
                 </Col>
 
                 <Col md="4" className="mb-2">
@@ -1092,23 +1109,6 @@ const ProductForm = () => {
               {/* ── Identification (extra) + Logistics ── */}
               <h4 className="mt-1 mb-2">{t("Logistics")}</h4>
               <Row>
-                <Col md="6" className="mb-2">
-                  <Label className="form-label" for="part_no">
-                    {t("Part No / OEM No")}
-                  </Label>
-                  <Controller
-                    name="part_no"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="part_no"
-                        placeholder={t("e.g. F002A0Z234")}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="pack_size">
                     {t("Pack Size")}
