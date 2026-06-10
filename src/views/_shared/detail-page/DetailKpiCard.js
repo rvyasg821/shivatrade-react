@@ -1,8 +1,20 @@
 import { Card, CardBody } from "reactstrap";
 
-const DetailKpiCard = ({ label, value, sub, icon: Icon, tone = "primary" }) => {
+const DetailKpiCard = ({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  tone = "primary",
+  onClick,
+}) => {
+  const clickable = typeof onClick === "function";
   return (
-    <Card className="mb-1 h-100">
+    <Card
+      className={`mb-1 h-100${clickable ? " cursor-pointer kpi-clickable" : ""}`}
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+    >
       <CardBody className="d-flex align-items-center py-1">
         {Icon ? (
           <div

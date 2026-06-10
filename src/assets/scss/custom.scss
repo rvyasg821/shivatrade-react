@@ -469,6 +469,17 @@ html body.swal2-height-auto {
   }
 }
 
+// Clickable KPI cards (detail pages) — subtle lift + navy border on hover.
+.kpi-clickable {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: #09418b;
+    box-shadow: 0 4px 14px -6px rgba(9, 65, 139, 0.45);
+    transform: translateY(-2px);
+  }
+}
+
 // pagination
 .pagination {
   .page-item {

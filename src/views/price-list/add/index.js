@@ -444,7 +444,9 @@ const PriceListForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
+              </Row>
 
+              <Row>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="unit_price">
                     {t("Price")} <span className="text-danger">*</span>
@@ -495,7 +497,7 @@ const PriceListForm = () => {
                 </Col>
 
 
-                <Col md="2" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="discount_pct">
                     {t("Discount %")}
                   </Label>
@@ -536,8 +538,10 @@ const PriceListForm = () => {
                     )}
                   />
                 </Col>
+              </Row>
 
-                <Col md="4" className="mb-2">
+              <Row>
+                <Col md="6" className="mb-2">
                   <Label className="form-label" for="effective_date">
                     {t("Effective Date")} <span className="text-danger">*</span>
                   </Label>
@@ -560,7 +564,7 @@ const PriceListForm = () => {
                   )}
                 </Col>
 
-                <Col md="4" className="mb-2">
+                <Col md="6" className="mb-2">
                   <Label className="form-label" for="valid_until">
                     {t("Valid Until")}
                   </Label>
@@ -579,8 +583,10 @@ const PriceListForm = () => {
                     {t("Optional explicit expiry. If blank, ends when a newer entry takes effect.")}
                   </small>
                 </Col>
+              </Row>
 
-<Col md="12" className="mb-2">
+              <Row>
+                <Col md="12" className="mb-2">
                   <Label className="form-label" for="notes">
                     {t("Notes")}
                   </Label>

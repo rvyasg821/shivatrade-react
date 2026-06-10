@@ -883,7 +883,7 @@ const ProductForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="net_weight_per_unit">
                     {t("Net Weight per Unit (Kg)")}
                   </Label>
@@ -908,7 +908,7 @@ const ProductForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="gross_weight_per_unit">
                     {t("Gross Weight per Unit (Kg)")}
                   </Label>
