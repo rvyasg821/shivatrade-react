@@ -1,13 +1,14 @@
 // GRNs raised against this POV. Lists the receipt documents (one per
-// delivery) with status; row links to the GRN page. A "Create GRN" action
-// is published to the tab bar while the POV is dispatched with qty pending.
+// delivery) with status; row links to the GRN page and offers a per-row
+// PDF download. A "Create GRN" action is published to the tab bar (top-right)
+// while the POV is dispatched and no active GRN exists yet.
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { Plus, ExternalLink } from "react-feather";
+import { ExternalLink, Download, Plus, CornerUpLeft } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import instance from "@src/utility/AxiosConfig";
@@ -15,7 +16,13 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { createGrnFromPov } from "@src/views/grn/store";
+import { createDebitNoteFromGrn } from "@src/views/debit-notes/store";
 import Notification from "@components/toast/notification";
+
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const STATUS_COLOR = {
   draft: "#6c757d",
@@ -33,7 +40,9 @@ const GrnsTab = ({ registerActions }) => {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [creatingDnId, setCreatingDnId] = useState(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -51,6 +60,11 @@ const GrnsTab = ({ registerActions }) => {
     load();
   }, [load]);
 
+  // A GRN already raised (cancelled ones don't count) hides the create action.
+  const hasActiveGrn = rows.some(
+    (g) => (g?.status || "").toLowerCase() !== "cancelled"
+  );
+
   const onCreateGrn = useCallback(async () => {
     setCreating(true);
     try {
@@ -64,29 +78,95 @@ const GrnsTab = ({ registerActions }) => {
           "warning"
         );
     } catch (err) {
-      Notification("Error", err?.message || t("Could not create GRN."), "warning");
+      Notification(
+        "Error",
+        err?.message || t("Could not create GRN."),
+        "warning"
+      );
     } finally {
       setCreating(false);
     }
   }, [dispatch, id, navigate, t]);
 
-  // Publish Create GRN to the tab bar while dispatched.
+  // Publish "Create GRN" to the tab bar (top-right) while dispatched with no
+  // active GRN. tabView renders nothing when this is null → no white space.
   useEffect(() => {
     if (!registerActions) return undefined;
     registerActions(
-      status === "dispatched" ? (
+      status === "dispatched" && !hasActiveGrn ? (
         <Button
           color="primary"
           size="sm"
           onClick={onCreateGrn}
           disabled={creating}
         >
-          <Plus size={14} className="me-50" /> {t("Create GRN")}
+          {creating ? (
+            <Spinner size="sm" className="me-50" />
+          ) : (
+            <Plus size={14} className="me-50" />
+          )}
+          {t("Create GRN")}
         </Button>
       ) : null
     );
     return () => registerActions(null);
-  }, [registerActions, status, creating, onCreateGrn, t]);
+  }, [registerActions, status, hasActiveGrn, creating, onCreateGrn, t]);
+
+  // Create a Debit Note from a confirmed GRN (one per GRN) and open it.
+  const createDn = async (g) => {
+    if (!g?._id || creatingDnId) return;
+    setCreatingDnId(g._id);
+    try {
+      const res = await dispatch(
+        createDebitNoteFromGrn({ grnId: g._id, data: {} })
+      ).unwrap();
+      const newId = res?.debitNoteItem?._id;
+      if (newId) navigate(`${appsRoot}/debit-notes/view/${newId}`);
+      else
+        Notification(
+          "Error",
+          res?.error || t("Could not create Debit Note."),
+          "warning"
+        );
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.message || t("Could not create Debit Note."),
+        "warning"
+      );
+    } finally {
+      setCreatingDnId(null);
+    }
+  };
+
+  // Open a GRN's PDF inline in a new tab (proper name) via a short-lived
+  // ticket on the no-auth public route — a blob tab is named by its UUID.
+  const downloadGrnPdf = async (g) => {
+    if (!g?._id || downloadingId) return;
+    setDownloadingId(g._id);
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.grn.pdf}/${g._id}/pdf-ticket`
+      );
+      const ticket = resp?.data?.data?.ticket;
+      if (!ticket) throw new Error("no ticket");
+      const url = `${instance.defaults.baseURL}${
+        API_ENDPOINTS.grn.ticketPdf
+      }?t=${encodeURIComponent(ticket)}`;
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+    } catch (err) {
+      if (win) win.close();
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   if (loading && !rows.length) {
     return (
@@ -118,6 +198,9 @@ const GrnsTab = ({ registerActions }) => {
               </th>
               <th style={{ width: 130 }} className="text-center">
                 {t("Status")}
+              </th>
+              <th style={{ width: 220 }} className="text-center">
+                {t("Actions")}
               </th>
             </tr>
           </thead>
@@ -158,6 +241,55 @@ const GrnsTab = ({ registerActions }) => {
                     >
                       {g.status}
                     </span>
+                  </td>
+                  <td className="text-center">
+                    <div className="d-inline-flex align-items-center gap-1">
+                      {g.has_debit_note && g.debit_note_id ? (
+                        <Button
+                          color="warning"
+                          size="sm"
+                          outline
+                          onClick={() =>
+                            navigate(
+                              `${appsRoot}/debit-notes/view/${g.debit_note_id}`
+                            )
+                          }
+                        >
+                          <CornerUpLeft size={13} className="me-25" />
+                          {t("Debit Note")}
+                        </Button>
+                      ) : g.status === "confirmed" &&
+                        num(g.rejected_qty) > 0 ? (
+                        <Button
+                          color="warning"
+                          size="sm"
+                          title={t("Create Debit Note for rejected goods")}
+                          disabled={creatingDnId === g._id}
+                          onClick={() => createDn(g)}
+                        >
+                          {creatingDnId === g._id ? (
+                            <Spinner size="sm" className="me-25" />
+                          ) : (
+                            <CornerUpLeft size={13} className="me-25" />
+                          )}
+                          {t("Debit Note")}
+                        </Button>
+                      ) : null}
+                      <Button
+                        color="flat-secondary"
+                        size="sm"
+                        className="p-25"
+                        title={t("Download PDF")}
+                        disabled={downloadingId === g._id}
+                        onClick={() => downloadGrnPdf(g)}
+                      >
+                        {downloadingId === g._id ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <Download size={15} />
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               );

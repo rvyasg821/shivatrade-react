@@ -1,7 +1,8 @@
-// Inventory (Received-Goods Register) listing page.
-// Read-only: one row per CLOSED POV line with received_qty > 0. No "Add"
-// action — receipts come from the POV receive flow. The detail modal opens
-// via the `?receipt=<pov_line_id>` URL param (deep-linkable + back-friendly).
+// Inventory (Stock Register) listing page.
+// Read-only: one row per non-cancelled POV line with QC-accepted qty from
+// confirmed GRNs (partial receipts on still-open POVs included). No "Add"
+// action — receipts come from the GRN flow. The detail modal opens via the
+// `?receipt=<pov_line_id>` URL param (deep-linkable + back-friendly).
 //
 // Uses a plain reactstrap <Table> (not the datatable) so we control header
 // no-wrap + column widths and never force a horizontal scrollbar.
@@ -290,7 +291,7 @@ const InventoryView = () => {
                     <th>{t("Category")}</th>
                     <th>{t("SO # / POV #")}</th>
                     <th>{t("Vendor")}</th>
-                    <th className="text-end">{t("Qty Received")}</th>
+                    <th className="text-end">{t("Qty in Stock")}</th>
                     <th>{t("Receipt Date")}</th>
                     <th className="text-center">{t("Action")}</th>
                   </tr>
@@ -361,7 +362,7 @@ const InventoryView = () => {
                           {row?.vendor_name || "-"}
                         </td>
                         <td className="text-end text-nowrap fw-bold">
-                          {fmtQty(row?.received_qty)}
+                          {fmtQty(row?.accepted_qty ?? row?.received_qty)}
                           {row?.uom ? ` ${row.uom}` : ""}
                         </td>
                         <td className="text-nowrap">

@@ -345,26 +345,24 @@ const ViewPurchaseOrder = () => {
     },
   ];
 
-  // Server-side PDF download (same endpoint the listing uses).
+  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
+  // the no-auth public route — a blob tab is named by its UUID.
   const handleDownloadPdf = async () => {
     if (!id) return;
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
     try {
       const resp = await instance.get(
-        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf`,
-        { responseType: "blob" }
+        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf-ticket`
       );
-      const cd = resp.headers?.["content-disposition"] || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `${p?.voucher_no || "sales-order"}.pdf`;
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const ticket = resp?.data?.data?.ticket;
+      if (!ticket) throw new Error("no ticket");
+      const url = `${instance.defaults.baseURL}${
+        API_ENDPOINTS.purchaseOrders.ticketPdf
+      }?t=${encodeURIComponent(ticket)}`;
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
     } catch (err) {
+      if (win) win.close();
       Notification(
         "Error",
         err?.response?.data?.message || t("Could not download PDF"),

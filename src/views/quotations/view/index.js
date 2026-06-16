@@ -34,6 +34,8 @@ import {
 } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
 import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import {
   QUOTATION_STATUS_OPTIONS,
@@ -140,6 +142,7 @@ const ViewQuotation = () => {
   // currency — that's what the quote is denominated in and what the customer
   // sees; base INR is the internal reference behind the toggle. The operator's
   // manual choice is remembered in localStorage and wins over the default.
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [showDoc, setShowDoc] = useState(() => {
     try {
       const stored = localStorage.getItem(QUOTATION_CURRENCY_LS_KEY);
@@ -444,6 +447,32 @@ const ViewQuotation = () => {
     },
   ];
 
+  // Open the server-rendered PDF inline in a new tab (with its proper name).
+  // A short-lived ticket lets the browser hit the no-auth public route
+  // directly, so the inline filename is honoured (a blob tab shows a UUID).
+  const downloadPdf = () => {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    // Open the tab synchronously on the click so the popup blocker allows it.
+    const win = window.open("", "_blank");
+    instance
+      .get(`${API_ENDPOINTS.quotations.pdf}/${id}/pdf-ticket`)
+      .then((resp) => {
+        const ticket = resp?.data?.data?.ticket;
+        if (!ticket) throw new Error("no ticket");
+        const url = `${instance.defaults.baseURL}${
+          API_ENDPOINTS.quotations.ticketPdf
+        }?t=${encodeURIComponent(ticket)}`;
+        if (win) win.location.href = url;
+        else window.open(url, "_blank");
+      })
+      .catch(() => {
+        if (win) win.close();
+        Notification("Error", t("Could not generate the PDF."), "warning");
+      })
+      .finally(() => setPdfLoading(false));
+  };
+
   // ── Header actions ── (status transitions live in the dropdown below; the
   // header keeps only Edit + Back to stay uncluttered.)
   const headerActions = [
@@ -466,11 +495,11 @@ const ViewQuotation = () => {
     },
     {
       icon: Download,
-      label: t("Download"),
+      label: pdfLoading ? t("Generating…") : t("Download"),
       color: "secondary",
       outline: true,
-      onClick: () =>
-        window.open(`${appsRoot}/quotations/preview/${id}?print=1`, "_blank"),
+      disabled: pdfLoading,
+      onClick: downloadPdf,
     },
     {
       icon: ArrowLeft,

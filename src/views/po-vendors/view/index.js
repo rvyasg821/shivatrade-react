@@ -15,7 +15,6 @@ import {
   DollarSign,
   Layers,
   Send,
-  Inbox,
   X as XIcon,
   ArrowLeft,
   ExternalLink,
@@ -24,6 +23,7 @@ import {
   Mail,
   Phone,
   Download,
+  Edit3,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -50,7 +50,6 @@ import {
 
 import PoVendorTabView from "./tabView";
 import PoVendorTimelinePanel from "./PoVendorTimelinePanel";
-import { createGrnFromPov } from "@src/views/grn/store";
 
 import "@styles/react/apps/app-users.scss";
 
@@ -97,8 +96,6 @@ const ViewPoVendor = () => {
   const authUserItem = authStore?.authUserItem || null;
   const p = store?.poVendorItem || {};
   const sym = p?.currency_symbol || "₹";
-
-  const [creatingGrn, setCreatingGrn] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
@@ -160,31 +157,6 @@ const ViewPoVendor = () => {
       });
   };
 
-  // Create a GRN (receipt + QC) against this dispatched POV and open it.
-  const onCreateGrn = async () => {
-    setCreatingGrn(true);
-    try {
-      const res = await dispatch(createGrnFromPov({ povId: id })).unwrap();
-      const newId = res?.grnItem?._id;
-      if (newId) {
-        navigate(`${appsRoot}/grn/view/${newId}`);
-      } else {
-        Notification(
-          "Error",
-          res?.error || t("Could not create GRN."),
-          "warning"
-        );
-      }
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.message || t("Could not create GRN."),
-        "warning"
-      );
-    } finally {
-      setCreatingGrn(false);
-    }
-  };
 
   // ── KPI calculations ──
   const lines = p?.lines || [];
@@ -273,26 +245,24 @@ const ViewPoVendor = () => {
     },
   ];
 
-  // Server-side PDF download (same endpoint the listing uses).
+  // Open the dispatch-advice PDF inline in a new tab (proper name) via a
+  // short-lived ticket on the no-auth public route — a blob tab is UUID-named.
   const handleDownloadPdf = async () => {
     if (!id) return;
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
     try {
       const resp = await instance.get(
-        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf`,
-        { responseType: "blob" }
+        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf-ticket`
       );
-      const cd = resp.headers?.["content-disposition"] || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `${p?.voucher_no || "vendor-po"}.pdf`;
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const ticket = resp?.data?.data?.ticket;
+      if (!ticket) throw new Error("no ticket");
+      const url = `${instance.defaults.baseURL}${
+        API_ENDPOINTS.poVendors.ticketPdf
+      }?t=${encodeURIComponent(ticket)}`;
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
     } catch (err) {
+      if (win) win.close();
       Notification(
         "Error",
         err?.response?.data?.message || t("Could not download PDF"),
@@ -312,10 +282,11 @@ const ViewPoVendor = () => {
   }
   if (canReceive) {
     headerActions.push({
-      icon: Inbox,
-      label: t("Create GRN"),
-      disabled: creatingGrn,
-      onClick: onCreateGrn,
+      icon: Edit3,
+      label: t("Edit Dispatch"),
+      color: "secondary",
+      outline: true,
+      onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
     });
   }
   if (canCancel) {

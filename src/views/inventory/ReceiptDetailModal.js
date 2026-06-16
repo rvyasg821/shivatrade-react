@@ -190,11 +190,26 @@ const ReceiptDetailModal = ({ isOpen, povLineId, toggle }) => {
             />
             <Row
               label={t("Received Qty")}
-              valueClassName="fw-bolder"
               value={`${fmtQty(receipt.received_qty)}${
                 product.uom ? ` ${product.uom}` : ""
               }`}
             />
+            <Row
+              label={t("Accepted Qty (in stock)")}
+              valueClassName="text-success fw-bolder"
+              value={`${fmtQty(receipt.accepted_qty)}${
+                product.uom ? ` ${product.uom}` : ""
+              }`}
+            />
+            {Number(receipt.rejected_qty) > 0 ? (
+              <Row
+                label={t("Rejected Qty")}
+                valueClassName="text-danger fw-bolder"
+                value={`${fmtQty(receipt.rejected_qty)}${
+                  product.uom ? ` ${product.uom}` : ""
+                }`}
+              />
+            ) : null}
             {hasShort ? (
               <Row
                 label={t("Short Qty")}

@@ -30,6 +30,7 @@ import Notification from "@components/toast/notification";
 import {
   getPoVendor,
   dispatchPoVendor,
+  editDispatchPoVendor,
   cleanPoVendorMessage,
 } from "@src/views/po-vendors/store";
 import { appsRoot } from "@constant/defaultValues";
@@ -70,12 +71,19 @@ const DispatchPoVendor = () => {
     if (id) dispatch(getPoVendor(id));
   }, [id, dispatch]);
 
-  // Seed once when the POV arrives: dispatched = full ordered_qty per line.
+  // Seed once when the POV arrives. New dispatch → default to full ordered
+  // qty; editing an already-dispatched POV → seed the saved dispatched qty.
   useEffect(() => {
     if (seeded || !p?._id || p._id !== id) return;
+    const editing = (p.status || "").toLowerCase() === "dispatched";
     const seed = {};
-    for (const l of lines) seed[l._id] = String(num(l.ordered_qty));
+    for (const l of lines)
+      seed[l._id] = String(
+        num(editing ? l.dispatched_qty : l.ordered_qty)
+      );
     setQtyByLine(seed);
+    if (editing && p.dispatch_date)
+      setDispatchDate((p.dispatch_date || "").slice(0, 10));
     setExpectedArrival((p.expected_arrival_date || "").slice(0, 10) || "");
     setTransporter(p.transporter_name || "");
     setVehicle(p.vehicle_no || "");
@@ -127,7 +135,11 @@ const DispatchPoVendor = () => {
     setQtyByLine((prev) => ({ ...prev, [lineId]: raw }));
 
   const statusLower = (p?.status || "").toLowerCase();
-  const notDraft = !!p?._id && statusLower !== "draft";
+  // Editing an already-dispatched POV (correct transport / qty). Closed or
+  // cancelled POVs stay fully locked.
+  const editMode = !!p?._id && statusLower === "dispatched";
+  const locked =
+    !!p?._id && statusLower !== "draft" && statusLower !== "dispatched";
 
   const onSubmit = async () => {
     if (!dispatchDate) {
@@ -144,27 +156,28 @@ const DispatchPoVendor = () => {
     }
     setSubmitting(true);
     try {
+      const payload = {
+        id: p._id,
+        data: {
+          dispatch_date: dispatchDate,
+          expected_arrival_date: expectedArrival || undefined,
+          transporter_name: transporter || undefined,
+          vehicle_no: vehicle || undefined,
+          lr_no: lrNo || undefined,
+          lr_date: lrDate || undefined,
+          eway_bill_no: ewayNo || undefined,
+          eway_bill_date: ewayDate || undefined,
+          notes: notes || undefined,
+          short_reason:
+            totalShort > 0 && shortReason ? shortReason : undefined,
+          lines: lines.map((l) => ({
+            _id: l._id,
+            dispatched_qty: String(num(qtyByLine[l._id])),
+          })),
+        },
+      };
       await dispatch(
-        dispatchPoVendor({
-          id: p._id,
-          data: {
-            dispatch_date: dispatchDate,
-            expected_arrival_date: expectedArrival || undefined,
-            transporter_name: transporter || undefined,
-            vehicle_no: vehicle || undefined,
-            lr_no: lrNo || undefined,
-            lr_date: lrDate || undefined,
-            eway_bill_no: ewayNo || undefined,
-            eway_bill_date: ewayDate || undefined,
-            notes: notes || undefined,
-            short_reason:
-              totalShort > 0 && shortReason ? shortReason : undefined,
-            lines: lines.map((l) => ({
-              _id: l._id,
-              dispatched_qty: String(num(qtyByLine[l._id])),
-            })),
-          },
-        })
+        editMode ? editDispatchPoVendor(payload) : dispatchPoVendor(payload)
       ).unwrap();
       dispatch(cleanPoVendorMessage());
       navigate(backTo);
@@ -182,7 +195,8 @@ const DispatchPoVendor = () => {
           <div className="d-flex align-items-center gap-1">
             <Truck size={18} className="text-primary" />
             <h4 className="mb-0">
-              {t("Dispatch")} <code>{p?.voucher_no || ""}</code>
+              {editMode ? t("Edit Dispatch") : t("Dispatch")}{" "}
+              <code>{p?.voucher_no || ""}</code>
             </h4>
             {p?.vendor_name ? (
               <Badge color="light-secondary" className="text-capitalize">
@@ -202,16 +216,23 @@ const DispatchPoVendor = () => {
         </CardHeader>
 
         <CardBody>
-          {notDraft && (
+          {locked && (
             <Alert color="warning" className="p-2 mb-2">
               {t(
-                "This Vendor PO is already dispatched. Quantities are locked; only a draft POV can be dispatched."
+                "This Vendor PO is closed or cancelled. Dispatch details are read-only."
+              )}
+            </Alert>
+          )}
+          {editMode && (
+            <Alert color="info" className="p-2 mb-2">
+              {t(
+                "Editing dispatch — adjust transport details and per-line dispatched quantity. A line's dispatched quantity cannot be set below what has already been received via GRN."
               )}
             </Alert>
           )}
           <p className="small text-muted mb-2">
             {t(
-              "Capture per-line dispatched quantities + transport details. After dispatch, quantities lock; tracking fields stay editable until close."
+              "Capture per-line dispatched quantities + transport details. Any shortfall (ordered − dispatched) returns to the parent PO's pending qty."
             )}
           </p>
 
@@ -354,7 +375,7 @@ const DispatchPoVendor = () => {
                           bsSize="sm"
                           className="text-end"
                           invalid={over}
-                          disabled={notDraft}
+                          disabled={locked}
                           value={qtyByLine[l._id] ?? ""}
                           onChange={(e) =>
                             handleQtyChange(l._id, e.target.value)
@@ -490,14 +511,14 @@ const DispatchPoVendor = () => {
           <Button
             color="primary"
             onClick={onSubmit}
-            disabled={submitting || overLineCount > 0 || notDraft}
+            disabled={submitting || overLineCount > 0 || locked}
           >
             {submitting ? (
               <Spinner size="sm" className="me-50" />
             ) : (
               <Send size={14} className="me-50" />
             )}
-            {t("Confirm Dispatch")}
+            {editMode ? t("Update Dispatch") : t("Confirm Dispatch")}
           </Button>
         </CardFooter>
       </Card>

@@ -1,0 +1,213 @@
+// Debit Notes raised against this POV (vendor returns for QC-rejected goods).
+// Read-only list — a Debit Note is created from a confirmed GRN (see the GRNs
+// tab → open a GRN → "Create Debit Note"). Rows link to the Debit Note page.
+
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { Table, Spinner, Button } from "reactstrap";
+import { Link } from "react-router-dom";
+import { ExternalLink, Download } from "react-feather";
+import { useTranslation } from "react-i18next";
+
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { appsRoot } from "@constant/defaultValues";
+import { formatDate } from "@src/utility/dateFormat";
+import Notification from "@components/toast/notification";
+
+const STATUS_COLOR = {
+  draft: "#6c757d",
+  issued: "#28a745",
+  cancelled: "#ea5455",
+};
+
+const fmtMoney = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "0.00";
+};
+
+const DebitNotesTab = ({ registerActions }) => {
+  const { id } = useParams();
+  const { t } = useTranslation();
+
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  // Open a Debit Note's PDF inline in a new tab via a short-lived ticket on
+  // the no-auth public route — a blob tab is named by its UUID.
+  const downloadPdf = async (d) => {
+    if (!d?._id || downloadingId) return;
+    setDownloadingId(d._id);
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.debitNotes.pdf}/${d._id}/pdf-ticket`
+      );
+      const ticket = resp?.data?.data?.ticket;
+      if (!ticket) throw new Error("no ticket");
+      const url = `${instance.defaults.baseURL}${
+        API_ENDPOINTS.debitNotes.ticketPdf
+      }?t=${encodeURIComponent(ticket)}`;
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
+    } catch (err) {
+      if (win) win.close();
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const load = useCallback(() => {
+    if (!id) return;
+    setLoading(true);
+    instance
+      .get(API_ENDPOINTS.debitNotes.list, {
+        params: {
+          po_vendor_id: id,
+          page: 1,
+          perPage: 200,
+          orderBy: "createdAt",
+          orderDirection: "asc",
+        },
+      })
+      .then((resp) => setRows(resp?.data?.data || []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // This tab publishes no action to the tab bar — clear any lingering one.
+  useEffect(() => {
+    if (registerActions) registerActions(null);
+    return () => registerActions && registerActions(null);
+  }, [registerActions]);
+
+  if (loading && !rows.length) {
+    return (
+      <div className="text-center py-3">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="text-muted py-3 text-center">
+        {t(
+          "No Debit Notes raised against this Vendor PO yet. Create one from a confirmed GRN."
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Fragment>
+      <div className="border rounded">
+        <Table responsive bordered size="sm" className="align-middle mb-0">
+          <thead className="table-light">
+            <tr>
+              <th style={{ width: 36 }}>#</th>
+              <th style={{ minWidth: 200 }}>{t("Debit Note")}</th>
+              <th style={{ width: 130 }}>{t("Date")}</th>
+              <th style={{ width: 80 }} className="text-end">
+                {t("Lines")}
+              </th>
+              <th style={{ width: 140 }} className="text-end">
+                {t("Amount")}
+              </th>
+              <th style={{ width: 120 }} className="text-center">
+                {t("Status")}
+              </th>
+              <th style={{ width: 90 }} className="text-center">
+                {t("Actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((d, i) => {
+              const c = STATUS_COLOR[d?.status] || "#6c757d";
+              return (
+                <tr key={d._id}>
+                  <td className="text-muted">{i + 1}</td>
+                  <td>
+                    <Link
+                      to={`${appsRoot}/debit-notes/view/${d._id}`}
+                      className="fw-bold d-inline-flex align-items-center"
+                      ref={(el) =>
+                        el &&
+                        el.style.setProperty("color", "#09418B", "important")
+                      }
+                    >
+                      {d.voucher_no || "-"}
+                      <ExternalLink size={12} className="ms-25" />
+                    </Link>
+                    {d.grn_voucher_no ? (
+                      <div className="small text-muted">
+                        {t("GRN")}: {d.grn_voucher_no}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>{d.dn_date ? formatDate(d.dn_date) : "-"}</td>
+                  <td className="text-end">{d.line_count ?? "-"}</td>
+                  <td className="text-end text-nowrap">
+                    {fmtMoney(d.total_amount)}
+                    {d.currency_code ? ` ${d.currency_code}` : ""}
+                  </td>
+                  <td className="text-center">
+                    <span
+                      className="badge rounded-pill text-capitalize"
+                      ref={(el) => {
+                        if (el) {
+                          el.style.setProperty(
+                            "background-color",
+                            `${c}1f`,
+                            "important"
+                          );
+                          el.style.setProperty("color", c, "important");
+                        }
+                      }}
+                    >
+                      {d.status}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <Button
+                      color="flat-secondary"
+                      size="sm"
+                      className="p-25"
+                      title={t("Download PDF")}
+                      disabled={downloadingId === d._id}
+                      onClick={() => downloadPdf(d)}
+                    >
+                      {downloadingId === d._id ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <Download size={15} />
+                      )}
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+    </Fragment>
+  );
+};
+
+export default DebitNotesTab;

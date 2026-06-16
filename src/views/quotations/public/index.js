@@ -306,15 +306,13 @@ const QuotationPublicView = () => {
                   <tr>
                     <th style={{ width: 32 }}>#</th>
                     <th>{t("Product / Description")}</th>
+                    <th style={{ width: 90 }}>{t("Part No")}</th>
                     <th className="text-end" style={{ width: 70 }}>
                       {t("Qty")}
                     </th>
                     <th style={{ width: 56 }}>{t("Unit")}</th>
                     <th className="text-end" style={{ width: 80 }}>
                       {t("Rate")}
-                    </th>
-                    <th className="text-end" style={{ width: 60 }}>
-                      {t("Disc%")}
                     </th>
                     <th className="text-end" style={{ width: 100 }}>
                       {t("Amount")}
@@ -329,11 +327,19 @@ const QuotationPublicView = () => {
                         <div className="fw-semibold">
                           {l.product_name || "-"}
                         </div>
+                        {l.hs_code ? (
+                          <div
+                            className="party-muted"
+                            style={{ color: "#6e6b7b" }}
+                          >
+                            HSN: {l.hs_code}
+                          </div>
+                        ) : null}
                       </td>
+                      <td>{l.part_no || "-"}</td>
                       <td className="text-end">{l.qty || "-"}</td>
                       <td>{l.unit || "-"}</td>
                       <td className="text-end">{money(l.unit_price)}</td>
-                      <td className="text-end">{l.discount_pct || 0}</td>
                       <td className="text-end fw-semibold">
                         {money(l.line_total)}
                       </td>
