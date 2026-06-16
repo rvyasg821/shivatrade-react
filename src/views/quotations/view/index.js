@@ -8,7 +8,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Input } from "reactstrap";
+import { Input, Button } from "reactstrap";
 import {
   Calendar,
   DollarSign,
@@ -16,12 +16,13 @@ import {
   Truck,
   ArrowLeft,
   Layers,
-  CreditCard,
-  MapPin,
   Hash,
-  Percent,
   FileText,
   CheckCircle,
+  Send,
+  XCircle,
+  Eye,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -42,6 +43,7 @@ import {
   QUOTATION_STATUS_BADGE_COLOR,
 } from "@constant/options";
 import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
@@ -53,16 +55,15 @@ import {
   DetailHeader,
   DetailPipeline,
   DetailKpiStrip,
-  DetailFieldList,
   DetailPanel,
   DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
 import RelatedDocsTabs from "./RelatedDocsTabs";
-import PublicLinkPanel from "./PublicLinkPanel";
 import {
   QuotationCurrencyProvider,
   QUOTATION_CURRENCY_LS_KEY,
+  useQuotationCurrency,
 } from "./CurrencyToggleContext";
 
 const PIPELINE_STEPS = [
@@ -84,6 +85,27 @@ const daysUntil = (iso) => {
   today.setHours(0, 0, 0, 0);
   target.setHours(0, 0, 0, 0);
   return Math.round((target.getTime() - today.getTime()) / 86400000);
+};
+
+// Right-column costing card. Rendered as a child of the currency provider so
+// `useQuotationCurrency()` resolves the page-level View: USD⇄INR toggle, keeping
+// the breakdown in lock-step with the table + KPI strip.
+const CostingPanelBody = ({ lines, exchangeRate, currencyCode }) => {
+  const { view } = useQuotationCurrency();
+  const totals = useMemo(
+    () => computeDocTotals(lines || [], exchangeRate, { excludeGst: true }),
+    [lines, exchangeRate]
+  );
+  return (
+    <SalesDocCostingCard
+      totals={totals}
+      currencyCode={currencyCode}
+      currencyView={view}
+      sticky={false}
+      hideGst
+      bare
+    />
+  );
 };
 
 const ViewQuotation = () => {
@@ -119,14 +141,18 @@ const ViewQuotation = () => {
   const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
   const [poModalOpen, setPoModalOpen] = useState(false);
 
-  // Currency-view toggle: OFF (default) → ShivaTrade's base currency (INR);
-  // ON → the quotation's own currency. Persisted in localStorage so the
-  // operator's choice survives reloads.
+  // Currency-view toggle. Default → the quotation's OWN (customer/document)
+  // currency — that's what the quote is denominated in and what the customer
+  // sees; base INR is the internal reference behind the toggle. The operator's
+  // manual choice is remembered in localStorage and wins over the default.
   const [showDoc, setShowDoc] = useState(() => {
     try {
-      return localStorage.getItem(QUOTATION_CURRENCY_LS_KEY) === "1";
+      const stored = localStorage.getItem(QUOTATION_CURRENCY_LS_KEY);
+      if (stored === "1") return true;
+      if (stored === "0") return false;
+      return true; // no stored preference → show the document currency
     } catch {
-      return false;
+      return true;
     }
   });
   useEffect(() => {
@@ -180,7 +206,7 @@ const ViewQuotation = () => {
       .fire({
         title: t("Mark as Approved?"),
         text: t(
-          "Once approved, this quotation can be converted to a PFI or used to generate POs."
+          "Once approved, you can generate the customer Sales Order and the vendor Purchase Orders from this quotation."
         ),
         icon: "question",
         showCancelButton: true,
@@ -203,6 +229,47 @@ const ViewQuotation = () => {
             Notification("Error", err || t("Approval failed"), "warning")
           );
       });
+  };
+
+  // One-click status transitions (no need to open the edit wizard).
+  const changeStatus = (status, failMsg) =>
+    dispatch(updateQuotation({ id, data: { status } }))
+      .unwrap()
+      .then(() => dispatch(getQuotation(id)))
+      .catch((err) => Notification("Error", err || failMsg, "warning"));
+
+  const handleSend = () => {
+    mySwal
+      .fire({
+        title: t("Mark as Sent?"),
+        text: t("Records that this quotation has been sent to the customer."),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, mark sent"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("sent", t("Could not mark sent")));
+  };
+
+  const handleReject = () => {
+    mySwal
+      .fire({
+        title: t("Reject this quotation?"),
+        text: t("Marks the quotation as rejected. You can revert to draft later."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, reject"),
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus("rejected", t("Could not reject")));
   };
 
   useEffect(() => {
@@ -306,6 +373,10 @@ const ViewQuotation = () => {
   // can't change status (mirrors the Edit button gate).
   const canApprove =
     canEdit && (statusLower === "draft" || statusLower === "sent");
+  // Send: draft → sent. Reject: draft/sent → rejected.
+  const canSend = canEdit && statusLower === "draft";
+  const canReject =
+    canEdit && (statusLower === "draft" || statusLower === "sent");
 
   const statusLabel = labelize(statusLower, QUOTATION_STATUS_OPTIONS);
 
@@ -381,12 +452,28 @@ const ViewQuotation = () => {
   // ── Header actions ──
   const headerActions = [
     {
+      icon: Send,
+      label: t("Mark as Sent"),
+      onClick: handleSend,
+      hidden: !canSend,
+      outline: true,
+      color: "primary",
+    },
+    {
       icon: CheckCircle,
       label: t("Mark as Approve"),
       onClick: handleApprove,
       hidden: !canApprove,
       outline: false,
       color: "success",
+    },
+    {
+      icon: XCircle,
+      label: t("Reject"),
+      onClick: handleReject,
+      hidden: !canReject,
+      outline: true,
+      color: "danger",
     },
     {
       icon: FileText,
@@ -421,41 +508,11 @@ const ViewQuotation = () => {
     },
   ];
 
-  // ── Side panel field lists ──
-  // Show quote currency → base (e.g. "$1 = ₹83.33") so the customer sees
-  // how much of the home currency one unit of their currency buys.
-  const inrConversionLine =
-    rate > 0 && !isBaseCurrency
-      ? `${sym}1 = ${baseCurrency.symbol}${(1 / rate).toLocaleString(
-          undefined,
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}`
-      : isBaseCurrency
-      ? t("Base currency — no conversion")
-      : null;
-
-  const moneyFields = [
-    {
-      icon: Percent,
-      label: t("Exchange Rate"),
-      value: inrConversionLine,
-    },
-  ];
-
-  const termsFields = [
-    { icon: CreditCard, label: t("Payment Terms"), value: q?.payment_terms },
-    { icon: Truck, label: t("Delivery Terms"), value: q?.delivery_terms },
-    {
-      icon: MapPin,
-      label: t("Delivery Location"),
-      value: q?.delivery_location,
-    },
-  ];
-
   // Currency-view toggle shown under the header action buttons. Hidden for
   // base-currency quotations (nothing to convert).
   const currencyToggle = isBaseCurrency ? null : (
     <div className="d-flex align-items-center gap-50">
+      <span className="small text-muted me-25">{t("View")}:</span>
       <span
         className={`small fw-semibold ${
           showDocEffective ? "text-muted" : "text-primary"
@@ -484,13 +541,44 @@ const ViewQuotation = () => {
     </div>
   );
 
+  // Bottom-of-header row: currency toggle (left) + Preview / Download (right),
+  // so the PDF actions sit inline with the status row instead of wrapping the
+  // main action buttons onto a second line.
+  const headerFooter = (
+    <div className="d-flex align-items-center flex-wrap justify-content-end gap-1">
+      {currencyToggle}
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        onClick={() =>
+          window.open(`${appsRoot}/quotations/preview/${id}`, "_blank")
+        }
+      >
+        <Eye size={14} className="me-50" />
+        {t("Preview")}
+      </Button>
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        onClick={() =>
+          window.open(`${appsRoot}/quotations/preview/${id}?print=1`, "_blank")
+        }
+      >
+        <Download size={14} className="me-50" />
+        {t("Download PDF")}
+      </Button>
+    </div>
+  );
+
   return (
     <QuotationCurrencyProvider value={currencyCtx}>
     <Fragment>
       <div className="app-user-view">
         <DetailHeader
           avatarText="Q"
-          actionsFooter={currencyToggle}
+          actionsFooter={headerFooter}
           title={q?.voucher_no || "-"}
           subtitle={
             [q?.customer_name, q?.customer_email].filter(Boolean).join(" · ") ||
@@ -534,36 +622,16 @@ const ViewQuotation = () => {
         <DetailKpiStrip items={kpiItems} />
 
         <DetailTwoPanel
-          ratio="9-3"
+          ratio="8-4"
           left={<RelatedDocsTabs />}
           right={
-            <Fragment>
-              <PublicLinkPanel />
-              <DetailPanel title={t("Details")}>
-                <DetailFieldList items={moneyFields} />
-                {termsFields.some((f) => f.value) && (
-                  <DetailFieldList title={t("Terms")} items={termsFields} />
-                )}
-                {(q?.notes_to_client || q?.internal_notes) && (
-                  <div className="mt-1 pt-1 border-top">
-                    <div className="text-muted small mb-50">
-                      {q?.notes_to_client
-                        ? t("Notes to Client")
-                        : t("Internal Notes")}
-                    </div>
-                    <div
-                      className="text-break small"
-                      style={{
-                        whiteSpace: "pre-line",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {q?.notes_to_client || q?.internal_notes}
-                    </div>
-                  </div>
-                )}
-              </DetailPanel>
-            </Fragment>
+            <DetailPanel title={t("Costing Breakdown")}>
+              <CostingPanelBody
+                lines={q?.lines}
+                exchangeRate={q?.exchange_rate}
+                currencyCode={q?.currency_code}
+              />
+            </DetailPanel>
           }
         />
       </div>

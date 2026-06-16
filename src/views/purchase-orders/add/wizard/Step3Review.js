@@ -14,6 +14,17 @@ import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCar
 import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
 import { initPurchaseOrderLineItem } from "@constant/reduxConstant";
 
+// Allowed next statuses per the server-side transition matrix. The current
+// status is always kept selectable so an unchanged save is valid; only legal
+// forward/revert jumps are offered.
+const STATUS_TRANSITIONS = {
+  draft: ["confirmed", "cancelled"],
+  confirmed: ["in_process", "cancelled", "draft"],
+  in_process: ["completed", "cancelled", "draft"],
+  completed: ["draft"],
+  cancelled: ["draft"],
+};
+
 const Step3Review = ({ isLocked, productOptions = [] }) => {
   const { t } = useTranslation();
   const { control, setValue } = useFormContext();
@@ -22,6 +33,16 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
   const exchangeRate = useWatch({ control, name: "exchange_rate" });
   const rate = Number(exchangeRate) || 1;
   const totals = computeDocTotals(lines, rate, { excludeGst: true });
+  const currentStatus = useWatch({ control, name: "status" }) || "draft";
+
+  // Current status + only its legal next statuses (matches the BE matrix).
+  const allowedStatuses = [
+    currentStatus,
+    ...(STATUS_TRANSITIONS[currentStatus] || []),
+  ];
+  const statusOptions = PURCHASE_ORDER_STATUS_OPTIONS.filter((o) =>
+    allowedStatuses.includes(o.value)
+  );
 
   return (
     <Row>
@@ -91,7 +112,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
               render={({ field }) => (
                 <Select
                   classNamePrefix="select"
-                  options={PURCHASE_ORDER_STATUS_OPTIONS}
+                  options={statusOptions}
                   value={
                     PURCHASE_ORDER_STATUS_OPTIONS.find(
                       (o) => o.value === field.value

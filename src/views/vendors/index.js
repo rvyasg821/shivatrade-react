@@ -11,7 +11,6 @@ import { startLoading, stopLoading } from "../loadingstore";
 // ** Reactstrap
 import {
   Col,
-  Badge,
   Row,
   Card,
   Input,
@@ -188,8 +187,7 @@ const VendorList = () => {
             className="fw-bold text-capitalize text-break"
             style={{ overflowWrap: "anywhere" }}
             ref={(el) => {
-              if (el && canEdit)
-                el.style.setProperty("color", "#0d6efd", "important");
+              if (el) el.style.setProperty("color", "#09418B", "important");
             }}
           >
             {row?.company_name || "-"}
@@ -234,24 +232,52 @@ const VendorList = () => {
     {
       name: t("Categories"),
       sortable: false,
+      grow: 1.5,
+      wrap: true,
       selector: (row) => {
         const cats = row?.categories || [];
-        if (cats.length === 0) return <span>-</span>;
+        if (cats.length === 0) return <span className="text-muted">-</span>;
         return (
-          <span className="text-wrap text-capitalize">
-            {cats.map((c) => c.name).join(", ")}
-          </span>
+          <div className="d-flex flex-wrap gap-50 py-50">
+            {cats.map((c) => (
+              <span
+                key={c._id || c.name}
+                className="badge rounded-pill text-capitalize text-nowrap"
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty("background-color", "#09418B", "important");
+                    el.style.setProperty("color", "#fff", "important");
+                  }
+                }}
+              >
+                {c.name}
+              </span>
+            ))}
+          </div>
         );
       },
     },
     {
       name: t("Status"),
       sortable: false,
-      selector: (row) => (
-        <Badge color={row?.is_active ? "light-success" : "light-warning"}>
-          {row?.is_active ? t("Active") : t("Inactive")}
-        </Badge>
-      ),
+      center: true,
+      width: "120px",
+      selector: (row) => {
+        const c = row?.is_active ? "#198754" : "#fd7e14";
+        return (
+          <span
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
+            }}
+          >
+            {row?.is_active ? t("Active") : t("Inactive")}
+          </span>
+        );
+      },
     },
   ];
 

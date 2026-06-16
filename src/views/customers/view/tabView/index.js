@@ -4,6 +4,7 @@ import { Button, Card, CardBody, TabContent, TabPane } from "reactstrap";
 import { ArrowLeft } from "react-feather";
 
 import { appsRoot } from "@constant/defaultValues";
+import { PFI_RETIRED } from "@src/configs/appMode";
 import Tabs from "./tabs";
 import AddressesTab from "./AddressesTab";
 import ContactsTab from "./ContactsTab";
@@ -41,9 +42,11 @@ const CustomerTabView = () => {
             <TabPane tabId="quotations">
               <QuotationsTab />
             </TabPane>
-            <TabPane tabId="pfis">
-              <PfisTab />
-            </TabPane>
+            {!PFI_RETIRED && (
+              <TabPane tabId="pfis">
+                <PfisTab />
+              </TabPane>
+            )}
           </TabContent>
         </CardBody>
       </Card>

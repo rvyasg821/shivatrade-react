@@ -204,31 +204,10 @@ const LeadForm = () => {
     return r > 0 ? r : 1;
   })();
 
-  // Keep Expected Value synced to the live requirement-items total (Σ qty ×
-  // price), shown in the selected currency. Editable — a manual override holds
-  // until a line or the currency changes. Line item prices are base (INR), so
-  // the displayed value is total × rate; it's converted back to INR on save.
-  const watchedLines = watch("lines");
-  useEffect(() => {
-    const productLines = (watchedLines || []).filter((l) => l && l.product_id);
-    // Don't touch a loaded value when there are no requirement lines yet.
-    if (!productLines.length) return;
-    const totalInr = productLines.reduce(
-      (s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0),
-      0
-    );
-    const display = totalInr * leadRate;
-    setValue(
-      "expected_value",
-      display > 0 ? Number(display.toFixed(2)) : ""
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    leadRate,
-    JSON.stringify(
-      (watchedLines || []).map((l) => [l?.product_id, l?.qty, l?.unit_price])
-    ),
-  ]);
+  // Expected Value is a manual forecast (rep's subjective deal size). It is NOT
+  // auto-computed: requirement lines carry no price (vendor/pricing is decided
+  // later at the quotation). The detail page shows a separate computed
+  // "Estimated Sales Value" (Σ qty × product selling price) from the items.
 
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
@@ -808,6 +787,7 @@ const LeadForm = () => {
                     docNumber=""
                     hideGst
                     showExportFields
+                    requirementMode
                   />
                 </Col>
                 <Col md="3" className="mb-2">
@@ -853,7 +833,7 @@ const LeadForm = () => {
                           type="number"
                           min="0"
                           step="any"
-                          placeholder={t("Auto from items")}
+                          placeholder={t("Optional estimate")}
                           {...field}
                           value={field.value ?? ""}
                         />

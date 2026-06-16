@@ -3,6 +3,8 @@ import { Nav, NavItem, NavLink } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { MapPin, Users, FileText, File } from "react-feather";
 
+import { PFI_RETIRED } from "@src/configs/appMode";
+
 const Tabs = ({ active, toggleTab }) => {
   const { t } = useTranslation();
   return (
@@ -35,15 +37,17 @@ const Tabs = ({ active, toggleTab }) => {
             <span className="fw-bold">{t("Quotations")}</span>
           </NavLink>
         </NavItem>
-        <NavItem>
-          <NavLink
-            active={active === "pfis"}
-            onClick={() => toggleTab("pfis")}
-          >
-            <File className="font-medium-3 me-50" />
-            <span className="fw-bold">{t("PFIs")}</span>
-          </NavLink>
-        </NavItem>
+        {!PFI_RETIRED && (
+          <NavItem>
+            <NavLink
+              active={active === "pfis"}
+              onClick={() => toggleTab("pfis")}
+            >
+              <File className="font-medium-3 me-50" />
+              <span className="fw-bold">{t("PFIs")}</span>
+            </NavLink>
+          </NavItem>
+        )}
       </Nav>
     </Fragment>
   );

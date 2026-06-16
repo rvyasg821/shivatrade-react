@@ -13,11 +13,14 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  UncontrolledPopover,
+  PopoverBody,
+  UncontrolledTooltip,
 } from "reactstrap";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import Select from "react-select";
 import AsyncSelect from "react-select/async";
-import { Plus, Trash2, Edit } from "react-feather";
+import { Plus, Trash2, Edit, Check, Info } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -85,6 +88,10 @@ const SalesDocLineItems = ({
   /** Quotation: capture per-line GST in the modal but don't show the
    *  GST column in the table or the GST row in the per-line breakdown. */
   hideGst = false,
+  /** Lead requirement lines only: capture product + qty + unit + HSN +
+   *  specs ONLY. No vendor selection, no price/discount, no costing — the
+   *  vendor + price are decided later at the Quotation via auto-pick. */
+  requirementMode = false,
 }) => {
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
@@ -167,7 +174,9 @@ const SalesDocLineItems = ({
 
   // On Edit hydration: fetch vendor options for each existing line so the
   // table shows full labels and the modal Vendor select is ready to use.
+  // Requirement-mode (lead) lines carry no vendor/price, so skip the fetch.
   useEffect(() => {
+    if (requirementMode) return;
     (liveLines || []).forEach((l, idx) => {
       if (l?.product_id && !vendorOptionsByLine[idx]) {
         fetchVendorPrices(idx, l.product_id);
@@ -175,6 +184,26 @@ const SalesDocLineItems = ({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveLines.length]);
+
+  // Stamp a price-list "best price" row onto a line: vendor + price +
+  // discount + provenance (price_list_id / source_rfq_*). Shared by the
+  // cheapest auto-pick and the manual vendor radio pick.
+  const applyPriceRow = (idx, r) => {
+    setValue(`lines.${idx}.vendor_id`, r.vendor_id || "");
+    setValue(`lines.${idx}.unit_price`, String(r.unit_price ?? ""));
+    if (r.discount_pct !== undefined && r.discount_pct !== null) {
+      setValue(`lines.${idx}.discount_pct`, String(r.discount_pct));
+    }
+    setValue(`lines.${idx}.price_list_id`, r.price_list_id || "");
+    setValue(
+      `lines.${idx}.source_rfq_id`,
+      r.source_type === "rfq" ? r.source_rfq_id || "" : ""
+    );
+    setValue(
+      `lines.${idx}.source_rfq_voucher_no`,
+      r.source_type === "rfq" ? r.source_rfq_voucher_no || "" : ""
+    );
+  };
 
   const fetchVendorPrices = async (idx, productId) => {
     if (!productId) {
@@ -202,18 +231,7 @@ const SalesDocLineItems = ({
       // lowest-price one. Don't override a user's existing pick.
       const currentVendorId = liveLines?.[idx]?.vendor_id;
       if (!currentVendorId && sortedRows.length) {
-        const cheapest = sortedRows[0];
-        setValue(`lines.${idx}.vendor_id`, cheapest.vendor_id || "");
-        setValue(`lines.${idx}.unit_price`, String(cheapest.unit_price ?? ""));
-        if (
-          cheapest.discount_pct !== undefined &&
-          cheapest.discount_pct !== null
-        ) {
-          setValue(
-            `lines.${idx}.discount_pct`,
-            String(cheapest.discount_pct)
-          );
-        }
+        applyPriceRow(idx, sortedRows[0]);
       }
       return sortedRows;
     } catch (_e) {
@@ -244,14 +262,21 @@ const SalesDocLineItems = ({
     setValue(`lines.${idx}.product_id`, opt?.value || "");
     if (opt?.raw) {
       setValue(`lines.${idx}.unit`, opt.raw.unit_of_measure || "");
-      setValue(`lines.${idx}.unit_price`, String(opt.raw.selling_price ?? ""));
-      // Product is the source of truth for GST % and Margin % (and the
-      // rebate/expense snapshots below). All overridable per line.
-      if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
-        setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
-      }
-      if (opt.raw.margin_pct !== undefined && opt.raw.margin_pct !== null) {
-        setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
+      // Lead requirement lines capture no price/costing — vendor + price are
+      // decided later at the Quotation via auto-pick.
+      if (!requirementMode) {
+        setValue(
+          `lines.${idx}.unit_price`,
+          String(opt.raw.selling_price ?? ""),
+        );
+        // Product is the source of truth for GST % and Margin % (and the
+        // rebate/expense snapshots below). All overridable per line.
+        if (opt.raw.tax_pct !== undefined && opt.raw.tax_pct !== null) {
+          setValue(`lines.${idx}.tax_pct`, String(opt.raw.tax_pct));
+        }
+        if (opt.raw.margin_pct !== undefined && opt.raw.margin_pct !== null) {
+          setValue(`lines.${idx}.margin_pct`, String(opt.raw.margin_pct));
+        }
       }
       // PFI / export documents: auto-fill HS code + per-line weights from
       // product master. qty defaults to 1 if blank so the weight math has
@@ -309,15 +334,15 @@ const SalesDocLineItems = ({
     setValue(`lines.${idx}.product_rebates_snapshot`, masterRebates);
     setValue(`lines.${idx}.product_expenses_snapshot`, masterExpenses);
 
+    // Lead requirement lines never carry a vendor/price — pricing is decided
+    // later at the Quotation via auto-pick. Skip the price-list fetch entirely.
+    if (requirementMode) return;
+
     const rows = await fetchVendorPrices(idx, opt?.value);
     if (rows.length) {
-      // Vendor price list is the source of truth for Price and Discount %.
-      const first = rows[0];
-      setValue(`lines.${idx}.vendor_id`, first.vendor_id || "");
-      setValue(`lines.${idx}.unit_price`, String(first.unit_price ?? ""));
-      if (first.discount_pct !== undefined && first.discount_pct !== null) {
-        setValue(`lines.${idx}.discount_pct`, String(first.discount_pct));
-      }
+      // Auto-pick the cheapest vendor by default (rows are sorted ascending).
+      // Stamps vendor + price + discount + provenance; user can override.
+      applyPriceRow(idx, rows[0]);
     }
   };
 
@@ -341,9 +366,22 @@ const SalesDocLineItems = ({
         `lines.${idx}.vendor_name`,
         opt.raw.vendor_name || "",
       );
+      // Carry pricing provenance from the picked price-list row.
+      setValue(`lines.${idx}.price_list_id`, opt.raw.price_list_id || "");
+      setValue(
+        `lines.${idx}.source_rfq_id`,
+        opt.raw.source_type === "rfq" ? opt.raw.source_rfq_id || "" : ""
+      );
+      setValue(
+        `lines.${idx}.source_rfq_voucher_no`,
+        opt.raw.source_type === "rfq" ? opt.raw.source_rfq_voucher_no || "" : ""
+      );
     } else {
       setValue(`lines.${idx}.vendor_code`, "");
       setValue(`lines.${idx}.vendor_name`, "");
+      setValue(`lines.${idx}.price_list_id`, "");
+      setValue(`lines.${idx}.source_rfq_id`, "");
+      setValue(`lines.${idx}.source_rfq_voucher_no`, "");
     }
   };
 
@@ -368,8 +406,11 @@ const SalesDocLineItems = ({
       // Drop the row if the user backed out without entering enough to make
       // a valid line (no product, OR missing qty / price). Prevents zero-
       // value placeholder rows from sticking around in the line items table.
+      // Requirement (lead) lines carry no price, so price isn't required.
       const hasValidData =
-        !!row?.product_id && num(row?.qty) > 0 && num(row?.unit_price) > 0;
+        !!row?.product_id &&
+        num(row?.qty) > 0 &&
+        (requirementMode || num(row?.unit_price) > 0);
       if (!hasValidData) {
         lineFA.remove(idx);
         setVendorOptionsByLine((m) => {
@@ -561,15 +602,15 @@ const SalesDocLineItems = ({
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>{t("Product")}</th>
-                {tableLayout === "detailed" ? (
+                {requirementMode ? (
+                  <>
+                    <th className="text-end">{t("Qty")}</th>
+                    <th>{t("HSN")}</th>
+                  </>
+                ) : tableLayout === "detailed" ? (
                   <>
                     <th className="text-end">{t("Qty")}</th>
                     <th className="text-end">{t("Price")}</th>
-                    <th className="text-end">{t("Disc")}</th>
-                    <th className="text-end">{t("Expenses")}</th>
-                    <th className="text-end">{t("Rebates")}</th>
-                    {!hideGst && <th className="text-end">{t("GST")}</th>}
-                    <th className="text-end">{t("Margin")}</th>
                     <th className="text-end">{t("Total")}</th>
                   </>
                 ) : (
@@ -624,18 +665,102 @@ const SalesDocLineItems = ({
                     <tr>
                       <td className="text-muted">{idx + 1}</td>
                       <td className="text-start">
-                        <div>{productLabel}</div>
-                        {vendorLabel && vendorLabel !== "-" ? (
-                          <span
-                            className="badge d-inline-block mt-50"
-                            style={{
-                              background: "#eef0f3",
-                              color: "#1a2238",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {vendorLabel}
-                          </span>
+                        <div className="fw-semibold">{productLabel}</div>
+                        {/* Vendor line: selected vendor on the left, inline
+                            "Compare" CTA on the right (quotation/detailed). */}
+                        {!requirementMode &&
+                        tableLayout === "detailed" &&
+                        l.product_id ? (
+                          <div className="d-flex align-items-center justify-content-between mt-25">
+                            <span className="small text-muted text-truncate">
+                              {vendorLabel && vendorLabel !== "-" ? (
+                                <Fragment>
+                                  <span className="text-secondary">
+                                    {t("Vendor")}:
+                                  </span>{" "}
+                                  <span className="fw-semibold text-body">
+                                    {vendorLabel}
+                                  </span>
+                                </Fragment>
+                              ) : (
+                                <span className="fst-italic">
+                                  {t("No vendor selected")}
+                                </span>
+                              )}
+                            </span>
+                            {!readOnly &&
+                            (vendorOptionsByLine[idx] || []).length > 0 ? (
+                              <Fragment>
+                                <Button
+                                  id={`vcmp-${idx}`}
+                                  color="flat-primary"
+                                  size="sm"
+                                  className="py-0 px-50 ms-1 text-nowrap"
+                                >
+                                  {t("Compare")} (
+                                  {(vendorOptionsByLine[idx] || []).length})
+                                </Button>
+                                <UncontrolledPopover
+                              target={`vcmp-${idx}`}
+                              trigger="legacy"
+                              placement="bottom-start"
+                            >
+                              <PopoverBody className="p-1" style={{ minWidth: 240 }}>
+                                <div className="text-uppercase text-muted fw-bold mb-1" style={{ fontSize: "0.65rem" }}>
+                                  {t("Vendor prices (cheapest first)")}
+                                </div>
+                                {(vendorOptionsByLine[idx] || []).map((opt, vi) => {
+                                  const r = opt.raw || {};
+                                  const isSel = r.vendor_id === l.vendor_id;
+                                  return (
+                                    <div
+                                      key={opt.value}
+                                      role="button"
+                                      className={`d-flex align-items-center justify-content-between px-1 py-50 rounded ${
+                                        isSel ? "bg-light-primary" : ""
+                                      }`}
+                                      style={{ cursor: "pointer" }}
+                                      onClick={() => applyPriceRow(idx, r)}
+                                    >
+                                      <div className="me-1">
+                                        <div className="small fw-semibold">
+                                          {r.vendor_name || r.vendor_code || "-"}
+                                          {vi === 0 ? (
+                                            <span className="badge bg-light-success ms-50">
+                                              {t("Cheapest")}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {r.source_type === "rfq" &&
+                                        r.source_rfq_voucher_no ? (
+                                          <div className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                            {t("from RFQ")}{" "}
+                                            {r.source_rfq_voucher_no}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      <div className="text-end text-nowrap">
+                                        <div className="small fw-bold">
+                                          {docSym}
+                                          {fmt(toDocCcy(r.unit_price))}
+                                        </div>
+                                        {num(r.discount_pct) > 0 ? (
+                                          <div className="text-muted" style={{ fontSize: "0.7rem" }}>
+                                            -{num(r.discount_pct)}%
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      {isSel ? (
+                                        <Check size={14} className="text-primary ms-50" />
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </PopoverBody>
+                            </UncontrolledPopover>
+                              </Fragment>
+                            ) : null}
+                          </div>
                         ) : null}
                         {l.customer_reference ? (
                           <div className="small text-muted mt-25">
@@ -643,7 +768,18 @@ const SalesDocLineItems = ({
                           </div>
                         ) : null}
                       </td>
-                      {tableLayout === "detailed" ? (
+                      {requirementMode ? (
+                        <>
+                          <td className="text-end">
+                            {l.qty
+                              ? `${num(l.qty).toFixed(2)}${
+                                  l.unit ? ` ${l.unit}` : ""
+                                }`
+                              : "-"}
+                          </td>
+                          <td>{l.hs_code || "-"}</td>
+                        </>
+                      ) : tableLayout === "detailed" ? (
                         <>
                           <td className="text-end">
                             {l.qty ? (
@@ -662,26 +798,46 @@ const SalesDocLineItems = ({
                               ? `${docSym}${fmt(toDocCcy(l.unit_price))}`
                               : "-"}
                           </td>
-                          <td className="text-end">
-                            {num(l.discount_pct) || 0}
-                          </td>
-                          <td className="text-end">
-                            {c.expenses > 0
-                              ? `${docSym}${fmt(toDocCcy(c.expenses))}`
-                              : "-"}
-                          </td>
-                          <td className="text-end">
-                            {c.rebates > 0
-                              ? `${docSym}${fmt(toDocCcy(c.rebates))}`
-                              : "-"}
-                          </td>
-                          {!hideGst && (
-                            <td className="text-end">{l.tax_pct || 0}</td>
-                          )}
-                          <td className="text-end">{l.margin_pct || 0}</td>
                           <td className="text-end fw-bold">
-                            {docSym}
-                            {fmt(toDocCcy(c.lineTotal))}
+                            <span className="d-inline-flex align-items-center justify-content-end">
+                              {docSym}
+                              {fmt(toDocCcy(c.lineTotal))}
+                              {/* Cost-breakdown tooltip: disc / expenses /
+                                  rebates / margin (+GST) folded out of the
+                                  table to keep it clean. */}
+                              <Info
+                                id={`lbrk-${idx}`}
+                                size={13}
+                                className="ms-50 text-muted cursor-pointer"
+                              />
+                              <UncontrolledTooltip
+                                target={`lbrk-${idx}`}
+                                placement="left"
+                              >
+                                <div className="text-start small">
+                                  <div>
+                                    {t("Discount")}: {num(l.discount_pct) || 0}%
+                                  </div>
+                                  <div>
+                                    {t("Expenses")}:{" "}
+                                    {docSym}
+                                    {fmt(toDocCcy(c.expenses || 0))}
+                                  </div>
+                                  <div>
+                                    {t("Rebates")}: {docSym}
+                                    {fmt(toDocCcy(c.rebates || 0))}
+                                  </div>
+                                  {!hideGst ? (
+                                    <div>
+                                      {t("GST")}: {l.tax_pct || 0}%
+                                    </div>
+                                  ) : null}
+                                  <div>
+                                    {t("Margin")}: {l.margin_pct || 0}%
+                                  </div>
+                                </div>
+                              </UncontrolledTooltip>
+                            </span>
                           </td>
                         </>
                       ) : (
@@ -798,7 +954,8 @@ const SalesDocLineItems = ({
         <ModalBody>
           {editingIdx != null && (
             <>
-              {/* ── Inline 2-step nav ─────────────────────────────────── */}
+              {/* ── Inline 2-step nav (single step in requirement mode) ── */}
+              {!requirementMode && (
               <div className="d-flex align-items-center justify-content-center mb-2">
                 {[
                   { i: 0, label: t("Product & Vendor") },
@@ -877,9 +1034,10 @@ const SalesDocLineItems = ({
                   </Fragment>
                 ))}
               </div>
+              )}
 
               {/* ── Step 1: Product + Vendor selection ──────────────── */}
-              {modalStep === 0 && (
+              {(requirementMode || modalStep === 0) && (
               <>
               <Row>
                 <Col md="12" className="mb-2">
@@ -947,6 +1105,7 @@ const SalesDocLineItems = ({
                   />
                 </Col>
               </Row>
+              {!requirementMode && (
               <Row>
                 <Col md="12" className="mb-2">
                   <Label className="form-label">{t("Vendor")}</Label>
@@ -987,9 +1146,17 @@ const SalesDocLineItems = ({
                           </div>
                         );
                       }
+                      const multipleVendors = editingVendorOpts.length > 1;
                       return (
                         <div className="d-flex flex-column gap-1">
-                          {editingVendorOpts.map((opt) => {
+                          {multipleVendors && (
+                            <div className="text-muted small mb-50">
+                              {t(
+                                "Cheapest current price is selected by default — pick another vendor to override."
+                              )}
+                            </div>
+                          )}
+                          {editingVendorOpts.map((opt, vIdx) => {
                             const r = opt.raw || {};
                             const checked = f.value === opt.value;
                             const id = `vendor-radio-${editingIdx}-${opt.value}`;
@@ -1029,6 +1196,38 @@ const SalesDocLineItems = ({
                                         [{r.vendor_code}]
                                       </small>
                                     )}
+                                    <div className="mt-25">
+                                      {multipleVendors && vIdx === 0 && (
+                                        <span
+                                          className="badge d-inline-block me-50"
+                                          style={{
+                                            background: "#e6f7ee",
+                                            color: "#1a7f4b",
+                                            fontWeight: 500,
+                                          }}
+                                          title={t(
+                                            "Lowest current price — selected by default"
+                                          )}
+                                        >
+                                          {t("Cheapest")}
+                                        </span>
+                                      )}
+                                      {r.source_rfq_voucher_no && (
+                                        <span
+                                          className="badge d-inline-block"
+                                          style={{
+                                            background: "#eef7ff",
+                                            color: "#0b5ed7",
+                                            fontWeight: 500,
+                                          }}
+                                          title={t(
+                                            "Price sourced from this RFQ"
+                                          )}
+                                        >
+                                          {t("from RFQ")}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="text-end">
@@ -1051,11 +1250,79 @@ const SalesDocLineItems = ({
                   />
                 </Col>
               </Row>
+              )}
+
+              {/* ── Requirement mode: qty + UOM right under the product ── */}
+              {requirementMode && (
+              <Row>
+                <Col md="4" sm="6" className="mb-2">
+                  <Label className="form-label">
+                    {t("Qty")} <span className="text-danger">*</span>
+                  </Label>
+                  <Controller
+                    name={`lines.${editingIdx}.qty`}
+                    control={control}
+                    render={({ field: f }) => {
+                      const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
+                      const v = num(f.value);
+                      const empty = f.value === "" || f.value == null;
+                      const showError = empty
+                        ? !!editingLine.product_id
+                        : v <= 0 || (isInt && !Number.isInteger(v));
+                      return (
+                        <>
+                          <Input
+                            type="number"
+                            step={isInt ? "1" : "0.001"}
+                            min={isInt ? "1" : "0.001"}
+                            invalid={showError}
+                            {...f}
+                            value={f.value ?? ""}
+                          />
+                          {showError && (
+                            <small className="text-danger d-block">
+                              {empty
+                                ? t("Qty is required")
+                                : v <= 0
+                                  ? t("Qty must be greater than 0")
+                                  : t(
+                                      "This unit ({{unit}}) does not allow decimals",
+                                      { unit: editingLine.unit },
+                                    )}
+                            </small>
+                          )}
+                        </>
+                      );
+                    }}
+                  />
+                </Col>
+                <Col md="4" sm="6" className="mb-2">
+                  <Label className="form-label">{t("UOM")}</Label>
+                  <Controller
+                    name={`lines.${editingIdx}.unit`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Select
+                        classNamePrefix="select"
+                        isClearable
+                        options={PRODUCT_UOM_OPTIONS}
+                        value={
+                          PRODUCT_UOM_OPTIONS.find(
+                            (o) => o.value === f.value,
+                          ) || null
+                        }
+                        onChange={(opt) => f.onChange(opt ? opt.value : "")}
+                      />
+                    )}
+                  />
+                </Col>
+              </Row>
+              )}
               </>
               )}
 
               {/* ── Step 2: Pricing & description ───────────────────── */}
-              {modalStep === 1 && (
+              {!requirementMode && modalStep === 1 && (
               <>
               <Row>
                 <Col md="4" sm="6" className="mb-2">
@@ -1874,6 +2141,66 @@ const SalesDocLineItems = ({
               </Row>
               </>
               )}
+
+              {/* ── Requirement mode: HSN + specs + buyer-ref only ──── */}
+              {requirementMode && (
+              <>
+              <hr className="my-2" />
+              <Row>
+                <Col md="4" sm="6" className="mb-2">
+                  <Label className="form-label">{t("HS Code")}</Label>
+                  <Controller
+                    name={`lines.${editingIdx}.hs_code`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input {...f} value={f.value ?? ""} maxLength={15} />
+                    )}
+                  />
+                </Col>
+              </Row>
+              <Row>
+                <Col md="12" className="mb-1">
+                  <Label className="form-label">
+                    {t("Specifications / Description")}
+                  </Label>
+                  <Controller
+                    name={`lines.${editingIdx}.description`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input
+                        type="textarea"
+                        rows="2"
+                        {...f}
+                        value={f.value || ""}
+                        placeholder={t(
+                          "Product specs / requirement notes for this line",
+                        )}
+                      />
+                    )}
+                  />
+                </Col>
+                <Col md="12" className="mb-1">
+                  <Label className="form-label">
+                    {t("Buyer's Requirement #")}
+                  </Label>
+                  <Controller
+                    name={`lines.${editingIdx}.customer_reference`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <Input
+                        {...f}
+                        value={f.value || ""}
+                        maxLength={120}
+                        placeholder={t(
+                          "Buyer's internal part code or requisition (optional)",
+                        )}
+                      />
+                    )}
+                  />
+                </Col>
+              </Row>
+              </>
+              )}
             </>
           )}
         </ModalBody>
@@ -1888,10 +2215,12 @@ const SalesDocLineItems = ({
               !!editingLine.unit_price;
             const qtyInvalid =
               hasAnyData && (q <= 0 || (isInt && !Number.isInteger(q)));
-            const priceInvalid = hasAnyData && p <= 0;
+            // Lead requirement lines carry no price — don't gate on it.
+            const priceInvalid = !requirementMode && hasAnyData && p <= 0;
             const productMissing = hasAnyData && !editingLine.product_id;
             const blocked = qtyInvalid || priceInvalid || productMissing;
-            const onStep1 = modalStep === 0;
+            // Requirement mode is a single step → always behave like "Done".
+            const onStep1 = !requirementMode && modalStep === 0;
             const hasFetchedVendors =
               editingIdx != null && editingIdx in vendorOptionsByLine;
             const noVendors =

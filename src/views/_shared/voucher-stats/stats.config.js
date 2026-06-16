@@ -155,13 +155,6 @@ export const STATS_CONFIG = {
         icon: "XCircle",
         color: "danger",
       },
-      {
-        key: "value",
-        label: "Pipeline Total Value",
-        money: "total_amount_inr",
-        icon: "TrendingUp",
-        color: "secondary",
-      },
     ],
   },
 
@@ -195,12 +188,38 @@ export const STATS_CONFIG = {
         icon: "XCircle",
         color: "danger",
       },
+    ],
+  },
+
+  po_vendor: {
+    endpointKey: "poVendors", // → API_ENDPOINTS.poVendors.stats
+    tiles: [
       {
-        key: "value",
-        label: "Pipeline Total Value",
-        money: "total_amount_inr",
-        icon: "TrendingUp",
-        color: "secondary",
+        key: "total",
+        label: "Total",
+        icon: "Truck",
+        color: "info",
+      },
+      {
+        key: "closed",
+        label: "Closed",
+        statuses: ["closed"],
+        icon: "CheckCircle",
+        color: "success",
+      },
+      {
+        key: "open",
+        label: "Draft + Dispatched",
+        statuses: ["draft", "dispatched"],
+        icon: "Clock",
+        color: "warning",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        statuses: ["cancelled"],
+        icon: "XCircle",
+        color: "danger",
       },
     ],
   },

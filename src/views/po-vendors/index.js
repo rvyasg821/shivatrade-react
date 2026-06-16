@@ -34,7 +34,9 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import { formatDate } from "@src/utility/dateFormat";
+import { formatMoney } from "@src/utility/currency";
 
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -375,6 +377,22 @@ const PoVendorView = () => {
       selector: renderQtyProgress,
     },
     {
+      name: t("Amount"),
+      sortable: false,
+      minWidth: "120px",
+      selector: (row) => {
+        const lines = row?.lines || [];
+        if (!lines.length) return "-";
+        const amount = lines.reduce((s, l) => s + num(l?.line_total), 0);
+        // POV is always INR — render with ₹ + thousands, no decimals.
+        return (
+          <span className="fw-bold text-nowrap">
+            {formatMoney(amount, "INR")}
+          </span>
+        );
+      },
+    },
+    {
       name: t("Action"),
       center: true,
       cell: (row) => {
@@ -446,6 +464,22 @@ const PoVendorView = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Purchase Order Vendors")}</h3>
         </div>
+
+        <VoucherStatsTiles
+          module="po_vendor"
+          filters={{
+            vendor_id: vendorFilter || undefined,
+            status: statusFilter || undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
 
         <Card className="overflow-hidden">
           <CardBody>

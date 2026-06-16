@@ -220,28 +220,26 @@ export const PoCoveragePanel = ({ data }) => {
         <Table responsive bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th style={{ width: 30 }}>#</th>
               <th>{t("Product")}</th>
-              <th style={{ width: 70 }}>{t("Unit")}</th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Ordered")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Dispatched")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Received")}
               </th>
               <th
                 style={{ width: 90 }}
-                className="text-end text-warning"
+                className="text-end text-nowrap text-warning"
                 title={t(
                   "Physical loss: qty that left the vendor but never arrived (dispatched − received on closed POVs). Released back to Pending so a follow-up POV can cover it."
                 )}
               >
                 {t("Short")}
               </th>
-              <th style={{ width: 90 }} className="text-end">
+              <th style={{ width: 100 }} className="text-end text-nowrap">
                 {t("Pending")}
               </th>
             </tr>
@@ -252,29 +250,27 @@ export const PoCoveragePanel = ({ data }) => {
                 Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize,
                 Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize + pageSize
               )
-              .map((l, i) => {
-              const idx =
-                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) *
-                  pageSize +
-                i;
+              .map((l) => {
               const short = num(l.short);
+              const pending = num(l.pending);
               return (
                 <tr key={l.purchase_order_line_id}>
-                  <td>{idx + 1}</td>
                   <td>
                     <div className="fw-semibold">{l?.product_name || "-"}</div>
-                    {l?.product_code && (
-                      <small className="text-muted">{l.product_code}</small>
-                    )}
-                    {l?.hsn_code && (
-                      <div className="small text-muted">
-                        HSN: {l.hsn_code}
-                      </div>
-                    )}
+                    <div className="small text-muted">
+                      {[
+                        l?.product_code,
+                        l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
                   </td>
-                  <td>{l?.unit || "-"}</td>
                   <td className="text-end">
-                    {num(l.ordered).toLocaleString()}
+                    {num(l.ordered).toLocaleString()}{" "}
+                    {l?.unit ? (
+                      <small className="text-muted">{l.unit}</small>
+                    ) : null}
                   </td>
                   <td className="text-end">
                     {num(l.dispatched).toLocaleString()}
@@ -289,8 +285,12 @@ export const PoCoveragePanel = ({ data }) => {
                   >
                     {short > 1e-6 ? short.toLocaleString() : "-"}
                   </td>
-                  <td className="text-end fw-bold">
-                    {num(l.pending).toLocaleString()}
+                  <td
+                    className={`text-end fw-bold ${
+                      pending > 1e-6 ? "text-warning" : "text-muted"
+                    }`}
+                  >
+                    {pending.toLocaleString()}
                   </td>
                 </tr>
               );
@@ -298,9 +298,7 @@ export const PoCoveragePanel = ({ data }) => {
           </tbody>
           <tfoot>
             <tr className="table-light">
-              <td colSpan="3" className="text-end fw-bold">
-                {t("Totals")}
-              </td>
+              <td className="text-end fw-bold">{t("Totals")}</td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.ordered).toLocaleString()}
               </td>
@@ -403,22 +401,6 @@ export const PoVendorsPanel = ({ data }) => {
     );
   }, [povs]);
 
-  // Map PO line id → PO line so we can take a proportional share of its
-  // line_total (which already bakes in expense/rebate/margin/GST after the
-  // backend recompute).
-  const poLineMap = useMemo(() => {
-    const m = new Map();
-    for (const l of po?.lines || []) m.set(l._id, l);
-    return m;
-  }, [po]);
-
-  const summarizeQty = (lines = []) => {
-    const ordered = lines.reduce((s, l) => s + num(l.ordered_qty), 0);
-    const dispatched = lines.reduce((s, l) => s + num(l.dispatched_qty), 0);
-    const received = lines.reduce((s, l) => s + num(l.received_qty), 0);
-    return { ordered, dispatched, received };
-  };
-
   // POV amount = simple Σ(ordered_qty × unit_price) — no rebates /
   // expenses / margin / GST applied. Shown in INR.
   const computeAmount = (lines = []) => {
@@ -456,53 +438,55 @@ export const PoVendorsPanel = ({ data }) => {
     <Table responsive bordered size="sm" className="align-middle mb-0">
       <thead className="table-light">
         <tr>
-          <th style={{ width: 40 }}>#</th>
-          <th style={{ minWidth: 200 }}>{t("POV #")}</th>
-          <th style={{ width: 130 }}>{t("Status")}</th>
-          <th style={{ width: 120 }}>{t("Dispatch Date")}</th>
-          <th style={{ width: 120 }}>{t("Arrival")}</th>
-          <th style={{ width: 240 }} className="text-end">
-            {t("Qty Summary")}
-          </th>
-          <th style={{ width: 70 }} className="text-end">
+          <th style={{ minWidth: 200 }}>{t("POV")}</th>
+          <th style={{ width: 130 }}>{t("Dispatch")}</th>
+          <th style={{ width: 130 }}>{t("Arrival")}</th>
+          <th style={{ width: 80 }} className="text-end">
             {t("Items")}
           </th>
-          <th style={{ width: 130 }} className="text-end">
-            {t("Amount")}
-          </th>
-          <th style={{ width: 70 }} className="text-center">
-            {t("Open")}
+          <th style={{ width: 140 }} className="text-end">
+            {t("Value")}
           </th>
         </tr>
       </thead>
       <tbody>
-        {pagedPovs.map((p, i) => {
-          const rowIdx = pageStart + i;
-          const { ordered, dispatched, received } = summarizeQty(p?.lines || []);
+        {pagedPovs.map((p) => {
           const itemsCount = (p?.lines || []).length;
           const amount = computeAmount(p?.lines || []);
           const color =
             PO_VENDOR_STATUS_BADGE_COLOR[p?.status] || "secondary";
           return (
-            <tr key={p._id} className="align-top">
-              <td className="text-muted">{rowIdx + 1}</td>
+            <tr key={p._id} className="align-middle">
               <td>
                 <Link
                   to={`${appsRoot}/po-vendors/view/${p._id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="fw-bold"
+                  className="fw-bold d-inline-flex align-items-center"
+                  id={`pov-open-${p._id}`}
                 >
                   {p.voucher_no}
+                  <ExternalLink size={12} className="ms-25" />
                 </Link>
-              </td>
-              <td>
-                <Badge
-                  color={`light-${color}`}
-                  className={`badge-light-${color} text-capitalize`}
+                <UncontrolledTooltip
+                  target={`pov-open-${p._id}`}
+                  placement="top"
                 >
-                  {p.status}
-                </Badge>
+                  {t("Open POV detail")}
+                </UncontrolledTooltip>
+                {p.vendor_name ? (
+                  <div className="small text-muted text-capitalize">
+                    {p.vendor_name}
+                  </div>
+                ) : null}
+                <div className="mt-25">
+                  <Badge
+                    color={`light-${color}`}
+                    className={`badge-light-${color} text-capitalize`}
+                  >
+                    {p.status}
+                  </Badge>
+                </div>
               </td>
               <td>{p.dispatch_date ? formatDate(p.dispatch_date) : "-"}</td>
               <td>
@@ -512,35 +496,8 @@ export const PoVendorsPanel = ({ data }) => {
                   ? formatDate(p.expected_arrival_date)
                   : "-"}
               </td>
-              <td className="text-end small">
-                <div>
-                  {t("Ordered")}: <b>{ordered.toLocaleString()}</b>
-                </div>
-                <div>
-                  {t("Dispatched")}: {dispatched.toLocaleString()}
-                </div>
-                <div>
-                  {t("Received")}: {received.toLocaleString()}
-                </div>
-              </td>
               <td className="text-end">{itemsCount}</td>
               <td className="text-end fw-bold">₹{fmtMoney(amount)}</td>
-              <td className="text-center">
-                <Link
-                  to={`${appsRoot}/po-vendors/view/${p._id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  id={`pov-open-${p._id}`}
-                >
-                  <ExternalLink size={16} />
-                </Link>
-                <UncontrolledTooltip
-                  target={`pov-open-${p._id}`}
-                  placement="top"
-                >
-                  {t("Open POV detail")}
-                </UncontrolledTooltip>
-              </td>
             </tr>
           );
         })}

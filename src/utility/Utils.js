@@ -8,6 +8,7 @@ import {
 } from "@constant/defaultValues";
 
 import { DefaultRoute } from "../router/routes";
+import { APP_MODE } from "../configs/appMode";
 
 // ** Thrid Party library
 import moment from "moment";
@@ -195,8 +196,11 @@ const getHomeRoute = (user, companyData = null) => {
 
   if (isSystemAdmin) return `${appsRoot}/dashboard`;
 
-  // Company Admin: check subscription
+  // Company Admin: check subscription.
   if (roleName === "Company Admin") {
+    // Single-tenant mode has no subscriptions/billing — the one company is
+    // always "active", so go straight to the dashboard (never /register).
+    if (APP_MODE === "single") return `${appsRoot}/dashboard`;
     const isSubscribed = user?.hasActiveSubscription || companyData?.is_subscribe || user?.company?.is_subscribe;
     return isSubscribed ? `${appsRoot}/dashboard` : "/register";
   }

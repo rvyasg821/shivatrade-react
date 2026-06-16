@@ -15,7 +15,6 @@ import { startLoading, stopLoading } from "../loadingstore";
 // ** Reactstrap
 import {
   Col,
-  Badge,
   Row,
   Card,
   Input,
@@ -44,6 +43,14 @@ import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValue
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportModal from "./components/ImportModal";
+
+// Currency symbol for the price column. ₹ for INR (the base currency) or when
+// no code is set; otherwise prefix the ISO code so non-INR prices stay clear.
+const CURRENCY_SYMBOLS = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+const curSym = (code) => {
+  const c = (code || "INR").toUpperCase();
+  return CURRENCY_SYMBOLS[c] || `${c} `;
+};
 
 const ProductList = () => {
   const { t } = useTranslation();
@@ -209,54 +216,123 @@ const ProductList = () => {
 
   const columns = [
     {
-      name: t("Code / SKU"),
-      sortField: "code",
+      name: t("Product"),
+      sortField: "name",
       sortable: true,
+      minWidth: "340px",
+      grow: 2,
+      wrap: true,
       selector: (row) => {
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/products/edit/${row?._id || ""}`}
-              className="text-uppercase text-wrap"
-            >
-              {row?.code || ""}
-            </Link>
-          );
-        }
-        return <span className="text-wrap text-uppercase">{row?.code || ""}</span>;
+        const name = (
+          <span
+            className="text-wrap text-capitalize fw-bold"
+            ref={(el) => {
+              if (el) el.style.setProperty("color", "#09418B", "important");
+            }}
+          >
+            {row?.name || ""}
+          </span>
+        );
+        return (
+          <div className="py-50">
+            {canEdit ? (
+              <Link to={`${appsRoot}/products/edit/${row?._id || ""}`}>
+                {name}
+              </Link>
+            ) : (
+              name
+            )}
+            <div className="d-flex align-items-center flex-wrap mt-25 gap-50">
+              {row?.code ? (
+                <span className="small text-muted text-uppercase">
+                  {row.code}
+                </span>
+              ) : null}
+              <span
+                className="badge rounded-pill text-capitalize text-nowrap"
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty("background-color", "#09418B", "important");
+                    el.style.setProperty("color", "#fff", "important");
+                  }
+                }}
+              >
+                {row?.category_name || t("Uncategorized")}
+              </span>
+            </div>
+          </div>
+        );
       },
     },
     {
-      name: t("Name"),
-      sortField: "name",
-      sortable: true,
-      selector: (row) => (
-        <span className="text-wrap text-capitalize">{row?.name || ""}</span>
-      ),
-    },
-    {
-      name: t("Category"),
-      sortField: "category_id",
+      name: t("HSN (GST)"),
+      sortField: "hsn_code",
       sortable: false,
+      minWidth: "140px",
       selector: (row) => (
-        <span className="text-wrap text-capitalize">{row?.category_name || "-"}</span>
+        <div className="py-50">
+          <div className="fw-bold">{row?.hsn_code || "-"}</div>
+          {row?.tax_pct != null && row?.tax_pct !== "" ? (
+            <div className="small text-muted">
+              {Number(row.tax_pct)}% {t("GST")}
+            </div>
+          ) : null}
+        </div>
       ),
     },
     {
       name: t("UOM"),
       sortField: "unit_of_measure",
       sortable: false,
+      center: true,
+      width: "90px",
       selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "-"}</span>,
+    },
+    {
+      name: t("Price"),
+      sortField: "selling_price",
+      sortable: false,
+      right: true,
+      minWidth: "130px",
+      selector: (row) =>
+        row?.selling_price != null && row?.selling_price !== "" ? (
+          <div className="text-end py-50">
+            <div className="fw-bold">
+              {curSym(row?.currency_code)}
+              {Number(row.selling_price).toLocaleString("en-IN")}
+            </div>
+            {row?.margin_pct != null && row?.margin_pct !== "" ? (
+              <div className="small text-muted">
+                {Number(row.margin_pct)}% {t("mgn")}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-muted">-</span>
+        ),
     },
     {
       name: t("Status"),
       sortField: "status",
       sortable: false,
-      selector: (row) => (
-        <Badge color={row?.is_active ? "light-success" : "light-warning"}>
-          {row?.is_active ? t("Active") : t("Inactive")}
-        </Badge>
-      ),
+      center: true,
+      width: "120px",
+      selector: (row) => {
+        const c = row?.is_active ? "#198754" : "#fd7e14";
+        return (
+          <span
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
+            }}
+          >
+            {row?.is_active ? t("Active") : t("Inactive")}
+          </span>
+        );
+      },
     },
   ];
 

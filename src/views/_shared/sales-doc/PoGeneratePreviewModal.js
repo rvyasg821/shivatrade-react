@@ -1,8 +1,16 @@
 // ── PO Generate Preview Modal ──────────────────────────────────────
-// Reusable modal that drives the "Generate POs" auto-split flow from a
-// PFI or a Quotation. Loads preview lines (one row per source line with
-// candidate-vendor list) and lets the user confirm/change vendor per line
-// before POs are created.
+// Reusable modal that drives the "Generate Sales Order + Vendor POs"
+// auto-split flow from a PFI or a Quotation. Loads preview lines (one row
+// per source line with a candidate-vendor list) and walks the user through
+// a 3-step wizard:
+//   1. Assign Vendors   — pick/confirm a vendor per line (cheapest pre-picked)
+//   2. Order & Charges   — Sales-Order details (deliver-to, customer PO,
+//                          advance) + optional per-vendor charges
+//   3. Review & Confirm  — exact summary of what will be created
+//
+// Currency note: vendor costs are stored in INR (₹) — that's what the
+// per-line rate / per-vendor totals show. The customer advance is in the
+// source document's currency (sourceCurrencySym), labelled separately.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -15,12 +23,21 @@ import {
   Table,
   Badge,
   Spinner,
+  Input,
 } from "reactstrap";
 import Select from "react-select";
-import { Input } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ExternalLink, Plus, Trash2 } from "react-feather";
+import {
+  AlertTriangle,
+  ExternalLink,
+  Plus,
+  Trash2,
+  CheckCircle,
+  Truck,
+  FileText,
+  MapPin,
+} from "react-feather";
 import { useDispatch, useSelector } from "react-redux";
 
 import instance from "@src/utility/AxiosConfig";
@@ -36,6 +53,12 @@ const fmt = (v) =>
   v === null || v === undefined || v === ""
     ? "-"
     : Number(v).toLocaleString();
+
+const STEPS = [
+  { n: 1, key: "vendors", label: "Assign Vendors", icon: Truck },
+  { n: 2, key: "order", label: "Order & Charges", icon: FileText },
+  { n: 3, key: "review", label: "Review & Confirm", icon: CheckCircle },
+];
 
 /**
  * Props:
@@ -76,7 +99,7 @@ const PoGeneratePreviewModal = ({
   const [sourceCurrencySym, setSourceCurrencySym] = useState("");
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
-  // 2-step UX: 1 = Product listing, 2 = Vendor charges.
+  // 3-step wizard: 1 = Assign Vendors, 2 = Order & Charges, 3 = Review.
   const [step, setStep] = useState(1);
   // Pagination for the lines table (step 1).
   const [pageSize, setPageSize] = useState(10);
@@ -237,6 +260,44 @@ const PoGeneratePreviewModal = ({
       (!assignment[l.source_line_id] || l.unassigned)
   );
 
+  // Charges total for a single vendor block (sum of percent/fixed rows).
+  const chargesFor = (v) =>
+    (vendorExpenses[v.vendor_id] || []).reduce((s, r) => {
+      if (!r?.expense_id) return s;
+      return (
+        s +
+        (r.type === "percent"
+          ? (v.total * Number(r.value || 0)) / 100
+          : Number(r.value || 0))
+      );
+    }, 0);
+
+  // Resolve the deliver-to location to a human label for the review step.
+  const deliveryLabel = useMemo(() => {
+    const loc = (locations || []).find(
+      (l) => String(l?._id) === String(deliveryAddressId)
+    );
+    if (!loc) return "";
+    return loc.name || loc.title || loc.label || loc.address || "";
+  }, [locations, deliveryAddressId]);
+
+  // Advance must stay below the order's grand total.
+  const advanceTooHigh =
+    advanceAmount !== "" &&
+    sourceGrandTotal > 0 &&
+    Number(advanceAmount) >= sourceGrandTotal;
+
+  // ── Step gating ─────────────────────────────────────────────────────
+  const vendorsStepValid =
+    !loading && !hasUnassignedActiveLines && vendorSummary.length > 0;
+  const orderStepValid = vendorsStepValid && !!deliveryAddressId && !advanceTooHigh;
+  const canGoTo = (target) => {
+    if (target <= step) return true; // back navigation always allowed
+    if (target === 2) return vendorsStepValid;
+    if (target === 3) return orderStepValid;
+    return true;
+  };
+
   const onCreate = async () => {
     if (creating) return;
     if (hasUnassignedActiveLines) {
@@ -319,7 +380,7 @@ const PoGeneratePreviewModal = ({
       Notification(
         "Success",
         t(
-          `PO ${purchaseOrder.voucher_no || ""} + ${povs.length} POV(s) created.`
+          `Sales Order ${purchaseOrder.voucher_no || ""} + ${povs.length} Vendor PO(s) created.`
         ),
         "success"
       );
@@ -338,103 +399,363 @@ const PoGeneratePreviewModal = ({
     }
   };
 
-  // Advance must stay below the order's grand total.
-  const advanceTooHigh =
-    advanceAmount !== "" &&
-    sourceGrandTotal > 0 &&
-    Number(advanceAmount) >= sourceGrandTotal;
-
-  return (
-    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
-      <ModalHeader toggle={toggle}>
-        {t("Generate Sales Order & POVs from")}{" "}
-        {sourceType === "pfi" ? "PFI" : "Quotation"}{" "}
-        <code>{sourceVoucherNo || ""}</code>
-      </ModalHeader>
-      <ModalBody>
-        {/* ── Stepper header (numbered circles + connecting line) ── */}
-        {(() => {
-          const canGoStep2 =
-            !loading &&
-            !hasUnassignedActiveLines &&
-            vendorSummary.length > 0 &&
-            !!deliveryAddressId;
-          const stepBtn = (n, label, target) => {
-            const active = step === target;
-            const disabled = target === 2 && !canGoStep2;
-            return (
+  // ── Stepper (numbered circles + connecting lines) ───────────────────
+  const renderStepper = () => (
+    <div className="d-flex justify-content-center align-items-center mb-2 mt-1">
+      {STEPS.map((s, i) => {
+        const Icon = s.icon;
+        const active = step === s.n;
+        const done = step > s.n;
+        const reachable = canGoTo(s.n);
+        const disabled = !reachable;
+        return (
+          <div key={s.key} className="d-flex align-items-center">
+            <div
+              role="button"
+              tabIndex={disabled ? -1 : 0}
+              onClick={() => reachable && setStep(s.n)}
+              onKeyDown={(e) => {
+                if (reachable && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setStep(s.n);
+                }
+              }}
+              className="d-inline-flex align-items-center"
+              style={{
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.45 : 1,
+                userSelect: "none",
+              }}
+            >
               <div
-                role="button"
-                tabIndex={disabled ? -1 : 0}
-                onClick={() => !disabled && setStep(target)}
-                onKeyDown={(e) => {
-                  if (!disabled && (e.key === "Enter" || e.key === " ")) {
-                    e.preventDefault();
-                    setStep(target);
-                  }
-                }}
-                className="d-inline-flex align-items-center"
+                className="d-flex align-items-center justify-content-center rounded-circle me-1"
                 style={{
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  opacity: disabled ? 0.5 : 1,
-                  userSelect: "none",
+                  width: 30,
+                  height: 30,
+                  background: active
+                    ? "rgb(115, 103, 240)"
+                    : done
+                    ? "rgba(40,199,111,0.12)"
+                    : "#fff",
+                  color: active
+                    ? "#fff"
+                    : done
+                    ? "#28c76f"
+                    : "#b9b9c3",
+                  border: active
+                    ? "none"
+                    : done
+                    ? "1px solid #28c76f"
+                    : "1px solid #d8d6de",
+                  fontWeight: 600,
+                  fontSize: "0.8rem",
                 }}
               >
-                <div
-                  className="d-flex align-items-center justify-content-center rounded-circle me-1"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    background: active ? "rgb(115, 103, 240)" : "#fff",
-                    color: active ? "rgb(255, 255, 255)" : "#b9b9c3",
-                    border: active ? "none" : "1px solid #d8d6de",
-                    fontWeight: 600,
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  {n}
-                </div>
-                <span
-                  className={`ms-1 ${active ? "fw-bold" : "text-muted"}`}
-                  style={{ color: active ? "#7367f0" : undefined }}
-                >
-                  {label}
-                </span>
+                {done ? <CheckCircle size={16} /> : <Icon size={15} />}
               </div>
-            );
-          };
-          return (
-            <div className="d-flex justify-content-center align-items-center mb-2 mt-1">
-              {stepBtn(1, t("Products"), 1)}
+              <span
+                className={`ms-25 ${active ? "fw-bold" : "text-muted"}`}
+                style={{ color: active ? "#7367f0" : undefined }}
+              >
+                {t(s.label)}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
               <span
                 className="mx-2"
                 style={{
-                  width: 80,
-                  height: 1,
-                  background: "#d8d6de",
+                  width: 56,
+                  height: 2,
+                  background: step > s.n ? "#28c76f" : "#d8d6de",
                   display: "inline-block",
                 }}
               />
-              {stepBtn(2, t("Vendor Charges"), 2)}
-            </div>
-          );
-        })()}
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
+  // ── Step 1: Assign Vendors ──────────────────────────────────────────
+  const renderVendorsStep = () => (
+    <>
+      <p className="text-muted small mb-2">
+        {t(
+          "Each line is pre-assigned to the cheapest active vendor. Switch the vendor per line if needed, or drop a line to exclude it. Lines already fully covered by existing Sales Orders are dropped automatically."
+        )}
+      </p>
+      {previewLines.every((l) => l.fully_covered) && (
+        <div className="alert alert-info small mb-2">
+          <AlertTriangle size={14} className="me-1" />
+          {t(
+            "All lines are already covered by existing Sales Orders. To add another, restore a line below."
+          )}
+        </div>
+      )}
+
+      <div className="table-responsive">
+        <Table bordered size="sm" className="align-middle">
+          <thead className="table-light">
+            <tr>
+              <th style={{ width: 30 }}>#</th>
+              <th>{t("Product")}</th>
+              <th style={{ width: 80 }} className="text-end">
+                {t("Qty")}
+              </th>
+              <th style={{ minWidth: 300 }}>{t("Vendor")} (₹)</th>
+              <th style={{ width: 110 }} className="text-end">
+                {t("Rate")}
+              </th>
+              <th style={{ width: 110 }} className="text-end">
+                {t("Total")}
+              </th>
+              <th style={{ width: 80 }} className="text-center">
+                {t("Action")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagedLines.map((l, i) => {
+              const idx = pageStart + i;
+              const isDropped = !!dropped[l.source_line_id];
+              const cands = (l.candidate_vendors || [])
+                .slice()
+                .sort(
+                  (a, b) => Number(a.unit_price) - Number(b.unit_price)
+                );
+              const cheapestId = cands[0]?.vendor_id;
+              const picked = assignment[l.source_line_id];
+              const pickedCand = cands.find((c) => c.vendor_id === picked);
+              const qty = Number(l.qty) || 0;
+              const total = qty * Number(pickedCand?.unit_price || 0);
+              const isUnassigned = l.unassigned || (!picked && !isDropped);
+              const rowStyle = isDropped
+                ? { opacity: 0.4 }
+                : isUnassigned
+                ? { backgroundColor: "rgba(220,53,69,0.08)" }
+                : {};
+              const vendorOptions = cands.map((c) => ({
+                value: c.vendor_id,
+                label: `${c.vendor_name} · ₹${fmt(c.unit_price)}`,
+                isCheapest: c.vendor_id === cheapestId,
+                raw: c,
+              }));
+              return (
+                <tr key={l.source_line_id} style={rowStyle}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <div
+                      className="fw-semibold"
+                      style={
+                        isDropped ? { textDecoration: "line-through" } : {}
+                      }
+                    >
+                      {l.product_name || "-"}
+                    </div>
+                    {l.product_code && (
+                      <small className="text-muted">{l.product_code}</small>
+                    )}
+                    {l.hsn_code && (
+                      <div className="small text-muted">HSN: {l.hsn_code}</div>
+                    )}
+                    {(l.existing_pos || []).length > 0 && (
+                      <div className="mt-1">
+                        {l.fully_covered ? (
+                          <Badge color="light-success" className="me-50">
+                            {t("Fully covered")}
+                          </Badge>
+                        ) : (
+                          <Badge color="light-info" className="me-50">
+                            {t("Partially covered")}: {fmt(l.covered_qty)} /{" "}
+                            {fmt(l.ordered_qty)}
+                          </Badge>
+                        )}
+                        <div className="small text-muted mt-25">
+                          {l.existing_pos.map((p, j) => (
+                            <span key={p.purchase_order_id}>
+                              {j > 0 ? ", " : ""}
+                              <Link
+                                to={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="d-inline-flex align-items-center"
+                              >
+                                {p.voucher_no}
+                                <ExternalLink size={10} className="ms-25" />
+                              </Link>
+                              <span className="text-muted"> ({fmt(p.qty)})</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="text-end">
+                    {fmt(l.qty)} {l.unit ? <small>{l.unit}</small> : null}
+                  </td>
+                  <td>
+                    {l.unassigned || cands.length === 0 ? (
+                      <div className="text-danger d-flex align-items-center small">
+                        <AlertTriangle size={14} className="me-1 flex-shrink-0" />
+                        <span>
+                          {t(
+                            "No vendor — add this product to a vendor's price list"
+                          )}
+                        </span>
+                      </div>
+                    ) : (
+                      <Select
+                        classNamePrefix="select"
+                        isDisabled={isDropped}
+                        options={vendorOptions}
+                        value={
+                          vendorOptions.find((o) => o.value === picked) || null
+                        }
+                        onChange={(opt) =>
+                          handleVendorChange(l.source_line_id, opt?.value || "")
+                        }
+                        placeholder={t("Pick vendor…")}
+                        menuPortalTarget={document.body}
+                        menuPlacement="auto"
+                        menuPosition="fixed"
+                        maxMenuHeight={220}
+                        formatOptionLabel={(opt) => (
+                          <div className="d-flex align-items-center justify-content-between">
+                            <span>{opt.label}</span>
+                            {opt.isCheapest && (
+                              <Badge
+                                color="light-success"
+                                className="ms-1"
+                                pill
+                              >
+                                {t("Cheapest")}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        styles={{
+                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td className="text-end">
+                    {pickedCand ? `₹${fmt(pickedCand.unit_price)}` : "-"}
+                  </td>
+                  <td className="text-end fw-bold">
+                    {pickedCand ? `₹${fmt(total)}` : "-"}
+                  </td>
+                  <td className="text-center">
+                    {isDropped ? (
+                      <Button
+                        size="sm"
+                        color="secondary"
+                        outline
+                        onClick={() => handleRestore(l.source_line_id)}
+                      >
+                        {t("Restore")}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        color="danger"
+                        outline
+                        onClick={() => handleDrop(l.source_line_id)}
+                      >
+                        {t("Drop")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      {totalRows > 0 && (
+        <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+          <div className="d-flex align-items-center small text-muted">
+            <span className="me-50">{t("Show")}</span>
+            <Input
+              type="select"
+              bsSize="sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) || 10);
+                setPage(0);
+              }}
+              style={{ width: 80 }}
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Input>
+            <span className="ms-50">
+              {t("of")} {totalRows} {t("rows")}
+            </span>
           </div>
-        ) : previewLines.length === 0 ? (
-          <div className="text-center text-muted py-4">
-            {t("No lines on the source document.")}
+          <ReactPaginate
+            previousLabel=""
+            nextLabel=""
+            pageCount={pageCount}
+            activeClassName="active"
+            forcePage={safePage}
+            onPageChange={({ selected }) => setPage(selected)}
+            pageClassName="page-item"
+            nextLinkClassName="page-link"
+            nextClassName="page-item next"
+            previousClassName="page-item prev"
+            previousLinkClassName="page-link"
+            pageLinkClassName="page-link"
+            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+          />
+        </div>
+      )}
+
+      {hasUnassignedActiveLines && (
+        <div className="alert alert-warning small mt-3 mb-0">
+          <AlertTriangle size={14} className="me-1" />
+          {t(
+            "Some lines have no vendor assigned. Drop them from this batch or add the product to a vendor's price list before continuing."
+          )}
+        </div>
+      )}
+
+      {vendorSummary.length > 0 && (
+        <div className="alert alert-info small mt-3 mb-0">
+          {t("Will create")}: <strong>1 {t("Sales Order")}</strong> +{" "}
+          <strong>
+            {vendorSummary.length} {t("Vendor PO(s)")}
+          </strong>
+          . {t("Continue to add order details and optional vendor charges.")}
+        </div>
+      )}
+    </>
+  );
+
+  // ── Step 2: Order & Charges ─────────────────────────────────────────
+  const renderOrderStep = () => (
+    <div className="row g-2">
+      {/* Left — Sales Order (customer side) */}
+      <div className="col-lg-5">
+        <div
+          className="rounded h-100"
+          style={{ border: "1px solid #e5e7eb", background: "#fff" }}
+        >
+          <div className="px-2 py-1 border-bottom d-flex align-items-center">
+            <FileText size={15} className="me-1 text-primary" />
+            <span className="fw-semibold">{t("Sales Order")}</span>
+            <span className="ms-1 small text-muted">({t("customer side")})</span>
           </div>
-        ) : step === 1 ? (
-          <>
-            {/* Deliver-to address — applies to every PO created in this batch. */}
+          <div className="p-2">
             <div className="mb-2">
               <label className="form-label fw-semibold">
-                {t("Deliver goods to")}{" "}
-                <span className="text-danger">*</span>
+                {t("Deliver goods to")} <span className="text-danger">*</span>
               </label>
               <LocationSelect
                 value={deliveryAddressId}
@@ -449,29 +770,33 @@ const PoGeneratePreviewModal = ({
               {!locations.length && (
                 <div className="alert alert-warning small mt-2 mb-0">
                   {t("No locations on file.")}{" "}
-                  <a href={`${appsRoot}/locations`} target="_blank" rel="noopener noreferrer">
+                  <a
+                    href={`${appsRoot}/locations`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {t("Add one in Locations")}
                   </a>
                 </div>
               )}
             </div>
 
-            {/* Customer order reference + advance — stored on the Sales Order. */}
-            <div className="row g-2 mb-2">
-              <div className="col-md-4">
-                <label className="form-label fw-semibold">
-                  {t("Customer PO #")}
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  maxLength={100}
-                  value={customerPoNumber}
-                  onChange={(e) => setCustomerPoNumber(e.target.value)}
-                  placeholder={t("Buyer's own PO number")}
-                />
-              </div>
-              <div className="col-md-3">
+            <div className="mb-2">
+              <label className="form-label fw-semibold">
+                {t("Customer PO #")}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                maxLength={100}
+                value={customerPoNumber}
+                onChange={(e) => setCustomerPoNumber(e.target.value)}
+                placeholder={t("Buyer's own PO number")}
+              />
+            </div>
+
+            <div className="row g-2">
+              <div className="col-6">
                 <label className="form-label fw-semibold">
                   {t("Advance Amount")}
                   {sourceCurrencySym ? ` (${sourceCurrencySym})` : ""}
@@ -480,9 +805,7 @@ const PoGeneratePreviewModal = ({
                   type="number"
                   min="0"
                   step="0.01"
-                  className={`form-control${
-                    advanceTooHigh ? " is-invalid" : ""
-                  }`}
+                  className={`form-control${advanceTooHigh ? " is-invalid" : ""}`}
                   value={advanceAmount}
                   onChange={(e) => setAdvanceAmount(e.target.value)}
                 />
@@ -501,7 +824,7 @@ const PoGeneratePreviewModal = ({
                   )
                 )}
               </div>
-              <div className="col-md-2">
+              <div className="col-6">
                 <label className="form-label fw-semibold">
                   {t("Advance Date")}
                 </label>
@@ -511,535 +834,455 @@ const PoGeneratePreviewModal = ({
                   onChange={(_d, _s, iso) => setAdvanceDate(iso || "")}
                 />
               </div>
-              <div className="col-md-3">
-                <label className="form-label fw-semibold">
-                  {t("Advance Notes")}
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  maxLength={200}
-                  value={advanceNotes}
-                  onChange={(e) => setAdvanceNotes(e.target.value)}
-                />
-              </div>
             </div>
 
-            <p className="text-muted small mb-2">
-              {t(
-                "Each source line is pre-assigned to the cheapest active vendor. Drop a line to exclude it from this batch. Lines already fully covered by existing Sales Orders are dropped automatically."
-              )}
-            </p>
-            {previewLines.every((l) => l.fully_covered) && (
-              <div className="alert alert-info small mb-2">
-                <AlertTriangle size={14} className="me-1" />
-                {t(
-                  "All lines are already covered by existing Sales Orders. To add another, restore a line below."
-                )}
-              </div>
-            )}
-
-            <div className="table-responsive">
-              <Table bordered size="sm" className="align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th style={{ width: 30 }}>#</th>
-                    <th>{t("Product")}</th>
-                    <th style={{ width: 80 }} className="text-end">
-                      {t("Qty")}
-                    </th>
-                    <th style={{ minWidth: 280 }}>{t("Vendor")}</th>
-                    <th style={{ width: 110 }} className="text-end">
-                      {t("Rate")}
-                    </th>
-                    <th style={{ width: 110 }} className="text-end">
-                      {t("Total")}
-                    </th>
-                    <th style={{ width: 80 }} className="text-center">
-                      {t("Action")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedLines.map((l, i) => {
-                    const idx = pageStart + i;
-                    const isDropped = !!dropped[l.source_line_id];
-                    const cands = l.candidate_vendors || [];
-                    const picked = assignment[l.source_line_id];
-                    const pickedCand = cands.find(
-                      (c) => c.vendor_id === picked
-                    );
-                    const qty = Number(l.qty) || 0;
-                    const total = qty * Number(pickedCand?.unit_price || 0);
-                    const isUnassigned = l.unassigned || (!picked && !isDropped);
-                    const rowStyle = isDropped
-                      ? { opacity: 0.4, textDecoration: "line-through" }
-                      : isUnassigned
-                      ? { backgroundColor: "rgba(220,53,69,0.08)" }
-                      : {};
-                    return (
-                      <tr key={l.source_line_id} style={rowStyle}>
-                        <td>{idx + 1}</td>
-                        <td>
-                          <div className="fw-semibold">
-                            {l.product_name || "-"}
-                          </div>
-                          {l.product_code && (
-                            <small className="text-muted">
-                              {l.product_code}
-                            </small>
-                          )}
-                          {l.hsn_code && (
-                            <div className="small text-muted">
-                              HSN: {l.hsn_code}
-                            </div>
-                          )}
-                          {(l.existing_pos || []).length > 0 && (
-                            <div className="mt-1">
-                              {l.fully_covered ? (
-                                <Badge color="light-success" className="me-50">
-                                  {t("Fully covered")}
-                                </Badge>
-                              ) : (
-                                <Badge color="light-info" className="me-50">
-                                  {t("Partially covered")}:{" "}
-                                  {fmt(l.covered_qty)} / {fmt(l.ordered_qty)}
-                                </Badge>
-                              )}
-                              <div className="small text-muted mt-25">
-                                {l.existing_pos.map((p, i) => (
-                                  <span key={p.purchase_order_id}>
-                                    {i > 0 ? ", " : ""}
-                                    <Link
-                                      to={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="d-inline-flex align-items-center"
-                                    >
-                                      {p.voucher_no}
-                                      <ExternalLink
-                                        size={10}
-                                        className="ms-25"
-                                      />
-                                    </Link>
-                                    <span className="text-muted">
-                                      {" "}
-                                      ({fmt(p.qty)})
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {fmt(l.qty)} {l.unit ? <small>{l.unit}</small> : null}
-                        </td>
-                        <td>
-                          {l.unassigned ? (
-                            <div className="text-danger d-flex align-items-center small">
-                              <AlertTriangle size={14} className="me-1" />
-                              <span>
-                                {t(
-                                  "Unassigned — add this product to a vendor's price list"
-                                )}
-                              </span>
-                            </div>
-                          ) : pickedCand ? (
-                            <span
-                              className="badge"
-                              style={{
-                                background: "#eef0f3",
-                                color: "#1a2238",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {pickedCand.vendor_name}
-                            </span>
-                          ) : (
-                            <span className="text-muted small">—</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {pickedCand ? `₹${fmt(pickedCand.unit_price)}` : "-"}
-                        </td>
-                        <td className="text-end fw-bold">
-                          {pickedCand ? `₹${fmt(total)}` : "-"}
-                        </td>
-                        <td className="text-center">
-                          {isDropped ? (
-                            <Button
-                              size="sm"
-                              color="secondary"
-                              outline
-                              onClick={() => handleRestore(l.source_line_id)}
-                            >
-                              {t("Restore")}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              color="danger"
-                              outline
-                              onClick={() => handleDrop(l.source_line_id)}
-                            >
-                              {t("Drop")}
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
+            <div className="mt-2">
+              <label className="form-label fw-semibold">
+                {t("Advance Notes")}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                maxLength={200}
+                value={advanceNotes}
+                onChange={(e) => setAdvanceNotes(e.target.value)}
+              />
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Pagination — always shown when at least one row exists. */}
-            {totalRows > 0 && (
-              <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-                <div className="d-flex align-items-center small text-muted">
-                  <span className="me-50">{t("Show")}</span>
-                  <Input
-                    type="select"
-                    bsSize="sm"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value) || 10);
-                      setPage(0);
-                    }}
-                    style={{ width: 80 }}
-                  >
-                    {[10, 25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </Input>
-                  <span className="ms-50">
-                    {t("of")} {totalRows} {t("rows")}
+      {/* Right — per-vendor charges (vendor side) */}
+      <div className="col-lg-7">
+        <div className="d-flex align-items-center mb-1">
+          <Truck size={15} className="me-1 text-primary" />
+          <span className="fw-semibold">{t("Vendor Charges")}</span>
+          <span className="ms-1 small text-muted">
+            ({t("optional · INR")})
+          </span>
+        </div>
+        <p className="small text-muted mb-2">
+          {t(
+            "Add Packing, Transport, etc. per vendor. Leave empty to skip — charges roll into each Vendor PO's taxable value."
+          )}
+        </p>
+        {vendorSummary.map((v) => {
+          const rows = vendorExpenses[v.vendor_id] || [];
+          const usedIds = new Set(
+            rows.map((r) => r.expense_id).filter(Boolean)
+          );
+          const updateRow = (idx, patch) =>
+            setVendorExpenses((curr) => {
+              const list = (curr[v.vendor_id] || []).map((r, i) =>
+                i === idx ? { ...r, ...patch } : r
+              );
+              return { ...curr, [v.vendor_id]: list };
+            });
+          const removeRow = (idx) =>
+            setVendorExpenses((curr) => {
+              const list = (curr[v.vendor_id] || []).filter(
+                (_, i) => i !== idx
+              );
+              const next = { ...curr };
+              if (list.length === 0) delete next[v.vendor_id];
+              else next[v.vendor_id] = list;
+              return next;
+            });
+          const addRow = () =>
+            setVendorExpenses((curr) => ({
+              ...curr,
+              [v.vendor_id]: [
+                ...(curr[v.vendor_id] || []),
+                {
+                  expense_id: "",
+                  type: "percent",
+                  value: "0",
+                  code: "",
+                  name: "",
+                },
+              ],
+            }));
+          const chargesTotal = chargesFor(v);
+          return (
+            <div
+              key={v.vendor_id}
+              className="rounded mb-2"
+              style={{ border: "1px solid #e5e7eb", background: "#fff" }}
+            >
+              <div className="d-flex justify-content-between align-items-center px-2 py-1 border-bottom">
+                <div className="small">
+                  <span className="fw-semibold">{v.vendor_name}</span>
+                  <span className="ms-1">
+                    · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
+                    {chargesTotal > 0 && (
+                      <>
+                        {" "}+ {t("Charges")} ₹{fmt(chargesTotal)} ={" "}
+                        <strong>₹{fmt(v.total + chargesTotal)}</strong>{" "}
+                        <span className="text-muted">({t("Taxable")})</span>
+                      </>
+                    )}
                   </span>
                 </div>
-                <ReactPaginate
-                  previousLabel=""
-                  nextLabel=""
-                  pageCount={pageCount}
-                  activeClassName="active"
-                  forcePage={safePage}
-                  onPageChange={({ selected }) => setPage(selected)}
-                  pageClassName="page-item"
-                  nextLinkClassName="page-link"
-                  nextClassName="page-item next"
-                  previousClassName="page-item prev"
-                  previousLinkClassName="page-link"
-                  pageLinkClassName="page-link"
-                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                />
+                <Button size="sm" color="primary" outline onClick={addRow}>
+                  <Plus size={12} className="me-25" />
+                  {t("Add Expense")}
+                </Button>
               </div>
-            )}
-
-            {hasUnassignedActiveLines && (
-              <div className="alert alert-warning small mt-3 mb-0">
-                <AlertTriangle size={14} className="me-1" />
-                {t(
-                  "Some lines have no vendor assigned. Drop them from this batch or add the product to a vendor's price list before continuing."
+              <div className="p-1">
+                {rows.length === 0 && (
+                  <div className="text-muted small text-center py-2">
+                    {t(
+                      "No charges. Click Add Expense to include Packing, Transport, etc."
+                    )}
+                  </div>
+                )}
+                {rows.length > 0 && (
+                  <Table size="sm" bordered className="mb-0 small align-middle">
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ minWidth: 200 }}>{t("Expense")}</th>
+                        <th style={{ width: 150 }}>{t("Type")}</th>
+                        <th style={{ width: 100 }}>{t("Value")}</th>
+                        <th style={{ width: 100 }} className="text-end">
+                          {t("Amount")}
+                        </th>
+                        <th style={{ width: 40 }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, idx) => {
+                        const pickOptions = expenseOptions.filter(
+                          (o) =>
+                            o.value === r.expense_id || !usedIds.has(o.value)
+                        );
+                        const amt =
+                          r.type === "percent"
+                            ? (v.total * Number(r.value || 0)) / 100
+                            : Number(r.value || 0);
+                        return (
+                          <tr key={idx}>
+                            <td>
+                              <Select
+                                classNamePrefix="select"
+                                options={pickOptions}
+                                value={
+                                  expenseOptions.find(
+                                    (o) => o.value === r.expense_id
+                                  ) || null
+                                }
+                                onChange={(opt) => {
+                                  if (!opt) {
+                                    updateRow(idx, {
+                                      expense_id: "",
+                                      code: "",
+                                      name: "",
+                                    });
+                                    return;
+                                  }
+                                  updateRow(idx, {
+                                    expense_id: opt.value,
+                                    code: opt.raw?.code || "",
+                                    name: opt.raw?.name || "",
+                                    type: opt.raw?.type || r.type,
+                                    value:
+                                      opt.raw?.value != null
+                                        ? String(opt.raw.value)
+                                        : r.value,
+                                  });
+                                }}
+                                placeholder={t("Pick expense…")}
+                                menuPortalTarget={document.body}
+                                menuPlacement="auto"
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                  menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <Select
+                                classNamePrefix="select"
+                                options={expenseTypeOptions}
+                                value={
+                                  expenseTypeOptions.find(
+                                    (o) => o.value === r.type
+                                  ) || expenseTypeOptions[0]
+                                }
+                                onChange={(opt) =>
+                                  updateRow(idx, { type: opt.value })
+                                }
+                                menuPortalTarget={document.body}
+                                menuPlacement="auto"
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                  menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                bsSize="sm"
+                                value={r.value}
+                                onChange={(e) =>
+                                  updateRow(idx, { value: e.target.value })
+                                }
+                              />
+                            </td>
+                            <td className="text-end">₹{fmt(amt)}</td>
+                            <td className="text-center">
+                              <Button
+                                size="sm"
+                                color="danger"
+                                outline
+                                onClick={() => removeRow(idx)}
+                              >
+                                <Trash2 size={12} />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
                 )}
               </div>
-            )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
-            {/* Vendor summary line — just a count peek on step 1 */}
-            {vendorSummary.length > 0 && (
-              <div className="alert alert-info small mt-3 mb-0">
-                {t("Will create")}: <strong>1 {t("Sales Order")}</strong> +{" "}
-                <strong>{vendorSummary.length} POV(s)</strong>.{" "}
-                {t(
-                  "Click Next to add optional vendor charges per POV before creating."
-                )}
+  // ── Step 3: Review & Confirm ────────────────────────────────────────
+  const renderReviewStep = () => {
+    const totalLines = vendorSummary.reduce((s, v) => s + v.lines, 0);
+    return (
+      <div>
+        <div className="alert alert-success d-flex align-items-center mb-3">
+          <CheckCircle size={18} className="me-1 flex-shrink-0" />
+          <span>
+            {t("Ready to create")}{" "}
+            <strong>1 {t("Sales Order")}</strong> {t("and")}{" "}
+            <strong>
+              {vendorSummary.length} {t("Vendor PO(s)")}
+            </strong>{" "}
+            ({totalLines} {t("line(s)")}). {t("Review the details below.")}
+          </span>
+        </div>
+
+        {/* Sales Order summary */}
+        <div
+          className="rounded mb-3"
+          style={{ border: "1px solid #e5e7eb", background: "#fff" }}
+        >
+          <div className="px-2 py-1 border-bottom d-flex align-items-center">
+            <FileText size={15} className="me-1 text-primary" />
+            <span className="fw-semibold">{t("Sales Order")}</span>
+            <span className="ms-1 small text-muted">
+              {t("from")} {sourceVoucherNo}
+            </span>
+          </div>
+          <div className="p-2 small">
+            <div className="row g-2">
+              <div className="col-md-6 d-flex align-items-start">
+                <MapPin size={14} className="me-1 mt-25 text-muted flex-shrink-0" />
+                <span>
+                  <span className="text-muted">{t("Deliver to")}: </span>
+                  <span className="fw-semibold">
+                    {deliveryLabel || t("(selected location)")}
+                  </span>
+                </span>
               </div>
-            )}
-          </>
-        ) : (
-          /* ── Step 2: Vendor Charges ─────────────────────────────── */
-          <>
-            {vendorSummary.length > 0 && (
-              <div>
-                <p className="small text-muted mb-2">
-                  {t(
-                    "Optional — add Packing, Transport, etc. per vendor. Leave empty to skip."
+              <div className="col-md-6">
+                <span className="text-muted">{t("Customer PO #")}: </span>
+                <span className="fw-semibold">{customerPoNumber || "—"}</span>
+              </div>
+              <div className="col-md-6">
+                <span className="text-muted">{t("Order total")}: </span>
+                <span className="fw-semibold">
+                  {sourceCurrencySym}
+                  {sourceGrandTotal.toLocaleString()}
+                </span>
+              </div>
+              <div className="col-md-6">
+                <span className="text-muted">{t("Advance")}: </span>
+                <span className="fw-semibold">
+                  {advanceAmount === "" || advanceAmount == null
+                    ? "—"
+                    : `${sourceCurrencySym}${Number(
+                        advanceAmount
+                      ).toLocaleString()}`}
+                  {advanceDate ? (
+                    <span className="text-muted"> · {advanceDate}</span>
+                  ) : null}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Vendor PO list */}
+        <div className="d-flex align-items-center mb-1">
+          <Truck size={15} className="me-1 text-primary" />
+          <span className="fw-semibold">
+            {t("Vendor Purchase Orders")} ({vendorSummary.length}) — ₹
+          </span>
+        </div>
+        <div className="table-responsive">
+          <Table bordered size="sm" className="align-middle mb-0">
+            <thead className="table-light">
+              <tr>
+                <th>{t("Vendor")}</th>
+                <th className="text-end" style={{ width: 90 }}>
+                  {t("Lines")}
+                </th>
+                <th className="text-end" style={{ width: 130 }}>
+                  {t("Goods")}
+                </th>
+                <th className="text-end" style={{ width: 130 }}>
+                  {t("Charges")}
+                </th>
+                <th className="text-end" style={{ width: 140 }}>
+                  {t("Taxable")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendorSummary.map((v) => {
+                const charges = chargesFor(v);
+                return (
+                  <tr key={v.vendor_id}>
+                    <td className="fw-semibold">{v.vendor_name}</td>
+                    <td className="text-end">{v.lines}</td>
+                    <td className="text-end">₹{fmt(v.total)}</td>
+                    <td className="text-end">
+                      {charges > 0 ? `₹${fmt(charges)}` : "—"}
+                    </td>
+                    <td className="text-end fw-bold">
+                      ₹{fmt(v.total + charges)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="table-light">
+                <td className="fw-bold">{t("Total")}</td>
+                <td className="text-end fw-bold">
+                  {vendorSummary.reduce((s, v) => s + v.lines, 0)}
+                </td>
+                <td className="text-end fw-bold">
+                  ₹{fmt(vendorSummary.reduce((s, v) => s + v.total, 0))}
+                </td>
+                <td className="text-end fw-bold">
+                  ₹
+                  {fmt(
+                    vendorSummary.reduce((s, v) => s + chargesFor(v), 0)
                   )}
-                </p>
-                {vendorSummary.map((v) => {
-                  const rows = vendorExpenses[v.vendor_id] || [];
-                  const usedIds = new Set(rows.map((r) => r.expense_id).filter(Boolean));
-                  const updateRow = (idx, patch) =>
-                    setVendorExpenses((curr) => {
-                      const list = (curr[v.vendor_id] || []).map((r, i) =>
-                        i === idx ? { ...r, ...patch } : r,
-                      );
-                      return { ...curr, [v.vendor_id]: list };
-                    });
-                  const removeRow = (idx) =>
-                    setVendorExpenses((curr) => {
-                      const list = (curr[v.vendor_id] || []).filter(
-                        (_, i) => i !== idx,
-                      );
-                      const next = { ...curr };
-                      if (list.length === 0) delete next[v.vendor_id];
-                      else next[v.vendor_id] = list;
-                      return next;
-                    });
-                  const addRow = () =>
-                    setVendorExpenses((curr) => ({
-                      ...curr,
-                      [v.vendor_id]: [
-                        ...(curr[v.vendor_id] || []),
-                        {
-                          expense_id: "",
-                          type: "percent",
-                          value: "0",
-                          code: "",
-                          name: "",
-                        },
-                      ],
-                    }));
-                  const chargesTotal = rows.reduce((s, r) => {
-                    if (!r?.expense_id) return s;
-                    return (
-                      s +
-                      (r.type === "percent"
-                        ? (v.total * Number(r.value || 0)) / 100
-                        : Number(r.value || 0))
-                    );
-                  }, 0);
-                  return (
-                    <div
-                      key={v.vendor_id}
-                      className="rounded mb-2"
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
-                      }}
-                    >
-                      {/* Vendor header strip — compact */}
-                      <div className="d-flex justify-content-between align-items-center px-2 py-1 border-bottom">
-                        <div className="small">
-                          <span className="fw-semibold">{v.vendor_name}</span>
-                          <span className="ms-1">
-                            · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
-                            {chargesTotal > 0 && (
-                              <>
-                                {" "}+ {t("Charges")} ₹{fmt(chargesTotal)} ={" "}
-                                <strong>₹{fmt(v.total + chargesTotal)}</strong>{" "}
-                                <span className="text-muted">
-                                  ({t("Taxable")})
-                                </span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          color="primary"
-                          outline
-                          onClick={addRow}
-                        >
-                          <Plus size={12} className="me-25" />
-                          {t("Add Expense")}
-                        </Button>
-                      </div>
-                      {/* Vendor body */}
-                      <div className="p-1">
-                      {rows.length === 0 && (
-                        <div className="text-muted small text-center py-2">
-                          {t(
-                            "No charges added for this vendor. Click Add Expense to include Packing, Transport, etc."
-                          )}
-                        </div>
-                      )}
-                      {rows.length > 0 && (
-                        <Table size="sm" bordered className="mb-0 small align-middle">
-                          <thead className="table-light">
-                            <tr>
-                              <th style={{ minWidth: 220 }}>{t("Expense")}</th>
-                              <th style={{ width: 160 }}>{t("Type")}</th>
-                              <th style={{ width: 110 }}>{t("Value")}</th>
-                              <th style={{ width: 110 }} className="text-end">
-                                {t("Amount")}
-                              </th>
-                              <th style={{ width: 40 }} />
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((r, idx) => {
-                              const pickOptions = expenseOptions.filter(
-                                (o) =>
-                                  o.value === r.expense_id ||
-                                  !usedIds.has(o.value),
-                              );
-                              const amt =
-                                r.type === "percent"
-                                  ? (v.total * Number(r.value || 0)) / 100
-                                  : Number(r.value || 0);
-                              return (
-                                <tr key={idx}>
-                                  <td>
-                                    <Select
-                                      classNamePrefix="select"
-                                      options={pickOptions}
-                                      value={
-                                        expenseOptions.find(
-                                          (o) => o.value === r.expense_id,
-                                        ) || null
-                                      }
-                                      onChange={(opt) => {
-                                        if (!opt) {
-                                          updateRow(idx, {
-                                            expense_id: "",
-                                            code: "",
-                                            name: "",
-                                          });
-                                          return;
-                                        }
-                                        updateRow(idx, {
-                                          expense_id: opt.value,
-                                          code: opt.raw?.code || "",
-                                          name: opt.raw?.name || "",
-                                          type: opt.raw?.type || r.type,
-                                          value:
-                                            opt.raw?.value != null
-                                              ? String(opt.raw.value)
-                                              : r.value,
-                                        });
-                                      }}
-                                      placeholder={t("Pick expense…")}
-                                      menuPortalTarget={document.body}
-                                      menuPlacement="auto"
-                                      menuPosition="fixed"
-                                      maxMenuHeight={200}
-                                      styles={{
-                                        menuPortal: (b) => ({
-                                          ...b,
-                                          zIndex: 9999,
-                                        }),
-                                      }}
-                                    />
-                                  </td>
-                                  <td>
-                                    <Select
-                                      classNamePrefix="select"
-                                      options={expenseTypeOptions}
-                                      value={
-                                        expenseTypeOptions.find(
-                                          (o) => o.value === r.type,
-                                        ) || expenseTypeOptions[0]
-                                      }
-                                      onChange={(opt) =>
-                                        updateRow(idx, { type: opt.value })
-                                      }
-                                      menuPortalTarget={document.body}
-                                      menuPlacement="auto"
-                                      menuPosition="fixed"
-                                      maxMenuHeight={200}
-                                      styles={{
-                                        menuPortal: (b) => ({
-                                          ...b,
-                                          zIndex: 9999,
-                                        }),
-                                      }}
-                                    />
-                                  </td>
-                                  <td>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      bsSize="sm"
-                                      value={r.value}
-                                      onChange={(e) =>
-                                        updateRow(idx, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  <td className="text-end">
-                                    ₹{fmt(amt)}
-                                  </td>
-                                  <td className="text-center">
-                                    <Button
-                                      size="sm"
-                                      color="danger"
-                                      outline
-                                      onClick={() => removeRow(idx)}
-                                    >
-                                      <Trash2 size={12} />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </Table>
-                      )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                </td>
+                <td className="text-end fw-bold">
+                  ₹
+                  {fmt(
+                    vendorSummary.reduce(
+                      (s, v) => s + v.total + chargesFor(v),
+                      0
+                    )
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </Table>
+        </div>
+      </div>
+    );
+  };
 
-          </>
+  return (
+    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
+      <ModalHeader toggle={toggle}>
+        {t("Generate Sales Order & Vendor POs")}{" "}
+        <span className="text-muted">
+          {t("from")} {sourceType === "pfi" ? "PFI" : t("Quotation")}
+        </span>{" "}
+        <code>{sourceVoucherNo || ""}</code>
+        {sourceGrandTotal > 0 && (
+          <Badge color="light-primary" className="ms-1">
+            {sourceCurrencySym}
+            {sourceGrandTotal.toLocaleString()}
+          </Badge>
+        )}
+      </ModalHeader>
+      <ModalBody>
+        {renderStepper()}
+
+        {loading ? (
+          <div className="text-center py-5">
+            <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
+          </div>
+        ) : previewLines.length === 0 ? (
+          <div className="text-center text-muted py-4">
+            {t("No lines on the source document.")}
+          </div>
+        ) : step === 1 ? (
+          renderVendorsStep()
+        ) : step === 2 ? (
+          renderOrderStep()
+        ) : (
+          renderReviewStep()
         )}
       </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={toggle} disabled={creating}>
-          {t("Cancel")}
-        </Button>
-        {step === 2 && (
-          <Button
-            color="secondary"
-            outline
-            onClick={() => setStep(1)}
-            disabled={creating}
-          >
-            ← {t("Back")}
-          </Button>
-        )}
-        {step === 1 ? (
-          <Button
-            color="primary"
-            onClick={() => setStep(2)}
-            disabled={
-              loading ||
-              hasUnassignedActiveLines ||
-              vendorSummary.length === 0 ||
-              !deliveryAddressId ||
-              advanceTooHigh
-            }
-          >
-            {t("Next")} →
-          </Button>
-        ) : (
-          <Button
-            color="primary"
-            onClick={onCreate}
-            disabled={
-              creating ||
-              loading ||
-              hasUnassignedActiveLines ||
-              vendorSummary.length === 0 ||
-              !deliveryAddressId ||
-              advanceTooHigh
-            }
-          >
-            {creating ? <Spinner size="sm" /> : null}{" "}
-            {t("Create Sales Order & POVs")}{" "}
-            {vendorSummary.length > 0 && (
-              <Badge color="light" className="ms-1 text-dark">
-                1 + {vendorSummary.length}
+      <ModalFooter className="d-flex justify-content-between align-items-center">
+        <div className="small text-muted">
+          {vendorSummary.length > 0 && (
+            <>
+              <Badge color="light-primary" className="me-1">
+                1 {t("SO")} + {vendorSummary.length} {t("PO")}
               </Badge>
-            )}
+            </>
+          )}
+        </div>
+        <div className="d-flex align-items-center gap-1">
+          <Button color="secondary" outline onClick={toggle} disabled={creating}>
+            {t("Cancel")}
           </Button>
-        )}
+          {step > 1 && (
+            <Button
+              color="secondary"
+              outline
+              onClick={() => setStep((s) => s - 1)}
+              disabled={creating}
+            >
+              ← {t("Back")}
+            </Button>
+          )}
+          {step < 3 ? (
+            <Button
+              color="primary"
+              onClick={() => setStep((s) => s + 1)}
+              disabled={
+                loading ||
+                (step === 1 && !vendorsStepValid) ||
+                (step === 2 && !orderStepValid)
+              }
+            >
+              {t("Next")} →
+            </Button>
+          ) : (
+            <Button
+              color="success"
+              onClick={onCreate}
+              disabled={creating || loading || !orderStepValid}
+            >
+              {creating ? <Spinner size="sm" /> : <CheckCircle size={15} />}{" "}
+              {t("Create Sales Order & Vendor POs")}
+            </Button>
+          )}
+        </div>
       </ModalFooter>
     </Modal>
   );

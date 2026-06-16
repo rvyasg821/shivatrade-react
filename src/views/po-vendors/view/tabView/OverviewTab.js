@@ -1,10 +1,6 @@
 // Overview tab — line items table with the four qty columns + derived
-// short/undispatched. In draft status, exposes an "Edit Lines" button
-// that opens PoVendorLineEditModal to adjust per-line cover qty.
-// NOTE: Edit Lines button is currently hidden — qty is locked to PO
-// ordered qty by policy, so the modal would be read-only. Kept around
-// in case the policy reverses; flip `canEditLines && false` back to
-// `canEditLines` to restore.
+// short/undispatched. Per-line qty is locked to the PO ordered qty by
+// policy, so there is no line-edit affordance here.
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -15,7 +11,6 @@ import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { Edit, Truck } from "react-feather";
 
-import PoVendorLineEditModal from "@src/views/_shared/po-vendor/PoVendorLineEditModal";
 import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
 import { DetailPanel } from "@src/views/_shared/detail-page";
 import { isAdminUser } from "@constant/defaultValues";
@@ -64,15 +59,12 @@ const OverviewTab = () => {
   const sym = p?.currency_symbol || "₹";
   const isDraft = (p?.status || "").toLowerCase() === "draft";
 
-  // Edit Lines permission gate — po-vendors.can_update.
+  // Edit Delivery permission gate — po-vendors.can_update.
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
-  const canEditLines =
-    isDraft && (isAdmin || perms?.can_all || perms?.can_update);
   const canEditDelivery =
     isDraft && (isAdmin || perms?.can_all || perms?.can_update);
 
-  const [editOpen, setEditOpen] = useState(false);
   const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
 
   const deliverPanel = (p?.delivery_address || canEditDelivery) && (() => {
@@ -144,18 +136,6 @@ const OverviewTab = () => {
         <CardBody>
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h4 className="mb-0">{t("Line Items")}</h4>
-            {/* Edit Lines hidden — qty is locked to PO ordered qty.
-                Restore by removing the `&& false` below. */}
-            {canEditLines && false && (
-              <Button
-                color="primary"
-                outline
-                size="sm"
-                onClick={() => setEditOpen(true)}
-              >
-                <Edit size={14} className="me-50" /> {t("Edit Lines")}
-              </Button>
-            )}
           </div>
           {lines.length === 0 ? (
             <div className="text-muted py-3 text-center">
@@ -305,10 +285,6 @@ const OverviewTab = () => {
 
       {deliverPanel}
 
-      <PoVendorLineEditModal
-        isOpen={editOpen}
-        toggle={() => setEditOpen((s) => !s)}
-      />
       <PoVendorEditDeliveryModal
         isOpen={editDeliveryOpen}
         toggle={() => setEditDeliveryOpen((s) => !s)}

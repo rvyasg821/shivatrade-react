@@ -27,6 +27,7 @@ const RfqImportModal = ({
   toggle,
   vendorId = "",
   vendorLabel = "",
+  rfqId = "",
   onImported,
 }) => {
   const { t } = useTranslation();
@@ -59,7 +60,12 @@ const RfqImportModal = ({
   const post = (isPreview) => {
     const form = new FormData();
     form.append("file", file);
-    const qs = `?vendor_id=${vendorId}${isPreview ? "&preview=true" : ""}`;
+    // Pass rfq_id so the backend stamps imported price-list rows with
+    // source_type='rfq' (provenance back to this RFQ).
+    const qs =
+      `?vendor_id=${vendorId}` +
+      (rfqId ? `&rfq_id=${rfqId}` : "") +
+      (isPreview ? "&preview=true" : "");
     return instance.post(
       `${API_ENDPOINTS.rfq.importVendorPrices}${qs}`,
       form,
@@ -170,51 +176,68 @@ const RfqImportModal = ({
                 {s.total || 0} {t("Total")}
               </Badge>
             </div>
-            {errorRows.length > 0 ? (
-              <>
-                <Alert color="warning" className="mb-2">
-                  {t(
-                    "These rows have errors and will be skipped. Fix and re-upload, or continue to import only the valid rows."
-                  )}
-                </Alert>
-                <div style={{ maxHeight: "400px", overflow: "auto" }}>
-                  <Table size="sm" striped bordered responsive>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>{t("Product")}</th>
-                        <th>{t("Price")}</th>
-                        <th>{t("Details")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {errorRows.map((row) => (
-                        <tr key={row.rowNum} className="table-danger">
-                          <td>{row.rowNum}</td>
-                          <td className="small">
-                            {row.data?.product_code || "—"}
-                          </td>
-                          <td className="small">
-                            {row.data?.unit_price || "—"}
-                          </td>
-                          <td className="small text-danger">
-                            {row.errors?.join(", ") || ""}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
-              </>
-            ) : (
+            {errorRows.length > 0 && (
+              <Alert color="warning" className="mb-2">
+                {t(
+                  "Rows marked Error will be skipped. New rows are added to the price list; Update rows replace an existing price for the same vendor, product and date."
+                )}
+              </Alert>
+            )}
+            {errorRows.length === 0 && (
               <Alert
                 color="success"
-                className="mb-0 p-2 d-flex align-items-center"
+                className="mb-2 p-2 d-flex align-items-center"
               >
                 <CheckCircle size={18} className="me-1 flex-shrink-0" />
                 {t("All rows are valid and ready to import.")}
               </Alert>
             )}
+            {/* Full per-row review: every entry with its computed action
+                (New / Update / Error) checked against the price list. */}
+            <div style={{ maxHeight: "400px", overflow: "auto" }}>
+              <Table size="sm" bordered responsive className="mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{t("Product")}</th>
+                    <th>{t("Price")}</th>
+                    <th>{t("Action")}</th>
+                    <th>{t("Details")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(preview?.rows || []).map((row) => {
+                    const cfg =
+                      row.status === "valid_new"
+                        ? { rowCls: "", color: "light-success", label: "New" }
+                        : row.status === "valid_update"
+                        ? { rowCls: "", color: "light-warning", label: "Update" }
+                        : { rowCls: "table-danger", color: "light-danger", label: "Error" };
+                    const notes =
+                      row.errors?.length
+                        ? row.errors.join(", ")
+                        : (row.warnings || []).join(", ");
+                    return (
+                      <tr key={row.rowNum} className={cfg.rowCls}>
+                        <td>{row.rowNum}</td>
+                        <td className="small">{row.data?.product_code || "—"}</td>
+                        <td className="small">{row.data?.unit_price || "—"}</td>
+                        <td>
+                          <Badge color={cfg.color}>{t(cfg.label)}</Badge>
+                        </td>
+                        <td
+                          className={`small ${
+                            row.errors?.length ? "text-danger" : "text-muted"
+                          }`}
+                        >
+                          {notes}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </div>
           </div>
         )}
       </ModalBody>

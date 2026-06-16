@@ -208,6 +208,7 @@ const QuotationsPanel = ({ embedded = false }) => {
                           QUOTATION_STATUS_COLOR[row?.status] || "secondary"
                         }`}
                         className="text-capitalize"
+                        pill
                       >
                         {row?.status || "-"}
                       </Badge>
@@ -302,14 +303,8 @@ const QuotationsPanel = ({ embedded = false }) => {
   // Embedded (inside the docs tab view): render the action + content without
   // the card/title wrapper.
   if (embedded) {
-    return (
-      <Fragment>
-        {createBtn && (
-          <div className="d-flex justify-content-end mb-1">{createBtn}</div>
-        )}
-        {content}
-      </Fragment>
-    );
+    // The "Quote" shortcut lives on the tab bar in the embedded (tabbed) view.
+    return <Fragment>{content}</Fragment>;
   }
 
   return (
