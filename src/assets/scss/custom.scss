@@ -469,6 +469,242 @@ html body.swal2-height-auto {
   }
 }
 
+// Quotation costing worksheet — wide editable grid. Horizontal scroll with a
+// sticky Product column (first cell of each row, header + footer) so the
+// product stays visible while scrolling the many cost columns.
+.ws-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.worksheet-table {
+  table-layout: fixed;
+  font-size: 0.8rem;
+
+  .ws-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+    box-shadow: 1px 0 0 #ebe9f1;
+  }
+  thead .ws-sticky-col,
+  tfoot .ws-sticky-col {
+    z-index: 3;
+    background: #f3f2f7;
+  }
+  thead .ws-head th {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    padding: 0.5rem 0.5rem;
+  }
+  td,
+  th {
+    vertical-align: middle;
+  }
+  td {
+    padding: 0.3rem 0.5rem;
+  }
+  // Tabular figures so columns of numbers align.
+  .ws-num,
+  .ws-calc {
+    font-variant-numeric: tabular-nums;
+  }
+  .ws-calc {
+    color: #5e5873;
+  }
+
+  // Totals footer — sticky to the bottom of the scroll area, navy-tinted,
+  // with the grand-total figures emphasised.
+  tfoot.ws-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    td {
+      background: #eef2ff;
+      color: #09418b;
+      font-weight: 600;
+      border-top: 1px solid #d6dffd;
+      padding: 0.55rem 0.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .ws-sticky-col {
+      background: #eef2ff;
+      z-index: 3;
+    }
+    .ws-foot-grand {
+      font-size: 0.9rem;
+      font-weight: 700;
+      background: #e0e7ff;
+    }
+  }
+
+  // Click-to-edit cell: looks like a plain value, hints editability on hover.
+  .ws-cell {
+    min-height: 31px;
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0.4rem;
+    border-radius: 4px;
+    cursor: default;
+  }
+  .ws-cell.text-end {
+    justify-content: flex-end;
+  }
+  .ws-cell.text-center {
+    justify-content: center;
+  }
+  .ws-editable {
+    cursor: pointer;
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .ws-editable:hover {
+    background: #f0f4ff;
+    box-shadow: inset 0 0 0 1px #d6dffd;
+  }
+  // Inline input replacing a cell on click — tight + clear focus ring.
+  .ws-input {
+    height: 31px;
+    padding: 0.2rem 0.4rem;
+  }
+  .ws-input:focus {
+    box-shadow: 0 0 0 2px rgba(9, 65, 139, 0.25);
+    border-color: #09418b;
+  }
+}
+
+// Shared "Change Status" dropdown menu (RFQ / Quotation detail). The theme
+// turns dropdown-item text white on hover with no fill → invisible on the
+// white menu; force a readable navy-tint hover instead.
+.status-change-menu {
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .dropdown-item:hover,
+  .dropdown-item:focus {
+    background-color: rgba(9, 65, 139, 0.1) !important;
+    color: #09418b !important;
+  }
+}
+
+// Generate Sales Order page — step 2 / 3 panels.
+.po-gen-card {
+  border: 1px solid #ebe9f1;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px -7px rgba(34, 41, 47, 0.25);
+  overflow: hidden;
+}
+.po-gen-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f3f6ff;
+  border-bottom: 1px solid #e0e7ff;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  color: #09418b;
+}
+
+// Worksheet editable exchange-rate box.
+.ws-rate-box {
+  background: #eef2ff;
+  border: 1px solid #d6dffd;
+  border-radius: 8px;
+  padding: 0.25rem 0.6rem;
+  color: #09418b;
+  .ws-rate-input {
+    width: 90px;
+    height: 28px;
+    font-weight: 600;
+  }
+}
+
+// Cost-heads popover (worksheet Expense / Rebate editor).
+.ws-cost-pop {
+  max-width: 360px;
+  border: none;
+  box-shadow: 0 10px 30px -8px rgba(34, 41, 47, 0.35);
+  border-radius: 10px;
+  overflow: hidden;
+
+  .popover-arrow::after {
+    border-left-color: #09418b;
+  }
+  .popover-header {
+    background: #09418b !important;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.9rem;
+    border: none;
+
+    &,
+    span,
+    .ws-pop-close {
+      color: #fff !important;
+    }
+  }
+  .ws-pop-close {
+    opacity: 0.85;
+    cursor: pointer;
+    &:hover {
+      opacity: 1;
+    }
+  }
+  .popover-body {
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  // Two-column rows: code (left) + value input (right). Whole row is a label,
+  // so clicking the code toggles the checkbox.
+  .ws-pop-list {
+    padding: 0.25rem 0;
+  }
+  .ws-pop-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    border-top: 1px solid #f3f2f7;
+    &:first-child {
+      border-top: none;
+    }
+    &:hover {
+      background: #f6f8ff;
+    }
+    &.is-on {
+      background: #f0f4ff;
+    }
+  }
+  .ws-pop-chk {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+  .ws-pop-code {
+    flex: 1 1 auto;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: #5e5873;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ws-pop-val {
+    flex: 0 0 120px;
+    width: 120px;
+    .form-control {
+      height: 30px;
+    }
+  }
+}
+
 // Clickable KPI cards (detail pages) — subtle lift + navy border on hover.
 .kpi-clickable {
   transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;

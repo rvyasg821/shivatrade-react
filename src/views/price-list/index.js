@@ -42,7 +42,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download, Clock } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -52,6 +52,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatDate } from "@src/utility/dateFormat";
 import ImportModal from "./components/ImportModal";
+import PriceHistoryModal from "./components/PriceHistoryModal";
 
 const PriceListView = () => {
   const { t } = useTranslation();
@@ -74,6 +75,8 @@ const PriceListView = () => {
   const [productFilter, setProductFilter] = useState("");
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Per-row price history modal target: { vendorId, productId, title } | null.
+  const [historyTarget, setHistoryTarget] = useState(null);
 
   const handleList = useCallback(
     (
@@ -91,6 +94,7 @@ const PriceListView = () => {
         page,
         perPage,
         search,
+        current: 1, // current price per (vendor, product), ordered by product
       };
       if (vendorId) params.vendor_id = vendorId;
       if (productId) params.product_id = productId;
@@ -239,7 +243,12 @@ const PriceListView = () => {
   );
 
   const formatNumber = (v) =>
-    v !== null && v !== undefined && v !== "" ? Number(v).toString() : "-";
+    v !== null && v !== undefined && v !== ""
+      ? Number(v).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : "-";
 
   // Soft-navy code tag (product / vendor codes).
   const codeTag = (code) => (
@@ -316,8 +325,7 @@ const PriceListView = () => {
     },
     {
       name: t("Validity"),
-      sortField: "effective_date",
-      sortable: true,
+      sortable: false,
       minWidth: "180px",
       wrap: true,
       selector: (row) => {
@@ -357,16 +365,14 @@ const PriceListView = () => {
               <span className="text-muted">{t("Eff")}: </span>
               {formatDate(row?.effective_date)}
             </div>
-            <div className="small mt-25">
-              <span className="text-muted">{t("Until")}: </span>
-              {end ? (
+            {end ? (
+              <div className="small mt-25">
+                <span className="text-muted">{t("Until")}: </span>
                 <span className={row?.valid_until ? "" : "fst-italic text-muted"}>
                   {formatDate(end)}
                 </span>
-              ) : (
-                <span className="text-muted">{t("No expiry")}</span>
-              )}
-            </div>
+              </div>
+            ) : null}
             <div className="mt-50">
               {isRfq && row?.source_rfq_id ? (
                 <Link to={`${appsRoot}/rfq/view/${row.source_rfq_id}`}>
@@ -409,47 +415,66 @@ const PriceListView = () => {
     },
   ];
 
-  if (canEdit || canDelete) {
-    columns.push({
-      name: t("Action"),
-      center: true,
-      cell: (row) => (
-        <div className="d-flex column-action align-items-center table-icon">
-          {canEdit && (
-            <Link
-              className="me-50"
-              id={`pl-edit-${row?._id || ""}`}
-              to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
+  columns.push({
+    name: t("Action"),
+    center: true,
+    cell: (row) => (
+      <div className="d-flex column-action align-items-center table-icon">
+        <span
+          className="me-50 cursor-pointer"
+          id={`pl-history-${row?._id || ""}`}
+          onClick={() =>
+            setHistoryTarget({
+              vendorId: row?.vendor_id,
+              productId: row?.product_id,
+              title: `${row?.product_code ? `${row.product_code} · ` : ""}${
+                row?.product_name || ""
+              }  —  ${row?.vendor_name || ""}`,
+            })
+          }
+        >
+          <UncontrolledTooltip
+            placement="top"
+            target={`pl-history-${row?._id || ""}`}
+          >
+            {t("Price History")}
+          </UncontrolledTooltip>
+          <Clock size={18} />
+        </span>
+        {canEdit && (
+          <Link
+            className="me-50"
+            id={`pl-edit-${row?._id || ""}`}
+            to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`pl-edit-${row?._id || ""}`}
             >
-              <UncontrolledTooltip
-                placement="top"
-                target={`pl-edit-${row?._id || ""}`}
-              >
-                {t("Edit")}
-              </UncontrolledTooltip>
-              <Edit size={20} />
-            </Link>
-          )}
-          {canDelete && (
-            <>
-              <Trash2
-                size={20}
-                className="cursor-pointer"
-                id={`pl-delete-${row?._id || ""}`}
-                onClick={() => handleDelete(row?._id)}
-              />
-              <UncontrolledTooltip
-                placement="top"
-                target={`pl-delete-${row?._id || ""}`}
-              >
-                {t("Delete")}
-              </UncontrolledTooltip>
-            </>
-          )}
-        </div>
-      ),
-    });
-  }
+              {t("Edit")}
+            </UncontrolledTooltip>
+            <Edit size={20} />
+          </Link>
+        )}
+        {canDelete && (
+          <>
+            <Trash2
+              size={20}
+              className="cursor-pointer"
+              id={`pl-delete-${row?._id || ""}`}
+              onClick={() => handleDelete(row?._id)}
+            />
+            <UncontrolledTooltip
+              placement="top"
+              target={`pl-delete-${row?._id || ""}`}
+            >
+              {t("Delete")}
+            </UncontrolledTooltip>
+          </>
+        )}
+      </div>
+    ),
+  });
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
@@ -515,7 +540,7 @@ const PriceListView = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap align-items-center">
                   {canRead && (
                   <Button
                     color="outline-secondary"
@@ -572,6 +597,14 @@ const PriceListView = () => {
         isOpen={importModalOpen}
         toggle={() => setImportModalOpen((prev) => !prev)}
         onSuccess={() => handleList()}
+      />
+
+      <PriceHistoryModal
+        open={!!historyTarget}
+        toggle={() => setHistoryTarget(null)}
+        vendorId={historyTarget?.vendorId}
+        productId={historyTarget?.productId}
+        title={historyTarget?.title}
       />
     </Fragment>
   );

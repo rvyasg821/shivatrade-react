@@ -246,7 +246,7 @@ const VendorTrackingTab = () => {
       <Card>
         <CardBody>
           <h4 className="mb-2">
-            {t("PO Vendors")}{" "}
+            {t("Vendor POs")}{" "}
             <small className="text-muted">({orderedPovs.length})</small>
           </h4>
           {loading ? null : orderedPovs.length === 0 ? (

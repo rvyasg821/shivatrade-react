@@ -197,6 +197,7 @@ export const API_ENDPOINTS = {
     list: `/admin/price-list/list`,
     get: `/admin/price-list/get`,
     create: `/admin/price-list/create`,
+    bulk: `/admin/price-list/bulk`,
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
     byProduct: `/admin/price-list/by-product`,
@@ -267,7 +268,6 @@ export const API_ENDPOINTS = {
     recoverPreview: `/admin/po-vendor/recover-preview`, // append /:poId
     recover: `/admin/po-vendor/recover`, // append /:poId
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
-    receive: `/admin/po-vendor`, // append /:id/receive
     cancel: `/admin/po-vendor`, // append /:id/cancel
     pdf: `/admin/po-vendor`, // append /:id/pdf
   },

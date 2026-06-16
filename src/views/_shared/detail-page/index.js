@@ -10,4 +10,5 @@ export { default as DetailSocials } from "./DetailSocials";
 export { default as DetailTwoPanel } from "./DetailTwoPanel";
 export { default as DetailPanel } from "./DetailPanel";
 export { default as DetailEmptyState } from "./DetailEmptyState";
+export { default as StatusChangeDropdown } from "./StatusChangeDropdown";
 export { default as useFollowUpStatus } from "./hooks/useFollowUpStatus";

@@ -744,9 +744,17 @@ const ProductForm = () => {
                         type="number"
                         step="0.01"
                         min="0"
+                        inputMode="decimal"
                         invalid={!!errors.selling_price}
                         {...field}
                         value={field.value ?? ""}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (val !== "" && !Number.isNaN(Number(val))) {
+                            field.onChange(Number(val).toFixed(2));
+                          }
+                          field.onBlur();
+                        }}
                       />
                     )}
                   />

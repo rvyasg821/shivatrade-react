@@ -131,8 +131,16 @@ const QuotationWizard = () => {
     form;
 
   // ── Wizard navigation state ─────────────────────────────────────────
-  const [activeStep, setActiveStep] = useState(0);
-  const [visited, setVisited] = useState(new Set([0]));
+  // Optional ?step=N (1-indexed) deep-link — e.g. "Add Line" jumps to step 2.
+  const initialStep = (() => {
+    const raw = parseInt(searchParams.get("step"), 10);
+    if (!raw || Number.isNaN(raw)) return 0;
+    return Math.min(Math.max(raw - 1, 0), STEPS.length - 1);
+  })();
+  const [activeStep, setActiveStep] = useState(initialStep);
+  const [visited, setVisited] = useState(
+    new Set(Array.from({ length: initialStep + 1 }, (_, i) => i))
+  );
 
   // Filter steps that should be shown given current form state.
   const visibleSteps = useMemo(

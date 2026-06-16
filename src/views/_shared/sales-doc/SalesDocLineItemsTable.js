@@ -41,7 +41,7 @@ const SalesDocLineItemsTable = ({
   }, [pageCount, page]);
 
   const showMoney = !requirementMode;
-  const colCount = requirementMode ? 4 : showTotal ? 5 : 4;
+  const colCount = requirementMode ? 5 : showTotal ? 5 : 4;
 
   return (
     <Fragment>
@@ -50,7 +50,8 @@ const SalesDocLineItemsTable = ({
           <tr>
             <th style={{ width: 36 }}>#</th>
             <th>{t("Product")}</th>
-            {requirementMode && <th>{t("HSN")}</th>}
+            {requirementMode && <th className="text-nowrap">{t("Part No")}</th>}
+            {requirementMode && <th className="text-nowrap">{t("HSN")}</th>}
             <th className="text-end">{t("Qty")}</th>
             {showMoney && <th className="text-end">{t("Price")}</th>}
             {showMoney && showTotal && (
@@ -107,7 +108,12 @@ const SalesDocLineItemsTable = ({
                     </div>
                   </td>
                   {requirementMode && (
-                    <td className="text-nowrap">{l.hs_code || "-"}</td>
+                    <td className="text-nowrap">{l.part_no || "-"}</td>
+                  )}
+                  {requirementMode && (
+                    <td className="text-nowrap">
+                      {l.hsn_code || l.hs_code || "-"}
+                    </td>
                   )}
                   <td className="text-end">
                     {l.qty

@@ -197,34 +197,6 @@ export const dispatchPoVendor = createAsyncThunk(
   }
 );
 
-// ─── Action: Receive ────────────────────────────────────────────────────
-
-export const receivePoVendor = createAsyncThunk(
-  "appPoVendor/receivePoVendor",
-  async ({ id, data }, { rejectWithValue }) => {
-    try {
-      const resp = await instance.post(
-        `${API_ENDPOINTS.poVendors.receive}/${id}/receive`,
-        data
-      );
-      const body = resp?.data;
-      if (body?.statusCode && body?.data) {
-        return {
-          poVendorItem: body.data.parent,
-          actionFlag: "POV_CLOSED",
-          success: body?.message || "",
-          error: "",
-        };
-      }
-      return rejectWithValue(body?.message || "Failed to receive POV");
-    } catch (error) {
-      return rejectWithValue(
-        error?.response?.data?.message || error.message || error
-      );
-    }
-  }
-);
-
 // ─── Action: Cancel ────────────────────────────────────────────────────
 
 export const cancelPoVendor = createAsyncThunk(
@@ -399,21 +371,6 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(dispatchPoVendor.rejected, (state, action) => {
-        state.loading = true;
-        state.error = action.payload || "";
-      })
-      .addCase(receivePoVendor.pending, (state) => {
-        state.loading = false;
-      })
-      .addCase(receivePoVendor.fulfilled, (state, action) => {
-        state.poVendorItem =
-          action.payload?.poVendorItem || initPoVendorItem;
-        state.loading = true;
-        state.actionFlag = action.payload?.actionFlag;
-        state.success = action.payload?.success;
-        state.error = action.payload?.error;
-      })
-      .addCase(receivePoVendor.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

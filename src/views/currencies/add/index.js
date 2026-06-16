@@ -30,6 +30,9 @@ import {
   FormFeedback,
   Table,
   UncontrolledTooltip,
+  Modal,
+  ModalHeader,
+  ModalBody,
 } from "reactstrap";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -47,13 +50,27 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, Plus, Edit, Trash2, Check, X } from "react-feather";
+import { ArrowLeft, Plus, Edit, Trash2, Check, X, Clock } from "react-feather";
 
 // ** Constants
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { initCurrencyItem } from "@constant/reduxConstant";
 import { STATUS_OPTIONS, EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
+
+// Exchange rates are STORED as "{to} units per 1 {from}" (e.g. USD per INR =
+// 0.01) — the system-wide convention. The UI shows/enters the intuitive
+// inverse "1 {to} = X {from}" (1 USD = 100 INR). Convert at the edge, rounding
+// the stored value to the 6 dp the backend allows.
+const round6 = (n) => Math.round((Number(n) + Number.EPSILON) * 1e6) / 1e6;
+const toStoredRate = (intuitive) => {
+  const x = Number(intuitive);
+  return x > 0 ? String(round6(1 / x)) : "";
+};
+const toIntuitiveRate = (stored) => {
+  const x = Number(stored);
+  return x > 0 ? String(round6(1 / x)) : "";
+};
 
 const CurrencyForm = () => {
   const { id } = useParams();
@@ -182,12 +199,9 @@ const CurrencyForm = () => {
       setRateFormError(t("Please select a To currency"));
       return;
     }
-    if (!rateFormState.rate || isNaN(Number(rateFormState.rate))) {
+    const entered = Number(rateFormState.rate);
+    if (!rateFormState.rate || isNaN(entered) || entered <= 0) {
       setRateFormError(t("Please enter a valid rate"));
-      return;
-    }
-    if (!/^\d+(\.\d{1,6})?$/.test(String(rateFormState.rate))) {
-      setRateFormError(t("Rate allows at most 6 decimal places"));
       return;
     }
     if (!rateFormState.effective_date) {
@@ -199,7 +213,9 @@ const CurrencyForm = () => {
         currencyId: id,
         data: {
           to_currency_code: rateFormState.to_currency_code,
-          rate: String(rateFormState.rate),
+          // User enters the intuitive "1 {to} = X {from}" (e.g. 1 USD = 100
+          // INR); the system stores the inverse "{to} per 1 {from}" (0.01).
+          rate: toStoredRate(entered),
           effective_date: rateFormState.effective_date,
         },
       })
@@ -237,6 +253,37 @@ const CurrencyForm = () => {
 
   const rates = store?.exchangeRates || [];
 
+  // Current rate = the most recent effective entry per target currency. The
+  // table shows just these; full per-currency history opens in a modal.
+  const currentRates = useMemo(() => {
+    const byCode = new Map();
+    [...rates]
+      .sort((a, b) =>
+        String(b.effective_date || "").localeCompare(
+          String(a.effective_date || "")
+        )
+      )
+      .forEach((r) => {
+        const code = r.to_currency_code;
+        if (code && !byCode.has(code)) byCode.set(code, r);
+      });
+    return Array.from(byCode.values());
+  }, [rates]);
+
+  // Target currency code whose rate history modal is open (null = closed).
+  const [historyCode, setHistoryCode] = useState(null);
+  const historyRows = useMemo(
+    () =>
+      rates
+        .filter((r) => r.to_currency_code === historyCode)
+        .sort((a, b) =>
+          String(b.effective_date || "").localeCompare(
+            String(a.effective_date || "")
+          )
+        ),
+    [rates, historyCode]
+  );
+
   // Inline edit state for rate history rows
   const [editingRateId, setEditingRateId] = useState(null);
   const [editingRate, setEditingRate] = useState("");
@@ -245,7 +292,7 @@ const CurrencyForm = () => {
 
   const startEditRate = (r) => {
     setEditingRateId(r._id);
-    setEditingRate(r.rate ?? "");
+    setEditingRate(toIntuitiveRate(r.rate));
     setEditingDate((r.effective_date || "").slice(0, 10));
   };
   const cancelEditRate = () => {
@@ -260,7 +307,7 @@ const CurrencyForm = () => {
         currencyId: id,
         rateId: editingRateId,
         data: {
-          rate: editingRate,
+          rate: toStoredRate(editingRate),
           effective_date: editingDate || undefined,
         },
       })
@@ -384,7 +431,7 @@ const CurrencyForm = () => {
                     name="is_default"
                     control={control}
                     render={({ field }) => (
-                      <div className="form-check">
+                      <div className="form-check d-flex align-items-center flex-wrap gap-1">
                         <Input
                           type="checkbox"
                           id="currency-is-default"
@@ -392,14 +439,14 @@ const CurrencyForm = () => {
                           onChange={(e) => field.onChange(e.target.checked)}
                         />
                         <Label
-                          className="form-check-label"
+                          className="form-check-label mb-0"
                           for="currency-is-default"
                         >
                           {t("Set as default currency (company's home currency)")}
                         </Label>
-                        <small className="d-block text-muted mt-1">
+                        <small className="text-muted">
                           {t(
-                            "Used as the 'from' side of exchange-rate lookups on Quotation / PFI / PO. Exactly one currency per company should be marked default."
+                            "— used as the base for all exchange-rate lookups; exactly one per company."
                           )}
                         </small>
                       </div>
@@ -438,22 +485,25 @@ const CurrencyForm = () => {
                     )}
                   />
                 </Col>
-              </Row>
 
-              <div className="d-flex justify-content-end mt-2">
-                <Button
-                  type="button"
-                  color="secondary"
-                  outline
-                  className="me-1"
-                  onClick={() => navigate(-1)}
+                {/* CTA on the same row as Status, right-aligned. */}
+                <Col
+                  md="6"
+                  className="mb-2 d-flex align-items-end justify-content-end gap-1"
                 >
-                  {t("Cancel")}
-                </Button>
-                <Button type="submit" color="primary" disabled={isSubmitting}>
-                  {isEditMode ? t("Update") : t("Create")}
-                </Button>
-              </div>
+                  <Button
+                    type="button"
+                    color="secondary"
+                    outline
+                    onClick={() => navigate(-1)}
+                  >
+                    {t("Cancel")}
+                  </Button>
+                  <Button type="submit" color="primary" disabled={isSubmitting}>
+                    {isEditMode ? t("Update") : t("Create")}
+                  </Button>
+                </Col>
+              </Row>
             </Form>
           </CardBody>
         </Card>
@@ -462,22 +512,24 @@ const CurrencyForm = () => {
         {isEditMode && (
           <Card className="mt-3">
             <CardBody>
-              <h4 className="mb-2">{t("Exchange Rates")}</h4>
-              <p className="text-muted mb-3">
-                {t(
-                  "Adding a new rate keeps prior entries as history. The system uses the most-recent effective rate for conversions."
-                )}
-              </p>
+              <div className="d-flex align-items-center flex-wrap gap-1 mb-2">
+                <h4 className="mb-0">{t("Exchange Rates")}</h4>
+                <small className="text-muted">
+                  {t(
+                    "— newest effective rate is used; prior entries are kept as history."
+                  )}
+                </small>
+              </div>
 
               {canAddRate && (
                 <Row className="align-items-end mb-2">
                   <Col md="4">
-                    <Label className="form-label">{t("To Currency")}</Label>
+                    <Label className="form-label">{t("Currency")}</Label>
                     <Select
                       classNamePrefix="select"
                       options={otherCurrencyOptions}
                       value={selectedTo || null}
-                      placeholder={t("Select target currency")}
+                      placeholder={t("Select currency")}
                       onChange={(opt) =>
                         setRateFormState((s) => ({
                           ...s,
@@ -487,12 +539,20 @@ const CurrencyForm = () => {
                     />
                   </Col>
                   <Col md="3">
-                    <Label className="form-label">{t("Rate")}</Label>
+                    <Label className="form-label">
+                      {t("Rate")}
+                      {selectedTo ? (
+                        <span className="text-muted">
+                          {" "}
+                          (1 {selectedTo.value} = ? {currentCode || "INR"})
+                        </span>
+                      ) : null}
+                    </Label>
                     <Input
                       type="number"
-                      step="0.000001"
+                      step="0.01"
                       min="0"
-                      placeholder="83.25"
+                      placeholder="100"
                       value={rateFormState.rate}
                       onChange={(e) =>
                         setRateFormState((s) => ({ ...s, rate: e.target.value }))
@@ -524,8 +584,7 @@ const CurrencyForm = () => {
                 <div className="text-danger mb-2">{rateFormError}</div>
               )}
 
-              <h5 className="mt-3 mb-2">{t("Rate History")}</h5>
-              {rates.length === 0 ? (
+              {currentRates.length === 0 ? (
                 <div className="text-muted">{t("No rates yet")}</div>
               ) : (
                 <Table className="text-nowrap mb-0" responsive bordered>
@@ -533,25 +592,28 @@ const CurrencyForm = () => {
                     <tr>
                       <th>{t("From")}</th>
                       <th>{t("To")}</th>
-                      <th>{t("Rate")}</th>
+                      <th>{t("Rate")} (1 {t("From")} = ? {t("To")})</th>
                       <th>{t("Effective Date")}</th>
-                      {(canEditRate || canDeleteRate) && (
-                        <th className="text-center" style={{ width: 110 }}>
+                      {true && (
+                        <th className="text-center" style={{ width: 130 }}>
                           {t("Actions")}
                         </th>
                       )}
                     </tr>
                   </thead>
                   <tbody>
-                    {rates.map((r) => {
+                    {currentRates.map((r) => {
                       const isEditing = editingRateId === r._id;
                       return (
                         <tr key={r._id}>
-                          <td className="text-uppercase">
-                            {r.from_currency_code || "-"}
-                          </td>
+                          {/* Displayed in the intuitive direction "1 {to} =
+                              X {from}", so From = the foreign (to_currency),
+                              To = the default (from_currency). */}
                           <td className="text-uppercase">
                             {r.to_currency_code || "-"}
+                          </td>
+                          <td className="text-uppercase">
+                            {r.from_currency_code || "-"}
                           </td>
                           <td>
                             {isEditing ? (
@@ -566,7 +628,7 @@ const CurrencyForm = () => {
                                 }
                               />
                             ) : r.rate !== null && r.rate !== undefined ? (
-                              Number(r.rate).toString()
+                              toIntuitiveRate(r.rate)
                             ) : (
                               ""
                             )}
@@ -584,7 +646,7 @@ const CurrencyForm = () => {
                               (r.effective_date || "").slice(0, 10)
                             )}
                           </td>
-                          {(canEditRate || canDeleteRate) && (
+                          {true && (
                           <td className="text-center">
                             {isEditing ? (
                               <Fragment>
@@ -615,6 +677,20 @@ const CurrencyForm = () => {
                               </Fragment>
                             ) : (
                               <Fragment>
+                                <Clock
+                                  size={18}
+                                  className="cursor-pointer text-muted me-1"
+                                  onClick={() =>
+                                    setHistoryCode(r.to_currency_code)
+                                  }
+                                  id={`rate-history-${r._id}`}
+                                />
+                                <UncontrolledTooltip
+                                  placement="top"
+                                  target={`rate-history-${r._id}`}
+                                >
+                                  {t("Rate History")}
+                                </UncontrolledTooltip>
                                 {canEditRate && (
                                   <Fragment>
                                     <Edit
@@ -660,6 +736,55 @@ const CurrencyForm = () => {
             </CardBody>
           </Card>
         )}
+
+        {/* Rate history modal — all entries for one target currency. */}
+        <Modal
+          isOpen={!!historyCode}
+          toggle={() => setHistoryCode(null)}
+          size="md"
+          centered
+        >
+          <ModalHeader toggle={() => setHistoryCode(null)}>
+            {t("Rate History")}
+            {historyCode ? (
+              <span className="text-muted">
+                {" "}
+                — 1 {historyCode} = ? {currentCode || "INR"}
+              </span>
+            ) : null}
+          </ModalHeader>
+          <ModalBody>
+            {historyRows.length === 0 ? (
+              <div className="text-center text-muted py-3">
+                {t("No rates yet")}
+              </div>
+            ) : (
+              <Table responsive bordered size="sm" className="mb-0">
+                <tbody>
+                  {historyRows.map((r, i) => (
+                    <tr key={r._id}>
+                      <td className="fw-semibold text-nowrap">
+                        {toIntuitiveRate(r.rate)} {currentCode || "INR"}
+                      </td>
+                      <td className="text-nowrap">
+                        {(r.effective_date || "").slice(0, 10)}
+                      </td>
+                      <td className="text-end" style={{ width: 90 }}>
+                        <span
+                          className={`badge rounded-pill ${
+                            i === 0 ? "bg-light-success" : "bg-light-secondary"
+                          }`}
+                        >
+                          {i === 0 ? t("Current") : t("Past")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </ModalBody>
+        </Modal>
       </div>
     </Fragment>
   );

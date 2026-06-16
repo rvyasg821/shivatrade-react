@@ -68,9 +68,11 @@ const EditCurrency = lazy(() => import('@src/views/currencies/add'));
 const PriceList = lazy(() => import('@src/views/price-list'));
 const AddPriceList = lazy(() => import('@src/views/price-list/add'));
 const EditPriceList = lazy(() => import('@src/views/price-list/add'));
+const ManageVendorPricing = lazy(() => import('@src/views/price-list/manage'));
 const QuotationList = lazy(() => import('@src/views/quotations'));
 const AddQuotation = lazy(() => import('@src/views/quotations/add'));
 const EditQuotation = lazy(() => import('@src/views/quotations/add'));
+const GenerateSalesOrder = lazy(() => import('@src/views/quotations/generate-so'));
 const ViewQuotation = lazy(() => import('@src/views/quotations/view'));
 const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
 const PfiList = lazy(() => import('@src/views/pfi'));
@@ -85,6 +87,7 @@ const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
 const PurchaseOrderPublicView = lazy(() => import('@src/views/purchase-orders/public'));
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
+const DispatchPoVendor = lazy(() => import('@src/views/po-vendors/dispatch'));
 const GrnList = lazy(() => import('@src/views/grn'));
 const GrnView = lazy(() => import('@src/views/grn/view'));
 const InventoryList = lazy(() => import('@src/views/inventory'));
@@ -623,6 +626,14 @@ const AppRoutes = [
     },
   },
   {
+    path: `${appsRoot}/price-list/manage/:productId`,
+    element: <ManageVendorPricing />,
+    meta: {
+      permissionId: priceListModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
     path: `${appsRoot}/quotations`,
     element: <QuotationList />,
     meta: {
@@ -641,6 +652,14 @@ const AppRoutes = [
   {
     path: `${appsRoot}/quotations/edit/:id`,
     element: <EditQuotation />,
+    meta: {
+      permissionId: quotationsModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/quotations/generate-so/:quotationId`,
+    element: <GenerateSalesOrder />,
     meta: {
       permissionId: quotationsModuleSlug,
       action: 'edit',
@@ -783,6 +802,14 @@ const AppRoutes = [
     meta: {
       permissionId: poVendorsModuleSlug,
       action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/po-vendors/dispatch/:id`,
+    element: <DispatchPoVendor />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'update',
     },
   },
   {

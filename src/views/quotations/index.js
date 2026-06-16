@@ -42,7 +42,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, FileText } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, FileText, User, Mail, Phone } from "react-feather";
 import { formatMoney } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -244,7 +244,12 @@ const QuotationView = () => {
     [customerStore?.customerDropdown]
   );
 
-  const formatTotal = (row) => formatMoney(row?.grand_total, row?.currency_code);
+  // Match the detail page: customer total rounded to a whole unit, shown 2 dp.
+  const formatTotal = (row) =>
+    formatMoney(
+      Math.round(Number(row?.grand_total) || 0),
+      row?.currency_code
+    );
 
   const columns = [
     {
@@ -254,12 +259,36 @@ const QuotationView = () => {
       minWidth: "200px",
       grow: 1.5,
       selector: (row) => (
-        <Link
-          to={`${appsRoot}/quotations/view/${row?._id || ""}`}
-          className="text-nowrap"
-        >
-          {row?.voucher_no || "-"}
-        </Link>
+        <div className="py-1">
+          <Link
+            to={`${appsRoot}/quotations/view/${row?._id || ""}`}
+            style={{ textDecoration: "none" }}
+          >
+            <span
+              className="fw-bold text-nowrap"
+              ref={(el) => {
+                if (el) el.style.setProperty("color", "#09418B", "important");
+              }}
+            >
+              {row?.voucher_no || "-"}
+            </span>
+          </Link>
+          {row?.lead_voucher_no && (
+            <div className="d-flex align-items-center flex-wrap mt-25 gap-50">
+              <span
+                className="badge rounded-pill text-capitalize text-nowrap"
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty("background-color", "#09418B", "important");
+                    el.style.setProperty("color", "#fff", "important");
+                  }
+                }}
+              >
+                {t("Lead")} - {row.lead_voucher_no}
+              </span>
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -275,21 +304,32 @@ const QuotationView = () => {
             : row?.customer_contact_phone) ||
           "";
         return (
-          <div className="py-1">
-            <span className="fw-bold text-capitalize">
+          <div className="py-75" style={{ minWidth: 0 }}>
+            <div className="fw-bold text-capitalize text-break">
               {row?.customer_name || "-"}
-            </span>
+            </div>
             {row?.customer_contact_name && (
-              <div className="text-capitalize small">
-                {row.customer_contact_name}
+              <div className="d-flex align-items-center text-capitalize text-break mt-25 mb-25">
+                <User size={13} className="text-muted me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.customer_contact_name}
+                </span>
               </div>
             )}
             {row?.customer_contact_email && (
-              <div className="small text-muted">
-                {row.customer_contact_email}
+              <div className="d-flex align-items-center small text-muted text-break mb-25">
+                <Mail size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.customer_contact_email}
+                </span>
               </div>
             )}
-            {phone && <div className="small text-muted">{phone}</div>}
+            {phone && (
+              <div className="d-flex align-items-center small text-muted text-break">
+                <Phone size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
+              </div>
+            )}
           </div>
         );
       },
