@@ -12,13 +12,14 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { FileText, Percent, Inbox } from "react-feather";
+import { FileText, Percent, Inbox, CornerUpLeft } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import OverviewTab from "./OverviewTab";
 import ExpensesTab from "./ExpensesTab";
 import GrnsTab from "./GrnsTab";
+import DebitNotesTab from "./DebitNotesTab";
 
 const PoVendorTabView = () => {
   const { t } = useTranslation();
@@ -72,6 +73,7 @@ const PoVendorTabView = () => {
             {tabBtn("overview", t("Line Items"), FileText, linesCount)}
             {tabBtn("expenses", t("Expenses"), Percent, expensesCount)}
             {tabBtn("grns", t("GRNs"), Inbox, 0)}
+            {tabBtn("debitnotes", t("Debit Notes"), CornerUpLeft, 0)}
           </Nav>
           {tabActions ? (
             <div className="d-flex gap-1">{tabActions}</div>
@@ -90,6 +92,11 @@ const PoVendorTabView = () => {
           <TabPane tabId="grns">
             {active === "grns" && (
               <GrnsTab registerActions={registerActions} />
+            )}
+          </TabPane>
+          <TabPane tabId="debitnotes">
+            {active === "debitnotes" && (
+              <DebitNotesTab registerActions={registerActions} />
             )}
           </TabPane>
         </TabContent>

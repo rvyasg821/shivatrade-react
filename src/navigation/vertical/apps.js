@@ -30,7 +30,6 @@ import {
   ShoppingCart,
   Box,
   Gift,
-  Clipboard,
 } from 'react-feather';
 import { IoBusinessOutline } from 'react-icons/io5';
 import { MdOutlineSupportAgent } from "react-icons/md";
@@ -72,7 +71,6 @@ import {
   poVendorsModuleSlug,
   trackingModuleSlug,
   inventoryModuleSlug,
-  grnModuleSlug,
   invoicesModuleSlug,
   expensesModuleSlug,
   rebatesModuleSlug,
@@ -280,17 +278,9 @@ const navigationItems = [
     companyOnly: true,
   },
 
-  // GRN - Goods Receipt Note (document over a received Vendor PO).
-  // Reuses the po-vendors permission (purchase-side), like RFQ reuses leads.
-  {
-    id: grnModuleSlug,
-    title: rolePermissionName[grnModuleSlug],
-    icon: <Clipboard size={20} />,
-    navLink: `${appsRoot}/grn`,
-    permissionId: poVendorsModuleSlug,
-    resource: poVendorsModuleSlug,
-    companyOnly: true,
-  },
+  // GRN (Goods Receipt Note) and Debit Notes are no longer top-level nav
+  // items — they live inside the Vendor PO (POV) detail as tabs (GRNs /
+  // Debit Notes). Their list/detail routes remain for deep links + Back.
 
   // Inventory - received-goods register (read-only view of POV closures).
   {

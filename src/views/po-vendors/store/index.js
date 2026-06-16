@@ -197,6 +197,34 @@ export const dispatchPoVendor = createAsyncThunk(
   }
 );
 
+// ─── Action: Edit Dispatch (correct transport / qty after dispatch) ─────
+
+export const editDispatchPoVendor = createAsyncThunk(
+  "appPoVendor/editDispatchPoVendor",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.put(
+        `${API_ENDPOINTS.poVendors.dispatch}/${id}/dispatch`,
+        data
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_DISPATCHED",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to update dispatch");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Action: Cancel ────────────────────────────────────────────────────
 
 export const cancelPoVendor = createAsyncThunk(
@@ -371,6 +399,21 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(dispatchPoVendor.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(editDispatchPoVendor.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(editDispatchPoVendor.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(editDispatchPoVendor.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

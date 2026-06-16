@@ -15,10 +15,19 @@ import {
   Table,
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
-import { ArrowLeft, Download, Save, CheckCircle, XCircle } from "react-feather";
+import {
+  ArrowLeft,
+  Download,
+  Save,
+  CheckCircle,
+  XCircle,
+  CornerUpLeft,
+  ExternalLink,
+} from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getGrn, updateGrn, cleanGrnMessage } from "../store";
+import { createDebitNoteFromGrn } from "@src/views/debit-notes/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
@@ -51,11 +60,51 @@ const GrnView = () => {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
+  // Active (non-cancelled) Debit Note already raised against this GRN, if any.
+  const [existingDn, setExistingDn] = useState(null);
+  const [creatingDn, setCreatingDn] = useState(false);
 
   useEffect(() => {
     dispatch(stopLoading());
     dispatch(getGrn(id));
   }, [id, dispatch]);
+
+  // A Debit Note can only be raised once the GRN is confirmed; look up any
+  // existing one so we show a link instead of a duplicate "Create" button.
+  useEffect(() => {
+    if (!id || grn?.status !== "confirmed") {
+      setExistingDn(null);
+      return;
+    }
+    instance
+      .get(`${API_ENDPOINTS.debitNotes.forGrn}/${id}`)
+      .then((resp) => {
+        const list = resp?.data?.data || [];
+        setExistingDn(list.find((d) => d.status !== "cancelled") || null);
+      })
+      .catch(() => setExistingDn(null));
+  }, [id, grn?.status]);
+
+  const hasRejected = useMemo(
+    () => (grn?.lines || []).some((l) => num(l.rejected_qty) > 0),
+    [grn?.lines]
+  );
+
+  const onCreateDebitNote = async () => {
+    setCreatingDn(true);
+    const res = await dispatch(createDebitNoteFromGrn({ grnId: id, data: {} }));
+    setCreatingDn(false);
+    const created = res?.payload?.debitNoteItem;
+    if (created?._id) {
+      navigate(`${appsRoot}/debit-notes/view/${created._id}`);
+    } else {
+      Notification(
+        "Error",
+        res?.payload?.error || t("Could not create Debit Note."),
+        "warning"
+      );
+    }
+  };
 
   // Seed the editable QC fields from the loaded GRN lines.
   useEffect(() => {
@@ -166,20 +215,26 @@ const GrnView = () => {
     dispatch(updateGrn({ id, data: payload }));
   };
 
+  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
+  // the no-auth public route — a blob tab is named by its UUID.
   const downloadPdf = () => {
     setPdfLoading(true);
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
     instance
-      .get(`${API_ENDPOINTS.grn.pdf}/${id}/pdf`, { responseType: "blob" })
+      .get(`${API_ENDPOINTS.grn.pdf}/${id}/pdf-ticket`)
       .then((resp) => {
-        const blob = new Blob([resp.data], { type: "application/pdf" });
-        const link = document.createElement("a");
-        link.href = window.URL.createObjectURL(blob);
-        link.download = `GRN-${grn?.voucher_no || id}.pdf`;
-        link.click();
+        const ticket = resp?.data?.data?.ticket;
+        if (!ticket) throw new Error("no ticket");
+        const url = `${instance.defaults.baseURL}${
+          API_ENDPOINTS.grn.ticketPdf
+        }?t=${encodeURIComponent(ticket)}`;
+        if (win) win.location.href = url;
+        else window.open(url, "_blank");
       })
-      .catch(() =>
-        Notification("Error", t("Could not generate the PDF."), "warning")
-      )
+      .catch(() => {
+        if (win) win.close();
+        Notification("Error", t("Could not generate the PDF."), "warning");
+      })
       .finally(() => setPdfLoading(false));
   };
 
@@ -233,6 +288,37 @@ const GrnView = () => {
             </div>
           </div>
           <div className="d-flex gap-1">
+            {grn.status === "confirmed" && existingDn ? (
+              <Button
+                color="warning"
+                outline
+                size="sm"
+                onClick={() =>
+                  navigate(`${appsRoot}/debit-notes/view/${existingDn._id}`)
+                }
+              >
+                <ExternalLink size={14} className="me-25" />{" "}
+                {t("View Debit Note")}
+              </Button>
+            ) : grn.status === "confirmed" && hasRejected ? (
+              <Button
+                color="warning"
+                size="sm"
+                onClick={onCreateDebitNote}
+                disabled={creatingDn}
+              >
+                {creatingDn ? (
+                  <>
+                    <Spinner size="sm" className="me-25" /> {t("Creating…")}
+                  </>
+                ) : (
+                  <>
+                    <CornerUpLeft size={14} className="me-25" />{" "}
+                    {t("Create Debit Note")}
+                  </>
+                )}
+              </Button>
+            ) : null}
             <Button
               color="secondary"
               outline
@@ -254,7 +340,13 @@ const GrnView = () => {
               color="secondary"
               outline
               size="sm"
-              onClick={() => navigate(`${appsRoot}/grn`)}
+              onClick={() =>
+                navigate(
+                  grn?.po_vendor_id
+                    ? `${appsRoot}/po-vendors/view/${grn.po_vendor_id}`
+                    : -1
+                )
+              }
             >
               <ArrowLeft size={14} /> {t("Back")}
             </Button>

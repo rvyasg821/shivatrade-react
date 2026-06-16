@@ -218,6 +218,8 @@ export const API_ENDPOINTS = {
     rotateToken: `/admin/quotation/rotate-token`,
     unpublish: `/admin/quotation/unpublish`,
     publicPreview: `/admin/quotation/public-preview`,
+    pdf: `/admin/quotation`, // append /:id/pdf  (and /:id/pdf-ticket)
+    ticketPdf: `/public/quotation/pdf`, // ?t=<ticket> (no-auth, new-tab open)
     public: `/public/quotation`,
   },
   pfis: {
@@ -253,7 +255,8 @@ export const API_ENDPOINTS = {
     unpublish: `/admin/purchase-order/unpublish`, // append /:id
     public: `/public/purchase-order`, // append /:token
     publicPdf: `/public/purchase-order`, // append /:token/pdf
-    pdf: `/admin/purchase-order`, // append /:id/pdf
+    ticketPdf: `/public/purchase-order/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    pdf: `/admin/purchase-order`, // append /:id/pdf  (and /:id/pdf-ticket)
     coverage: `/admin/purchase-order`, // append /:id/coverage
     pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId
     quotationCoverage: `/admin/purchase-order/quotation-coverage`, // append /:quotationId
@@ -269,7 +272,8 @@ export const API_ENDPOINTS = {
     recover: `/admin/po-vendor/recover`, // append /:poId
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     cancel: `/admin/po-vendor`, // append /:id/cancel
-    pdf: `/admin/po-vendor`, // append /:id/pdf
+    pdf: `/admin/po-vendor`, // append /:id/pdf  (and /:id/pdf-ticket)
+    ticketPdf: `/public/po-vendor/pdf`, // ?t=<ticket> (no-auth, new-tab open)
   },
   inventory: {
     list: `/admin/inventory/list`,
@@ -357,7 +361,18 @@ export const API_ENDPOINTS = {
     get: `/admin/grn/get`, // append /:id
     update: `/admin/grn/update`, // append /:id
     delete: `/admin/grn/delete`, // append /:id
-    pdf: `/admin/grn`, // append /:id/pdf
+    pdf: `/admin/grn`, // append /:id/pdf  (and /:id/pdf-ticket)
+    ticketPdf: `/public/grn/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+  },
+  debitNotes: {
+    list: `/admin/debit-note/list`,
+    fromGrn: `/admin/debit-note/from-grn`, // append /:grnId
+    forGrn: `/admin/debit-note/for-grn`, // append /:grnId
+    get: `/admin/debit-note/get`, // append /:id
+    update: `/admin/debit-note/update`, // append /:id
+    delete: `/admin/debit-note/delete`, // append /:id
+    pdf: `/admin/debit-note`, // append /:id/pdf  (and /:id/pdf-ticket)
+    ticketPdf: `/public/debit-note/pdf`, // ?t=<ticket> (no-auth, new-tab open)
   },
   rebates: {
     list: `/admin/rebate/list`,

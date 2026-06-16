@@ -22,26 +22,25 @@ const PoVendorShareLinkPanel = () => {
   const p = poVendorItem || {};
 
   const [downloading, setDownloading] = useState(false);
+  // Open the dispatch-advice PDF inline in a new tab (proper name) via a
+  // short-lived ticket on the no-auth public route — a blob tab is UUID-named.
   const onDownloadPdf = async () => {
     if (!id || downloading) return;
     setDownloading(true);
+    const win = window.open("", "_blank"); // sync open → not popup-blocked
     try {
       const resp = await instance.get(
-        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf`,
-        { responseType: "blob" }
+        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf-ticket`
       );
-      const cd = resp.headers?.["content-disposition"] || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `${p?.voucher_no || "po-vendor"}.pdf`;
-      const blobUrl = window.URL.createObjectURL(new Blob([resp.data]));
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(blobUrl);
+      const ticket = resp?.data?.data?.ticket;
+      if (!ticket) throw new Error("no ticket");
+      const url = `${instance.defaults.baseURL}${
+        API_ENDPOINTS.poVendors.ticketPdf
+      }?t=${encodeURIComponent(ticket)}`;
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
     } catch (err) {
+      if (win) win.close();
       Notification(
         "Error",
         err?.response?.data?.message || t("Could not download PDF"),
