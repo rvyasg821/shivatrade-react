@@ -19,6 +19,10 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
   Button,
   Table,
   Badge,
@@ -36,7 +40,6 @@ import {
   CheckCircle,
   Truck,
   FileText,
-  MapPin,
 } from "react-feather";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -76,6 +79,9 @@ const PoGeneratePreviewModal = ({
   sourceId,
   sourceVoucherNo,
   onCreated,
+  // Render as a full page (Card chrome) instead of a modal. The page passes
+  // isOpen=true so the preview loads on mount.
+  asPage = false,
 }) => {
   const { t } = useTranslation();
 
@@ -273,12 +279,23 @@ const PoGeneratePreviewModal = ({
     }, 0);
 
   // Resolve the deliver-to location to a human label for the review step.
-  const deliveryLabel = useMemo(() => {
+  const deliveryInfo = useMemo(() => {
     const loc = (locations || []).find(
       (l) => String(l?._id) === String(deliveryAddressId)
     );
-    if (!loc) return "";
-    return loc.name || loc.title || loc.label || loc.address || "";
+    if (!loc) return null;
+    const name =
+      loc.location_name || loc.name || loc.title || loc.label || "";
+    const address = [
+      loc.address_line1,
+      loc.address_line2,
+      loc.city,
+      loc.state,
+      loc.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    return { name, address };
   }, [locations, deliveryAddressId]);
 
   // Advance must stay below the order's grand total.
@@ -480,11 +497,6 @@ const PoGeneratePreviewModal = ({
   // ── Step 1: Assign Vendors ──────────────────────────────────────────
   const renderVendorsStep = () => (
     <>
-      <p className="text-muted small mb-2">
-        {t(
-          "Each line is pre-assigned to the cheapest active vendor. Switch the vendor per line if needed, or drop a line to exclude it. Lines already fully covered by existing Sales Orders are dropped automatically."
-        )}
-      </p>
       {previewLines.every((l) => l.fully_covered) && (
         <div className="alert alert-info small mb-2">
           <AlertTriangle size={14} className="me-1" />
@@ -744,10 +756,9 @@ const PoGeneratePreviewModal = ({
       {/* Left — Sales Order (customer side) */}
       <div className="col-lg-5">
         <div
-          className="rounded h-100"
-          style={{ border: "1px solid #e5e7eb", background: "#fff" }}
+          className="po-gen-card h-100"
         >
-          <div className="px-2 py-1 border-bottom d-flex align-items-center">
+          <div className="po-gen-head">
             <FileText size={15} className="me-1 text-primary" />
             <span className="fw-semibold">{t("Sales Order")}</span>
             <span className="ms-1 small text-muted">({t("customer side")})</span>
@@ -854,18 +865,6 @@ const PoGeneratePreviewModal = ({
 
       {/* Right — per-vendor charges (vendor side) */}
       <div className="col-lg-7">
-        <div className="d-flex align-items-center mb-1">
-          <Truck size={15} className="me-1 text-primary" />
-          <span className="fw-semibold">{t("Vendor Charges")}</span>
-          <span className="ms-1 small text-muted">
-            ({t("optional · INR")})
-          </span>
-        </div>
-        <p className="small text-muted mb-2">
-          {t(
-            "Add Packing, Transport, etc. per vendor. Leave empty to skip — charges roll into each Vendor PO's taxable value."
-          )}
-        </p>
         {vendorSummary.map((v) => {
           const rows = vendorExpenses[v.vendor_id] || [];
           const usedIds = new Set(
@@ -906,11 +905,11 @@ const PoGeneratePreviewModal = ({
           return (
             <div
               key={v.vendor_id}
-              className="rounded mb-2"
-              style={{ border: "1px solid #e5e7eb", background: "#fff" }}
+              className="po-gen-card mb-2"
             >
-              <div className="d-flex justify-content-between align-items-center px-2 py-1 border-bottom">
+              <div className="po-gen-head justify-content-between">
                 <div className="small">
+                  <span className="text-muted">{t("PO to")}: </span>
                   <span className="fw-semibold">{v.vendor_name}</span>
                   <span className="ms-1">
                     · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
@@ -1076,11 +1075,8 @@ const PoGeneratePreviewModal = ({
         </div>
 
         {/* Sales Order summary */}
-        <div
-          className="rounded mb-3"
-          style={{ border: "1px solid #e5e7eb", background: "#fff" }}
-        >
-          <div className="px-2 py-1 border-bottom d-flex align-items-center">
+        <div className="po-gen-card mb-3">
+          <div className="po-gen-head">
             <FileText size={15} className="me-1 text-primary" />
             <span className="fw-semibold">{t("Sales Order")}</span>
             <span className="ms-1 small text-muted">
@@ -1089,13 +1085,25 @@ const PoGeneratePreviewModal = ({
           </div>
           <div className="p-2 small">
             <div className="row g-2">
-              <div className="col-md-6 d-flex align-items-start">
-                <MapPin size={14} className="me-1 mt-25 text-muted flex-shrink-0" />
+              <div className="col-md-6">
                 <span>
                   <span className="text-muted">{t("Deliver to")}: </span>
-                  <span className="fw-semibold">
-                    {deliveryLabel || t("(selected location)")}
-                  </span>
+                  {deliveryInfo ? (
+                    <>
+                      {deliveryInfo.name ? (
+                        <span className="fw-semibold">{deliveryInfo.name}</span>
+                      ) : null}
+                      {deliveryInfo.address ? (
+                        <div className="small text-muted">
+                          {deliveryInfo.address}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="fw-semibold">
+                      {t("(selected location)")}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="col-md-6">
@@ -1127,10 +1135,10 @@ const PoGeneratePreviewModal = ({
         </div>
 
         {/* Vendor PO list */}
-        <div className="d-flex align-items-center mb-1">
+        <div className="d-flex align-items-center mb-1 mt-2">
           <Truck size={15} className="me-1 text-primary" />
           <span className="fw-semibold">
-            {t("Vendor Purchase Orders")} ({vendorSummary.length}) — ₹
+            {t("Vendor Purchase Orders")} ({vendorSummary.length})
           </span>
         </div>
         <div className="table-responsive">
@@ -1202,88 +1210,111 @@ const PoGeneratePreviewModal = ({
     );
   };
 
-  return (
-    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
-      <ModalHeader toggle={toggle}>
-        {t("Generate Sales Order & Vendor POs")}{" "}
-        <span className="text-muted">
-          {t("from")} {sourceType === "pfi" ? "PFI" : t("Quotation")}
-        </span>{" "}
-        <code>{sourceVoucherNo || ""}</code>
-        {sourceGrandTotal > 0 && (
-          <Badge color="light-primary" className="ms-1">
-            {sourceCurrencySym}
-            {sourceGrandTotal.toLocaleString()}
+  const headerTitle = (
+    <>
+      {t("Generate Sales Order & Vendor POs")}{" "}
+      <span className="text-muted">
+        {t("from")} {sourceType === "pfi" ? "PFI" : t("Quotation")}
+      </span>{" "}
+      <code>{sourceVoucherNo || ""}</code>
+      {sourceGrandTotal > 0 && (
+        <Badge color="light-primary" className="ms-1">
+          {sourceCurrencySym}
+          {sourceGrandTotal.toLocaleString()}
+        </Badge>
+      )}
+    </>
+  );
+
+  const bodyNode = (
+    <>
+      {renderStepper()}
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
+        </div>
+      ) : previewLines.length === 0 ? (
+        <div className="text-center text-muted py-4">
+          {t("No lines on the source document.")}
+        </div>
+      ) : step === 1 ? (
+        renderVendorsStep()
+      ) : step === 2 ? (
+        renderOrderStep()
+      ) : (
+        renderReviewStep()
+      )}
+    </>
+  );
+
+  const footerNode = (
+    <div className="d-flex justify-content-between align-items-center w-100">
+      <div className="small text-muted">
+        {vendorSummary.length > 0 && (
+          <Badge color="light-primary" className="me-1">
+            1 {t("SO")} + {vendorSummary.length} {t("PO")}
           </Badge>
         )}
-      </ModalHeader>
-      <ModalBody>
-        {renderStepper()}
-
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
-          </div>
-        ) : previewLines.length === 0 ? (
-          <div className="text-center text-muted py-4">
-            {t("No lines on the source document.")}
-          </div>
-        ) : step === 1 ? (
-          renderVendorsStep()
-        ) : step === 2 ? (
-          renderOrderStep()
-        ) : (
-          renderReviewStep()
-        )}
-      </ModalBody>
-      <ModalFooter className="d-flex justify-content-between align-items-center">
-        <div className="small text-muted">
-          {vendorSummary.length > 0 && (
-            <>
-              <Badge color="light-primary" className="me-1">
-                1 {t("SO")} + {vendorSummary.length} {t("PO")}
-              </Badge>
-            </>
-          )}
-        </div>
-        <div className="d-flex align-items-center gap-1">
-          <Button color="secondary" outline onClick={toggle} disabled={creating}>
-            {t("Cancel")}
+      </div>
+      <div className="d-flex align-items-center gap-1">
+        <Button color="secondary" outline onClick={toggle} disabled={creating}>
+          {t("Cancel")}
+        </Button>
+        {step > 1 && (
+          <Button
+            color="secondary"
+            outline
+            onClick={() => setStep((s) => s - 1)}
+            disabled={creating}
+          >
+            ← {t("Back")}
           </Button>
-          {step > 1 && (
-            <Button
-              color="secondary"
-              outline
-              onClick={() => setStep((s) => s - 1)}
-              disabled={creating}
-            >
-              ← {t("Back")}
-            </Button>
-          )}
-          {step < 3 ? (
-            <Button
-              color="primary"
-              onClick={() => setStep((s) => s + 1)}
-              disabled={
-                loading ||
-                (step === 1 && !vendorsStepValid) ||
-                (step === 2 && !orderStepValid)
-              }
-            >
-              {t("Next")} →
-            </Button>
-          ) : (
-            <Button
-              color="success"
-              onClick={onCreate}
-              disabled={creating || loading || !orderStepValid}
-            >
-              {creating ? <Spinner size="sm" /> : <CheckCircle size={15} />}{" "}
-              {t("Create Sales Order & Vendor POs")}
-            </Button>
-          )}
-        </div>
-      </ModalFooter>
+        )}
+        {step < 3 ? (
+          <Button
+            color="primary"
+            onClick={() => setStep((s) => s + 1)}
+            disabled={
+              loading ||
+              (step === 1 && !vendorsStepValid) ||
+              (step === 2 && !orderStepValid)
+            }
+          >
+            {t("Next")} →
+          </Button>
+        ) : (
+          <Button
+            color="success"
+            onClick={onCreate}
+            disabled={creating || loading || !orderStepValid}
+          >
+            {creating ? <Spinner size="sm" /> : <CheckCircle size={15} />}{" "}
+            {t("Create Sales Order & Vendor POs")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Full-page layout (preferred for this big multi-step flow); falls back to
+  // the modal for any caller that still opens it inline.
+  if (asPage) {
+    return (
+      <Card className="mb-1">
+        <CardHeader>
+          <h4 className="mb-0">{headerTitle}</h4>
+        </CardHeader>
+        <CardBody>{bodyNode}</CardBody>
+        <CardFooter>{footerNode}</CardFooter>
+      </Card>
+    );
+  }
+
+  return (
+    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
+      <ModalHeader toggle={toggle}>{headerTitle}</ModalHeader>
+      <ModalBody>{bodyNode}</ModalBody>
+      <ModalFooter>{footerNode}</ModalFooter>
     </Modal>
   );
 };

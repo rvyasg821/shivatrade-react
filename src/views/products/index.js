@@ -34,7 +34,9 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download, DollarSign, Sliders } from "react-feather";
+
+import VendorPricesOffcanvas from "./components/VendorPricesOffcanvas";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -72,6 +74,8 @@ const ProductList = () => {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Product whose vendor-pricing drawer is open (null = closed).
+  const [pricesProduct, setPricesProduct] = useState(null);
 
   const handleProductLists = useCallback(
     (
@@ -299,7 +303,10 @@ const ProductList = () => {
           <div className="text-end py-50">
             <div className="fw-bold">
               {curSym(row?.currency_code)}
-              {Number(row.selling_price).toLocaleString("en-IN")}
+              {Number(row.selling_price).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
             {row?.margin_pct != null && row?.margin_pct !== "" ? (
               <div className="small text-muted">
@@ -336,12 +343,47 @@ const ProductList = () => {
     },
   ];
 
-  if (canEdit || canDelete) {
-    columns.push({
-      name: t("Action"),
-      center: true,
-      cell: (row) => (
-        <div className="d-flex column-action align-items-center table-icon">
+  columns.push({
+    name: t("Action"),
+    center: true,
+    cell: (row) => (
+      <div className="d-flex column-action align-items-center table-icon">
+        <span
+          className="me-50 cursor-pointer"
+          id={`product-prices-tooltip-${row?._id || ""}`}
+          onClick={() =>
+            setPricesProduct({
+              _id: row?._id,
+              name: row?.name,
+              code: row?.code,
+            })
+          }
+        >
+          <UncontrolledTooltip
+            placement="top"
+            target={`product-prices-tooltip-${row?._id || ""}`}
+          >
+            {t("Vendor Prices")}
+          </UncontrolledTooltip>
+          <DollarSign size={20} />
+        </span>
+        <span
+          className="me-50 cursor-pointer"
+          id={`product-manage-price-tooltip-${row?._id || ""}`}
+          onClick={() =>
+            navigate(`${appsRoot}/price-list/manage/${row?._id || ""}`)
+          }
+        >
+          <UncontrolledTooltip
+            placement="top"
+            target={`product-manage-price-tooltip-${row?._id || ""}`}
+          >
+            {t("Manage Pricing")}
+          </UncontrolledTooltip>
+          <Sliders size={20} />
+        </span>
+        {(canEdit || canDelete) && (
+          <Fragment>
           {canEdit && (
             <Link
               className="me-50"
@@ -373,10 +415,11 @@ const ProductList = () => {
               </UncontrolledTooltip>
             </>
           )}
+          </Fragment>
+        )}
         </div>
       ),
     });
-  }
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
@@ -511,6 +554,12 @@ const ProductList = () => {
         isOpen={importModalOpen}
         toggle={() => setImportModalOpen((prev) => !prev)}
         onSuccess={() => handleProductLists()}
+      />
+
+      <VendorPricesOffcanvas
+        open={!!pricesProduct}
+        toggle={() => setPricesProduct(null)}
+        product={pricesProduct}
       />
     </Fragment>
   );

@@ -40,6 +40,10 @@ const SalesDocCostingCard = ({
 }) => {
   const { t } = useTranslation();
   const currencySym = getCurrencySymbol(currencyCode);
+  // Foreign (non-INR) quote? Drives the currency round-off display.
+  const isForeign =
+    !!currencyCode && currencyCode.toUpperCase() !== "INR";
+  const curLabel = currencySym || (currencyCode ? `${currencyCode} ` : "");
 
   // `view.mode === 'doc'` flips every breakdown line into the doc currency.
   const docView = currencyView && currencyView.mode === "doc";
@@ -182,7 +186,8 @@ const SalesDocCostingCard = ({
                 <span>{t("Round Off")}</span>
                 <span>
                   {num(totals.round_off) >= 0 ? "+ " : "− "}
-                  {money(Math.abs(num(totals.round_off)))}
+                  {viewSym}
+                  {fmt(Math.abs(num(totals.round_off)))}
                 </span>
               </div>
             )}
@@ -201,46 +206,54 @@ const SalesDocCostingCard = ({
             </div>
             <div className="d-flex justify-content-between mt-1 text-muted">
               <small>
-                {t("In INR")} (× {t("Rate")} {num(totals.rate)})
+                {t("In INR")}
+                {num(totals.rate) > 0 && viewSym !== "₹"
+                  ? ` (1 ${currencyCode} = ${fmt(1 / num(totals.rate))} INR)`
+                  : ""}
               </small>
               <small>₹ {fmt(totals.grand_inr)}</small>
             </div>
           </>
         ) : (
           <>
-            <div className="d-flex justify-content-between mb-1 text-muted">
-              <span>{t("Grand Total")}</span>
-              <span>₹ {fmt(totals.grand_inr_raw)}</span>
-            </div>
-            {num(totals.round_off) !== 0 && (
-              <div className="d-flex justify-content-between mb-1 text-muted">
-                <span>{t("Round Off")}</span>
-                <span>
-                  {num(totals.round_off) >= 0 ? "+ " : "− "}₹{" "}
-                  {fmt(Math.abs(num(totals.round_off)))}
-                </span>
-              </div>
-            )}
+            {/* INR is the internal base (un-rounded); round-off is applied to
+                the customer-currency total below. */}
             <div className="d-flex justify-content-between mb-1">
               <span className="fw-bold">{t("Grand Total (INR)")}</span>
               <strong>₹ {fmt(totals.grand_inr)}</strong>
             </div>
-            <div className="d-flex justify-content-between mb-1 text-muted">
-              <small>
-                × {t("Rate")} {num(totals.rate)}
-              </small>
-            </div>
-            <div
-              className="d-flex justify-content-between p-2 mt-1 rounded"
-              style={{ background: "#f6f6f9" }}
-            >
-              <span className="fw-bold">
+            {isForeign && (
+              <>
+                <div className="d-flex justify-content-between mb-1 text-muted">
+                  <span>
+                    {num(totals.rate) > 0
+                      ? `1 ${currencyCode} = ${fmt(1 / num(totals.rate))} INR`
+                      : t("Rate")}
+                  </span>
+                  <span>
+                    {curLabel} {fmt(totals.grand_currency_raw)}
+                  </span>
+                </div>
+                {num(totals.round_off) !== 0 && (
+                  <div className="d-flex justify-content-between mb-1 text-muted">
+                    <span>{t("Round Off")}</span>
+                    <span>
+                      {num(totals.round_off) >= 0 ? "+ " : "− "}
+                      {curLabel} {fmt(Math.abs(num(totals.round_off)))}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="d-flex justify-content-between align-items-center pt-2 mt-1 border-top fw-bold">
+              <span>
                 {t("Grand Total")}
-                {currencySym ? ` (${currencySym})` : currencyCode ? ` (${currencyCode})` : ""}
+                {isForeign && curLabel ? ` (${curLabel.trim()})` : ""}
               </span>
-              <span className="fw-bold">
-                {currencySym || (currencyCode ? `${currencyCode} ` : "")}
-                {fmt(totals.grand_currency)}
+              <span>
+                {isForeign
+                  ? `${curLabel}${fmt(totals.grand_currency)}`
+                  : `₹ ${fmt(totals.grand_currency)}`}
               </span>
             </div>
           </>

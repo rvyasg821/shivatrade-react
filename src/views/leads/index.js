@@ -15,7 +15,6 @@ import { startLoading, stopLoading } from "../loadingstore";
 // ** Reactstrap
 import {
   Col,
-  Badge,
   Row,
   Card,
   Input,
@@ -36,7 +35,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText, User, Mail, Phone } from "react-feather";
 import { formatDate } from "@src/utility/dateFormat";
 
 // ** Constants
@@ -241,7 +240,7 @@ const LeadList = () => {
             className="fw-bold text-capitalize"
             ref={(el) => {
               if (el)
-                el.style.setProperty("color", "#0d6efd", "important");
+                el.style.setProperty("color", "#09418B", "important");
             }}
           >
             {row?.company_name || "-"}
@@ -259,9 +258,9 @@ const LeadList = () => {
               <div className="small text-muted">{row.voucher_no}</div>
             )}
             {row?.source && (
-              <div className="mt-25">
-                <Badge
-                  className="text-capitalize"
+              <div className="d-flex align-items-center flex-wrap mt-25 gap-50">
+                <span
+                  className="badge rounded-pill text-capitalize text-nowrap"
                   ref={(el) => {
                     if (el) {
                       el.style.setProperty("background-color", "#09418B", "important");
@@ -269,10 +268,9 @@ const LeadList = () => {
                     }
                   }}
                 >
-                  {t("Source")} -{" "}
                   {LEAD_SOURCE_OPTIONS.find((s) => s.value === row?.source)
                     ?.label || row.source}
-                </Badge>
+                </span>
               </div>
             )}
           </div>
@@ -293,16 +291,29 @@ const LeadList = () => {
           return <span className="text-muted">-</span>;
         }
         return (
-          <div className="py-1">
+          <div className="py-75" style={{ minWidth: 0 }}>
             {row?.contact_name && (
-              <div className="text-capitalize fw-semibold small">
-                {row.contact_name}
+              <div className="d-flex align-items-center text-capitalize text-break mb-25">
+                <User size={13} className="text-muted me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.contact_name}
+                </span>
               </div>
             )}
             {row?.contact_email && (
-              <div className="small text-muted">{row.contact_email}</div>
+              <div className="d-flex align-items-center small text-muted text-break mb-25">
+                <Mail size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.contact_email}
+                </span>
+              </div>
             )}
-            {phone && <div className="small text-muted">{phone}</div>}
+            {phone && (
+              <div className="d-flex align-items-center small text-muted text-break">
+                <Phone size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
+              </div>
+            )}
           </div>
         );
       },

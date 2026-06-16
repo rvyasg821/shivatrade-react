@@ -8,8 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { QUOTATION_STATUS_OPTIONS } from "@constant/options";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
-import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
-import { initQuotationLineItem } from "@constant/reduxConstant";
+import CustomerCostingView from "./CustomerCostingView";
 
 const Step4Review = ({
   totals,
@@ -17,37 +16,24 @@ const Step4Review = ({
   baseCurrencyCode,
   productOptions,
   allProductOptions,
-  rebateOptions,
-  expenseOptions,
   exchangeRate,
 }) => {
   const { t } = useTranslation();
   const {
     control,
-    setValue,
     formState: { errors },
   } = useFormContext();
 
   return (
     <Row>
       <Col md="8">
-        {/* Review uses the compact line-items table (the editable detail
-            view lives on Step 2). Read-only here so users can't mutate
-            rows from the review step. */}
-        <SalesDocLineItems
+        {/* Customer-facing summary in the quote currency (read-only). */}
+        <CustomerCostingView
           control={control}
-          setValue={setValue}
-          productOptions={productOptions}
-          allProductOptions={allProductOptions}
-          initLineItem={initQuotationLineItem}
-          rebateOptions={rebateOptions}
-          expenseOptions={expenseOptions}
-          currencyCode={selectedCurrencyCode}
-          baseCurrencyCode={baseCurrencyCode}
+          productOptions={allProductOptions || productOptions}
           exchangeRate={exchangeRate}
-          readOnly
-          tableLayout="compact"
-          hideGst
+          docCurrencyCode={selectedCurrencyCode}
+          baseCurrencyCode={baseCurrencyCode}
         />
 
         <Row className="mt-2">
@@ -125,6 +111,7 @@ const Step4Review = ({
           totals={totals}
           currencyCode={selectedCurrencyCode}
           hideGst
+          sticky
         />
       </Col>
     </Row>

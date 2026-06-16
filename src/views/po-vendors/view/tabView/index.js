@@ -2,7 +2,7 @@
 // shape and styling as PfiRelatedDocsTabs so the section aligns with the
 // right-hand Share panel.
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Card,
   CardBody,
@@ -12,17 +12,22 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { FileText, Truck, Percent } from "react-feather";
+import { FileText, Percent, Inbox } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import OverviewTab from "./OverviewTab";
-import TrackingTab from "./TrackingTab";
 import ExpensesTab from "./ExpensesTab";
+import GrnsTab from "./GrnsTab";
 
 const PoVendorTabView = () => {
   const { t } = useTranslation();
   const [active, setActive] = useState("overview");
+
+  // The active tab registers its own action buttons here, rendered on the
+  // right of the tab bar (same pattern as the Lead / Quotation detail tabs).
+  const [tabActions, setTabActions] = useState(null);
+  const registerActions = useCallback((node) => setTabActions(node || null), []);
 
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const linesCount = (poVendorItem?.lines || []).length;
@@ -62,21 +67,30 @@ const PoVendorTabView = () => {
   return (
     <Card className="mb-1">
       <CardBody>
-        <Nav pills className="mb-2">
-          {tabBtn("overview", t("Overview"), FileText, linesCount)}
-          {tabBtn("expenses", t("Expenses"), Percent, expensesCount)}
-          {tabBtn("tracking", t("Tracking"), Truck, 0)}
-        </Nav>
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
+          <Nav pills className="mb-0">
+            {tabBtn("overview", t("Line Items"), FileText, linesCount)}
+            {tabBtn("expenses", t("Expenses"), Percent, expensesCount)}
+            {tabBtn("grns", t("GRNs"), Inbox, 0)}
+          </Nav>
+          {tabActions ? (
+            <div className="d-flex gap-1">{tabActions}</div>
+          ) : null}
+        </div>
 
         <TabContent activeTab={active}>
           <TabPane tabId="overview">
             <OverviewTab />
           </TabPane>
           <TabPane tabId="expenses">
-            {active === "expenses" && <ExpensesTab />}
+            {active === "expenses" && (
+              <ExpensesTab registerActions={registerActions} />
+            )}
           </TabPane>
-          <TabPane tabId="tracking">
-            {active === "tracking" && <TrackingTab />}
+          <TabPane tabId="grns">
+            {active === "grns" && (
+              <GrnsTab registerActions={registerActions} />
+            )}
           </TabPane>
         </TabContent>
       </CardBody>

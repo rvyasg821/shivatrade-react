@@ -6,10 +6,20 @@
 //        Left  — Price List tab (with product filter + pagination)
 //        Right — Details panel (About + Tax + Categories + Social)
 
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Edit, ArrowLeft, Hash, FileText, Truck, CreditCard, Tag } from "react-feather";
+import {
+  Edit,
+  ArrowLeft,
+  FileText,
+  Truck,
+  CreditCard,
+  Tag,
+  User,
+  Mail,
+  Phone,
+} from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getVendor, cleanVendorMessage } from "@src/views/vendors/store";
@@ -20,11 +30,9 @@ import { appsRoot } from "@constant/defaultValues";
 import {
   DetailHeader,
   DetailKpiStrip,
-  DetailTwoPanel,
 } from "@src/views/_shared/detail-page";
 
 import VendorTabView from "./tabView";
-import VendorDetailsPanel from "./VendorDetailsPanel";
 
 const ViewVendor = () => {
   const { id } = useParams();
@@ -34,6 +42,9 @@ const ViewVendor = () => {
 
   const store = useSelector((s) => s.vendor);
   const v = store?.vendorItem || {};
+
+  // Lifted so the KPI cards can switch the tab below.
+  const [activeTab, setActiveTab] = useState("price_list");
 
   useEffect(() => {
     if (!id) return;
@@ -70,9 +81,38 @@ const ViewVendor = () => {
   const bankCount = (v?.bank_accounts || []).length;
   const categoryCount = (v?.categories || []).length;
 
-  const subtitleParts = [v?.primary_contact_name, v?.primary_contact_email]
-    .filter(Boolean)
-    .join(" · ");
+  // Primary contact on one line under the company name — icon-prefixed, same
+  // style as the vendor listing (name · email · phone).
+  const primaryPhone =
+    v?.primary_contact_country_code?.formatted ||
+    (v?.primary_contact_country_code?.dial_code && v?.primary_contact_phone
+      ? `${v.primary_contact_country_code.dial_code} ${v.primary_contact_phone}`
+      : v?.primary_contact_phone) ||
+    null;
+
+  const contactLine =
+    v?.primary_contact_name || v?.primary_contact_email || primaryPhone ? (
+      <span className="d-inline-flex align-items-center flex-wrap gap-1">
+        {v?.primary_contact_name ? (
+          <span className="d-inline-flex align-items-center text-capitalize">
+            <User size={13} className="me-25" />
+            {v.primary_contact_name}
+          </span>
+        ) : null}
+        {v?.primary_contact_email ? (
+          <span className="d-inline-flex align-items-center">
+            <Mail size={13} className="me-25" />
+            {v.primary_contact_email}
+          </span>
+        ) : null}
+        {primaryPhone ? (
+          <span className="d-inline-flex align-items-center">
+            <Phone size={13} className="me-25" />
+            {primaryPhone}
+          </span>
+        ) : null}
+      </span>
+    ) : null;
 
   const kpiItems = [
     {
@@ -81,6 +121,7 @@ const ViewVendor = () => {
       value: priceCount,
       icon: FileText,
       tone: "secondary",
+      onClick: () => setActiveTab("price_list"),
     },
     {
       key: "pos",
@@ -88,6 +129,7 @@ const ViewVendor = () => {
       value: poCount,
       icon: Truck,
       tone: "secondary",
+      onClick: () => setActiveTab("purchase_orders"),
     },
     {
       key: "banks",
@@ -95,6 +137,7 @@ const ViewVendor = () => {
       value: bankCount,
       icon: CreditCard,
       tone: "secondary",
+      onClick: () => setActiveTab("bank_accounts"),
     },
     {
       key: "categories",
@@ -124,19 +167,13 @@ const ViewVendor = () => {
         <DetailHeader
           avatarText={v?.company_name || "V"}
           title={v?.company_name || "-"}
-          subtitle={subtitleParts || null}
+          subtitle={contactLine}
           meta={
-            <span className="d-inline-flex align-items-center flex-wrap gap-1">
-              {v?._id ? (
-                <span>
-                  <Hash size={12} className="me-25" />
-                  {v._id.slice(-8).toUpperCase()}
-                </span>
-              ) : null}
-              {v?.vendor_code ? (
-                <span className="ms-1">[{v.vendor_code}]</span>
-              ) : null}
-            </span>
+            v?.vendor_code ? (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                <span>[{v.vendor_code}]</span>
+              </span>
+            ) : null
           }
           badge={{
             label: v?.is_active ? t("Active") : t("Inactive"),
@@ -148,11 +185,7 @@ const ViewVendor = () => {
 
         <DetailKpiStrip items={kpiItems} />
 
-        <DetailTwoPanel
-          ratio="9-3"
-          left={<VendorTabView />}
-          right={<VendorDetailsPanel />}
-        />
+        <VendorTabView active={activeTab} setActive={setActiveTab} />
       </div>
     </Fragment>
   );

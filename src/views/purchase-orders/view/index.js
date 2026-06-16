@@ -8,7 +8,6 @@
 import { Fragment, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Button } from "reactstrap";
 import {
   Calendar,
   DollarSign,
@@ -17,13 +16,10 @@ import {
   ArrowLeft,
   Hash,
   ExternalLink,
-  CheckCircle,
-  Play,
-  CheckSquare,
-  XCircle,
-  RotateCcw,
   Eye,
   Download,
+  Mail,
+  Briefcase,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -48,6 +44,7 @@ import {
   DetailKpiStrip,
   DetailTwoPanel,
   DetailPanel,
+  StatusChangeDropdown,
 } from "@src/views/_shared/detail-page";
 
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
@@ -254,71 +251,99 @@ const ViewPurchaseOrder = () => {
 
   // Generate Invoice now lives on the PO Coverage tab next to "Create POV"
   // — it's gated on dispatched POV qty, which the Coverage tab already shows.
-  const headerActions = [];
-
+  // Status transitions → a single "Change Status" dropdown (consistent with
+  // the RFQ / Quotation detail pages). Items reflect the legal next-statuses.
+  const dot = (s) => PURCHASE_ORDER_STATUS_BADGE_COLOR[s] || "secondary";
+  const statusActions = [];
   if (canEdit) {
     if (statusLower === "draft") {
-      headerActions.push({
-        icon: CheckCircle,
+      statusActions.push({
+        key: "confirmed",
         label: t("Confirm"),
+        dotColor: dot("confirmed"),
         onClick: () => confirmAction("confirmed"),
       });
-      headerActions.push({
-        icon: XCircle,
+      statusActions.push({
+        key: "cancelled",
         label: t("Cancel"),
+        dotColor: dot("cancelled"),
         onClick: () => cancelAction("cancelled"),
       });
     } else if (statusLower === "confirmed") {
-      headerActions.push({
-        icon: Play,
+      statusActions.push({
+        key: "in_process",
         label: t("Start"),
+        dotColor: dot("in_process"),
         onClick: () => startAction("in_process"),
       });
-      headerActions.push({
-        icon: XCircle,
+      statusActions.push({
+        key: "cancelled",
         label: t("Cancel"),
+        dotColor: dot("cancelled"),
         onClick: () => cancelAction("cancelled"),
       });
-      headerActions.push({
-        icon: RotateCcw,
+      statusActions.push({
+        key: "draft",
         label: t("Revert to Draft"),
+        dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
       });
     } else if (statusLower === "in_process") {
-      headerActions.push({
-        icon: CheckSquare,
+      statusActions.push({
+        key: "completed",
         label: t("Complete"),
+        dotColor: dot("completed"),
         onClick: () => completeAction("completed"),
       });
-      headerActions.push({
-        icon: XCircle,
+      statusActions.push({
+        key: "cancelled",
         label: t("Cancel"),
+        dotColor: dot("cancelled"),
         onClick: () => cancelAction("cancelled"),
       });
-      headerActions.push({
-        icon: RotateCcw,
+      statusActions.push({
+        key: "draft",
         label: t("Revert to Draft"),
+        dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
       });
     } else if (statusLower === "completed" || statusLower === "cancelled") {
-      headerActions.push({
-        icon: RotateCcw,
+      statusActions.push({
+        key: "draft",
         label: t("Revert to Draft"),
+        dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
       });
     }
   }
 
-  headerActions.push({
-    icon: Edit,
-    label: t("Edit"),
-    onClick: () => navigate(`${appsRoot}/purchase-orders/edit/${id}`),
-  });
-  headerActions.push({
-    icon: ArrowLeft,
-    label: t("Back to Sales Orders"),
-    onClick: () => navigate(-1),
-  });
+  const headerActions = [
+    {
+      icon: Edit,
+      label: t("Edit"),
+      onClick: () => navigate(`${appsRoot}/purchase-orders/edit/${id}`),
+    },
+    {
+      icon: Eye,
+      label: t("Preview"),
+      color: "secondary",
+      outline: true,
+      onClick: () =>
+        window.open(`${appsRoot}/purchase-orders/preview/${id}`, "_blank"),
+    },
+    {
+      icon: Download,
+      label: t("Download"),
+      color: "secondary",
+      outline: true,
+      onClick: () => handleDownloadPdf(),
+    },
+    {
+      icon: ArrowLeft,
+      label: t("Back"),
+      onClick: () => navigate(-1),
+    },
+  ];
 
   // Server-side PDF download (same endpoint the listing uses).
   const handleDownloadPdf = async () => {
@@ -348,42 +373,24 @@ const ViewPurchaseOrder = () => {
     }
   };
 
-  // Bottom-of-header row: Preview (opens the print-ready page) + Download
-  // PDF, right-aligned beside the status — mirrors the quotation detail page.
-  const headerFooter = (
-    <div className="d-flex align-items-center flex-wrap justify-content-end gap-1">
-      <Button
-        color="secondary"
-        outline
-        size="sm"
-        onClick={() =>
-          window.open(`${appsRoot}/purchase-orders/preview/${id}`, "_blank")
-        }
-      >
-        <Eye size={14} className="me-50" />
-        {t("Preview")}
-      </Button>
-      <Button color="secondary" outline size="sm" onClick={handleDownloadPdf}>
-        <Download size={14} className="me-50" />
-        {t("Download PDF")}
-      </Button>
-    </div>
-  );
+  // Change Status dropdown — rendered left of the action buttons, mirroring
+  // the RFQ / Quotation detail pages.
+  const statusDropdown = statusActions.length ? (
+    <StatusChangeDropdown
+      items={statusActions}
+      toggleColor="outline-secondary"
+      menuEnd
+    />
+  ) : null;
 
   const sourceLinks = (
     <span className="d-inline-flex align-items-center flex-wrap gap-1">
-      {p?._id ? (
-        <span>
-          <Hash size={12} className="me-25" />
-          {p._id.slice(-8).toUpperCase()}
-        </span>
-      ) : null}
       {!PFI_RETIRED && p?.pfi_id ? (
         <a
           href={`${appsRoot}/pfi/view/${p.pfi_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-reset text-decoration-none ms-1"
+          className="text-reset text-decoration-none"
         >
           <ExternalLink size={12} className="me-25" />
           {t("Source PFI")}
@@ -395,7 +402,7 @@ const ViewPurchaseOrder = () => {
           href={`${appsRoot}/quotations/view/${p.quotation_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-reset text-decoration-none ms-1"
+          className="text-reset text-decoration-none"
         >
           <ExternalLink size={12} className="me-25" />
           {t("Source Quotation")}
@@ -405,13 +412,27 @@ const ViewPurchaseOrder = () => {
     </span>
   );
 
-  // PO is multi-vendor at line level; show customer in subtitle, fall back
-  // to legacy header vendor for older POs.
-  const subtitleParts = [
-    p?.customer_name,
-    p?.customer_contact_email,
-    !p?.customer_name ? p?.vendor_name : null,
-  ].filter(Boolean);
+  // PO is multi-vendor at line level; show customer (icon contact line) in
+  // subtitle, fall back to legacy header vendor for older POs.
+  const poName = p?.customer_name || p?.vendor_name;
+  const poEmail = p?.customer_contact_email;
+  const contactLine =
+    poName || poEmail ? (
+      <span className="d-inline-flex align-items-center flex-wrap gap-1">
+        {poName ? (
+          <span className="d-inline-flex align-items-center text-capitalize">
+            <Briefcase size={13} className="me-25" />
+            {poName}
+          </span>
+        ) : null}
+        {poEmail ? (
+          <span className="d-inline-flex align-items-center">
+            <Mail size={13} className="me-25" />
+            {poEmail}
+          </span>
+        ) : null}
+      </span>
+    ) : null;
 
   return (
     <Fragment>
@@ -419,7 +440,7 @@ const ViewPurchaseOrder = () => {
         <DetailHeader
           avatarText="P"
           title={p?.voucher_no || "-"}
-          subtitle={subtitleParts.join(" · ") || null}
+          subtitle={contactLine}
           meta={sourceLinks}
           badge={{
             label: statusLabel,
@@ -427,7 +448,7 @@ const ViewPurchaseOrder = () => {
               PURCHASE_ORDER_STATUS_BADGE_COLOR[statusLower] || "secondary",
           }}
           actions={headerActions}
-          actionsFooter={headerFooter}
+          actionsPrefix={statusDropdown}
           moreActions={[]}
           belowSlot={
             <DetailPipeline

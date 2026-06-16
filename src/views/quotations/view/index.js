@@ -13,16 +13,13 @@ import {
   Calendar,
   DollarSign,
   Edit,
-  Truck,
   ArrowLeft,
   Layers,
   Hash,
-  FileText,
-  CheckCircle,
-  Send,
-  XCircle,
   Eye,
   Download,
+  Mail,
+  Briefcase,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -44,7 +41,6 @@ import {
 } from "@constant/options";
 import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
-import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
 import { PFI_RETIRED } from "@src/configs/appMode";
@@ -57,13 +53,13 @@ import {
   DetailKpiStrip,
   DetailPanel,
   DetailTwoPanel,
+  StatusChangeDropdown,
 } from "@src/views/_shared/detail-page";
 
 import RelatedDocsTabs from "./RelatedDocsTabs";
 import {
   QuotationCurrencyProvider,
   QUOTATION_CURRENCY_LS_KEY,
-  useQuotationCurrency,
 } from "./CurrencyToggleContext";
 
 const PIPELINE_STEPS = [
@@ -91,16 +87,16 @@ const daysUntil = (iso) => {
 // `useQuotationCurrency()` resolves the page-level View: USD⇄INR toggle, keeping
 // the breakdown in lock-step with the table + KPI strip.
 const CostingPanelBody = ({ lines, exchangeRate, currencyCode }) => {
-  const { view } = useQuotationCurrency();
   const totals = useMemo(
     () => computeDocTotals(lines || [], exchangeRate, { excludeGst: true }),
     [lines, exchangeRate]
   );
+  // Same layout as the Step-3 review card: full INR breakdown → 1 {ccy} = X INR
+  // → round-off on the quote currency → Grand Total ({ccy}). No doc-view toggle.
   return (
     <SalesDocCostingCard
       totals={totals}
       currencyCode={currencyCode}
-      currencyView={view}
       sticky={false}
       hideGst
       bare
@@ -139,7 +135,6 @@ const ViewQuotation = () => {
     isAdmin || quotationPerms?.can_all || quotationPerms?.can_update;
   const canGeneratePo = isAdmin || poPerms?.can_all || poPerms?.can_add;
   const canConvertToPfi = isAdmin || pfiPerms?.can_all || pfiPerms?.can_add;
-  const [poModalOpen, setPoModalOpen] = useState(false);
 
   // Currency-view toggle. Default → the quotation's OWN (customer/document)
   // currency — that's what the quote is denominated in and what the customer
@@ -449,49 +444,9 @@ const ViewQuotation = () => {
     },
   ];
 
-  // ── Header actions ──
+  // ── Header actions ── (status transitions live in the dropdown below; the
+  // header keeps only Edit + Back to stay uncluttered.)
   const headerActions = [
-    {
-      icon: Send,
-      label: t("Mark as Sent"),
-      onClick: handleSend,
-      hidden: !canSend,
-      outline: true,
-      color: "primary",
-    },
-    {
-      icon: CheckCircle,
-      label: t("Mark as Approve"),
-      onClick: handleApprove,
-      hidden: !canApprove,
-      outline: false,
-      color: "success",
-    },
-    {
-      icon: XCircle,
-      label: t("Reject"),
-      onClick: handleReject,
-      hidden: !canReject,
-      outline: true,
-      color: "danger",
-    },
-    {
-      icon: FileText,
-      label: t("Convert to PFI"),
-      onClick: handleConvertToPfi,
-      // PFI retired (S4) — Quotation → Sales Order is the path now.
-      hidden: PFI_RETIRED || !isApproved || !canConvertToPfi || hasLivePfi,
-      outline: false,
-      color: "success",
-    },
-    {
-      icon: Truck,
-      label: t("Generate Sales Orders"),
-      onClick: () => setPoModalOpen(true),
-      hidden: !isApproved || !canGeneratePo,
-      outline: false,
-      color: "success",
-    },
     ...(canEdit
       ? [
           {
@@ -502,11 +457,50 @@ const ViewQuotation = () => {
         ]
       : []),
     {
+      icon: Eye,
+      label: t("Preview"),
+      color: "secondary",
+      outline: true,
+      onClick: () =>
+        window.open(`${appsRoot}/quotations/preview/${id}`, "_blank"),
+    },
+    {
+      icon: Download,
+      label: t("Download"),
+      color: "secondary",
+      outline: true,
+      onClick: () =>
+        window.open(`${appsRoot}/quotations/preview/${id}?print=1`, "_blank"),
+    },
+    {
       icon: ArrowLeft,
-      label: t("Back to Quotations"),
+      label: t("Back"),
       onClick: () => navigate(`${appsRoot}/quotations`),
     },
   ];
+
+  // Status transitions available from the current state — rendered as a single
+  // "Change Status" dropdown (frees the header of 3 separate buttons).
+  const statusActions = [
+    canSend && {
+      key: "sent",
+      label: t("Mark as Sent"),
+      dotColor: QUOTATION_STATUS_BADGE_COLOR.sent || "info",
+      onClick: handleSend,
+    },
+    canApprove && {
+      key: "approved",
+      label: t("Mark as Approved"),
+      dotColor: QUOTATION_STATUS_BADGE_COLOR.approved || "success",
+      onClick: handleApprove,
+    },
+    canReject && {
+      key: "rejected",
+      label: t("Reject"),
+      dotColor: QUOTATION_STATUS_BADGE_COLOR.rejected || "danger",
+      onClick: handleReject,
+    },
+  ].filter(Boolean);
 
   // Currency-view toggle shown under the header action buttons. Hidden for
   // base-currency quotations (nothing to convert).
@@ -544,33 +538,15 @@ const ViewQuotation = () => {
   // Bottom-of-header row: currency toggle (left) + Preview / Download (right),
   // so the PDF actions sit inline with the status row instead of wrapping the
   // main action buttons onto a second line.
-  const headerFooter = (
-    <div className="d-flex align-items-center flex-wrap justify-content-end gap-1">
-      {currencyToggle}
-      <Button
-        color="secondary"
-        outline
-        size="sm"
-        onClick={() =>
-          window.open(`${appsRoot}/quotations/preview/${id}`, "_blank")
-        }
-      >
-        <Eye size={14} className="me-50" />
-        {t("Preview")}
-      </Button>
-      <Button
-        color="secondary"
-        outline
-        size="sm"
-        onClick={() =>
-          window.open(`${appsRoot}/quotations/preview/${id}?print=1`, "_blank")
-        }
-      >
-        <Download size={14} className="me-50" />
-        {t("Download PDF")}
-      </Button>
-    </div>
+  // "Change Status" dropdown — rendered left of Edit in the header action row.
+  const statusDropdown = (
+    <StatusChangeDropdown
+      items={statusActions}
+      toggleColor="outline-secondary"
+      menuEnd
+    />
   );
+
 
   return (
     <QuotationCurrencyProvider value={currencyCtx}>
@@ -578,28 +554,36 @@ const ViewQuotation = () => {
       <div className="app-user-view">
         <DetailHeader
           avatarText="Q"
-          actionsFooter={headerFooter}
           title={q?.voucher_no || "-"}
-          subtitle={
-            [q?.customer_name, q?.customer_email].filter(Boolean).join(" · ") ||
-            null
-          }
+          subtitle={(() => {
+            const cName = q?.customer_name || q?.customer_contact_name;
+            const cEmail = q?.customer_contact_email || q?.customer_email;
+            if (!cName && !cEmail) return null;
+            return (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                {cName ? (
+                  <span className="d-inline-flex align-items-center text-capitalize">
+                    <Briefcase size={13} className="me-25" />
+                    {cName}
+                  </span>
+                ) : null}
+                {cEmail ? (
+                  <span className="d-inline-flex align-items-center">
+                    <Mail size={13} className="me-25" />
+                    {cEmail}
+                  </span>
+                ) : null}
+              </span>
+            );
+          })()}
           meta={(() => {
             // Prefer the source RFQ number, then the source lead's RQ number,
             // and only fall back to the quotation's own id hash.
             const sourceNo = q?.rfq_voucher_no || q?.lead_voucher_no;
-            if (sourceNo) {
-              return (
-                <span>
-                  <Hash size={12} className="me-25" />
-                  {sourceNo}
-                </span>
-              );
-            }
-            return q?._id ? (
+            return sourceNo ? (
               <span>
                 <Hash size={12} className="me-25" />
-                {q._id.slice(-8).toUpperCase()}
+                {sourceNo}
               </span>
             ) : null;
           })()}
@@ -609,13 +593,17 @@ const ViewQuotation = () => {
               QUOTATION_STATUS_BADGE_COLOR[statusLower] || "secondary",
           }}
           actions={headerActions}
+          actionsPrefix={statusDropdown}
           moreActions={[]}
           belowSlot={
-            <DetailPipeline
-              steps={PIPELINE_STEPS}
-              current={statusLower}
-              terminalSteps={TERMINAL_STEPS}
-            />
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-1">
+              <DetailPipeline
+                steps={PIPELINE_STEPS}
+                current={statusLower}
+                terminalSteps={TERMINAL_STEPS}
+              />
+              {currencyToggle}
+            </div>
           }
         />
 
@@ -623,7 +611,14 @@ const ViewQuotation = () => {
 
         <DetailTwoPanel
           ratio="8-4"
-          left={<RelatedDocsTabs />}
+          left={
+            <RelatedDocsTabs
+              canGenerate={isApproved && canGeneratePo}
+              onGenerate={() =>
+                navigate(`${appsRoot}/quotations/generate-so/${id}`)
+              }
+            />
+          }
           right={
             <DetailPanel title={t("Costing Breakdown")}>
               <CostingPanelBody
@@ -635,15 +630,6 @@ const ViewQuotation = () => {
           }
         />
       </div>
-
-      <PoGeneratePreviewModal
-        isOpen={poModalOpen}
-        toggle={() => setPoModalOpen((s) => !s)}
-        sourceType="quotation"
-        sourceId={id}
-        sourceVoucherNo={q?.voucher_no}
-        onCreated={() => dispatch(getQuotation(id))}
-      />
     </Fragment>
     </QuotationCurrencyProvider>
   );

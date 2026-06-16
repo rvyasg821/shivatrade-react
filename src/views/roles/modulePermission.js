@@ -221,7 +221,7 @@ const ModulePermission = () => {
     {
       title: t("Purchase"),
       children: [
-        { title: "PO Vendors", slug: "po-vendors" },
+        { title: "Vendor Purchase Orders", slug: "po-vendors" },
         { title: "Tracking", slug: "tracking" },
       ]
     },

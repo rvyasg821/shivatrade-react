@@ -63,6 +63,9 @@ const DetailHeader = ({
   meta,
   badge,
   actions = [],
+  // Optional node rendered in the top action row, before the action buttons
+  // (e.g. a "Change Status" dropdown left of Edit).
+  actionsPrefix,
   moreActions = [],
   // Optional node rendered right under the action buttons, right-aligned
   // (e.g. a currency-view toggle on the Quotation detail page).
@@ -146,6 +149,7 @@ const DetailHeader = ({
 
           <div className="d-flex flex-column align-items-end gap-1">
             <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+              {actionsPrefix || null}
               {actions.map(renderAction)}
               {visibleMore.length > 0 && (
                 <UncontrolledDropdown>

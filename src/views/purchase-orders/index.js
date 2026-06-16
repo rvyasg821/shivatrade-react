@@ -16,7 +16,7 @@ import {
   getPurchaseOrderList,
   cleanPurchaseOrderMessage,
 } from "./store";
-import { getVendorDropdown } from "../vendors/store";
+import { getCustomerDropdown } from "../customers/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -48,8 +48,9 @@ import {
   Eye,
   Trash2,
   PlusCircle,
-  ExternalLink,
   Download,
+  User,
+  Mail,
 } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
@@ -61,7 +62,6 @@ import {
   PURCHASE_ORDER_STATUS_OPTIONS,
   PURCHASE_ORDER_STATUS_COLOR_MAP as STATUS_COLOR_MAP,
 } from "@constant/options";
-import { formatDate } from "@src/utility/dateFormat";
 import { formatMoney } from "@src/utility/currency";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 
@@ -72,7 +72,7 @@ const PurchaseOrderView = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.purchaseOrder);
-  const vendorStore = useSelector((state) => state.vendor);
+  const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -81,7 +81,7 @@ const PurchaseOrderView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
-  const [vendorFilter, setVendorFilter] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -93,7 +93,7 @@ const PurchaseOrderView = () => {
       page = currentPage,
       perPage = rowsPerPage,
       search = searchInput,
-      vendorId = vendorFilter,
+      customerId = customerFilter,
       status = statusFilter,
       from = dateFrom,
       to = dateTo
@@ -105,7 +105,7 @@ const PurchaseOrderView = () => {
         perPage,
         search,
       };
-      if (vendorId) params.vendor_id = vendorId;
+      if (customerId) params.customer_id = customerId;
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
@@ -117,7 +117,7 @@ const PurchaseOrderView = () => {
       currentPage,
       rowsPerPage,
       searchInput,
-      vendorFilter,
+      customerFilter,
       statusFilter,
       dateFrom,
       dateTo,
@@ -147,7 +147,7 @@ const PurchaseOrderView = () => {
   const handleSearch = (value) => setSearchInput(value);
 
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
+    dispatch(getCustomerDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -162,7 +162,7 @@ const PurchaseOrderView = () => {
           1,
           rowsPerPage,
           searchInput,
-          vendorFilter,
+          customerFilter,
           statusFilter,
           dateFrom,
           dateTo
@@ -175,14 +175,14 @@ const PurchaseOrderView = () => {
         1,
         rowsPerPage,
         searchInput,
-        vendorFilter,
+        customerFilter,
         statusFilter,
         dateFrom,
         dateTo
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, vendorFilter, statusFilter, dateFrom, dateTo]);
+  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -248,13 +248,13 @@ const PurchaseOrderView = () => {
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
-  const vendorOptions = useMemo(
+  const customerOptions = useMemo(
     () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.company_name || v.name,
+      (customerStore?.customerDropdown || []).map((c) => ({
+        value: c._id,
+        label: c.company_name || c.name,
       })),
-    [vendorStore?.vendorDropdown]
+    [customerStore?.customerDropdown]
   );
 
   // Recompute from the lines with the same helper the detail page + costing
@@ -282,37 +282,49 @@ const PurchaseOrderView = () => {
         const refTo = row?.quotation_id
           ? `${appsRoot}/quotations/view/${row.quotation_id}`
           : null;
+        const refPill = (
+          <span
+            className="badge rounded-pill text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", "#09418B", "important");
+                el.style.setProperty("color", "#fff", "important");
+              }
+            }}
+          >
+            {t("Quotation")} - {refVoucher}
+          </span>
+        );
         return (
           <div className="py-1">
             <Link
               to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
-              className="text-nowrap d-block fw-bold"
+              style={{ textDecoration: "none" }}
             >
-              {row?.voucher_no || "-"}
+              <span
+                className="fw-bold text-nowrap"
+                ref={(el) => {
+                  if (el)
+                    el.style.setProperty("color", "#09418B", "important");
+                }}
+              >
+                {row?.voucher_no || "-"}
+              </span>
             </Link>
             {refVoucher ? (
-              refTo ? (
-                <Link
-                  to={refTo}
-                  className="small text-muted d-inline-flex align-items-center mt-25"
-                >
-                  Quotation - {refVoucher}
-                  <ExternalLink size={12} className="ms-25 flex-shrink-0" />
-                </Link>
-              ) : (
-                <span className="small text-muted d-block mt-25">
-                  Quotation - {refVoucher}
-                </span>
-              )
-            ) : null}
-            {row?.customer_po_number ? (
-              <div className="small text-muted">
-                {t("Buyer PO")}: {row.customer_po_number}
+              <div className="mt-25">
+                {refTo ? (
+                  <Link to={refTo} style={{ textDecoration: "none" }}>
+                    {refPill}
+                  </Link>
+                ) : (
+                  refPill
+                )}
               </div>
             ) : null}
-            {row?.po_date ? (
+            {row?.customer_po_number ? (
               <div className="small text-muted mt-25">
-                {t("Created")}: {formatDate(row.po_date)}
+                {t("Buyer PO")}: {row.customer_po_number}
               </div>
             ) : null}
           </div>
@@ -325,20 +337,27 @@ const PurchaseOrderView = () => {
       grow: 1.8,
       wrap: true,
       selector: (row) => {
-        if (!row?.customer_name && !row?.customer_contact_name) return "-";
+        if (!row?.customer_name && !row?.customer_contact_name)
+          return <span className="text-muted">-</span>;
         return (
-          <div className="py-1">
-            <span className="fw-bold text-capitalize">
+          <div className="py-75" style={{ minWidth: 0 }}>
+            <div className="fw-bold text-capitalize text-break">
               {row?.customer_name || "-"}
-            </span>
+            </div>
             {row?.customer_contact_name && (
-              <div className="text-capitalize small">
-                {row.customer_contact_name}
+              <div className="d-flex align-items-center text-capitalize text-break mt-25 mb-25">
+                <User size={13} className="text-muted me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.customer_contact_name}
+                </span>
               </div>
             )}
             {row?.customer_contact_email && (
-              <div className="small text-muted">
-                {row.customer_contact_email}
+              <div className="d-flex align-items-center small text-muted text-break">
+                <Mail size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.customer_contact_email}
+                </span>
               </div>
             )}
           </div>
@@ -358,14 +377,12 @@ const PurchaseOrderView = () => {
             ?.label || (row?.status || "-").replace(/_/g, " ");
         return (
           <span
-            className="badge text-capitalize"
-            style={{
-              background: `${c}1a`,
-              color: c,
-              border: `1px solid ${c}33`,
-              fontWeight: 600,
-              padding: "4px 10px",
-              fontSize: "0.72rem",
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
             }}
           >
             {label}
@@ -471,7 +488,7 @@ const PurchaseOrderView = () => {
         <VoucherStatsTiles
           module="po"
           filters={{
-            vendor_id: vendorFilter || undefined,
+            customer_id: customerFilter || undefined,
             status: statusFilter || undefined,
             date_from: dateFrom || undefined,
             date_to: dateTo || undefined,
@@ -503,14 +520,15 @@ const PurchaseOrderView = () => {
                     <Select
                       isClearable
                       classNamePrefix="select"
-                      placeholder={t("Filter by Vendor")}
-                      options={vendorOptions}
+                      placeholder={t("Filter by Customer")}
+                      options={customerOptions}
                       value={
-                        vendorOptions.find((o) => o.value === vendorFilter) ||
-                        null
+                        customerOptions.find(
+                          (o) => o.value === customerFilter
+                        ) || null
                       }
                       onChange={(opt) =>
-                        setVendorFilter(opt ? opt.value : "")
+                        setCustomerFilter(opt ? opt.value : "")
                       }
                     />
                   </Col>

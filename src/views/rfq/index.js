@@ -197,14 +197,26 @@ const RfqList = () => {
             <span
               className="fw-bold"
               ref={(el) => {
-                if (el) el.style.setProperty("color", "#0d6efd", "important");
+                if (el) el.style.setProperty("color", "#09418B", "important");
               }}
             >
               {row?.voucher_no || "-"}
             </span>
           </Link>
           {row?.lead_voucher_no && (
-            <div className="small text-muted">{row.lead_voucher_no}</div>
+            <div className="d-flex align-items-center flex-wrap mt-25 gap-50">
+              <span
+                className="badge rounded-pill text-capitalize text-nowrap"
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty("background-color", "#09418B", "important");
+                    el.style.setProperty("color", "#fff", "important");
+                  }
+                }}
+              >
+                {t("Lead")} - {row.lead_voucher_no}
+              </span>
+            </div>
           )}
         </div>
       ),
@@ -231,6 +243,8 @@ const RfqList = () => {
     {
       name: t("Status"),
       sortable: false,
+      center: true,
+      width: "130px",
       selector: (row) => (
         (() => {
           const c = STATUS_HEX[row?.status] || "#6c757d";

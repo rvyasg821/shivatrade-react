@@ -2,11 +2,10 @@
 // short/undispatched. Per-line qty is locked to the PO ordered qty by
 // policy, so there is no line-edit affordance here.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { Fragment, useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 
-import { getProductDropdown } from "@src/views/products/store";
-import { Card, CardBody, Table, Button, Input } from "reactstrap";
+import { Table, Button, Input } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { Edit, Truck } from "react-feather";
@@ -20,29 +19,11 @@ const num = (v) =>
 
 const OverviewTab = () => {
   const { t } = useTranslation();
-  const dispatch = useDispatch();
   const { poVendorItem } = useSelector((s) => s.poVendor);
-  const productStore = useSelector((s) => s.product);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
   const p = poVendorItem || {};
   const lines = p?.lines || [];
-
-  // Pull live tax_pct from product master so the line total reflects
-  // the current GST rate, not the snapshot stored on the POV line.
-  useEffect(() => {
-    if (!productStore?.productDropdown?.length) {
-      dispatch(getProductDropdown());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const productTaxByid = useMemo(() => {
-    const m = {};
-    (productStore?.productDropdown || []).forEach((pr) => {
-      m[pr._id] = pr.tax_pct;
-    });
-    return m;
-  }, [productStore?.productDropdown]);
 
   // Client-side pagination — mirrors the PFI/Quotation detail table.
   const [pageSize, setPageSize] = useState(10);
@@ -58,6 +39,23 @@ const OverviewTab = () => {
   const pageLines = lines.slice(pageStart, pageEnd);
   const sym = p?.currency_symbol || "₹";
   const isDraft = (p?.status || "").toLowerCase() === "draft";
+
+  // Column totals (whole list, not just current page).
+  const totals = lines.reduce(
+    (a, l) => {
+      a.ordered += num(l?.ordered_qty);
+      a.dispatched += num(l?.dispatched_qty);
+      a.received += num(l?.received_qty);
+      a.amount += num(l?.line_total);
+      return a;
+    },
+    { ordered: 0, dispatched: 0, received: 0, amount: 0 }
+  );
+  const money = (v) =>
+    `${sym} ${num(v).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   // Edit Delivery permission gate — po-vendors.can_update.
   const isAdmin = isAdminUser(authUserItem);
@@ -132,63 +130,77 @@ const OverviewTab = () => {
 
   return (
     <Fragment>
-      <Card>
-        <CardBody>
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h4 className="mb-0">{t("Line Items")}</h4>
-          </div>
-          {lines.length === 0 ? (
+      {lines.length === 0 ? (
             <div className="text-muted py-3 text-center">
               {t("No lines on this POV.")}
             </div>
           ) : (
-            <Table responsive bordered size="sm" className="align-top mb-0">
+            <div className="border rounded">
+            <Table responsive bordered size="sm" className="align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: 30 }}>#</th>
-                  <th style={{ minWidth: 200 }}>{t("Product")}</th>
-                  <th style={{ width: 70 }}>{t("Unit")}</th>
-                  <th style={{ width: 90 }} className="text-end">
-                    {t("Rate")}
+                  <th style={{ width: 36 }}>#</th>
+                  <th style={{ minWidth: 220 }}>{t("Product")}</th>
+                  <th style={{ width: 90 }} className="text-end text-nowrap">
+                    {t("Qty")}
                   </th>
-                  <th style={{ width: 90 }} className="text-end">
-                    {t("Ordered")}
+                  <th style={{ width: 100 }} className="text-end text-nowrap">
+                    {t("Price")}
                   </th>
-                  <th style={{ width: 90 }} className="text-end">
+                  <th style={{ width: 84 }} className="text-end text-nowrap">
                     {t("Dispatched")}
                   </th>
-                  <th style={{ width: 90 }} className="text-end">
+                  <th style={{ width: 80 }} className="text-end text-nowrap">
                     {t("Received")}
                   </th>
-                  <th style={{ width: 90 }} className="text-end text-warning">
+                  <th
+                    style={{ width: 64 }}
+                    className="text-end text-nowrap text-warning"
+                  >
                     {t("Short")}
                   </th>
-                  <th style={{ width: 100 }} className="text-end">
-                    {t("Undispatched")}
+                  <th style={{ width: 88 }} className="text-end text-nowrap">
+                    {t("Pending")}
                   </th>
-                  <th style={{ width: 110 }} className="text-end">
-                    {t("Line Total")}
+                  <th style={{ width: 120 }} className="text-end text-nowrap">
+                    {t("Total")}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {pageLines.map((l, i) => {
                   const idx = pageStart + i;
+                  const sub = [
+                    l?.part_no ? `Part: ${l.part_no}` : null,
+                    l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
+                  ].filter(Boolean);
                   return (
                   <tr key={l._id || idx}>
-                    <td>{idx + 1}</td>
+                    <td className="text-muted">{idx + 1}</td>
                     <td>
-                      <div className="fw-semibold">{l?.product_name || "-"}</div>
-                      {l?.product_code && (
-                        <small className="text-muted">{l.product_code}</small>
-                      )}
+                      <div
+                        className="fw-semibold text-capitalize"
+                        ref={(el) =>
+                          el &&
+                          el.style.setProperty("color", "#09418B", "important")
+                        }
+                      >
+                        {l?.product_name || "-"}
+                      </div>
+                      {sub.length ? (
+                        <div className="small text-muted">
+                          {sub.join(" · ")}
+                        </div>
+                      ) : null}
                     </td>
-                    <td>{l?.unit || "-"}</td>
-                    <td className="text-end">
-                      {sym} {num(l?.unit_price).toLocaleString()}
-                    </td>
-                    <td className="text-end fw-semibold">
+                    <td className="text-end text-nowrap fw-semibold">
                       {num(l?.ordered_qty).toLocaleString()}
+                      {l?.unit ? (
+                        <span className="text-muted fw-normal"> {l.unit}</span>
+                      ) : null}
+                    </td>
+                    <td className="text-end text-nowrap">
+                      {money(l?.unit_price)}
                     </td>
                     <td className="text-end">
                       {num(l?.dispatched_qty).toLocaleString()}
@@ -206,14 +218,36 @@ const OverviewTab = () => {
                         ? num(l.undispatched_qty).toLocaleString()
                         : "-"}
                     </td>
-                    <td className="text-end fw-bold">
-                      {sym} {num(l?.line_total).toLocaleString()}
+                    <td className="text-end text-nowrap fw-bold">
+                      {money(l?.line_total)}
                     </td>
                   </tr>
                   );
                 })}
               </tbody>
+              <tfoot className="table-light fw-bold">
+                <tr>
+                  <td />
+                  <td className="text-end">{t("Totals")}</td>
+                  <td className="text-end">
+                    {totals.ordered.toLocaleString()}
+                  </td>
+                  <td />
+                  <td className="text-end">
+                    {totals.dispatched.toLocaleString()}
+                  </td>
+                  <td className="text-end">
+                    {totals.received.toLocaleString()}
+                  </td>
+                  <td />
+                  <td />
+                  <td className="text-end text-nowrap">
+                    {money(totals.amount)}
+                  </td>
+                </tr>
+              </tfoot>
             </Table>
+            </div>
           )}
 
           {totalRows > 0 && (
@@ -280,8 +314,6 @@ const OverviewTab = () => {
               </div>
             </Fragment>
           )}
-        </CardBody>
-      </Card>
 
       {deliverPanel}
 

@@ -6,7 +6,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Row, Col, Button, UncontrolledTooltip } from "reactstrap";
 import Select from "react-select";
-import { Edit, PlusCircle, Upload, Download } from "react-feather";
+import { Edit, PlusCircle, Upload, Download, Clock } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -21,6 +21,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import ImportModal from "@src/views/price-list/components/ImportModal";
+import PriceHistoryModal from "@src/views/price-list/components/PriceHistoryModal";
 
 const PriceListTab = () => {
   const { id } = useParams();
@@ -45,6 +46,8 @@ const PriceListTab = () => {
   const [productFilter, setProductFilter] = useState("");
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Per-row price history modal target: { productId, title } | null.
+  const [historyTarget, setHistoryTarget] = useState(null);
 
   const handleExport = async () => {
     if (!id) return;
@@ -85,6 +88,7 @@ const PriceListTab = () => {
         vendor_id: id,
       };
       if (productId) params.product_id = productId;
+      params.current = 1; // current price per product (history via row icon)
       dispatch(getPriceListList(params));
     },
     [id, sort, sortColumn, currentPage, rowsPerPage, productFilter, dispatch]
@@ -180,29 +184,51 @@ const PriceListTab = () => {
     },
   ];
 
-  if (canEdit) {
-    columns.push({
-      name: t("Action"),
-      sortable: false,
-      center: true,
-      selector: (row) => (
-        <Fragment>
-          <Link
-            to={`${appsRoot}/price-list/edit/${row?._id || ""}?vendor_id=${id}`}
-            id={`vview-pl-edit-${row?._id}`}
-          >
-            <Edit size={18} />
-          </Link>
-          <UncontrolledTooltip
-            placement="top"
-            target={`vview-pl-edit-${row?._id}`}
-          >
-            {t("Edit")}
-          </UncontrolledTooltip>
-        </Fragment>
-      ),
-    });
-  }
+  columns.push({
+    name: t("Action"),
+    sortable: false,
+    center: true,
+    selector: (row) => (
+      <Fragment>
+        <span
+          className="me-50 cursor-pointer"
+          id={`vview-pl-history-${row?._id}`}
+          onClick={() =>
+            setHistoryTarget({
+              productId: row?.product_id,
+              title: `${row?.product_code ? `${row.product_code} · ` : ""}${
+                row?.product_name || ""
+              }`,
+            })
+          }
+        >
+          <Clock size={18} />
+        </span>
+        <UncontrolledTooltip
+          placement="top"
+          target={`vview-pl-history-${row?._id}`}
+        >
+          {t("Price History")}
+        </UncontrolledTooltip>
+        {canEdit && (
+          <Fragment>
+            <Link
+              to={`${appsRoot}/price-list/edit/${row?._id || ""}?vendor_id=${id}`}
+              id={`vview-pl-edit-${row?._id}`}
+            >
+              <Edit size={18} />
+            </Link>
+            <UncontrolledTooltip
+              placement="top"
+              target={`vview-pl-edit-${row?._id}`}
+            >
+              {t("Edit")}
+            </UncontrolledTooltip>
+          </Fragment>
+        )}
+      </Fragment>
+    ),
+  });
 
   return (
     <Fragment>
@@ -224,7 +250,7 @@ const PriceListTab = () => {
           />
         </Col>
         <Col md="8" sm="6">
-          <div className="d-flex gap-1 flex-nowrap justify-content-end">
+          <div className="d-flex gap-1 flex-nowrap justify-content-end align-items-center">
             {canRead && (
               <Button
                 color="outline-secondary"
@@ -278,6 +304,14 @@ const PriceListTab = () => {
         toggle={() => setImportModalOpen((prev) => !prev)}
         vendorId={id}
         onSuccess={() => handleList()}
+      />
+
+      <PriceHistoryModal
+        open={!!historyTarget}
+        toggle={() => setHistoryTarget(null)}
+        vendorId={id}
+        productId={historyTarget?.productId}
+        title={historyTarget?.title}
       />
     </Fragment>
   );

@@ -25,8 +25,8 @@ import {
   Tag,
   Truck,
   Layers,
-  Hash,
   X,
+  Hash,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -397,15 +397,39 @@ const ViewLead = () => {
           avatarText={l?.company_name || l?.contact_name}
           title={l?.company_name || l?.contact_name || "-"}
           subtitle={
-            [l?.contact_name, l?.contact_email].filter(Boolean).join(" · ") ||
-            null
+            l?.contact_name || l?.contact_email || phone ? (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                {l?.contact_name ? (
+                  <span className="d-inline-flex align-items-center text-capitalize">
+                    <User size={13} className="me-25" />
+                    {l.contact_name}
+                  </span>
+                ) : null}
+                {l?.contact_email ? (
+                  <span className="d-inline-flex align-items-center">
+                    <Mail size={13} className="me-25" />
+                    {l.contact_email}
+                  </span>
+                ) : null}
+                {phone ? (
+                  <span className="d-inline-flex align-items-center">
+                    <Phone size={13} className="me-25" />
+                    {phone}
+                  </span>
+                ) : null}
+              </span>
+            ) : null
           }
           meta={
-            l?.voucher_no
-              ? l.voucher_no
-              : l?._id
-              ? `${t("Lead ID")}: #${l._id.slice(-8).toUpperCase()}`
-              : null
+            l?.voucher_no ? (
+              <span
+                className="d-inline-flex align-items-center fw-semibold"
+                style={{ color: "#09418B" }}
+              >
+                <Hash size={12} className="me-25" />
+                {l.voucher_no}
+              </span>
+            ) : null
           }
           badge={{
             label: statusLabel,

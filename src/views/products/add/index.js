@@ -13,8 +13,6 @@ import {
 } from "../store";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
-import { getRebateDropdown } from "@src/views/rebates/store";
-import { getExpenseDropdown } from "@src/views/expenses/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Axios + Endpoints
@@ -35,7 +33,7 @@ import {
 } from "reactstrap";
 
 // ** Form
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -47,7 +45,7 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
-import { ArrowLeft, Loader, Plus, Trash2, Package, DollarSign, Truck } from "react-feather";
+import { ArrowLeft, Loader, Package, DollarSign, Truck } from "react-feather";
 
 // ** Wizard scaffolding (shared with Customer / Lead / Quotation wizards)
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -75,8 +73,6 @@ const STEPS = [
       "selling_price",
       "margin_pct",
       "currency_id",
-      "rebates",
-      "expenses",
     ],
   },
   {
@@ -96,7 +92,6 @@ import {
   STATUS_OPTIONS,
   PRODUCT_UOM_OPTIONS,
   COUNTRY_OPTIONS,
-  REBATE_EXPENSE_TYPE_OPTIONS,
 } from "@constant/options";
 
 const ProductForm = () => {
@@ -110,8 +105,6 @@ const ProductForm = () => {
   const store = useSelector((state) => state.product);
   const categoryStore = useSelector((state) => state.category);
   const currencyStore = useSelector((state) => state.currency);
-  const rebateStore = useSelector((state) => state.rebate);
-  const expenseStore = useSelector((state) => state.expense);
   const isEditMode = !!id;
   const required = <span className="text-danger">*</span>;
 
@@ -276,8 +269,6 @@ const ProductForm = () => {
   const next = () => goTo(activeStep + 1);
   const back = () => goTo(activeStep - 1, { validate: false });
 
-  const rebatesField = useFieldArray({ control, name: "rebates", keyName: "_key" });
-  const expensesField = useFieldArray({ control, name: "expenses", keyName: "_key" });
 
   // ── Live SKU uniqueness check (onBlur) ──
   const [codeExists, setCodeExists] = useState(false);
@@ -316,8 +307,6 @@ const ProductForm = () => {
   useLayoutEffect(() => {
     dispatch(getCategoryDropdown());
     dispatch(getCurrencyDropdown());
-    dispatch(getRebateDropdown());
-    dispatch(getExpenseDropdown());
     if (isEditMode) {
       dispatch(getProduct(id));
     } else {
@@ -351,17 +340,6 @@ const ProductForm = () => {
         net_weight_per_unit: p.net_weight_per_unit ?? "",
         gross_weight_per_unit: p.gross_weight_per_unit ?? "",
         country_of_origin: p.country_of_origin || "",
-        rebates: (p.rebates || []).map((r) => ({
-          rebate_id: r.rebate_id,
-          // Backend returns the effective type and pct (override or master).
-          type: r.type ?? "percent",
-          pct: r.pct ?? "",
-        })),
-        expenses: (p.expenses || []).map((e) => ({
-          expense_id: e.expense_id,
-          type: e.type ?? "fixed",
-          value: e.value ?? "",
-        })),
         status: p.status || (p.is_active ? "active" : "inactive"),
         is_active: p.is_active,
       });
@@ -463,8 +441,6 @@ const ProductForm = () => {
   const onSubmit = (data) => {
     const numOrUndef = (v) =>
       v === "" || v === null || v === undefined ? undefined : Number(v);
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isUuid = (v) => typeof v === "string" && UUID_RE.test(v);
     const payload = {
       code: data.code.trim().toUpperCase(),
       name: data.name.trim(),
@@ -489,20 +465,10 @@ const ProductForm = () => {
       net_weight_per_unit: numOrUndef(data.net_weight_per_unit),
       gross_weight_per_unit: numOrUndef(data.gross_weight_per_unit),
       country_of_origin: data.country_of_origin?.trim() || undefined,
-      rebates: (data.rebates || [])
-        .filter((r) => isUuid(r.rebate_id))
-        .map((r) => ({
-          rebate_id: r.rebate_id,
-          type: r.type || undefined,
-          pct: numOrUndef(r.pct),
-        })),
-      expenses: (data.expenses || [])
-        .filter((e) => isUuid(e.expense_id))
-        .map((e) => ({
-          expense_id: e.expense_id,
-          type: e.type || undefined,
-          value: numOrUndef(e.value),
-        })),
+      // Rebates/expenses are no longer captured at product level — they're set
+      // at quotation time. Omit them from the payload so the backend's update
+      // (which only replaces links when the key is present) preserves any
+      // existing links instead of wiping them.
       status: data.status,
       is_active: data.status === "active",
     };
@@ -778,9 +744,17 @@ const ProductForm = () => {
                         type="number"
                         step="0.01"
                         min="0"
+                        inputMode="decimal"
                         invalid={!!errors.selling_price}
                         {...field}
                         value={field.value ?? ""}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (val !== "" && !Number.isNaN(Number(val))) {
+                            field.onChange(Number(val).toFixed(2));
+                          }
+                          field.onBlur();
+                        }}
                       />
                     )}
                   />
@@ -850,263 +824,6 @@ const ProductForm = () => {
                 </Col>
               </Row>
 
-              {/* ── Applicable Rebates ── */}
-              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
-                <h4 className="mb-0">{t("Rebates")}</h4>
-                <Button
-                  type="button"
-                  size="sm"
-                  color="primary"
-                  outline
-                  onClick={() =>
-                    rebatesField.append({
-                      rebate_id: "",
-                      type: "percent",
-                      pct: "",
-                    })
-                  }
-                >
-                  <Plus size={14} /> {t("Add Rebate")}
-                </Button>
-              </div>
-              {rebatesField.fields.length === 0 && (
-                <small className="text-muted d-block mb-2">
-                  {t("No rebates linked. Add DBK / RODTEP if this product is export-eligible.")}
-                </small>
-              )}
-              {rebatesField.fields.map((row, idx) => {
-                const opts = (rebateStore?.rebateDropdown || []).map((r) => ({
-                  value: r._id,
-                  label: `${r.code} - ${r.name} (${r.pct}${
-                    r.type === "fixed" ? "" : "%"
-                  })`,
-                  pct: r.pct,
-                  type: r.type || "percent",
-                }));
-                const selectedRebate = opts.find(
-                  (o) => o.value === watch(`rebates.${idx}.rebate_id`)
-                );
-                const currentType = watch(`rebates.${idx}.type`) || "percent";
-                return (
-                  <Row key={row._key} className="align-items-end">
-                    <Col md="5" className="mb-2">
-                      <Label className="form-label">{t("Rebate")}</Label>
-                      <Controller
-                        name={`rebates.${idx}.rebate_id`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            isClearable
-                            classNamePrefix="select"
-                            options={opts}
-                            value={opts.find((o) => o.value === field.value) || null}
-                            onChange={(opt) => {
-                              field.onChange(opt ? opt.value : "");
-                              setValue(
-                                `rebates.${idx}.type`,
-                                opt ? opt.type : "percent",
-                                { shouldValidate: true }
-                              );
-                              setValue(
-                                `rebates.${idx}.pct`,
-                                opt ? opt.pct : "",
-                                { shouldValidate: true }
-                              );
-                            }}
-                            placeholder={t("Select rebate")}
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
-                      <Label className="form-label">{t("Type")}</Label>
-                      <Controller
-                        name={`rebates.${idx}.type`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            classNamePrefix="select"
-                            options={REBATE_EXPENSE_TYPE_OPTIONS}
-                            value={
-                              REBATE_EXPENSE_TYPE_OPTIONS.find(
-                                (o) => o.value === field.value
-                              ) || null
-                            }
-                            onChange={(opt) =>
-                              field.onChange(opt ? opt.value : "percent")
-                            }
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
-                      <Label className="form-label">
-                        {currentType === "fixed" ? t("Amount") : t("Percentage")}
-                      </Label>
-                      <Controller
-                        name={`rebates.${idx}.pct`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder={
-                              selectedRebate
-                                ? `Default ${selectedRebate.pct}${
-                                    selectedRebate.type === "fixed" ? "" : "%"
-                                  }`
-                                : ""
-                            }
-                            {...field}
-                            value={field.value ?? ""}
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="1" className="mb-2 text-end">
-                      <Button
-                        type="button"
-                        color="danger"
-                        size="sm"
-                        outline
-                        onClick={() => rebatesField.remove(idx)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </Col>
-                  </Row>
-                );
-              })}
-
-              {/* ── Default Expenses ── */}
-              <div className="d-flex justify-content-between align-items-center mt-3 mb-2">
-                <h4 className="mb-0">{t("Expenses")}</h4>
-                <Button
-                  type="button"
-                  size="sm"
-                  color="primary"
-                  outline
-                  onClick={() =>
-                    expensesField.append({
-                      expense_id: "",
-                      type: "fixed",
-                      value: "",
-                    })
-                  }
-                >
-                  <Plus size={14} /> {t("Add Expense")}
-                </Button>
-              </div>
-              {expensesField.fields.length === 0 && (
-                <small className="text-muted d-block mb-2">
-                  {t("No default expenses. Add Packing / Transport / CHA if they always apply to this product.")}
-                </small>
-              )}
-              {expensesField.fields.map((row, idx) => {
-                const opts = (expenseStore?.expenseDropdown || []).map((e) => ({
-                  value: e._id,
-                  label: `${e.code} - ${e.name} (${e.value}${
-                    e.type === "percent" ? "%" : ""
-                  })`,
-                  type: e.type || "fixed",
-                  master_value: e.value,
-                }));
-                const selectedExpense = opts.find(
-                  (o) => o.value === watch(`expenses.${idx}.expense_id`)
-                );
-                const currentType = watch(`expenses.${idx}.type`) || "fixed";
-                return (
-                  <Row key={row._key} className="align-items-end">
-                    <Col md="5" className="mb-2">
-                      <Label className="form-label">{t("Expense")}</Label>
-                      <Controller
-                        name={`expenses.${idx}.expense_id`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            isClearable
-                            classNamePrefix="select"
-                            options={opts}
-                            value={opts.find((o) => o.value === field.value) || null}
-                            onChange={(opt) => {
-                              field.onChange(opt ? opt.value : "");
-                              setValue(
-                                `expenses.${idx}.type`,
-                                opt ? opt.type : "fixed",
-                                { shouldValidate: true }
-                              );
-                              setValue(
-                                `expenses.${idx}.value`,
-                                opt ? opt.master_value : "",
-                                { shouldValidate: true }
-                              );
-                            }}
-                            placeholder={t("Select expense")}
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
-                      <Label className="form-label">{t("Type")}</Label>
-                      <Controller
-                        name={`expenses.${idx}.type`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            classNamePrefix="select"
-                            options={REBATE_EXPENSE_TYPE_OPTIONS}
-                            value={
-                              REBATE_EXPENSE_TYPE_OPTIONS.find(
-                                (o) => o.value === field.value
-                              ) || null
-                            }
-                            onChange={(opt) =>
-                              field.onChange(opt ? opt.value : "fixed")
-                            }
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
-                      <Label className="form-label">
-                        {currentType === "percent" ? t("Percentage") : t("Amount")}
-                      </Label>
-                      <Controller
-                        name={`expenses.${idx}.value`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder={
-                              selectedExpense
-                                ? `Default ${selectedExpense.master_value}${
-                                    selectedExpense.type === "percent" ? "%" : ""
-                                  }`
-                                : ""
-                            }
-                            {...field}
-                            value={field.value ?? ""}
-                          />
-                        )}
-                      />
-                    </Col>
-                    <Col md="1" className="mb-2 text-end">
-                      <Button
-                        type="button"
-                        color="danger"
-                        size="sm"
-                        outline
-                        onClick={() => expensesField.remove(idx)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </Col>
-                  </Row>
-                );
-              })}
                 </Fragment>
               )}
 
@@ -1174,7 +891,7 @@ const ProductForm = () => {
                     )}
                   />
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="net_weight_per_unit">
                     {t("Net Weight per Unit (Kg)")}
                   </Label>
@@ -1199,7 +916,7 @@ const ProductForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="gross_weight_per_unit">
                     {t("Gross Weight per Unit (Kg)")}
                   </Label>

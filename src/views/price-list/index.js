@@ -25,7 +25,6 @@ import {
   Col,
   Row,
   Card,
-  Badge,
   Input,
   Button,
   CardBody,
@@ -43,7 +42,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download, Clock } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -51,7 +50,9 @@ import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValue
 // ** Import/Export
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { formatDate } from "@src/utility/dateFormat";
 import ImportModal from "./components/ImportModal";
+import PriceHistoryModal from "./components/PriceHistoryModal";
 
 const PriceListView = () => {
   const { t } = useTranslation();
@@ -74,6 +75,8 @@ const PriceListView = () => {
   const [productFilter, setProductFilter] = useState("");
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Per-row price history modal target: { vendorId, productId, title } | null.
+  const [historyTarget, setHistoryTarget] = useState(null);
 
   const handleList = useCallback(
     (
@@ -91,6 +94,7 @@ const PriceListView = () => {
         page,
         perPage,
         search,
+        current: 1, // current price per (vendor, product), ordered by product
       };
       if (vendorId) params.vendor_id = vendorId;
       if (productId) params.product_id = productId;
@@ -239,145 +243,238 @@ const PriceListView = () => {
   );
 
   const formatNumber = (v) =>
-    v !== null && v !== undefined && v !== "" ? Number(v).toString() : "-";
+    v !== null && v !== undefined && v !== ""
+      ? Number(v).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : "-";
+
+  // Soft-navy code tag (product / vendor codes).
+  const codeTag = (code) => (
+    <span
+      className="badge rounded-pill text-uppercase text-nowrap"
+      ref={(el) => {
+        if (el) {
+          el.style.setProperty("background-color", "#09418B1a", "important");
+          el.style.setProperty("color", "#09418B", "important");
+        }
+      }}
+    >
+      {code}
+    </span>
+  );
 
   const columns = [
     {
-      name: t("Vendor"),
+      name: t("Product"),
       sortField: "vendor_id",
       sortable: false,
+      minWidth: "280px",
+      grow: 2,
+      wrap: true,
       selector: (row) => {
-        const label = row?.vendor_code
-          ? `${row.vendor_name || "-"} [${row.vendor_code}]`
-          : row?.vendor_name || "-";
-        if (canEdit) {
-          return (
-            <Link
-              to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
-              className="text-wrap"
-            >
-              {label}
-            </Link>
-          );
-        }
-        return <span className="text-wrap">{label}</span>;
-      },
-    },
-    {
-      name: t("Product"),
-      sortable: false,
-      selector: (row) => (
-        <span className="text-wrap">
-          {row?.product_code
-            ? `${row.product_code} - ${row.product_name}`
-            : row?.product_name || "-"}
-        </span>
-      ),
-    },
-    {
-      name: t("Price"),
-      sortable: false,
-      selector: (row) => {
-        const sym = row?.currency_symbol || row?.currency_code || "";
-        const amt = formatNumber(row?.unit_price);
-        return sym ? `${sym}${amt}` : amt;
-      },
-    },
-    {
-      name: t("Source"),
-      sortable: false,
-      selector: (row) => {
-        if (row?.source_type === "rfq") {
-          const label = row?.source_rfq_voucher_no || t("RFQ");
-          return row?.source_rfq_id ? (
-            <Link to={`${appsRoot}/rfq/view/${row.source_rfq_id}`}>
-              <Badge color="light-info" className="text-wrap">
-                {label}
-              </Badge>
-            </Link>
-          ) : (
-            <Badge color="light-info" className="text-wrap">
-              {label}
-            </Badge>
-          );
-        }
-        const type = row?.source_type || "manual";
+        const nameNode = (
+          <span
+            className="fw-bold text-capitalize text-break"
+            style={{ overflowWrap: "anywhere" }}
+            ref={(el) => {
+              if (el) el.style.setProperty("color", "#09418B", "important");
+            }}
+          >
+            {row?.product_name || "-"}
+          </span>
+        );
         return (
-          <span className="text-muted text-capitalize">{t(type)}</span>
+          <div className="py-75" style={{ minWidth: 0 }}>
+            <div className="d-flex align-items-center flex-wrap gap-50">
+              {canEdit ? (
+                <Link
+                  to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  {nameNode}
+                </Link>
+              ) : (
+                nameNode
+              )}
+              {row?.product_code ? codeTag(row.product_code) : null}
+            </div>
+            {(row?.vendor_name || row?.vendor_code) && (
+              <div className="d-flex align-items-center flex-wrap gap-50 mt-25">
+                <span className="small text-muted text-capitalize">
+                  {row?.vendor_name || "-"}
+                </span>
+                {row?.vendor_code ? codeTag(row.vendor_code) : null}
+              </div>
+            )}
+          </div>
         );
       },
     },
     {
-      name: t("Lead Time"),
+      name: t("Price"),
       sortable: false,
-      selector: (row) =>
-        row?.lead_time_days ? `${row.lead_time_days} ${t("days")}` : "-",
+      right: true,
+      minWidth: "110px",
+      selector: (row) => {
+        const sym = row?.currency_symbol || row?.currency_code || "";
+        const amt = formatNumber(row?.unit_price);
+        return <span className="fw-bold">{sym ? `${sym}${amt}` : amt}</span>;
+      },
     },
     {
-      name: t("Effective Date"),
-      sortField: "effective_date",
-      sortable: true,
-      selector: (row) => (row?.effective_date || "").slice(0, 10),
-    },
-    {
-      name: t("Valid Until"),
+      name: t("Validity"),
       sortable: false,
+      minWidth: "180px",
+      wrap: true,
       selector: (row) => {
         const end = row?.effective_until;
-        if (!end) return <span className="text-muted">{t("Active")}</span>;
-        const endDate = String(end).slice(0, 10);
-        // Explicit valid_until → just the date.
-        // Derived (auto-end when next row takes effect) → italic, prefixed.
-        return row?.valid_until ? (
-          endDate
+        const isRfq = row?.source_type === "rfq";
+        const srcLabel = isRfq
+          ? row?.source_rfq_voucher_no || t("RFQ")
+          : t(row?.source_type || "manual");
+        const sourcePill = isRfq ? (
+          <span
+            className="badge rounded-pill text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", "#09418B", "important");
+                el.style.setProperty("color", "#fff", "important");
+              }
+            }}
+          >
+            {srcLabel}
+          </span>
         ) : (
-          <span className="text-muted fst-italic">until {endDate}</span>
+          <span
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", "#6c757d1f", "important");
+                el.style.setProperty("color", "#6c757d", "important");
+              }
+            }}
+          >
+            {srcLabel}
+          </span>
+        );
+        return (
+          <div className="py-75">
+            <div className="small">
+              <span className="text-muted">{t("Eff")}: </span>
+              {formatDate(row?.effective_date)}
+            </div>
+            {end ? (
+              <div className="small mt-25">
+                <span className="text-muted">{t("Until")}: </span>
+                <span className={row?.valid_until ? "" : "fst-italic text-muted"}>
+                  {formatDate(end)}
+                </span>
+              </div>
+            ) : null}
+            <div className="mt-50">
+              {isRfq && row?.source_rfq_id ? (
+                <Link to={`${appsRoot}/rfq/view/${row.source_rfq_id}`}>
+                  {sourcePill}
+                </Link>
+              ) : (
+                sourcePill
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      name: t("Status"),
+      sortable: false,
+      center: true,
+      minWidth: "110px",
+      selector: (row) => {
+        const end = row?.effective_until
+          ? String(row.effective_until).slice(0, 10)
+          : null;
+        const today = new Date().toISOString().slice(0, 10);
+        const active = !end || end >= today;
+        const c = active ? "#198754" : "#6c757d";
+        return (
+          <span
+            className="badge rounded-pill text-capitalize text-nowrap"
+            ref={(el) => {
+              if (el) {
+                el.style.setProperty("background-color", `${c}1f`, "important");
+                el.style.setProperty("color", c, "important");
+              }
+            }}
+          >
+            {active ? t("Active") : t("Expired")}
+          </span>
         );
       },
     },
   ];
 
-  if (canEdit || canDelete) {
-    columns.push({
-      name: t("Action"),
-      center: true,
-      cell: (row) => (
-        <div className="d-flex column-action align-items-center table-icon">
-          {canEdit && (
-            <Link
-              className="me-50"
-              id={`pl-edit-${row?._id || ""}`}
-              to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
+  columns.push({
+    name: t("Action"),
+    center: true,
+    cell: (row) => (
+      <div className="d-flex column-action align-items-center table-icon">
+        <span
+          className="me-50 cursor-pointer"
+          id={`pl-history-${row?._id || ""}`}
+          onClick={() =>
+            setHistoryTarget({
+              vendorId: row?.vendor_id,
+              productId: row?.product_id,
+              title: `${row?.product_code ? `${row.product_code} · ` : ""}${
+                row?.product_name || ""
+              }  —  ${row?.vendor_name || ""}`,
+            })
+          }
+        >
+          <UncontrolledTooltip
+            placement="top"
+            target={`pl-history-${row?._id || ""}`}
+          >
+            {t("Price History")}
+          </UncontrolledTooltip>
+          <Clock size={18} />
+        </span>
+        {canEdit && (
+          <Link
+            className="me-50"
+            id={`pl-edit-${row?._id || ""}`}
+            to={`${appsRoot}/price-list/edit/${row?._id || ""}`}
+          >
+            <UncontrolledTooltip
+              placement="top"
+              target={`pl-edit-${row?._id || ""}`}
             >
-              <UncontrolledTooltip
-                placement="top"
-                target={`pl-edit-${row?._id || ""}`}
-              >
-                {t("Edit")}
-              </UncontrolledTooltip>
-              <Edit size={20} />
-            </Link>
-          )}
-          {canDelete && (
-            <>
-              <Trash2
-                size={20}
-                className="cursor-pointer"
-                id={`pl-delete-${row?._id || ""}`}
-                onClick={() => handleDelete(row?._id)}
-              />
-              <UncontrolledTooltip
-                placement="top"
-                target={`pl-delete-${row?._id || ""}`}
-              >
-                {t("Delete")}
-              </UncontrolledTooltip>
-            </>
-          )}
-        </div>
-      ),
-    });
-  }
+              {t("Edit")}
+            </UncontrolledTooltip>
+            <Edit size={20} />
+          </Link>
+        )}
+        {canDelete && (
+          <>
+            <Trash2
+              size={20}
+              className="cursor-pointer"
+              id={`pl-delete-${row?._id || ""}`}
+              onClick={() => handleDelete(row?._id)}
+            />
+            <UncontrolledTooltip
+              placement="top"
+              target={`pl-delete-${row?._id || ""}`}
+            >
+              {t("Delete")}
+            </UncontrolledTooltip>
+          </>
+        )}
+      </div>
+    ),
+  });
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
@@ -443,7 +540,7 @@ const PriceListView = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap align-items-center">
                   {canRead && (
                   <Button
                     color="outline-secondary"
@@ -500,6 +597,14 @@ const PriceListView = () => {
         isOpen={importModalOpen}
         toggle={() => setImportModalOpen((prev) => !prev)}
         onSuccess={() => handleList()}
+      />
+
+      <PriceHistoryModal
+        open={!!historyTarget}
+        toggle={() => setHistoryTarget(null)}
+        vendorId={historyTarget?.vendorId}
+        productId={historyTarget?.productId}
+        title={historyTarget?.title}
       />
     </Fragment>
   );
