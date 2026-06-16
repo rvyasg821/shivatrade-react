@@ -3,29 +3,41 @@
 // DetailPanel owns the chrome and tab nav.
 
 import { useState } from "react";
-import { Card, CardBody, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
-import { FileText, Layers, BarChart2 } from "react-feather";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardBody,
+  Nav,
+  NavItem,
+  NavLink,
+  TabContent,
+  TabPane,
+  Button,
+} from "reactstrap";
+import { FileText, Layers, Plus, Truck } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import LineItemsPanel from "./LineItemsPanel";
 import PfisPanel from "./PfisPanel";
-import SourceCoveragePanel from "@src/views/_shared/sales-doc/SourceCoveragePanel";
 import { PFI_RETIRED } from "@src/configs/appMode";
+import { appsRoot } from "@constant/defaultValues";
 
-const RelatedDocsTabs = () => {
+const RelatedDocsTabs = ({ canGenerate = false, onGenerate }) => {
   const { t } = useTranslation();
-  const [active, setActive] = useState("lines");
+  const navigate = useNavigate();
   const { quotationItem } = useSelector((s) => s.quotation);
   const pfiItems = useSelector((s) => s.pfi?.pfiItems || []);
   const linesCount = (quotationItem?.lines || []).length;
   const pfisCount = pfiItems.length;
-  const quotationId = quotationItem?._id;
+  const isDraft = (quotationItem?.status || "").toLowerCase() === "draft";
+  const [active, setActive] = useState("lines");
 
   return (
     <Card className="mb-1">
       <CardBody>
-        <Nav pills className="mb-2">
+        <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+        <Nav pills className="mb-0">
           <NavItem>
             <NavLink
               active={active === "lines"}
@@ -89,23 +101,31 @@ const RelatedDocsTabs = () => {
               </NavLink>
             </NavItem>
           )}
-          <NavItem>
-            <NavLink
-              active={active === "coverage"}
-              onClick={() => setActive("coverage")}
-              style={{
-                color: active === "coverage" ? "#fff" : "#1a2238",
-                display: "inline-flex",
-                alignItems: "center",
-                height: 38,
-                padding: "0 14px",
-              }}
-            >
-              <BarChart2 size={16} className="me-50" />
-              {t("SO Coverage")}
-            </NavLink>
-          </NavItem>
         </Nav>
+          {active === "lines" && (
+            <div className="d-flex gap-1">
+              {isDraft && quotationItem?._id && (
+                <Button
+                  color="outline-primary"
+                  size="sm"
+                  onClick={() =>
+                    navigate(
+                      `${appsRoot}/quotations/edit/${quotationItem._id}?step=2`
+                    )
+                  }
+                >
+                  <Plus size={14} className="me-25" /> {t("Add Line")}
+                </Button>
+              )}
+              {canGenerate && (
+                <Button color="success" size="sm" onClick={onGenerate}>
+                  <Truck size={14} className="me-25" />{" "}
+                  {t("Generate Sales Orders")}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
 
         <TabContent activeTab={active}>
           <TabPane tabId="lines">
@@ -116,14 +136,6 @@ const RelatedDocsTabs = () => {
               <PfisPanel bare />
             </TabPane>
           )}
-          <TabPane tabId="coverage">
-            {active === "coverage" && quotationId && (
-              <SourceCoveragePanel
-                sourceType="quotation"
-                sourceId={quotationId}
-              />
-            )}
-          </TabPane>
         </TabContent>
       </CardBody>
     </Card>

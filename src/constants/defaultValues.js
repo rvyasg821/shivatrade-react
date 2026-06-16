@@ -198,7 +198,7 @@ const rolePermissionName = {
 
   [rolesModuleSlug]: "Roles",
   [usersModuleSlug]: "Users",
-  [currenciesModuleSlug]: "Currencies & Exchange Rates",
+  [currenciesModuleSlug]: "Exchange Rates",
 
   // Catalogue
   [categoriesModuleSlug]: "Categories",

@@ -66,7 +66,7 @@ const PoRelatedDocsTabs = () => {
       <CardBody>
         <Nav pills className="mb-2">
           {tabBtn("lines", t("Line Items"), Layers, linesCount)}
-          {tabBtn("vendors", t("PO Vendors"), Truck, povCount)}
+          {tabBtn("vendors", t("Vendor POs"), Truck, povCount)}
           {tabBtn("coverage", t("Coverage"), Activity, 0)}
         </Nav>
 

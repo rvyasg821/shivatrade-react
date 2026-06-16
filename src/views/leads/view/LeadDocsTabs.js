@@ -34,7 +34,7 @@ const LeadDocsTabs = () => {
   const headerAction = {
     requirement: {
       label: t("Add Line"),
-      onClick: () => navigate(`${appsRoot}/leads/edit/${id}`),
+      onClick: () => navigate(`${appsRoot}/leads/edit/${id}?step=2`),
     },
     rfq: {
       label: t("Create RFQ"),

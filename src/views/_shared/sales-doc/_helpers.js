@@ -216,9 +216,18 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     ? (margin_amount / net) * 100
     : 0;
   const grand_inr_raw = net + margin_amount + tax_total;
-  const grand_inr = Math.round(grand_inr_raw);
-  const round_off = round2(grand_inr - grand_inr_raw);
   const rate = num(exchangeRate) || 1;
+  // INR is the internal base — keep it un-rounded (2 dp). Round-off is applied
+  // to the CUSTOMER-currency grand total (the figure the customer pays): the
+  // raw foreign amount is rounded to a whole unit and the difference shown as
+  // a round-off line. For an INR document rate = 1, so this rounds INR — same
+  // standard whole-unit behaviour.
+  const grand_inr = round2(grand_inr_raw);
+  const grand_currency_raw = round2(grand_inr_raw * rate);
+  // Round the customer total to a whole unit (displayed with 2 decimals as
+  // .00); the difference shows as a round-off line.
+  const grand_currency = Math.round(grand_currency_raw);
+  const round_off = round2(grand_currency - grand_currency_raw);
 
   return {
     gross_total,
@@ -240,12 +249,10 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     gst_uniform,
     gst_by_rate: gstByRate,
     grand_inr_raw,
-    round_off,
     grand_inr,
-    // Convert from the ROUNDED INR so the costing card's Grand Total
-    // matches the header KPI / stored grand_total, which the backend
-    // also derives from Math.round(grand_inr_raw) × rate.
-    grand_currency: grand_inr * rate,
+    grand_currency_raw,
+    round_off, // in the customer (quote) currency
+    grand_currency, // rounded customer-currency total
     rate,
   };
 };

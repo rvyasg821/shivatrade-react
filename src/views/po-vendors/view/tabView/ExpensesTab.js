@@ -31,7 +31,7 @@ const fmt = (n) =>
 
 const TYPE_OPTIONS = REBATE_EXPENSE_TYPE_OPTIONS;
 
-const ExpensesTab = () => {
+const ExpensesTab = ({ registerActions }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { poVendorItem } = useSelector((s) => s.poVendor);
@@ -145,6 +145,37 @@ const ExpensesTab = () => {
     }
   };
 
+  // Publish Add / Save to the tab bar (right of the tab titles).
+  useEffect(() => {
+    if (!registerActions) return undefined;
+    registerActions(
+      isDraft ? (
+        <Fragment>
+          <Button
+            type="button"
+            color="primary"
+            outline
+            size="sm"
+            onClick={addRow}
+          >
+            <Plus size={14} className="me-50" /> {t("Add Expense")}
+          </Button>
+          <Button
+            type="button"
+            color="primary"
+            size="sm"
+            onClick={onSave}
+            disabled={saving}
+          >
+            <Save size={14} className="me-50" /> {t("Save")}
+          </Button>
+        </Fragment>
+      ) : null
+    );
+    return () => registerActions(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDraft, saving, rows]);
+
   const renderRow = (r, idx) => {
     const pickOptions = expenseOptions.filter(
       (o) => o.value === r.expense_id || !usedIds.has(o.value),
@@ -239,32 +270,6 @@ const ExpensesTab = () => {
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h4 className="mb-0">{t("Vendor Charges")}</h4>
-        {isDraft && (
-          <div className="d-flex gap-1">
-            <Button
-              type="button"
-              color="primary"
-              outline
-              size="sm"
-              onClick={addRow}
-            >
-              <Plus size={14} className="me-50" /> {t("Add Expense")}
-            </Button>
-            <Button
-              type="button"
-              color="primary"
-              size="sm"
-              onClick={onSave}
-              disabled={saving}
-            >
-              <Save size={14} className="me-50" /> {t("Save")}
-            </Button>
-          </div>
-        )}
-      </div>
-
       {!isDraft && (
         <div className="text-muted small mb-2">
           {t(

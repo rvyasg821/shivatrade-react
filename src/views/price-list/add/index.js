@@ -80,18 +80,6 @@ const PriceListForm = () => {
           .test("is-number", t("Unit price must be a number"), (v) =>
             v == null || v === "" ? false : !isNaN(Number(v))
           ),
-        moq: yup
-          .number()
-          .typeError(t("MOQ must be a number"))
-          .min(1, t("MOQ must be at least 1"))
-          .nullable()
-          .transform((v, o) => (o === "" ? null : v)),
-        discount_pct: yup
-          .string()
-          .nullable()
-          .test("is-number", t("Discount % must be a number"), (v) =>
-            !v ? true : !isNaN(Number(v))
-          ),
         lead_time_days: yup
           .number()
           .typeError(t("Lead time must be a number"))
@@ -160,11 +148,8 @@ const PriceListForm = () => {
         product_id: r.product_id || "",
         currency_id: r.currency_id || "",
         unit_price: r.unit_price || "",
-        moq: r.moq ?? 1,
-        discount_pct: r.discount_pct ?? "0",
         lead_time_days: r.lead_time_days ?? "",
         effective_date: (r.effective_date || "").slice(0, 10),
-        valid_until: r.valid_until ? r.valid_until.slice(0, 10) : "",
         notes: r.notes || "",
       });
     }
@@ -187,12 +172,8 @@ const PriceListForm = () => {
       unit_price: String(data.unit_price),
       effective_date: data.effective_date,
     };
-    if (data.moq !== null && data.moq !== undefined && data.moq !== "")
-      payload.moq = Number(data.moq);
-    if (data.discount_pct) payload.discount_pct = String(data.discount_pct);
     if (data.lead_time_days !== null && data.lead_time_days !== "")
       payload.lead_time_days = Number(data.lead_time_days);
-    if (data.valid_until) payload.valid_until = data.valid_until;
     if (data.notes) payload.notes = data.notes.trim();
 
     if (isEditMode) {
@@ -444,8 +425,10 @@ const PriceListForm = () => {
                     </FormFeedback>
                   )}
                 </Col>
+              </Row>
 
-                <Col md="3" className="mb-2">
+              <Row>
+                <Col md="4" className="mb-2">
                   <Label className="form-label" for="unit_price">
                     {t("Price")} <span className="text-danger">*</span>
                   </Label>
@@ -458,9 +441,17 @@ const PriceListForm = () => {
                         type="number"
                         step="0.01"
                         min="0"
+                        inputMode="decimal"
                         placeholder="0.00"
                         invalid={!!errors.unit_price}
                         {...field}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (val !== "" && !Number.isNaN(Number(val))) {
+                            field.onChange(Number(val).toFixed(2));
+                          }
+                          field.onBlur();
+                        }}
                       />
                     )}
                   />
@@ -469,72 +460,6 @@ const PriceListForm = () => {
                       {errors.unit_price.message}
                     </FormFeedback>
                   )}
-                </Col>
-
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="moq">
-                    {t("MOQ")}
-                  </Label>
-                  <Controller
-                    name="moq"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="moq"
-                        type="number"
-                        min="1"
-                        placeholder="1"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
-                  <small className="text-muted">
-                    {t("Minimum Order Quantity")}
-                  </small>
-                </Col>
-
-
-                <Col md="2" className="mb-2">
-                  <Label className="form-label" for="discount_pct">
-                    {t("Discount %")}
-                  </Label>
-                  <Controller
-                    name="discount_pct"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="discount_pct"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        placeholder="0"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    )}
-                  />
-                </Col>
-
-<Col md="3" className="mb-2">
-                  <Label className="form-label" for="lead_time_days">
-                    {t("Lead Time (days)")}
-                  </Label>
-                  <Controller
-                    name="lead_time_days"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="lead_time_days"
-                        type="number"
-                        min="0"
-                        placeholder="30"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    )}
-                  />
                 </Col>
 
                 <Col md="4" className="mb-2">
@@ -561,26 +486,36 @@ const PriceListForm = () => {
                 </Col>
 
                 <Col md="4" className="mb-2">
-                  <Label className="form-label" for="valid_until">
-                    {t("Valid Until")}
+                  <Label className="form-label" for="lead_time_days">
+                    {t("Lead Time (days)")}
                   </Label>
                   <Controller
-                    name="valid_until"
+                    name="lead_time_days"
                     control={control}
                     render={({ field }) => (
-                      <DateInput
-                        id="valid_until"
-                        value={field.value || ""}
-                        onChange={(dates, str, iso) => field.onChange(iso)}
+                      <Input
+                        id="lead_time_days"
+                        type="number"
+                        min="0"
+                        placeholder="30"
+                        {...field}
+                        value={field.value ?? ""}
                       />
                     )}
                   />
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md="12" className="mb-1">
                   <small className="text-muted">
-                    {t("Optional explicit expiry. If blank, ends when a newer entry takes effect.")}
+                    {t("Versioning is by effective date — a newer entry auto-expires the previous price.")}
                   </small>
                 </Col>
+              </Row>
 
-<Col md="12" className="mb-2">
+              <Row>
+                <Col md="12" className="mb-2">
                   <Label className="form-label" for="notes">
                     {t("Notes")}
                   </Label>

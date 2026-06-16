@@ -12,10 +12,6 @@ import {
   Button,
   Badge,
   Spinner,
-  UncontrolledButtonDropdown,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
 } from "reactstrap";
 import Select from "react-select";
 import ReactPaginate from "react-paginate";
@@ -26,8 +22,11 @@ import {
   Save,
   FileText,
   X,
-  Check,
+  Briefcase,
+  Hash,
 } from "react-feather";
+
+import { StatusChangeDropdown } from "@src/views/_shared/detail-page";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -45,6 +44,7 @@ import { getLead } from "@src/views/leads/store";
 import { getVendorDropdown } from "@src/views/vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
+import Avatar from "@components/avatar";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
@@ -70,7 +70,7 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// Cap a numeric string to at most 2 decimal places. Used for Qty/Disc display.
+// Cap a numeric string to at most 2 decimal places. Used for Qty/price display.
 const limit2 = (v) => {
   if (v == null) return "";
   const s = String(v);
@@ -99,8 +99,6 @@ const RfqView = () => {
   const draftLead = isDraft ? leadStore?.leadItem : null;
 
   const [priceMap, setPriceMap] = useState({});
-  // key(lineId, vendorId) -> discount % string
-  const [discountMap, setDiscountMap] = useState({});
   // The active vendor in the Price Comparison dropdown — drives the checkbox
   // column + single-vendor export, and is what "Add" adds as a column.
   const [addVendorId, setAddVendorId] = useState("");
@@ -149,15 +147,10 @@ const RfqView = () => {
   useEffect(() => {
     if (isDraft || !rfq) return;
     const m = {};
-    const d = {};
     for (const p of rfq.prices || []) {
       m[key(p.rfq_line_id, p.vendor_id)] = limit2(p.unit_price ?? "");
-      if (p.discount_pct != null && Number(p.discount_pct) > 0) {
-        d[key(p.rfq_line_id, p.vendor_id)] = limit2(p.discount_pct);
-      }
     }
     setPriceMap(m);
-    setDiscountMap(d);
   }, [rfq?._id, rfq?.prices?.length]);
 
   // Authoritative per-vendor checkbox seed. Rebuilds each vendor's ticks from
@@ -239,55 +232,85 @@ const RfqView = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfq?._id, rfq?.vendors?.length]);
 
-  // When the active vendor changes, auto-check (once) the products it actually
-  // supplies (a current price-list entry). Items it doesn't sell are left
-  // unchecked but stay selectable.
+  // When the active vendor changes, fetch its current price-list entries and:
+  //   • tick (once) the products it supplies — leaving others selectable;
+  //   • prefill each line's Price input with the vendor's last active price
+  //     (blank when none) so the operator confirms or overwrites the quote.
+  // A persisted/locally-edited value always wins — prefill only fills blanks.
   useEffect(() => {
     if (!addVendorId) return;
-    if (checkedByVendor[addVendorId]) return; // preserve existing checks
-    // Saved selection wins over the sellable default. Without this, on SPA
-    // back-navigation the price-list seed can race the restore effect and the
-    // "don't clobber" guard then drops the saved ticks (only a hard refresh,
-    // with different timing, showed them). Seed straight from the vendor's
-    // persisted checked_line_ids when present.
+
+    const productIds = Array.from(
+      new Set(lines.map((l) => l.product_id).filter(Boolean))
+    );
+
+    // Restore the vendor's saved checkbox selection if present; else seed it
+    // from the sellable set once the prices come back.
     const savedVendor = (rfq?.vendors || []).find(
       (v) => v.vendor_id === addVendorId
     );
     const savedIds = Array.isArray(savedVendor?.checked_line_ids)
       ? savedVendor.checked_line_ids
       : [];
-    if (savedIds.length) {
+    const hasChecks = !!checkedByVendor[addVendorId];
+    if (savedIds.length && !hasChecks) {
       const checks = {};
       for (const lid of savedIds) checks[lid] = true;
       setCheckedByVendor((m) =>
         m[addVendorId] ? m : { ...m, [addVendorId]: checks }
       );
-      return;
     }
-    const productIds = Array.from(
-      new Set(lines.map((l) => l.product_id).filter(Boolean))
-    );
-    const seed = (sellable) => {
-      const init = {};
-      for (const l of lines) {
-        init[l._id] = !!(l.product_id && sellable.has(l.product_id));
-      }
-      setCheckedByVendor((m) =>
-        m[addVendorId] ? m : { ...m, [addVendorId]: init }
-      );
-    };
-    if (!productIds.length) {
-      seed(new Set());
-      return;
-    }
+
+    if (!productIds.length) return;
+
     instance
       .get(API_ENDPOINTS.priceList.currentPrices, {
         params: { vendor_id: addVendorId, product_ids: productIds.join(",") },
       })
-      .then((resp) =>
-        seed(new Set((resp?.data?.data || []).map((r) => r.product_id)))
-      )
-      .catch(() => seed(new Set()));
+      .then((resp) => {
+        const rows = resp?.data?.data || [];
+        const sellable = new Set(rows.map((r) => r.product_id));
+        const priceByProduct = {};
+        for (const r of rows) priceByProduct[r.product_id] = r.unit_price;
+
+        // Seed checkboxes once (don't clobber saved/edited ticks).
+        if (!hasChecks && !savedIds.length) {
+          const init = {};
+          for (const l of lines) {
+            init[l._id] = !!(l.product_id && sellable.has(l.product_id));
+          }
+          setCheckedByVendor((m) =>
+            m[addVendorId] ? m : { ...m, [addVendorId]: init }
+          );
+        }
+
+        // Prefill the last active price for lines without a value yet.
+        setPriceMap((m) => {
+          const next = { ...m };
+          let changed = false;
+          for (const l of lines) {
+            const k = key(l._id, addVendorId);
+            const cur = priceByProduct[l.product_id];
+            if (
+              cur != null &&
+              (next[k] === undefined || String(next[k]).trim() === "")
+            ) {
+              next[k] = limit2(cur);
+              changed = true;
+            }
+          }
+          return changed ? next : m;
+        });
+      })
+      .catch(() => {
+        if (!hasChecks && !savedIds.length) {
+          const init = {};
+          for (const l of lines) init[l._id] = false;
+          setCheckedByVendor((m) =>
+            m[addVendorId] ? m : { ...m, [addVendorId]: init }
+          );
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addVendorId, lines.length]);
 
@@ -393,7 +416,7 @@ const RfqView = () => {
   };
 
   // Called by the import modal after a confirmed import → seed that vendor's
-  // column (price + discount) and refresh its greyed last-known reference.
+  // price column and refresh its greyed last-known reference.
   const handleImported = (vendorId, rows) => {
     const byProduct = {};
     for (const r of rows || []) byProduct[r.product_id] = r;
@@ -402,16 +425,6 @@ const RfqView = () => {
       for (const l of lines) {
         const r = byProduct[l.product_id];
         if (r) next[key(l._id, vendorId)] = limit2(r.unit_price);
-      }
-      return next;
-    });
-    setDiscountMap((m) => {
-      const next = { ...m };
-      for (const l of lines) {
-        const r = byProduct[l.product_id];
-        if (r && r.discount_pct != null && Number(r.discount_pct) > 0) {
-          next[key(l._id, vendorId)] = limit2(r.discount_pct);
-        }
       }
       return next;
     });
@@ -426,17 +439,12 @@ const RfqView = () => {
         const k = key(l._id, v.vendor_id);
         const val = priceMap[k];
         if (val !== undefined && String(val).trim() !== "") {
-          const disc = discountMap[k];
           // `lineRef` is the lead-line _id in draft mode (mapped to the real
           // rfq_line_id after creation) and the rfq_line_id otherwise.
           prices.push({
             lineRef: l._id,
             vendor_id: v.vendor_id,
             unit_price: String(val),
-            discount_pct:
-              disc !== undefined && String(disc).trim() !== ""
-                ? String(disc)
-                : "0",
           });
         }
       }
@@ -485,7 +493,6 @@ const RfqView = () => {
           rfq_line_id: lineByLead[p.lineRef],
           vendor_id: p.vendor_id,
           unit_price: p.unit_price,
-          discount_pct: p.discount_pct,
         }))
         .filter((p) => p.rfq_line_id);
       const checks = checkedByVendor[activeVendorId] || {};
@@ -543,7 +550,6 @@ const RfqView = () => {
               rfq_line_id: p.lineRef,
               vendor_id: p.vendor_id,
               unit_price: p.unit_price,
-              discount_pct: p.discount_pct,
             })),
             checked_line_ids: checkedLineIds,
             checked_vendor_id: activeVendorId || undefined,
@@ -551,6 +557,11 @@ const RfqView = () => {
         })
       ).unwrap();
       setDirty(false);
+      // Keep the active vendor selected across the refetch so the saved values
+      // stay on screen (the default-vendor effect won't change a valid pick).
+      const keepVendor = activeVendorId;
+      await dispatch(getRfq(id));
+      if (keepVendor) setAddVendorId(keepVendor);
     } catch (e) {
       Notification("Error", t("Could not save prices."), "warning");
     } finally {
@@ -740,7 +751,21 @@ const RfqView = () => {
     <Fragment>
       <Card className="mb-1">
         <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
-          <div>
+          <div className="d-flex align-items-center gap-1">
+            <Avatar
+              initials
+              color="light-primary"
+              className="rounded"
+              content="R"
+              contentStyles={{
+                borderRadius: 0,
+                fontSize: "calc(18px)",
+                width: "100%",
+                height: "100%",
+              }}
+              style={{ height: "56px", width: "56px" }}
+            />
+            <div>
             <div className="d-flex flex-wrap align-items-center gap-1">
               <h4 className="mb-0">{headerVoucher}</h4>
               <Badge
@@ -750,81 +775,55 @@ const RfqView = () => {
               >
                 {headerStatus}
               </Badge>
-              {/* Editable status — only on a saved RFQ (a draft has no id yet).
-                  Any → any transition; ops may need to correct mistakes. */}
-              {!isDraft && (
-                <UncontrolledButtonDropdown>
-                  <DropdownToggle color="outline-secondary" size="sm" caret>
-                    {t("Change Status")}
-                  </DropdownToggle>
-                  <DropdownMenu end className="rfq-status-menu">
-                    {/* The theme turns dropdown-item text white on hover with
-                        no fill → invisible on the white menu. Force a readable
-                        light-primary hover instead. */}
-                    <style>{`
-                      .rfq-status-menu .dropdown-item {
-                        display: flex;
-                        align-items: center;
-                        width: 100%;
-                        margin: 0 !important;
-                        border-radius: 0 !important;
-                      }
-                      .rfq-status-menu .dropdown-item:hover,
-                      .rfq-status-menu .dropdown-item:focus {
-                        background-color: rgba(115,103,240,0.12) !important;
-                        color: #7367f0 !important;
-                      }
-                    `}</style>
-                    <DropdownItem header className="text-uppercase small">
-                      {t("Set status")}
-                    </DropdownItem>
-                    {STATUS_OPTIONS.map((s) => {
-                      const isCurrent = s === rfq?.status;
-                      return (
-                        <DropdownItem
-                          key={s}
-                          className={`text-capitalize d-flex align-items-center${
-                            isCurrent ? " fw-bold" : ""
-                          }`}
-                          disabled={store?.loading || isCurrent}
-                          onClick={() => onChangeStatus(s)}
-                        >
-                          <span
-                            className={`bg-${
-                              STATUS_COLOR[s] || "secondary"
-                            } rounded-circle d-inline-block me-50`}
-                            style={{ width: 8, height: 8 }}
-                          />
-                          {t(s)}
-                          {isCurrent && (
-                            <Check size={14} className="ms-auto" />
-                          )}
-                        </DropdownItem>
-                      );
-                    })}
-                  </DropdownMenu>
-                </UncontrolledButtonDropdown>
-              )}
             </div>
             {/* Vendors are shown + managed in the "Collect Vendor Prices"
                 card below. Lead info kept to one compact muted line so the
                 pricing grid surfaces higher. */}
             {(leadCompany || leadVoucher) && (
-              <div className="text-muted small mt-25 d-flex flex-wrap align-items-center gap-50">
+              <div className="text-muted small mt-25 d-inline-flex flex-wrap align-items-center gap-1">
                 {leadCompany && (
-                  <span className="fw-semibold text-capitalize text-body">
+                  <span className="d-inline-flex align-items-center text-capitalize fw-semibold text-body">
+                    <Briefcase size={13} className="me-25" />
                     {leadCompany}
                   </span>
                 )}
-                {leadVoucher && (
-                  <span>
-                    · {t("Lead")} {leadVoucher}
-                  </span>
-                )}
+                {leadVoucher &&
+                  (exportLeadId ? (
+                    <a
+                      href={`${appsRoot}/leads/view/${exportLeadId}`}
+                      className="text-reset text-decoration-none d-inline-flex align-items-center"
+                    >
+                      <Hash size={13} className="me-25" />
+                      {t("Lead")} {leadVoucher}
+                    </a>
+                  ) : (
+                    <span className="d-inline-flex align-items-center">
+                      <Hash size={13} className="me-25" />
+                      {t("Lead")} {leadVoucher}
+                    </span>
+                  ))}
               </div>
             )}
+            </div>
           </div>
-          <div className="d-flex gap-1">
+          <div className="d-flex gap-1 align-items-center">
+            {/* Editable status — only on a saved RFQ (any → any; ops may need
+                to correct mistakes). Placed beside Create Quotation. */}
+            {!isDraft && (
+              <StatusChangeDropdown
+                label={t("Change Status")}
+                toggleColor="outline-secondary"
+                menuEnd
+                items={STATUS_OPTIONS.map((s) => ({
+                  key: s,
+                  label: t(s),
+                  dotColor: STATUS_COLOR[s] || "secondary",
+                  current: s === rfq?.status,
+                  disabled: store?.loading || s === rfq?.status,
+                  onClick: () => onChangeStatus(s),
+                }))}
+              />
+            )}
             {/* Create Quotation — seeds the wizard from this RFQ's lead and
                 auto-picks the cheapest current price-list row per line. */}
             {!isDraft &&
@@ -1038,9 +1037,6 @@ const RfqView = () => {
                     <th className="text-end" style={{ width: 120 }}>
                       {t("Price")}
                     </th>
-                    <th className="text-end" style={{ width: 90 }}>
-                      {t("Disc %")}
-                    </th>
                     <th className="text-end" style={{ width: 130 }}>
                       {t("Total")}
                     </th>
@@ -1053,9 +1049,7 @@ const RfqView = () => {
                     const hasPrice =
                       priceVal !== undefined && String(priceVal).trim() !== "";
                     const pNum = Number(priceVal) || 0;
-                    const dNum = Number(discountMap[k]) || 0;
-                    const net = pNum * (1 - dNum / 100);
-                    const total = (Number(l.qty) || 0) * net;
+                    const total = (Number(l.qty) || 0) * pNum;
                     return (
                       <tr key={l._id}>
                         <td className="text-center align-top">
@@ -1076,15 +1070,48 @@ const RfqView = () => {
                               {l.product_code}
                             </div>
                           )}
+                          {(l.part_no || l.hsn_code || l.hs_code) && (
+                            <div className="text-muted small">
+                              {l.part_no ? `${t("Part")}: ${l.part_no}` : ""}
+                              {l.part_no && (l.hsn_code || l.hs_code)
+                                ? " · "
+                                : ""}
+                              {l.hsn_code || l.hs_code
+                                ? `${t("HSN")}: ${l.hsn_code || l.hs_code}`
+                                : ""}
+                            </div>
+                          )}
                         </td>
                         <td className="text-end align-top">
                           {limit2(l.qty)} {l.unit || ""}
                         </td>
                         <td className="text-end align-top">
-                          {hasPrice ? `₹${pNum.toFixed(2)}` : "-"}
-                        </td>
-                        <td className="text-end align-top">
-                          {dNum > 0 ? `${limit2(dNum)}%` : "-"}
+                          <Input
+                            bsSize="sm"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            inputMode="decimal"
+                            className="text-end"
+                            style={{ maxWidth: 120, marginLeft: "auto" }}
+                            placeholder="0.00"
+                            disabled={!activeVendorId || !activeChecks[l._id]}
+                            value={priceVal ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setPriceMap((m) => ({ ...m, [k]: v }));
+                              setDirty(true);
+                            }}
+                            onBlur={(e) => {
+                              const v = e.target.value;
+                              if (v !== "" && !Number.isNaN(Number(v))) {
+                                setPriceMap((m) => ({
+                                  ...m,
+                                  [k]: Number(v).toFixed(2),
+                                }));
+                              }
+                            }}
+                          />
                         </td>
                         <td className="text-end align-top fw-bold">
                           {hasPrice ? `₹${total.toFixed(2)}` : "-"}
@@ -1191,7 +1218,6 @@ const RfqView = () => {
                 <thead className="table-light">
                   <tr>
                     <th>{t("Product")}</th>
-                    <th className="text-end">{t("Qty")}</th>
                     {vendors.map((v) => (
                       <th key={v.vendor_id} className="text-end text-nowrap">
                         {v.vendor_code || v.vendor_name}
@@ -1203,8 +1229,7 @@ const RfqView = () => {
                   {lines.map((l) => {
                     const cells = vendors.map((v) => {
                       const p = num(priceMap[key(l._id, v.vendor_id)]);
-                      const d = num(discountMap[key(l._id, v.vendor_id)]);
-                      const eff = p > 0 ? p * (1 - d / 100) : null;
+                      const eff = p > 0 ? p : null;
                       return { vid: v.vendor_id, eff };
                     });
                     const valid = cells
@@ -1217,11 +1242,6 @@ const RfqView = () => {
                           {[l.product_code, l.product_name]
                             .filter(Boolean)
                             .join(" - ") || "-"}
-                        </td>
-                        <td className="text-end text-nowrap">
-                          {l.qty
-                            ? `${num(l.qty)}${l.unit ? ` ${l.unit}` : ""}`
-                            : "-"}
                         </td>
                         {cells.map((c) => {
                           const isMin = c.eff != null && c.eff === min;

@@ -1,6 +1,6 @@
 // ** React Imports
 import { Fragment, useEffect, useMemo, useLayoutEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
@@ -12,8 +12,6 @@ import {
 } from "../store";
 import { getCustomerDropdown, getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
-import { getRebateDropdown } from "../../rebates/store";
-import { getExpenseDropdown } from "../../expenses/store";
 import { getExchangeRateOptions } from "../../currencies/store";
 import { getVendorDropdown } from "../../vendors/store";
 import { startLoading, stopLoading } from "../../loadingstore";
@@ -56,8 +54,8 @@ import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
 import "@src/views/_shared/wizard/wizard.scss";
 
-// ** Shared line-item table (same component the Quotation/PFI/PO wizards use).
-import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
+// ** Inline requirement-items grid (lead-only; add-row, edit in place).
+import LeadRequirementItems from "@src/views/leads/components/LeadRequirementItems";
 import { initQuotationLineItem } from "@constant/reduxConstant";
 
 // ** Constants
@@ -105,8 +103,6 @@ const LeadForm = () => {
   const store = useSelector((state) => state.lead);
   const customerStore = useSelector((state) => state.customer);
   const productStore = useSelector((state) => state.product);
-  const rebateStore = useSelector((state) => state.rebate);
-  const expenseStore = useSelector((state) => state.expense);
   const vendorStore = useSelector((state) => state.vendor);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
@@ -160,8 +156,18 @@ const LeadForm = () => {
   });
 
   // ── Wizard navigation state ─────────────────────────────────────────
-  const [activeStep, setActiveStep] = useState(0);
-  const [visited, setVisited] = useState(new Set([0]));
+  const [searchParams] = useSearchParams();
+  // Optional ?step=N (1-indexed) deep-link — e.g. "Add Line" jumps to step 2
+  // (Requirement Items). Clamped to a valid step; defaults to the first.
+  const initialStep = (() => {
+    const raw = parseInt(searchParams.get("step"), 10);
+    if (!raw || Number.isNaN(raw)) return 0;
+    return Math.min(Math.max(raw - 1, 0), STEPS.length - 1);
+  })();
+  const [activeStep, setActiveStep] = useState(initialStep);
+  const [visited, setVisited] = useState(
+    new Set(Array.from({ length: initialStep + 1 }, (_, i) => i))
+  );
 
   const goTo = async (idx, { validate = true } = {}) => {
     if (idx === activeStep) return;
@@ -212,8 +218,6 @@ const LeadForm = () => {
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
-    dispatch(getRebateDropdown());
-    dispatch(getExpenseDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getVendorDropdown());
     if (isEditMode) {
@@ -444,16 +448,6 @@ const LeadForm = () => {
     value: p._id,
     label: `${p.code ? p.code + " - " : ""}${p.name || p.product_name}`,
     raw: p,
-  }));
-  const rebateOptions = (rebateStore?.rebateDropdown || []).map((r) => ({
-    value: r._id,
-    label: r.name,
-    raw: r,
-  }));
-  const expenseOptions = (expenseStore?.expenseDropdown || []).map((e) => ({
-    value: e._id,
-    label: e.name,
-    raw: e,
   }));
 
   const currencyOptions = (currencyStore?.exchangeOptions || []).map((c) => ({
@@ -770,24 +764,11 @@ const LeadForm = () => {
                       "What the customer wants. Price auto-fills from the cheapest current vendor in the price list. Use Import / Export for bulk entry."
                     )}
                   </small>
-                  <SalesDocLineItems
+                  <LeadRequirementItems
                     control={control}
                     setValue={setValue}
                     productOptions={allProductOptions}
-                    allProductOptions={allProductOptions}
                     initLineItem={initQuotationLineItem}
-                    rebateOptions={rebateOptions}
-                    expenseOptions={expenseOptions}
-                    currencyCode={watch("currency") || "INR"}
-                    baseCurrencyCode="INR"
-                    exchangeRate={1}
-                    tableLayout="detailed"
-                    displayInBase
-                    docType="lead"
-                    docNumber=""
-                    hideGst
-                    showExportFields
-                    requirementMode
                   />
                 </Col>
                 <Col md="3" className="mb-2">

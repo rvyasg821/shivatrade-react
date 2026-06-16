@@ -30,7 +30,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -173,7 +173,53 @@ const VendorList = () => {
       name: t("Company"),
       sortField: "company_name",
       sortable: true,
-      grow: 2,
+      grow: 1.6,
+      wrap: true,
+      selector: (row) => {
+        const cats = row?.categories || [];
+        return (
+          <div className="py-75" style={{ minWidth: 0 }}>
+            <Link
+              to={`${appsRoot}/vendors/view/${row?._id || ""}`}
+              style={{ textDecoration: "none" }}
+            >
+              <span
+                className="fw-bold text-capitalize text-break"
+                style={{ overflowWrap: "anywhere" }}
+                ref={(el) => {
+                  if (el) el.style.setProperty("color", "#09418B", "important");
+                }}
+              >
+                {row?.company_name || "-"}
+              </span>
+            </Link>
+            {cats.length > 0 && (
+              <div className="d-flex flex-wrap gap-50 mt-50">
+                {cats.map((c) => (
+                  <span
+                    key={c._id || c.name}
+                    className="badge rounded-pill text-capitalize text-nowrap"
+                    ref={(el) => {
+                      if (el) {
+                        el.style.setProperty("background-color", "#09418B", "important");
+                        el.style.setProperty("color", "#fff", "important");
+                      }
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      name: t("Contact"),
+      sortable: false,
+      grow: 1.6,
+      wrap: true,
       selector: (row) => {
         const phone =
           row?.primary_contact_country_code?.formatted ||
@@ -182,77 +228,32 @@ const VendorList = () => {
             ? `${row.primary_contact_country_code.dial_code} ${row.primary_contact_phone}`
             : row?.primary_contact_phone) ||
           "";
-        const nameNode = (
-          <span
-            className="fw-bold text-capitalize text-break"
-            style={{ overflowWrap: "anywhere" }}
-            ref={(el) => {
-              if (el) el.style.setProperty("color", "#09418B", "important");
-            }}
-          >
-            {row?.company_name || "-"}
-          </span>
-        );
+        if (!row?.primary_contact_name && !row?.primary_contact_email && !phone)
+          return <span className="text-muted">-</span>;
         return (
-          <div className="py-1" style={{ minWidth: 0 }}>
-            <Link
-              to={`${appsRoot}/vendors/view/${row?._id || ""}`}
-              style={{ textDecoration: "none" }}
-            >
-              {nameNode}
-            </Link>
+          <div className="py-75" style={{ minWidth: 0 }}>
             {row?.primary_contact_name && (
-              <div
-                className="text-capitalize small text-break"
-                style={{ overflowWrap: "anywhere" }}
-              >
-                {row.primary_contact_name}
+              <div className="d-flex align-items-center text-capitalize text-break mb-25">
+                <User size={13} className="text-muted me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.primary_contact_name}
+                </span>
               </div>
             )}
             {row?.primary_contact_email && (
-              <div
-                className="small text-muted text-break"
-                style={{ overflowWrap: "anywhere" }}
-              >
-                {row.primary_contact_email}
+              <div className="d-flex align-items-center small text-muted text-break mb-25">
+                <Mail size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.primary_contact_email}
+                </span>
               </div>
             )}
             {phone && (
-              <div
-                className="small text-muted text-break"
-                style={{ overflowWrap: "anywhere" }}
-              >
-                {phone}
+              <div className="d-flex align-items-center small text-muted text-break">
+                <Phone size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
               </div>
             )}
-          </div>
-        );
-      },
-    },
-    {
-      name: t("Categories"),
-      sortable: false,
-      grow: 1.5,
-      wrap: true,
-      selector: (row) => {
-        const cats = row?.categories || [];
-        if (cats.length === 0) return <span className="text-muted">-</span>;
-        return (
-          <div className="d-flex flex-wrap gap-50 py-50">
-            {cats.map((c) => (
-              <span
-                key={c._id || c.name}
-                className="badge rounded-pill text-capitalize text-nowrap"
-                ref={(el) => {
-                  if (el) {
-                    el.style.setProperty("background-color", "#09418B", "important");
-                    el.style.setProperty("color", "#fff", "important");
-                  }
-                }}
-              >
-                {c.name}
-              </span>
-            ))}
           </div>
         );
       },

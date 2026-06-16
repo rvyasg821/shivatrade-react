@@ -18,9 +18,12 @@ import {
   Inbox,
   X as XIcon,
   ArrowLeft,
-  Hash,
   ExternalLink,
   Activity,
+  Briefcase,
+  Mail,
+  Phone,
+  Download,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -32,6 +35,8 @@ import {
   cancelPoVendor,
 } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
@@ -44,10 +49,8 @@ import {
 } from "@src/views/_shared/detail-page";
 
 import PoVendorTabView from "./tabView";
-import PoVendorShareLinkPanel from "./PoVendorShareLinkPanel";
-import PoVendorTotalsPanel from "./PoVendorTotalsPanel";
-import PoVendorDispatchModal from "@src/views/_shared/po-vendor/PoVendorDispatchModal";
-import PoVendorReceiveModal from "@src/views/_shared/po-vendor/PoVendorReceiveModal";
+import PoVendorTimelinePanel from "./PoVendorTimelinePanel";
+import { createGrnFromPov } from "@src/views/grn/store";
 
 import "@styles/react/apps/app-users.scss";
 
@@ -95,8 +98,7 @@ const ViewPoVendor = () => {
   const p = store?.poVendorItem || {};
   const sym = p?.currency_symbol || "₹";
 
-  const [dispatchOpen, setDispatchOpen] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [creatingGrn, setCreatingGrn] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
@@ -156,6 +158,32 @@ const ViewPoVendor = () => {
           dispatch(cancelPoVendor({ id, reason: result.value }));
         }
       });
+  };
+
+  // Create a GRN (receipt + QC) against this dispatched POV and open it.
+  const onCreateGrn = async () => {
+    setCreatingGrn(true);
+    try {
+      const res = await dispatch(createGrnFromPov({ povId: id })).unwrap();
+      const newId = res?.grnItem?._id;
+      if (newId) {
+        navigate(`${appsRoot}/grn/view/${newId}`);
+      } else {
+        Notification(
+          "Error",
+          res?.error || t("Could not create GRN."),
+          "warning"
+        );
+      }
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.message || t("Could not create GRN."),
+        "warning"
+      );
+    } finally {
+      setCreatingGrn(false);
+    }
   };
 
   // ── KPI calculations ──
@@ -245,20 +273,49 @@ const ViewPoVendor = () => {
     },
   ];
 
+  // Server-side PDF download (same endpoint the listing uses).
+  const handleDownloadPdf = async () => {
+    if (!id) return;
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf`,
+        { responseType: "blob" }
+      );
+      const cd = resp.headers?.["content-disposition"] || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${p?.voucher_no || "vendor-po"}.pdf`;
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Could not download PDF"),
+        "warning"
+      );
+    }
+  };
+
   // ── Header actions (contextual to status) ──
   const headerActions = [];
   if (canDispatch) {
     headerActions.push({
       icon: Send,
-      label: t("Mark Dispatched"),
-      onClick: () => setDispatchOpen(true),
+      label: t("Dispatch"),
+      onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
     });
   }
   if (canReceive) {
     headerActions.push({
       icon: Inbox,
-      label: t("Mark Received"),
-      onClick: () => setReceiveOpen(true),
+      label: t("Create GRN"),
+      disabled: creatingGrn,
+      onClick: onCreateGrn,
     });
   }
   if (canCancel) {
@@ -269,42 +326,69 @@ const ViewPoVendor = () => {
     });
   }
   headerActions.push({
+    icon: Download,
+    label: t("Download"),
+    color: "secondary",
+    outline: true,
+    onClick: () => handleDownloadPdf(),
+  });
+  headerActions.push({
     icon: ArrowLeft,
     label: t("Back"),
     onClick: () => navigate(-1),
   });
 
-  // ── Subtitle / meta links ──
-  const subtitleParts = [
-    p?.vendor_name,
-    p?.vendor_contact_name,
-    p?.vendor_contact_email,
-  ].filter(Boolean);
+  // ── Subtitle (icon contact line) / meta links ──
+  const cc = p?.vendor_contact_country_code;
+  const vendorPhone =
+    cc?.formatted ||
+    (cc?.dial_code || cc?.dialCode
+      ? `${cc.dial_code || cc.dialCode} ${p?.vendor_contact_phone || ""}`.trim()
+      : p?.vendor_contact_phone) ||
+    null;
+
+  const contactLine =
+    p?.vendor_name || p?.vendor_contact_email || vendorPhone ? (
+      <span className="d-inline-flex align-items-center flex-wrap gap-1">
+        {p?.vendor_name ? (
+          <span className="d-inline-flex align-items-center text-capitalize">
+            <Briefcase size={13} className="me-25" />
+            {p.vendor_name}
+          </span>
+        ) : null}
+        {p?.vendor_contact_email ? (
+          <span className="d-inline-flex align-items-center">
+            <Mail size={13} className="me-25" />
+            {p.vendor_contact_email}
+          </span>
+        ) : null}
+        {vendorPhone ? (
+          <span className="d-inline-flex align-items-center">
+            <Phone size={13} className="me-25" />
+            {vendorPhone}
+          </span>
+        ) : null}
+      </span>
+    ) : null;
 
   const meta = (
-    <span className="d-inline-flex align-items-center flex-wrap gap-1 pt-50">
-      {p?._id ? (
-        <span>
-          <Hash size={12} className="me-25" />
-          {p._id.slice(-8).toUpperCase()}
-        </span>
-      ) : null}
+    <span className="d-inline-flex align-items-center flex-wrap gap-1">
       {p?.purchase_order_id ? (
         <a
           href={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-reset text-decoration-none ms-1"
+          className="text-reset text-decoration-none d-inline-flex align-items-center"
         >
           <ExternalLink size={12} className="me-25" />
-          {t("Source PO")}
+          {t("Source SO")}
           {p?.purchase_order_voucher_no
             ? ` · ${p.purchase_order_voucher_no}`
             : ""}
         </a>
       ) : null}
       {p?.currency_code ? (
-        <span className="ms-1 text-muted">
+        <span className="text-muted">
           · {sym} {p.currency_code}
         </span>
       ) : null}
@@ -317,13 +401,7 @@ const ViewPoVendor = () => {
         <DetailHeader
           avatarText="V"
           title={p?.voucher_no || "-"}
-          subtitle={
-            subtitleParts.length ? (
-              <span className="d-block pt-50 text-muted">
-                {subtitleParts.join(" · ")}
-              </span>
-            ) : null
-          }
+          subtitle={contactLine}
           meta={meta}
           badge={{
             label: statusLabel,
@@ -343,25 +421,11 @@ const ViewPoVendor = () => {
         <DetailKpiStrip items={kpiItems} />
 
         <DetailTwoPanel
-          ratio="9-3"
+          ratio="8-4"
           left={<PoVendorTabView />}
-          right={
-            <Fragment>
-              <PoVendorShareLinkPanel />
-              <PoVendorTotalsPanel />
-            </Fragment>
-          }
+          right={<PoVendorTimelinePanel />}
         />
       </div>
-
-      <PoVendorDispatchModal
-        isOpen={dispatchOpen}
-        toggle={() => setDispatchOpen((s) => !s)}
-      />
-      <PoVendorReceiveModal
-        isOpen={receiveOpen}
-        toggle={() => setReceiveOpen((s) => !s)}
-      />
     </Fragment>
   );
 };

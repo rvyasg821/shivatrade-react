@@ -217,21 +217,22 @@ export const PoCoveragePanel = ({ data }) => {
         </div>
       ) : (
         <Fragment>
+        <div className="border rounded">
         <Table responsive bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th>{t("Product")}</th>
-              <th style={{ width: 100 }} className="text-end text-nowrap">
+              <th style={{ width: "auto" }}>{t("Product")}</th>
+              <th style={{ width: 78 }} className="text-end text-nowrap">
                 {t("Ordered")}
               </th>
-              <th style={{ width: 100 }} className="text-end text-nowrap">
+              <th style={{ width: 92 }} className="text-end text-nowrap">
                 {t("Dispatched")}
               </th>
-              <th style={{ width: 100 }} className="text-end text-nowrap">
+              <th style={{ width: 82 }} className="text-end text-nowrap">
                 {t("Received")}
               </th>
               <th
-                style={{ width: 90 }}
+                style={{ width: 64 }}
                 className="text-end text-nowrap text-warning"
                 title={t(
                   "Physical loss: qty that left the vendor but never arrived (dispatched − received on closed POVs). Released back to Pending so a follow-up POV can cover it."
@@ -239,7 +240,7 @@ export const PoCoveragePanel = ({ data }) => {
               >
                 {t("Short")}
               </th>
-              <th style={{ width: 100 }} className="text-end text-nowrap">
+              <th style={{ width: 80 }} className="text-end text-nowrap">
                 {t("Pending")}
               </th>
             </tr>
@@ -256,15 +257,20 @@ export const PoCoveragePanel = ({ data }) => {
               return (
                 <tr key={l.purchase_order_line_id}>
                   <td>
-                    <div className="fw-semibold">{l?.product_name || "-"}</div>
-                    <div className="small text-muted">
-                      {[
-                        l?.product_code,
-                        l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                    <div className="fw-semibold text-capitalize">
+                      {l?.product_name || "-"}
                     </div>
+                    {(() => {
+                      const sub = [
+                        l?.part_no ? `Part: ${l.part_no}` : null,
+                        l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
+                      ].filter(Boolean);
+                      return sub.length ? (
+                        <div className="small text-muted">
+                          {sub.join(" · ")}
+                        </div>
+                      ) : null;
+                    })()}
                   </td>
                   <td className="text-end">
                     {num(l.ordered).toLocaleString()}{" "}
@@ -319,6 +325,7 @@ export const PoCoveragePanel = ({ data }) => {
             </tr>
           </tfoot>
         </Table>
+        </div>
 
         {coverage.lines.length > 0 && (
           <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
@@ -435,6 +442,7 @@ export const PoVendorsPanel = ({ data }) => {
 
   return (
     <Fragment>
+    <div className="border rounded">
     <Table responsive bordered size="sm" className="align-middle mb-0">
       <thead className="table-light">
         <tr>
@@ -464,6 +472,9 @@ export const PoVendorsPanel = ({ data }) => {
                   rel="noreferrer"
                   className="fw-bold d-inline-flex align-items-center"
                   id={`pov-open-${p._id}`}
+                  ref={(el) =>
+                    el && el.style.setProperty("color", "#09418B", "important")
+                  }
                 >
                   {p.voucher_no}
                   <ExternalLink size={12} className="ms-25" />
@@ -474,15 +485,17 @@ export const PoVendorsPanel = ({ data }) => {
                 >
                   {t("Open POV detail")}
                 </UncontrolledTooltip>
-                {p.vendor_name ? (
-                  <div className="small text-muted text-capitalize">
-                    {p.vendor_name}
-                  </div>
-                ) : null}
-                <div className="mt-25">
+                <div className="d-flex align-items-center justify-content-between gap-1 mt-25">
+                  {p.vendor_name ? (
+                    <span className="small text-muted text-capitalize">
+                      {p.vendor_name}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
                   <Badge
                     color={`light-${color}`}
-                    className={`badge-light-${color} text-capitalize`}
+                    className={`badge-light-${color} text-capitalize flex-shrink-0`}
                   >
                     {p.status}
                   </Badge>
@@ -503,6 +516,7 @@ export const PoVendorsPanel = ({ data }) => {
         })}
       </tbody>
     </Table>
+    </div>
 
     {totalPovs > 0 && (
       <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">

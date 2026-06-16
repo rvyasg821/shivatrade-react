@@ -15,7 +15,7 @@ import {
   Table,
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
-import { ArrowLeft, Download, Save, CheckCircle } from "react-feather";
+import { ArrowLeft, Download, Save, CheckCircle, XCircle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { getGrn, updateGrn, cleanGrnMessage } from "../store";
@@ -63,6 +63,7 @@ const GrnView = () => {
     const m = {};
     for (const l of grn.lines) {
       m[l._id] = {
+        received_qty: String(l.received_qty ?? ""),
         accepted_qty: String(l.accepted_qty ?? ""),
         rejected_qty: String(l.rejected_qty ?? ""),
         batch_no: l.batch_no || "",
@@ -79,7 +80,9 @@ const GrnView = () => {
   }, [store?.success, store?.error, store?.actionFlag]);
 
   const lines = grn?.lines || [];
-  const isLocked = (grn?.status || "") === "cancelled";
+  // Qty + QC are editable only while draft. Once confirmed/cancelled the GRN
+  // is locked (reverse via "Cancel GRN", which re-opens the POV).
+  const isLocked = (grn?.status || "") !== "draft";
 
   // Client-side pagination for the line table (not a DataTable).
   const totalLines = lines.length;
@@ -92,30 +95,52 @@ const GrnView = () => {
   }, [pageCount, page]);
 
   const totals = useMemo(() => {
+    let dispatched = 0;
     let received = 0;
     let accepted = 0;
     let rejected = 0;
     for (const l of lines) {
-      received += num(l.received_qty);
+      dispatched += num(l.dispatched_qty);
+      received += num(qc[l._id]?.received_qty ?? l.received_qty);
       accepted += num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
       rejected += num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
     }
-    return { received, accepted, rejected };
+    return { dispatched, received, accepted, rejected };
   }, [lines, qc]);
 
   const setField = (lineId, field, value) =>
     setQc((m) => ({ ...m, [lineId]: { ...m[lineId], [field]: value } }));
 
+  const r4 = (n) => Math.round(num(n) * 10000) / 10000;
+
+  // Editing Received re-defaults the split (all accepted, none rejected);
+  // operator then adjusts. Capped at this line's dispatched qty.
+  const onReceivedChange = (l, raw) => {
+    const dispatched = r4(l.dispatched_qty);
+    let v = num(raw);
+    if (!Number.isFinite(v) || v < 0) v = 0;
+    if (v > dispatched) v = dispatched;
+    setQc((m) => ({
+      ...m,
+      [l._id]: {
+        ...m[l._id],
+        received_qty: raw === "" ? "" : String(v),
+        accepted_qty: String(v),
+        rejected_qty: "0",
+      },
+    }));
+  };
+
   // Accepted + Rejected always split the Received qty — editing one
   // auto-adjusts the other (clamped to received), so they can never exceed it.
   const onQtyChange = (l, field, raw) => {
-    const received = Math.round(num(l.received_qty) * 10000) / 10000;
+    const received = r4(qc[l._id]?.received_qty ?? l.received_qty);
     let v = num(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
     if (v > received) v = received;
     const otherField =
       field === "accepted_qty" ? "rejected_qty" : "accepted_qty";
-    const other = Math.round((received - v) * 10000) / 10000;
+    const other = r4(received - v);
     setQc((m) => ({
       ...m,
       [l._id]: {
@@ -130,6 +155,7 @@ const GrnView = () => {
     const payload = {
       lines: lines.map((l) => ({
         _id: l._id,
+        received_qty: String(qc[l._id]?.received_qty ?? l.received_qty ?? "0"),
         accepted_qty: String(qc[l._id]?.accepted_qty ?? l.accepted_qty ?? "0"),
         rejected_qty: String(qc[l._id]?.rejected_qty ?? l.rejected_qty ?? "0"),
         batch_no: qc[l._id]?.batch_no ?? l.batch_no ?? "",
@@ -243,9 +269,16 @@ const GrnView = () => {
           </CardTitle>
           {!isLocked && (
             <div className="d-flex gap-1">
-              <Button color="primary" size="sm" outline onClick={() => onSave()}>
-                <Save size={14} className="me-25" /> {t("Save")}
-              </Button>
+              {grn.status === "draft" && (
+                <Button
+                  color="primary"
+                  size="sm"
+                  outline
+                  onClick={() => onSave()}
+                >
+                  <Save size={14} className="me-25" /> {t("Save")}
+                </Button>
+              )}
               {grn.status === "draft" && (
                 <Button
                   color="success"
@@ -255,6 +288,14 @@ const GrnView = () => {
                   <CheckCircle size={14} className="me-25" /> {t("Save & Confirm")}
                 </Button>
               )}
+              <Button
+                color="danger"
+                size="sm"
+                outline
+                onClick={() => onSave("cancelled")}
+              >
+                <XCircle size={14} className="me-25" /> {t("Cancel GRN")}
+              </Button>
             </div>
           )}
         </CardHeader>
@@ -273,38 +314,78 @@ const GrnView = () => {
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th style={{ minWidth: 200 }}>{t("Item")}</th>
-                  <th className="text-end">{t("Received")}</th>
-                  <th className="text-end" style={{ width: 130 }}>
+                  <th className="text-end" style={{ width: 90 }}>
+                    {t("Dispatched")}
+                  </th>
+                  <th className="text-end" style={{ width: 120 }}>
+                    {t("Received")}
+                  </th>
+                  <th className="text-end" style={{ width: 120 }}>
                     {t("Accepted")}
                   </th>
-                  <th className="text-end" style={{ width: 130 }}>
+                  <th className="text-end" style={{ width: 120 }}>
                     {t("Rejected")}
                   </th>
-                  <th style={{ width: 140 }}>{t("Batch")}</th>
-                  <th style={{ minWidth: 160 }}>{t("Remarks")}</th>
+                  <th style={{ width: 130 }}>{t("Batch")}</th>
+                  <th style={{ minWidth: 150 }}>{t("Remarks")}</th>
                 </tr>
               </thead>
               <tbody>
                 {pageLines.map((l, i) => {
-                  const received = num(l.received_qty);
+                  const received = num(qc[l._id]?.received_qty ?? l.received_qty);
                   const acc = num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
                   const rej = num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
                   const over = acc + rej > received + 1e-6;
+                  const recvOver = received > num(l.dispatched_qty) + 1e-6;
+                  const sub = [
+                    l.part_no ? `Part: ${l.part_no}` : null,
+                    l.hsn_code ? `HSN: ${l.hsn_code}` : null,
+                  ].filter(Boolean);
                   return (
                     <tr key={l._id}>
-                      <td>{pageStart + i + 1}</td>
+                      <td className="text-muted">{pageStart + i + 1}</td>
                       <td>
-                        <div className="fw-semibold">
+                        <div
+                          className="fw-semibold text-capitalize"
+                          ref={(el) =>
+                            el &&
+                            el.style.setProperty(
+                              "color",
+                              "#09418B",
+                              "important"
+                            )
+                          }
+                        >
                           {l.product_name || "-"}
                         </div>
-                        {l.product_code && (
+                        {sub.length ? (
                           <div className="text-muted small">
-                            {l.product_code}
+                            {sub.join(" · ")}
                           </div>
-                        )}
+                        ) : null}
                       </td>
-                      <td className="text-end">
-                        {num(l.received_qty).toFixed(2)} {l.unit || ""}
+                      <td className="text-end text-nowrap">
+                        {num(l.dispatched_qty).toFixed(2)}
+                        {l.unit ? (
+                          <span className="text-muted"> {l.unit}</span>
+                        ) : null}
+                      </td>
+                      <td>
+                        <Input
+                          type="number"
+                          bsSize="sm"
+                          className="text-end"
+                          style={{ fontSize: "inherit" }}
+                          min="0"
+                          max={num(l.dispatched_qty)}
+                          step="any"
+                          disabled={isLocked}
+                          invalid={recvOver}
+                          value={qc[l._id]?.received_qty ?? ""}
+                          onChange={(e) =>
+                            onReceivedChange(l, e.target.value)
+                          }
+                        />
                       </td>
                       <td>
                         <Input
@@ -371,6 +452,7 @@ const GrnView = () => {
                   <td colSpan={2} className="text-end">
                     {t("Total")}
                   </td>
+                  <td className="text-end">{totals.dispatched.toFixed(2)}</td>
                   <td className="text-end">{totals.received.toFixed(2)}</td>
                   <td className="text-end">{totals.accepted.toFixed(2)}</td>
                   <td className="text-end">{totals.rejected.toFixed(2)}</td>

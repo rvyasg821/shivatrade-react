@@ -4,8 +4,7 @@
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
-import { num } from "@src/views/_shared/sales-doc/_helpers";
-import SalesDocLineItemsTable from "@src/views/_shared/sales-doc/SalesDocLineItemsTable";
+import CustomerCostingTable from "@src/views/_shared/sales-doc/CustomerCostingTable";
 import { DetailPanel } from "@src/views/_shared/detail-page";
 import { useQuotationCurrency } from "./CurrencyToggleContext";
 
@@ -15,18 +14,17 @@ const LineItemsPanel = ({ bare = false }) => {
   const q = quotationItem || {};
   const lines = q?.lines || [];
 
-  // Currency view is driven by the detail-page toggle:
-  //   • base (default) → show INR (line_total is already stored in INR)
-  //   • doc            → multiply by the exchange rate (doc units per ₹1)
-  const { sym, fromInr } = useQuotationCurrency();
-  // line_total is stored in the base currency (INR); `fromInr` applies the
-  // active currency view so the table matches the costing card and KPIs.
-  const toDocCcy = (v) => fromInr(num(v));
+  // Customer-facing view — always shown in the quotation's own currency
+  // (the figure the customer sees), independent of the page's INR toggle.
+  const { baseCurrency } = useQuotationCurrency();
 
-  // Costing breakdown moved to the detail page's right column — this panel
-  // renders the line-items table only.
   const body = (
-    <SalesDocLineItemsTable lines={lines} sym={sym} toDocCcy={toDocCcy} />
+    <CustomerCostingTable
+      lines={lines}
+      exchangeRate={q?.exchange_rate}
+      docCurrencyCode={q?.currency_code || baseCurrency?.code || "INR"}
+      baseCurrencyCode={baseCurrency?.code || "INR"}
+    />
   );
 
   if (bare) return body;
