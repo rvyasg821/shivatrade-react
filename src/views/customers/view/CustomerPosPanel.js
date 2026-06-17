@@ -1,26 +1,25 @@
-// Customer detail page — Purchase Orders list using the shared
-// DatatablePagination wrapper, matching the PO/PFI/Quotation listing pages.
+// Customer detail page — Sales Orders list using the custom ReactPaginate
+// pagination (matching the Sales Order detail's vendor-PO/coverage panel).
 //
-// Server-paginated, sortable. Vendor column intentionally omitted; the
-// PO # cell shows the source PFI (or Quotation) link beneath it, mirroring
-// the main PO listing layout.
+// Server returns the customer's sales orders in one page (perPage 200) and we
+// paginate client-side. The SO # cell shows the source PFI (or Quotation) link
+// beneath it, mirroring the main listing layout.
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { UncontrolledTooltip, Badge } from "reactstrap";
+import { Table, Input, UncontrolledTooltip, Spinner } from "reactstrap";
+import ReactPaginate from "react-paginate";
 import { Eye, ExternalLink } from "react-feather";
 import { useTranslation } from "react-i18next";
-
-import DatatablePagination from "@components/datatable/DatatablePagination";
 
 import {
   getPurchaseOrderList,
   cleanPurchaseOrderMessage,
 } from "@src/views/purchase-orders/store";
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
-import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
+import { PURCHASE_ORDER_STATUS_COLOR_MAP } from "@constant/options";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -36,200 +35,201 @@ const CustomerPosPanel = () => {
   const { t } = useTranslation();
   const store = useSelector((s) => s.purchaseOrder);
 
-  const [sort, setSort] = useState("desc");
-  const [sortColumn, setSortColumn] = useState("po_date");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
 
-  const handleList = useCallback(
-    (
-      sorting = sort,
-      sortCol = sortColumn,
-      page = currentPage,
-      perPage = rowsPerPage
-    ) => {
-      if (!id) return;
+  useEffect(() => {
+    if (id) {
       dispatch(
         getPurchaseOrderList({
-          orderBy: sortCol,
-          orderDirection: sorting,
-          page,
-          perPage,
+          orderBy: "po_date",
+          orderDirection: "desc",
+          page: 1,
+          perPage: 200,
           search: "",
           customer_id: id,
         })
       );
-    },
-    [id, dispatch, sort, sortColumn, currentPage, rowsPerPage]
-  );
-
-  useEffect(() => {
-    handleList();
+    }
     return () => {
       dispatch(cleanPurchaseOrderMessage(null));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleSort = (column, sortDirection) => {
-    setSort(sortDirection);
-    setSortColumn(column.sortField);
-    setCurrentPage(1);
-    handleList(sortDirection, column.sortField, 1, rowsPerPage);
-  };
-  const handlePagination = (page) => {
-    setCurrentPage(page + 1);
-    handleList(sort, sortColumn, page + 1, rowsPerPage);
-  };
-  const handlePerPage = (value) => {
-    setRowsPerPage(value);
-    setCurrentPage(1);
-    handleList(sort, sortColumn, 1, value);
-  };
+  const rows = store?.purchaseOrderItems || [];
+  const loading = !!store?.loading;
+  const total = rows.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pagedRows = rows.slice(pageStart, pageStart + pageSize);
 
-  const columns = [
-    {
-      name: t("PO #"),
-      sortField: "voucher_no",
-      sortable: false,
-      minWidth: "220px",
-      grow: 1.6,
-      selector: (row) => {
-        const refVoucher = row?.pfi_voucher_no || row?.quotation_voucher_no;
-        const refTo = row?.pfi_id
-          ? `${appsRoot}/pfi/view/${row.pfi_id}`
-          : row?.quotation_id
-          ? `${appsRoot}/quotations/view/${row.quotation_id}`
-          : null;
-        const refLabel = row?.pfi_id ? "PFI" : "Quote";
-        return (
-          <div className="py-1">
-            <Link
-              to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
-              className="text-nowrap d-block"
-            >
-              {row?.voucher_no || "-"}
-            </Link>
-            {refVoucher ? (
-              <div className="mt-50">
-                {refTo ? (
-                  <Link
-                    to={refTo}
-                    className="small text-muted text-nowrap d-inline-flex align-items-center"
-                  >
-                    {refLabel} - {refVoucher}
-                    <ExternalLink size={12} className="ms-1" />
-                  </Link>
-                ) : (
-                  <span className="small text-muted text-nowrap">
-                    {refLabel} - {refVoucher}
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        );
-      },
-    },
-    {
-      name: t("Date"),
-      sortField: "po_date",
-      sortable: true,
-      minWidth: "130px",
-      selector: (row) => (row?.po_date ? formatDate(row.po_date) : "-"),
-    },
-    {
-      name: t("Expected"),
-      sortField: "expected_delivery_date",
-      sortable: true,
-      minWidth: "150px",
-      selector: (row) =>
-        row?.expected_delivery_date
-          ? formatDate(row.expected_delivery_date)
-          : "-",
-    },
-    {
-      name: t("Total"),
-      sortable: false,
-      right: true,
-      minWidth: "130px",
-      selector: (row) => {
-        const sym = row?.currency_symbol || row?.currency_code || "";
-        return row?.grand_total !== null && row?.grand_total !== undefined
-          ? `${sym}${fmt(row.grand_total)}`
-          : "-";
-      },
-    },
-    {
-      name: t("Status"),
-      sortable: false,
-      minWidth: "120px",
-      selector: (row) => {
-        const status = (row?.status || "").toLowerCase();
-        const color =
-          PURCHASE_ORDER_STATUS_BADGE_COLOR[status] || "secondary";
-        // "confirmed" gets the project primary blue with white text — the
-        // Vuexy `light-primary` token was rendering as near-black in this
-        // table cell.
-        if (status === "confirmed") {
-          return (
-            <Badge
-              className="text-capitalize text-white"
-              style={{
-                background: "#09418b",
-                border: "1px solid #09418b",
-                fontWeight: 600,
-              }}
-            >
-              {(row?.status || "-").replace(/_/g, " ")}
-            </Badge>
-          );
-        }
-        return (
-          <Badge
-            color={`light-${color}`}
-            className={`badge-light-${color} text-capitalize`}
-          >
-            {(row?.status || "-").replace(/_/g, " ")}
-          </Badge>
-        );
-      },
-    },
-    {
-      name: t("Action"),
-      sortable: false,
-      center: true,
-      minWidth: "80px",
-      selector: (row) => (
-        <Fragment>
-          <Link
-            to={`${appsRoot}/purchase-orders/view/${row?._id}`}
-            id={`cust-po-view-${row?._id}`}
-          >
-            <Eye size={18} />
-          </Link>
-          <UncontrolledTooltip
-            placement="top"
-            target={`cust-po-view-${row?._id}`}
-          >
-            {t("View")}
-          </UncontrolledTooltip>
-        </Fragment>
-      ),
-    },
-  ];
+  if (loading && total === 0) {
+    return (
+      <div className="text-center py-3">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="text-muted py-3 text-center">
+        {t("No sales orders for this customer yet.")}
+      </div>
+    );
+  }
+
+  const statusBadge = (row) => {
+    const c =
+      PURCHASE_ORDER_STATUS_COLOR_MAP[(row?.status || "").toLowerCase()] ||
+      "#6c757d";
+    return (
+      <span
+        className="badge rounded-pill text-capitalize text-nowrap"
+        ref={(el) => {
+          if (el) {
+            el.style.setProperty("background-color", `${c}1f`, "important");
+            el.style.setProperty("color", c, "important");
+          }
+        }}
+      >
+        {(row?.status || "-").replace(/_/g, " ")}
+      </span>
+    );
+  };
 
   return (
-    <DatatablePagination
-      columns={columns}
-      data={store?.purchaseOrderItems || []}
-      currentPage={currentPage}
-      rowsPerPage={rowsPerPage}
-      pagination={store?.pagination}
-      handleSort={handleSort}
-      handleRowPerPage={handlePerPage}
-      handlePagination={handlePagination}
-    />
+    <Fragment>
+      <div className="border rounded">
+        <Table responsive bordered size="sm" className="align-middle mb-0">
+          <thead className="table-light">
+            <tr>
+              <th style={{ minWidth: 220 }}>{t("SO #")}</th>
+              <th style={{ width: 130 }}>{t("Date")}</th>
+              <th style={{ width: 150 }}>{t("Expected")}</th>
+              <th style={{ width: 130 }} className="text-end">
+                {t("Total")}
+              </th>
+              <th style={{ width: 120 }}>{t("Status")}</th>
+              <th style={{ width: 80 }} className="text-center">
+                {t("Action")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagedRows.map((row) => {
+              const refVoucher =
+                row?.pfi_voucher_no || row?.quotation_voucher_no;
+              const refTo = row?.pfi_id
+                ? `${appsRoot}/pfi/view/${row.pfi_id}`
+                : row?.quotation_id
+                ? `${appsRoot}/quotations/view/${row.quotation_id}`
+                : null;
+              const refLabel = row?.pfi_id ? "PFI" : "Quote";
+              const sym = row?.currency_symbol || row?.currency_code || "";
+              return (
+                <tr key={row?._id}>
+                  <td>
+                    <Link
+                      to={`${appsRoot}/purchase-orders/view/${row?._id || ""}`}
+                      className="text-nowrap d-block fw-semibold"
+                    >
+                      {row?.voucher_no || "-"}
+                    </Link>
+                    {refVoucher ? (
+                      <div className="mt-25">
+                        {refTo ? (
+                          <Link
+                            to={refTo}
+                            className="small text-muted text-nowrap d-inline-flex align-items-center"
+                          >
+                            {refLabel} - {refVoucher}
+                            <ExternalLink size={12} className="ms-1" />
+                          </Link>
+                        ) : (
+                          <span className="small text-muted text-nowrap">
+                            {refLabel} - {refVoucher}
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>{row?.po_date ? formatDate(row.po_date) : "-"}</td>
+                  <td>
+                    {row?.expected_delivery_date
+                      ? formatDate(row.expected_delivery_date)
+                      : "-"}
+                  </td>
+                  <td className="text-end">
+                    {row?.grand_total !== null &&
+                    row?.grand_total !== undefined
+                      ? `${sym}${fmt(row.grand_total)}`
+                      : "-"}
+                  </td>
+                  <td>{statusBadge(row)}</td>
+                  <td className="text-center">
+                    <Link
+                      to={`${appsRoot}/purchase-orders/view/${row?._id}`}
+                      id={`cust-po-view-${row?._id}`}
+                    >
+                      <Eye size={18} />
+                    </Link>
+                    <UncontrolledTooltip
+                      placement="top"
+                      target={`cust-po-view-${row?._id}`}
+                    >
+                      {t("View")}
+                    </UncontrolledTooltip>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
+        <div className="d-flex align-items-center small text-muted">
+          <span className="me-50">{t("Show")}</span>
+          <Input
+            type="select"
+            bsSize="sm"
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value) || 10);
+              setPage(0);
+            }}
+            style={{ width: 80 }}
+          >
+            {[10, 25, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Input>
+          <span className="ms-50">
+            {t("of")} {total} {t("rows")}
+          </span>
+        </div>
+        <ReactPaginate
+          previousLabel=""
+          nextLabel=""
+          pageCount={pageCount}
+          activeClassName="active"
+          forcePage={safePage}
+          onPageChange={({ selected }) => setPage(selected)}
+          pageClassName="page-item"
+          nextLinkClassName="page-link"
+          nextClassName="page-item next"
+          previousClassName="page-item prev"
+          previousLinkClassName="page-link"
+          pageLinkClassName="page-link"
+          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+        />
+      </div>
+    </Fragment>
   );
 };
 

@@ -183,7 +183,13 @@ const RfqView = () => {
     // "Best price selected" fires per line; with auto-select-cheapest that
     // would stack a toast for every line. The green highlight is feedback
     // enough, so suppress the success toast for the select action (RFQ_SEL).
-    if (store?.success && store?.actionFlag !== "RFQ_SEL") {
+    //
+    // RFQ_CRTD (createFromLead) is suppressed too: the first "Save Prices" on a
+    // draft runs create + setPrices back-to-back, and each set store.success —
+    // which double-toasted. The setPrices (RFQ_PRC) toast covers the save; the
+    // no-prices case toasts explicitly in persistDraftRfq.
+    const SILENT_FLAGS = ["RFQ_SEL", "RFQ_CRTD"];
+    if (store?.success && !SILENT_FLAGS.includes(store?.actionFlag)) {
       Notification("Success", store.success, "success");
     }
     if (store?.error) Notification("Error", store.error, "warning");
@@ -501,6 +507,8 @@ const RfqView = () => {
         .map((l) => lineByLead[l._id])
         .filter(Boolean);
       if (mapped.length || checkedLineIds.length) {
+        // setRfqPrices (RFQ_PRC) fires its own success toast — that's the one
+        // the user sees. The create toast (RFQ_CRTD) is suppressed.
         await dispatch(
           setRfqPrices({
             id: newRfq._id,
@@ -511,6 +519,21 @@ const RfqView = () => {
             },
           })
         ).unwrap();
+      } else {
+        // No prices/checks to persist → the create toast is suppressed, so
+        // surface a single explicit "saved" toast here.
+        Notification("Success", t("RFQ saved."), "success");
+      }
+      // Re-key the active vendor's ticks from the draft's lead-line ids to the
+      // freshly-created rfq_line_ids. We SPA-navigate to the saved RFQ below,
+      // but local `checkedByVendor` is retained — keyed by the old lead-line
+      // ids it would no longer match the new rfq lines, so every box rendered
+      // unchecked until a refresh re-seeded from the server (the "gone on first
+      // save, back on refresh" bug). Pin the new keys so they carry over.
+      if (activeVendorId) {
+        const rekeyed = {};
+        for (const lid of checkedLineIds) rekeyed[lid] = true;
+        setCheckedByVendor((m) => ({ ...m, [activeVendorId]: rekeyed }));
       }
       setDirty(false);
       navigate(`${appsRoot}/rfq/view/${newRfq._id}`);
