@@ -190,6 +190,11 @@ const SalesDocLineItems = ({
   // cheapest auto-pick and the manual vendor radio pick.
   const applyPriceRow = (idx, r) => {
     setValue(`lines.${idx}.vendor_id`, r.vendor_id || "");
+    // Keep vendor_code / vendor_name in lock-step with vendor_id — otherwise a
+    // compare-switch leaves a stale vendor_code on the line and the Excel export
+    // (which reads vendor_code) shows the previously-selected vendor.
+    setValue(`lines.${idx}.vendor_code`, r.vendor_code || "");
+    setValue(`lines.${idx}.vendor_name`, r.vendor_name || "");
     setValue(`lines.${idx}.unit_price`, String(r.unit_price ?? ""));
     if (r.discount_pct !== undefined && r.discount_pct !== null) {
       setValue(`lines.${idx}.discount_pct`, String(r.discount_pct));

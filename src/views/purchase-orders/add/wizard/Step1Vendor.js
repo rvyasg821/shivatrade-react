@@ -157,9 +157,15 @@ const Step1Vendor = ({
                 currencyOptions.find((o) => o.value === field.value) || null
               }
               onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={t("Select currency")}
             />
           )}
         />
+        {errors.currency_code && (
+          <FormFeedback className="d-block">
+            {errors.currency_code.message}
+          </FormFeedback>
+        )}
       </Col>
 
       <Col md="3" className="mb-2">

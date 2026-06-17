@@ -74,7 +74,9 @@ const LineItemImportExportBar = ({
       );
       const datePart = new Date().toISOString().slice(0, 10);
       const id = docNumber || "draft";
-      downloadBlob(res.data, `${docType}-lines-${id}-${datePart}.xlsx`);
+      // The "po" docType is the Sales Order module — name its files "so-…".
+      const prefix = docType === "po" ? "so" : docType;
+      downloadBlob(res.data, `${prefix}-lines-${id}-${datePart}.xlsx`);
     } catch {
       Notification("Error", t("Failed to generate the file"), "warning");
     }

@@ -85,7 +85,9 @@ const LineItemImportModal = ({
         { docType, lines: [] },
         { responseType: "blob" },
       );
-      downloadBlob(res.data, `${docType}-import-sample.xlsx`);
+      // The "po" docType is the Sales Order module — name its files "so-…".
+      const prefix = docType === "po" ? "so" : docType;
+      downloadBlob(res.data, `${prefix}-import-sample.xlsx`);
     } catch {
       Notification("Error", t("Failed to download sample"), "warning");
     } finally {

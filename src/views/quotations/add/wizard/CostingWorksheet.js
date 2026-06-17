@@ -34,6 +34,7 @@ import {
   currencySymbol,
   computeLineCosting,
 } from "@src/views/_shared/sales-doc/_helpers";
+import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 
 // ── Click-to-edit numeric cell ──────────────────────────────────────────────
 // Shows `display` as a label; click → autofocused input bound to `value`.
@@ -336,9 +337,22 @@ const CostingWorksheet = ({
           </span>
         </div>
         {!readOnly && (
-          <Button color="outline-primary" size="sm" onClick={addRow}>
-            <Plus size={14} className="me-25" /> {t("Add Product")}
-          </Button>
+          <div className="d-flex align-items-center flex-wrap gap-1">
+            {/* Bulk entry via Excel — shared sales-doc import/export
+                (docType "quotation"). Shares this worksheet's lineFA so imported
+                rows appear without a remount. */}
+            <LineItemImportExportBar
+              docType="quotation"
+              control={control}
+              lineFA={lineFA}
+              initLineItem={emptyLine()}
+              currencyCode={docCurrencyCode}
+              exchangeRate={exchangeRate}
+            />
+            <Button color="outline-primary" size="sm" onClick={addRow}>
+              <Plus size={14} className="me-25" /> {t("Add Product")}
+            </Button>
+          </div>
         )}
       </div>
 

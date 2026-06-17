@@ -102,6 +102,10 @@ const PurchaseOrderWizard = () => {
           .string()
           .trim()
           .required(t("Customer is required")),
+        currency_code: yup
+          .string()
+          .trim()
+          .required(t("Currency is required")),
         po_date: yup.string().trim().required(t("PO date is required")),
         delivery_address: yup.string().nullable(),
         delivery_address_id: yup.string().nullable(),
@@ -208,7 +212,10 @@ const PurchaseOrderWizard = () => {
       dispatch(getPurchaseOrder(id));
     } else {
       dispatch(cleanPurchaseOrderState());
-      reset(initPurchaseOrderItem);
+      // Start a new SO with NO currency so the required-currency validation
+      // actually engages — the shared init defaults to "INR", which made the
+      // field never empty and let "Next" through without an explicit pick.
+      reset({ ...initPurchaseOrderItem, currency_code: "" });
     }
     return () => {
       dispatch(cleanPurchaseOrderMessage());
@@ -271,13 +278,28 @@ const PurchaseOrderWizard = () => {
   useEffect(() => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
-      const opts = (cust.addresses || []).map((a) => ({
+      const addrs = cust.addresses || [];
+      const opts = addrs.map((a) => ({
         value: a._id,
         label: [a.label, a.address_line1, a.city, a.country]
           .filter(Boolean)
           .join(", "),
       }));
       setCustomerAddressOptions(opts);
+      // Auto-select the customer's address: prefer a default/primary one, else
+      // the first. Only when none is chosen yet or the chosen one doesn't
+      // belong to this customer (e.g. after switching customers) — a valid
+      // saved/manual pick is left untouched.
+      if (addrs.length) {
+        const current = form.getValues("customer_address_id");
+        const valid = opts.some((o) => o.value === current);
+        if (!valid) {
+          const def = addrs.find((a) => a.is_default || a.is_primary);
+          setValue("customer_address_id", def?._id || addrs[0]?._id || "", {
+            shouldDirty: true,
+          });
+        }
+      }
     }
   }, [customerStore?.customerItem, watchedCustomer]);
 
