@@ -822,7 +822,25 @@ const AppRoutes = [
     },
   },
   {
+    // Draft GRN form (not persisted until Save) — created from a dispatched POV.
+    path: `${appsRoot}/grn/create/:povId`,
+    element: <GrnView />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
     path: `${appsRoot}/debit-notes/view/:id`,
+    element: <DebitNoteView />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    // Draft Debit Note form (not persisted until Save) — from a confirmed GRN.
+    path: `${appsRoot}/debit-notes/create/:grnId`,
     element: <DebitNoteView />,
     meta: {
       permissionId: poVendorsModuleSlug,

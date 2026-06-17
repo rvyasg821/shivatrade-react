@@ -82,7 +82,9 @@ const PoVendorTabView = () => {
 
         <TabContent activeTab={active}>
           <TabPane tabId="overview">
-            <OverviewTab />
+            {active === "overview" && (
+              <OverviewTab registerActions={registerActions} />
+            )}
           </TabPane>
           <TabPane tabId="expenses">
             {active === "expenses" && (

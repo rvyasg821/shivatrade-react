@@ -20,8 +20,11 @@ import { useTranslation } from "react-i18next";
 import {
   getDebitNote,
   updateDebitNote,
+  createDebitNoteFromGrn,
   cleanDebitNoteMessage,
 } from "../store";
+import { getGrn } from "@src/views/grn/store";
+import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
@@ -46,13 +49,20 @@ const fmtMoney = (v) =>
   });
 
 const DebitNoteView = () => {
-  const { id } = useParams();
+  const { id, grnId } = useParams();
+  const isCreate = !!grnId; // /debit-notes/create/:grnId → draft, not saved yet
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const store = useSelector((s) => s.debitNote);
-  const dn = store?.debitNoteItem;
+  const grnStore = useSelector((s) => s.grn);
+  const povStore = useSelector((s) => s.poVendor);
+  // In create mode the form is a LOCAL draft built from the GRN's rejected
+  // lines (unit prices from the POV) — nothing is saved until Save.
+  const [draftDn, setDraftDn] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const dn = isCreate ? draftDn : store?.debitNoteItem;
 
   // Editable line map keyed by debit-note line id.
   const [edits, setEdits] = useState({});
@@ -84,8 +94,61 @@ const DebitNoteView = () => {
 
   useEffect(() => {
     dispatch(stopLoading());
-    dispatch(getDebitNote(id));
-  }, [id, dispatch]);
+    if (isCreate) dispatch(getGrn(grnId));
+    else dispatch(getDebitNote(id));
+  }, [id, grnId, isCreate, dispatch]);
+
+  // Create mode: once the GRN is loaded, fetch its POV (for unit prices).
+  useEffect(() => {
+    if (!isCreate) return;
+    const g = grnStore?.grnItem;
+    if (g && g._id === grnId && g.po_vendor_id) {
+      dispatch(getPoVendor(g.po_vendor_id));
+    }
+  }, [isCreate, grnId, grnStore?.grnItem, dispatch]);
+
+  // Build the local draft once GRN + POV are both loaded (create mode only).
+  useEffect(() => {
+    if (!isCreate) return;
+    const g = grnStore?.grnItem;
+    const pov = povStore?.poVendorItem;
+    if (!g || g._id !== grnId) return;
+    if (!pov || pov._id !== g.po_vendor_id) return; // wait for unit prices
+    const povLineById = new Map(
+      (pov.lines || []).map((pl) => [String(pl._id), pl])
+    );
+    const lines = (g.lines || [])
+      .filter((l) => num(l.rejected_qty) > 1e-6)
+      .map((gl) => {
+        const pl = povLineById.get(String(gl.po_vendor_line_id));
+        return {
+          _id: gl._id, // grn_line_id used as the draft/edit key
+          grn_line_id: gl._id,
+          product_name: gl.product_name,
+          product_code: gl.product_code,
+          part_no: gl.part_no,
+          hsn_code: gl.hsn_code,
+          unit: gl.unit,
+          rejected_qty: String(num(gl.rejected_qty)),
+          returned_qty: String(num(gl.rejected_qty)),
+          unit_price: String(num(pl?.unit_price)),
+          remarks: "",
+        };
+      });
+    setDraftDn({
+      _id: null,
+      voucher_no: t("New Debit Note"),
+      status: "draft",
+      vendor_name: g.vendor_name,
+      po_vendor_id: g.po_vendor_id,
+      grn_voucher_no: g.voucher_no,
+      po_vendor_voucher_no: g.po_vendor_voucher_no,
+      purchase_order_voucher_no: g.purchase_order_voucher_no,
+      currency_code: pov.currency_code,
+      dn_date: null,
+      lines,
+    });
+  }, [isCreate, grnId, grnStore?.grnItem, povStore?.poVendorItem, t]);
 
   // Seed the editable fields from the loaded DN lines.
   useEffect(() => {
@@ -143,7 +206,42 @@ const DebitNoteView = () => {
       };
     });
 
-  const onSave = (nextStatus) => {
+  const onSave = async (nextStatus) => {
+    // Create mode: persist now — create the Debit Note from the GRN with the
+    // operator's edits (one call; the backend accepts line overrides), then
+    // open the saved Debit Note.
+    if (isCreate) {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const linesPayload = (dn?.lines || []).map((l) => {
+          const e = edits[l._id] || {};
+          return {
+            grn_line_id: l.grn_line_id,
+            returned_qty: String(num(e.returned_qty)),
+            unit_price: String(num(e.unit_price)),
+            remarks: e.remarks || "",
+          };
+        });
+        const created = await dispatch(
+          createDebitNoteFromGrn({ grnId, data: { lines: linesPayload } })
+        ).unwrap();
+        const newId = created?.debitNoteItem?._id;
+        if (!newId)
+          throw new Error(created?.error || t("Could not create Debit Note."));
+        navigate(`${appsRoot}/debit-notes/view/${newId}`);
+      } catch (err) {
+        Notification(
+          "Error",
+          err?.message || t("Could not create Debit Note."),
+          "warning"
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const data = {};
     // Only send line edits while draft (server rejects line edits otherwise).
     if (isDraft) data.lines = buildLinesPayload();
@@ -203,23 +301,25 @@ const DebitNoteView = () => {
             </div>
           </div>
           <div className="d-flex gap-1">
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={downloadPdf}
-              disabled={pdfLoading}
-            >
-              {pdfLoading ? (
-                <>
-                  <Spinner size="sm" className="me-25" /> {t("Generating…")}
-                </>
-              ) : (
-                <>
-                  <Download size={14} className="me-25" /> {t("PDF")}
-                </>
-              )}
-            </Button>
+            {!isCreate && (
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                onClick={downloadPdf}
+                disabled={pdfLoading}
+              >
+                {pdfLoading ? (
+                  <>
+                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} className="me-25" /> {t("PDF")}
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               color="secondary"
               outline
@@ -244,25 +344,49 @@ const DebitNoteView = () => {
             {t("Returned Items")}
           </CardTitle>
           <div className="d-flex gap-1">
-            {isDraft && (
-              <Button color="primary" size="sm" outline onClick={() => onSave()}>
-                <Save size={14} className="me-25" /> {t("Save")}
-              </Button>
-            )}
-            {isDraft && (
-              <Button color="success" size="sm" onClick={() => onSave("issued")}>
-                <CheckCircle size={14} className="me-25" /> {t("Save & Issue")}
-              </Button>
-            )}
-            {status !== "cancelled" && (
+            {isCreate ? (
               <Button
-                color="danger"
+                color="success"
                 size="sm"
-                outline
-                onClick={() => onSave("cancelled")}
+                disabled={saving}
+                onClick={() => onSave()}
               >
-                <XCircle size={14} className="me-25" /> {t("Cancel")}
+                <Save size={14} className="me-25" />{" "}
+                {saving ? t("Saving…") : t("Create Debit Note")}
               </Button>
+            ) : (
+              <>
+                {isDraft && (
+                  <Button
+                    color="primary"
+                    size="sm"
+                    outline
+                    onClick={() => onSave()}
+                  >
+                    <Save size={14} className="me-25" /> {t("Save")}
+                  </Button>
+                )}
+                {isDraft && (
+                  <Button
+                    color="success"
+                    size="sm"
+                    onClick={() => onSave("issued")}
+                  >
+                    <CheckCircle size={14} className="me-25" />{" "}
+                    {t("Save & Issue")}
+                  </Button>
+                )}
+                {status !== "cancelled" && (
+                  <Button
+                    color="danger"
+                    size="sm"
+                    outline
+                    onClick={() => onSave("cancelled")}
+                  >
+                    <XCircle size={14} className="me-25" /> {t("Cancel")}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </CardHeader>

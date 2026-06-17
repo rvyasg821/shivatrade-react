@@ -4,6 +4,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { Table, Button, Input } from "reactstrap";
 import ReactPaginate from "react-paginate";
@@ -12,13 +13,15 @@ import { Edit, Truck } from "react-feather";
 
 import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
 import { DetailPanel } from "@src/views/_shared/detail-page";
-import { isAdminUser } from "@constant/defaultValues";
+import { isAdminUser, appsRoot } from "@constant/defaultValues";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
 
-const OverviewTab = () => {
+const OverviewTab = ({ registerActions }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { id } = useParams();
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
@@ -62,6 +65,28 @@ const OverviewTab = () => {
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canEditDelivery =
     isDraft && (isAdmin || perms?.can_all || perms?.can_update);
+
+  // Edit Dispatch — available once dispatched. Published to the tab bar
+  // top-right (no extra row) instead of the page header.
+  const canReceive =
+    (p?.status || "").toLowerCase() === "dispatched" &&
+    (isAdmin || perms?.can_all || perms?.can_update);
+  useEffect(() => {
+    if (!registerActions) return undefined;
+    registerActions(
+      canReceive ? (
+        <Button
+          color="secondary"
+          outline
+          size="sm"
+          onClick={() => navigate(`${appsRoot}/po-vendors/dispatch/${id}`)}
+        >
+          <Edit size={14} className="me-50" /> {t("Edit Dispatch")}
+        </Button>
+      ) : null
+    );
+    return () => registerActions(null);
+  }, [registerActions, canReceive, id, navigate, t]);
 
   const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
 

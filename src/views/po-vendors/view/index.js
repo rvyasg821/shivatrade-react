@@ -23,7 +23,7 @@ import {
   Mail,
   Phone,
   Download,
-  Edit3,
+  Inbox,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -278,6 +278,7 @@ const ViewPoVendor = () => {
     }
   };
 
+
   // ── Header actions (contextual to status) ──
   const headerActions = [];
   if (canDispatch) {
@@ -288,13 +289,14 @@ const ViewPoVendor = () => {
     });
   }
   if (canReceive) {
+    // Create GRN — only after goods are dispatched. Opens a draft form (not
+    // persisted until Save), like creating an RFQ from a Lead.
     headerActions.push({
-      icon: Edit3,
-      label: t("Edit Dispatch"),
-      color: "secondary",
-      outline: true,
-      onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
+      icon: Inbox,
+      label: t("Create GRN"),
+      onClick: () => navigate(`${appsRoot}/grn/create/${id}`),
     });
+    // Edit Dispatch lives in the Line Items tab's top-right action bar.
   }
   if (canCancel) {
     headerActions.push({
