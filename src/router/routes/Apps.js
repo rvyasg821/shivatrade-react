@@ -17,6 +17,7 @@ import {
   expensesModuleSlug,
   currenciesModuleSlug,
   priceListModuleSlug,
+  rfqModuleSlug,
   quotationsModuleSlug,
   pfiModuleSlug,
   purchaseOrdersModuleSlug,
@@ -535,7 +536,7 @@ const AppRoutes = [
     path: `${appsRoot}/rfq`,
     element: <RfqList />,
     meta: {
-      permissionId: leadsModuleSlug,
+      permissionId: rfqModuleSlug,
       action: 'list',
     },
   },
@@ -543,7 +544,7 @@ const AppRoutes = [
     path: `${appsRoot}/rfq/view/:id`,
     element: <RfqView />,
     meta: {
-      permissionId: leadsModuleSlug,
+      permissionId: rfqModuleSlug,
       action: 'list',
     },
   },

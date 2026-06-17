@@ -22,6 +22,19 @@ import { ArrowLeft } from "react-feather"
 import { appsRoot } from "@constant/defaultValues"
 import { isPermissionSlugHidden } from "../../configs/appMode"
 
+// Always-visible module slugs (Master / Catalogue / Sales / Purchase / People).
+// Seeded into a role's editable permissions so NEW modules show even when the
+// role's saved data predates them (old roles) — missing ones default to all
+// permissions off. Super-admin-only groups (Root / Subscription) are omitted;
+// those are handled by the current-user ∪ role union below.
+const ALWAYS_VISIBLE_SLUGS = [
+  "user", "role", "location",
+  "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
+  "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
+  "po-vendors", "inventory", "tracking",
+  "employee", "attendance", "leave", "holiday_calendar",
+];
+
 const ModulePermission = () => {
   const { id } = useParams()
   const { t } = useTranslation()
@@ -44,6 +57,10 @@ const ModulePermission = () => {
     const allModuleSlugs = new Set([
       ...Object.keys(currentUserPermi),
       ...Object.keys(items || {}),
+      // Ensure every always-visible module appears even if this role's saved
+      // data doesn't include it yet (new modules on old roles). Existing
+      // permission values are preserved below; missing ones default to false.
+      ...ALWAYS_VISIBLE_SLUGS,
     ]);
 
     const mergedPermi = {};
@@ -212,16 +229,19 @@ const ModulePermission = () => {
       title: t("Sales"),
       children: [
         { title: "Leads", slug: "leads" },
+        { title: "RFQ", slug: "rfq" },
         { title: "Quotations", slug: "quotations" },
         { title: "PFI", slug: "pfi" },
-        { title: "Purchase Order", slug: "purchase-orders" },
-        // Invoices added when that module ships
+        { title: "Sales Order", slug: "purchase-orders" },
+        { title: "Invoices", slug: "invoices" },
+        { title: "Customers", slug: "customers" },
       ]
     },
     {
       title: t("Purchase"),
       children: [
         { title: "Vendor Purchase Orders", slug: "po-vendors" },
+        { title: "Inventory", slug: "inventory" },
         { title: "Tracking", slug: "tracking" },
       ]
     },

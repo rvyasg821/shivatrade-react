@@ -126,6 +126,13 @@ const ViewPoVendor = () => {
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
+  // The Event Timeline is the Tracking feature — gate it on tracking read access.
+  const trackingPerms = authUserItem?.role?.permissions?.tracking;
+  const canViewTracking =
+    isAdmin ||
+    trackingPerms?.can_all ||
+    trackingPerms?.can_read ||
+    trackingPerms?.can_view;
   const canDispatch = canUpdate && statusLower === "draft";
   const canReceive = canUpdate && statusLower === "dispatched";
   const canCancel =
@@ -391,11 +398,17 @@ const ViewPoVendor = () => {
 
         <DetailKpiStrip items={kpiItems} />
 
-        <DetailTwoPanel
-          ratio="8-4"
-          left={<PoVendorTabView />}
-          right={<PoVendorTimelinePanel />}
-        />
+        {canViewTracking ? (
+          <DetailTwoPanel
+            ratio="8-4"
+            left={<PoVendorTabView />}
+            right={<PoVendorTimelinePanel />}
+          />
+        ) : (
+          // No tracking permission → hide the Event Timeline and let the tabs
+          // take the full width (no empty column / white space).
+          <PoVendorTabView />
+        )}
       </div>
     </Fragment>
   );

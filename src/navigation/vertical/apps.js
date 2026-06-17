@@ -63,6 +63,7 @@ import {
   leadsModuleSlug,
   // Sales
   salesGroupSlug,
+  rfqModuleSlug,
   quotationsModuleSlug,
   pfiModuleSlug,
   // Purchase
@@ -133,12 +134,12 @@ const navigationItems = [
         companyOnly: true,
       },
       {
-        id: "rfq",
+        id: rfqModuleSlug,
         title: "RFQ",
         icon: <Send size={20} />,
         navLink: `${appsRoot}/rfq`,
-        permissionId: leadsModuleSlug,
-        resource: leadsModuleSlug,
+        permissionId: rfqModuleSlug,
+        resource: rfqModuleSlug,
         companyOnly: true,
       },
       {
