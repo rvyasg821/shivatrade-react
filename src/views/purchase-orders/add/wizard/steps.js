@@ -11,6 +11,7 @@ export const STEPS = [
     icon: Users,
     fields: [
       "customer_id",
+      "currency_code",
       "po_date",
       "expected_delivery_date",
       "delivery_address",
