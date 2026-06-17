@@ -8,10 +8,20 @@ import { deleteRole, getRoleList, cleanRoleMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap Imports
-import { Col, Row, Card, Button, CardBody } from "reactstrap";
+import {
+  Col,
+  Row,
+  Card,
+  Input,
+  Button,
+  Badge,
+  CardBody,
+  UncontrolledTooltip,
+} from "reactstrap";
 
 // ** Custom Components
 import Notification from "@components/toast/notification";
+import DatatablePagination from "@components/datatable/DatatablePagination";
 
 // ** Third Party Components
 import { useTranslation } from "react-i18next";
@@ -19,10 +29,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons Import
-import { Settings, Trash2 } from "react-feather";
+import { Settings, Edit, Trash2, PlusCircle } from "react-feather";
 
 // ** Constants
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { initRoleItem } from "@constant/reduxConstant";
 
 // ** Modals
@@ -59,12 +69,17 @@ const RoleList = () => {
   // ** States
   const [modalOpen, setModalOpen] = useState(false);
   const [roleItemData, setRoleItemData] = useState(initRoleItem);
-  const [validationError, setValidationError] = useState("");
+
+  // Client-side list controls (roles are few — the API returns them in one
+  // shot, so we search / sort / paginate locally to match the Locations look).
+  const [searchInput, setSearchInput] = useState("");
+  const [sortColumn, setSortColumn] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
 
   const openModal = () => {
-    if (!modalOpen) {
-      setModalOpen(true);
-    }
+    if (!modalOpen) setModalOpen(true);
   };
 
   const closeModal = () => {
@@ -75,12 +90,12 @@ const RoleList = () => {
   };
 
   const handleRoleLists = useCallback(() => {
-    const query = {
-      sort: { orderBy: "_id", orderDirection: "asc" },
-      purpose: "manage", // Only show manageable roles (excludes default roles for non-Super Admin)
-    };
-
-    dispatch(getRoleList(query));
+    dispatch(
+      getRoleList({
+        sort: { orderBy: "_id", orderDirection: "asc" },
+        purpose: "manage", // excludes default roles for non-Super Admin
+      })
+    );
   }, [dispatch]);
 
   useEffect(() => {
@@ -102,13 +117,8 @@ const RoleList = () => {
       handleRoleLists();
     }
 
-    if (store?.success) {
-      Notification("Success", store.success, "success");
-    }
-
-    if (store?.error) {
-      Notification("Error", store.error, "warning");
-    }
+    if (store?.success) Notification("Success", store.success, "success");
+    if (store?.error) Notification("Error", store.error, "warning");
   }, [store.actionFlag, store.success, store.error]);
 
   const handleDelete = (id = "") => {
@@ -119,7 +129,7 @@ const RoleList = () => {
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: t("Yes, delete it!"),
-        cancelButtonText:t("Cancel"),
+        cancelButtonText: t("Cancel"),
         customClass: {
           confirmButton: "btn btn-primary",
           cancelButton: "btn btn-outline-danger ms-1",
@@ -139,12 +149,164 @@ const RoleList = () => {
   };
 
   useEffect(() => {
-    if (store?.loading) {
-      dispatch(startLoading());
-    } else {
-      dispatch(stopLoading());
-    }
+    if (store?.loading) dispatch(startLoading());
+    else dispatch(stopLoading());
   }, [store?.loading]);
+
+  // ** List controls
+  const handleSearch = (value) => {
+    setSearchInput(value);
+    setCurrentPage(1);
+  };
+
+  const handleSort = (column, sortDirection) => {
+    setSortColumn(column.sortField);
+    setSortDir(sortDirection);
+    setCurrentPage(1);
+  };
+
+  const handlePagination = (page) => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setCurrentPage(page + 1);
+  };
+
+  const handlePerPage = (value) => {
+    setRowsPerPage(Number(value) || defaultPerPageRow);
+    setCurrentPage(1);
+  };
+
+  // ** Derived list (filter → sort → paginate, all client-side)
+  const allRoles = store?.roleItems || [];
+  const term = searchInput.trim().toLowerCase();
+  const filtered = term
+    ? allRoles.filter((r) =>
+        `${r?.name || ""} ${r?.description || ""}`.toLowerCase().includes(term)
+      )
+    : allRoles;
+  const sorted = [...filtered].sort((a, b) => {
+    const av = (a?.[sortColumn] ?? "").toString().toLowerCase();
+    const bv = (b?.[sortColumn] ?? "").toString().toLowerCase();
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+  const total = sorted.length;
+  const pageData = sorted.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+  const pagination = { total, perPage: rowsPerPage, page: currentPage };
+
+  // ** Columns
+  const columns = [
+    {
+      name: t("Role Name"),
+      sortField: "name",
+      sortable: true,
+      selector: (row) => (
+        <div className="d-flex align-items-center gap-50 flex-wrap">
+          {!row?.isDefault && canEditRole ? (
+            <Link
+              to="/"
+              className="text-capitalize text-wrap fw-bold"
+              onClick={(event) => {
+                event.preventDefault();
+                handleEdit(row);
+              }}
+            >
+              {row?.name || ""}
+            </Link>
+          ) : (
+            <span className="text-capitalize text-wrap fw-bold">
+              {row?.name || ""}
+            </span>
+          )}
+          {row?.isDefault && (
+            <Badge
+              className="rounded-pill"
+              style={{
+                backgroundColor: "rgba(40, 199, 111, 0.12)",
+                color: "#28c76f",
+              }}
+            >
+              {t("Default")}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      name: t("Description"),
+      sortField: "description",
+      sortable: true,
+      selector: (row) => (
+        <span className="text-wrap">{row?.description || "-"}</span>
+      ),
+    },
+  ];
+
+  if (canEditRole || canDeleteRole) {
+    columns.push({
+      name: t("Action"),
+      center: true,
+      cell: (row) => (
+        <div className="d-flex column-action align-items-center table-icon">
+          {canEditRole && (
+            <Link
+              className="me-50"
+              id={`role-perm-tooltip-${row?._id || ""}`}
+              to={`${appsRoot}/roles/permission/${row?._id || ""}`}
+            >
+              <UncontrolledTooltip
+                placement="top"
+                target={`role-perm-tooltip-${row?._id || ""}`}
+              >
+                {t("Module Permissions")}
+              </UncontrolledTooltip>
+              <Settings size={20} />
+            </Link>
+          )}
+
+          {!row?.isDefault && canEditRole && (
+            <Link
+              className="me-50"
+              id={`role-edit-tooltip-${row?._id || ""}`}
+              to="/"
+              onClick={(event) => {
+                event.preventDefault();
+                handleEdit(row);
+              }}
+            >
+              <UncontrolledTooltip
+                placement="top"
+                target={`role-edit-tooltip-${row?._id || ""}`}
+              >
+                {t("Edit")}
+              </UncontrolledTooltip>
+              <Edit size={20} />
+            </Link>
+          )}
+
+          {!row?.isDefault && (isAdmin || canDeleteRole) && (
+            <Fragment>
+              <Trash2
+                size={20}
+                className="cursor-pointer"
+                id={`role-delete-tooltip-${row?._id || ""}`}
+                onClick={() => handleDelete(row?._id)}
+              />
+              <UncontrolledTooltip
+                placement="top"
+                target={`role-delete-tooltip-${row?._id || ""}`}
+              >
+                {t("Delete")}
+              </UncontrolledTooltip>
+            </Fragment>
+          )}
+        </div>
+      ),
+    });
+  }
 
   return (
     <Fragment>
@@ -153,138 +315,50 @@ const RoleList = () => {
           <h3 className="mb-0">{t("Roles")}</h3>
         </div>
 
-        {/* Default Roles section — Super Admin only */}
-        {isAdmin && store?.roleItems?.some((item) => item?.isDefault) && (
-          <>
-            <div className="mb-1 mt-1">
-              <h5 className="text-muted fw-bold">{t("Default Roles")}</h5>
-              <small className="text-muted">{t("These roles are system-defined. Only permissions can be configured.")}</small>
-            </div>
-            <Row className="mb-2">
-              {store.roleItems
-                .filter((item) => item?.isDefault)
-                .map((item, ind) => (
-                  <Col key={`default-${ind}`} xl={4} md={6} className="mb-2">
-                    <Card className="h-100 m-0">
-                      <CardBody>
-                        <div className="pt-25">
-                          <div className="role-heading">
-                            <h4 className="fw-bolder mb-1 text-break">{item?.name || ""}</h4>
-                          </div>
-                          <div className="d-flex align-items-center justify-content-end">
-                            <div className="actions d-flex align-items-center">
-                              <Link
-                                to={`${appsRoot}/roles/permission/${item?._id}`}
-                                className="text-body"
-                                title="Configure Permissions"
-                              >
-                                <Settings className="font-medium-5 me-1" />
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Col>
-                ))}
-            </Row>
-          </>
-        )}
-
-        {/* Custom Roles section — always rendered when user can create or custom roles exist */}
-        {(isAdmin || canCreateRole || store?.roleItems?.some((item) => !item?.isDefault)) && (
-          <>
-            {isAdmin && (
-              <div className="mb-1 mt-1">
-                <h5 className="text-muted fw-bold">{t("Custom Roles")}</h5>
-              </div>
-            )}
+        <Card className="overflow-hidden">
+          <CardBody>
             <Row>
-              {store.roleItems
-                .filter((item) => !item?.isDefault)
-                .map((item, ind) => (
-                  <Col key={`custom-${ind}`} xl={4} md={6} className="mb-2">
-                    <Card className="h-100 m-0">
-                      <CardBody>
-                        <div className="pt-25">
-                          <div className="role-heading">
-                            <h4 className="fw-bolder mb-1 text-break">{item?.name || ""}</h4>
-                          </div>
-                          <div className="d-flex align-items-center justify-content-between">
-                            {canEditRole && (
-                              <Link
-                                to="/"
-                                className="role-edit-modal"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  handleEdit(item);
-                                }}
-                              >
-                                <small className="fw-bolder">
-                                  {t("Edit Role")}
-                                </small>
-                              </Link>
-                            )}
-
-                            <div className="actions d-flex align-items-center">
-                              {canEditRole ? (
-                                <Link
-                                  to={`${appsRoot}/roles/permission/${item?._id}`}
-                                  className="text-body"
-                                  title="Module Permission"
-                                >
-                                  <Settings className="font-medium-5 me-1" />
-                                </Link>
-                              ) : null}
-
-                              {!item?.isDefault && (isAdmin || canDeleteRole) ? (
-                                <Link
-                                  to=""
-                                  className="text-body"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    handleDelete(item?._id);
-                                  }}
-                                >
-                                  <Trash2 className="font-medium-5 me-2" />
-                                </Link>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
+              <Col sm="8" md="9">
+                <Row>
+                  <Col sm="6" md="4">
+                    <div className="d-flex align-items-center mb-sm-0 mb-1">
+                      <Input
+                        type="text"
+                        id="search-role"
+                        value={searchInput}
+                        className="w-100 select"
+                        placeholder={t("Search Roles")}
+                        onChange={(event) => handleSearch(event?.target?.value)}
+                      />
+                    </div>
                   </Col>
-                ))}
-
-              {/* Add New Role card — always visible when user has permission */}
-              {(isAdmin || canCreateRole) && (
-                <Col xl={4} md={6} className="mb-2">
-                  <Card className="h-100 m-0">
-                    <Row>
-                      <Col sm={12}>
-                        <CardBody>
-                          <div className="buttons">
-                            <Button
-                              color="primary"
-                              className="text-nowrap"
-                              onClick={() => openModal()}
-                            >
-                              {t("Add New Role")}
-                            </Button>
-                          </div>
-                          <p className="mb-0 add-role">
-                            {t("Add a new role, if it does not exist")}
-                          </p>
-                        </CardBody>
-                      </Col>
-                    </Row>
-                  </Card>
-                </Col>
-              )}
+                </Row>
+              </Col>
+              <Col sm="4" md="3" className="text-end">
+                {(isAdmin || canCreateRole) && (
+                  <Button color="primary" onClick={() => openModal()}>
+                    {t("Add New Role")} <PlusCircle size={16} />
+                  </Button>
+                )}
+              </Col>
             </Row>
-          </>
-        )}
+
+            <Row className="mt-2">
+              <Col md="12" className="role-tables">
+                <DatatablePagination
+                  columns={columns}
+                  data={pageData}
+                  currentPage={currentPage}
+                  rowsPerPage={rowsPerPage}
+                  pagination={pagination}
+                  handleSort={handleSort}
+                  handleRowPerPage={handlePerPage}
+                  handlePagination={handlePagination}
+                />
+              </Col>
+            </Row>
+          </CardBody>
+        </Card>
 
         <ModalAddRole
           open={modalOpen}

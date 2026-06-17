@@ -116,6 +116,7 @@ const leadsModuleSlug = "leads";
 
 // Sales
 const salesGroupSlug = "sales";
+const rfqModuleSlug = "rfq";
 const quotationsModuleSlug = "quotations";
 const pfiModuleSlug = "pfi";
 
@@ -209,6 +210,7 @@ const rolePermissionName = {
   [vendorsModuleSlug]: "Vendors",
   [customersModuleSlug]: "Customers",
   [leadsModuleSlug]: "Leads",
+  [rfqModuleSlug]: "RFQ",
 
   // Sales
   [quotationsModuleSlug]: "Quotations",
@@ -534,6 +536,7 @@ export {
   vendorsModuleSlug,
   customersModuleSlug,
   leadsModuleSlug,
+  rfqModuleSlug,
   // Sales
   salesGroupSlug,
   quotationsModuleSlug,
