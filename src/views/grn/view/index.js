@@ -27,7 +27,6 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { getGrn, updateGrn, createGrnFromPov, cleanGrnMessage } from "../store";
-import { createDebitNoteFromGrn } from "@src/views/debit-notes/store";
 import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
@@ -69,7 +68,6 @@ const GrnView = () => {
   const [page, setPage] = useState(0);
   // Active (non-cancelled) Debit Note already raised against this GRN, if any.
   const [existingDn, setExistingDn] = useState(null);
-  const [creatingDn, setCreatingDn] = useState(false);
 
   useEffect(() => {
     dispatch(stopLoading());
@@ -134,20 +132,9 @@ const GrnView = () => {
     [grn?.lines]
   );
 
-  const onCreateDebitNote = async () => {
-    setCreatingDn(true);
-    const res = await dispatch(createDebitNoteFromGrn({ grnId: id, data: {} }));
-    setCreatingDn(false);
-    const created = res?.payload?.debitNoteItem;
-    if (created?._id) {
-      navigate(`${appsRoot}/debit-notes/view/${created._id}`);
-    } else {
-      Notification(
-        "Error",
-        res?.payload?.error || t("Could not create Debit Note."),
-        "warning"
-      );
-    }
+  // Open the Debit Note draft form (not persisted until Save).
+  const onCreateDebitNote = () => {
+    navigate(`${appsRoot}/debit-notes/create/${id}`);
   };
 
   // Seed the editable QC fields from the loaded GRN lines.
@@ -390,17 +377,8 @@ const GrnView = () => {
                 {t("View Debit Note")}
               </Button>
             ) : grn.status === "confirmed" && hasRejected ? (
-              <Button
-                color="warning"
-                size="sm"
-                onClick={onCreateDebitNote}
-                disabled={creatingDn}
-              >
-                {creatingDn ? (
-                  <>
-                    <Spinner size="sm" className="me-25" /> {t("Creating…")}
-                  </>
-                ) : (
+              <Button color="warning" size="sm" onClick={onCreateDebitNote}>
+                {(
                   <>
                     <CornerUpLeft size={14} className="me-25" />{" "}
                     {t("Create Debit Note")}
