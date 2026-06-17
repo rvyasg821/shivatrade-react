@@ -30,7 +30,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, Mail, Phone } from "react-feather";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -158,13 +158,6 @@ const CustomerList = () => {
       sortable: true,
       grow: 2,
       selector: (row) => {
-        const phone =
-          row?.primary_contact_country_code?.formatted ||
-          (row?.primary_contact_country_code?.dial_code &&
-          row?.primary_contact_phone
-            ? `${row.primary_contact_country_code.dial_code} ${row.primary_contact_phone}`
-            : row?.primary_contact_phone) ||
-          "";
         const nameNode = (
           <span
             className="fw-bold text-capitalize text-break"
@@ -193,20 +186,39 @@ const CustomerList = () => {
                 {row.primary_contact_name}
               </div>
             )}
+          </div>
+        );
+      },
+    },
+    {
+      name: t("Contact"),
+      sortable: false,
+      grow: 2,
+      selector: (row) => {
+        const phone =
+          row?.primary_contact_country_code?.formatted ||
+          (row?.primary_contact_country_code?.dial_code &&
+          row?.primary_contact_phone
+            ? `${row.primary_contact_country_code.dial_code} ${row.primary_contact_phone}`
+            : row?.primary_contact_phone) ||
+          "";
+        if (!row?.primary_contact_email && !phone) {
+          return <span className="text-muted">-</span>;
+        }
+        return (
+          <div className="py-75" style={{ minWidth: 0 }}>
             {row?.primary_contact_email && (
-              <div
-                className="small text-muted text-break"
-                style={{ overflowWrap: "anywhere" }}
-              >
-                {row.primary_contact_email}
+              <div className="d-flex align-items-center small text-muted text-break mb-25">
+                <Mail size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>
+                  {row.primary_contact_email}
+                </span>
               </div>
             )}
             {phone && (
-              <div
-                className="small text-muted text-break"
-                style={{ overflowWrap: "anywhere" }}
-              >
-                {phone}
+              <div className="d-flex align-items-center small text-muted text-break">
+                <Phone size={13} className="me-50 flex-shrink-0" />
+                <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
               </div>
             )}
           </div>

@@ -17,6 +17,7 @@ import {
   FileText,
   Truck,
   Layers,
+  DollarSign,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +25,7 @@ import { getCustomer, cleanCustomerMessage } from "@src/views/customers/store";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
+import { formatMoney } from "@src/utility/currency";
 
 import {
   DetailHeader,
@@ -69,13 +71,28 @@ const ViewCustomer = () => {
   const poCount = useSelector(
     (s) => (s.purchaseOrder?.purchaseOrderItems || []).length
   );
-  const invoiceCount = 0;
+  const invoiceList = useSelector((s) => s.invoice?.invoiceItems || []);
+  const invoiceCount = invoiceList.length;
+  // Total revenue = sum of billed invoice values (exclude unbilled drafts and
+  // cancelled invoices). Customer invoices are all in the customer's currency.
+  const totalRevenue = invoiceList
+    .filter(
+      (iv) => !["draft", "cancelled"].includes((iv?.status || "").toLowerCase())
+    )
+    .reduce((sum, iv) => sum + (Number(iv?.grand_total) || 0), 0);
 
   const subtitleParts = [c?.primary_contact_name, c?.primary_contact_email]
     .filter(Boolean)
     .join(" · ");
 
   const kpiItems = [
+    {
+      key: "revenue",
+      label: t("Total Revenue"),
+      value: formatMoney(totalRevenue, c?.currency),
+      icon: DollarSign,
+      tone: "success",
+    },
     {
       key: "invoices",
       label: t("Invoices"),
@@ -85,7 +102,7 @@ const ViewCustomer = () => {
     },
     {
       key: "pos",
-      label: t("Purchase Orders"),
+      label: t("Sales Orders"),
       value: poCount,
       icon: Truck,
       tone: "secondary",
