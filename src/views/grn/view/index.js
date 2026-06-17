@@ -26,8 +26,9 @@ import {
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
-import { getGrn, updateGrn, cleanGrnMessage } from "../store";
+import { getGrn, updateGrn, createGrnFromPov, cleanGrnMessage } from "../store";
 import { createDebitNoteFromGrn } from "@src/views/debit-notes/store";
+import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
@@ -47,13 +48,19 @@ const num = (v) => {
 };
 
 const GrnView = () => {
-  const { id } = useParams();
+  const { id, povId } = useParams();
+  const isCreate = !!povId; // /grn/create/:povId → draft, not persisted yet
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const store = useSelector((s) => s.grn);
-  const grn = store?.grnItem;
+  const povStore = useSelector((s) => s.poVendor);
+  // In create mode the form is a LOCAL draft built from the POV — nothing is
+  // saved until the user clicks Save (mirrors creating an RFQ from a Lead).
+  const [draftGrn, setDraftGrn] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const grn = isCreate ? draftGrn : store?.grnItem;
 
   // Editable quality-check map keyed by grn line id.
   const [qc, setQc] = useState({});
@@ -66,8 +73,45 @@ const GrnView = () => {
 
   useEffect(() => {
     dispatch(stopLoading());
-    dispatch(getGrn(id));
-  }, [id, dispatch]);
+    if (isCreate) dispatch(getPoVendor(povId));
+    else dispatch(getGrn(id));
+  }, [id, povId, isCreate, dispatch]);
+
+  // Build the local draft from the POV's dispatched lines (create mode only).
+  // Each line is seeded to receive the qty still outstanding on the POV.
+  useEffect(() => {
+    if (!isCreate) return;
+    const pov = povStore?.poVendorItem;
+    if (!pov || pov._id !== povId) return;
+    const lines = (pov.lines || [])
+      .map((l) => ({ l, remaining: num(l.dispatched_qty) - num(l.received_qty) }))
+      .filter(({ remaining }) => remaining > 1e-6)
+      .map(({ l, remaining }) => ({
+        _id: l._id, // po_vendor_line_id used as the draft/QC key
+        po_vendor_line_id: l._id,
+        product_name: l.product_name,
+        part_no: l.part_no,
+        hsn_code: l.hsn_code,
+        unit: l.unit,
+        dispatched_qty: String(remaining),
+        received_qty: String(remaining),
+        accepted_qty: String(remaining),
+        rejected_qty: "0",
+        batch_no: "",
+        remarks: "",
+      }));
+    setDraftGrn({
+      _id: null,
+      voucher_no: t("New GRN"),
+      status: "draft",
+      vendor_name: pov.vendor_name,
+      po_vendor_id: pov._id,
+      po_vendor_voucher_no: pov.voucher_no,
+      purchase_order_voucher_no: pov.purchase_order_voucher_no,
+      grn_date: null,
+      lines,
+    });
+  }, [isCreate, povId, povStore?.poVendorItem, t]);
 
   // A Debit Note can only be raised once the GRN is confirmed; look up any
   // existing one so we show a link instead of a duplicate "Create" button.
@@ -123,7 +167,12 @@ const GrnView = () => {
   }, [grn?._id, grn?.lines?.length]);
 
   useEffect(() => {
-    if (store?.success) Notification("Success", store.success, "success");
+    // Create-from-POV (GRN_CRTD) is the intermediate step of the create flow:
+    // create → apply QC (update). Suppress its toast so only the final
+    // save/confirm message shows (otherwise two success toasts appear).
+    if (store?.success && store?.actionFlag !== "GRN_CRTD") {
+      Notification("Success", store.success, "success");
+    }
     if (store?.error) Notification("Error", store.error, "warning");
     if (store?.success || store?.error) dispatch(cleanGrnMessage());
   }, [store?.success, store?.error, store?.actionFlag]);
@@ -200,7 +249,47 @@ const GrnView = () => {
     }));
   };
 
-  const onSave = (statusOverride) => {
+  const onSave = async (statusOverride) => {
+    // Create mode: persist now — create the GRN from the POV (backend seeds the
+    // lines), then apply the operator's QC edits, then open the saved GRN.
+    if (isCreate) {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const created = await dispatch(
+          createGrnFromPov({ povId })
+        ).unwrap();
+        const newGrn = created?.grnItem;
+        if (!newGrn?._id)
+          throw new Error(created?.error || t("Could not create GRN."));
+        // QC is keyed by po_vendor_line_id → map onto the new GRN lines.
+        const linesPayload = (newGrn.lines || []).map((gl) => {
+          const q = qc[gl.po_vendor_line_id] || {};
+          return {
+            _id: gl._id,
+            received_qty: String(q.received_qty ?? gl.received_qty ?? "0"),
+            accepted_qty: String(q.accepted_qty ?? gl.accepted_qty ?? "0"),
+            rejected_qty: String(q.rejected_qty ?? gl.rejected_qty ?? "0"),
+            batch_no: q.batch_no ?? "",
+            remarks: q.remarks ?? "",
+          };
+        });
+        const data = { lines: linesPayload };
+        if (statusOverride) data.status = statusOverride;
+        await dispatch(updateGrn({ id: newGrn._id, data })).unwrap();
+        navigate(`${appsRoot}/grn/view/${newGrn._id}`);
+      } catch (err) {
+        Notification(
+          "Error",
+          err?.message || t("Could not create GRN."),
+          "warning"
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const payload = {
       lines: lines.map((l) => ({
         _id: l._id,
@@ -319,23 +408,25 @@ const GrnView = () => {
                 )}
               </Button>
             ) : null}
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={downloadPdf}
-              disabled={pdfLoading}
-            >
-              {pdfLoading ? (
-                <>
-                  <Spinner size="sm" className="me-25" /> {t("Generating…")}
-                </>
-              ) : (
-                <>
-                  <Download size={14} className="me-25" /> {t("PDF")}
-                </>
-              )}
-            </Button>
+            {!isCreate && (
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                onClick={downloadPdf}
+                disabled={pdfLoading}
+              >
+                {pdfLoading ? (
+                  <>
+                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} className="me-25" /> {t("PDF")}
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               color="secondary"
               outline
@@ -366,28 +457,34 @@ const GrnView = () => {
                   color="primary"
                   size="sm"
                   outline
+                  disabled={saving}
                   onClick={() => onSave()}
                 >
-                  <Save size={14} className="me-25" /> {t("Save")}
+                  <Save size={14} className="me-25" />{" "}
+                  {saving ? t("Saving…") : isCreate ? t("Create GRN") : t("Save")}
                 </Button>
               )}
               {grn.status === "draft" && (
                 <Button
                   color="success"
                   size="sm"
+                  disabled={saving}
                   onClick={() => onSave("confirmed")}
                 >
-                  <CheckCircle size={14} className="me-25" /> {t("Save & Confirm")}
+                  <CheckCircle size={14} className="me-25" />{" "}
+                  {isCreate ? t("Create & Confirm") : t("Save & Confirm")}
                 </Button>
               )}
-              <Button
-                color="danger"
-                size="sm"
-                outline
-                onClick={() => onSave("cancelled")}
-              >
-                <XCircle size={14} className="me-25" /> {t("Cancel GRN")}
-              </Button>
+              {!isCreate && (
+                <Button
+                  color="danger"
+                  size="sm"
+                  outline
+                  onClick={() => onSave("cancelled")}
+                >
+                  <XCircle size={14} className="me-25" /> {t("Cancel GRN")}
+                </Button>
+              )}
             </div>
           )}
         </CardHeader>

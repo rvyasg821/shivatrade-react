@@ -5,18 +5,20 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, Plus, CornerUpLeft } from "react-feather";
+import { ExternalLink, Download, CornerUpLeft, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
-import { createGrnFromPov } from "@src/views/grn/store";
-import { createDebitNoteFromGrn } from "@src/views/debit-notes/store";
+import { deleteGrn } from "@src/views/grn/store";
+import { getPoVendor } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
 
 const num = (v) => {
@@ -35,14 +37,13 @@ const GrnsTab = ({ registerActions }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { poVendorItem } = useSelector((s) => s.poVendor);
-  const status = (poVendorItem?.status || "").toLowerCase();
+
+  const mySwal = withReactContent(Swal);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
-  const [creating, setCreating] = useState(false);
-  const [creatingDnId, setCreatingDnId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -60,83 +61,67 @@ const GrnsTab = ({ registerActions }) => {
     load();
   }, [load]);
 
-  // A GRN already raised (cancelled ones don't count) hides the create action.
-  const hasActiveGrn = rows.some(
-    (g) => (g?.status || "").toLowerCase() !== "cancelled"
-  );
-
-  const onCreateGrn = useCallback(async () => {
-    setCreating(true);
-    try {
-      const res = await dispatch(createGrnFromPov({ povId: id })).unwrap();
-      const newId = res?.grnItem?._id;
-      if (newId) navigate(`${appsRoot}/grn/view/${newId}`);
-      else
-        Notification(
-          "Error",
-          res?.error || t("Could not create GRN."),
-          "warning"
-        );
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.message || t("Could not create GRN."),
-        "warning"
-      );
-    } finally {
-      setCreating(false);
-    }
-  }, [dispatch, id, navigate, t]);
-
-  // Publish "Create GRN" to the tab bar (top-right) while dispatched with no
-  // active GRN. tabView renders nothing when this is null → no white space.
+  // "Create GRN" now lives in the POV detail header — keep the tab bar clear.
   useEffect(() => {
     if (!registerActions) return undefined;
-    registerActions(
-      status === "dispatched" && !hasActiveGrn ? (
-        <Button
-          color="primary"
-          size="sm"
-          onClick={onCreateGrn}
-          disabled={creating}
-        >
-          {creating ? (
-            <Spinner size="sm" className="me-50" />
-          ) : (
-            <Plus size={14} className="me-50" />
-          )}
-          {t("Create GRN")}
-        </Button>
-      ) : null
-    );
+    registerActions(null);
     return () => registerActions(null);
-  }, [registerActions, status, hasActiveGrn, creating, onCreateGrn, t]);
+  }, [registerActions]);
 
-  // Create a Debit Note from a confirmed GRN (one per GRN) and open it.
-  const createDn = async (g) => {
-    if (!g?._id || creatingDnId) return;
-    setCreatingDnId(g._id);
-    try {
-      const res = await dispatch(
-        createDebitNoteFromGrn({ grnId: g._id, data: {} })
-      ).unwrap();
-      const newId = res?.debitNoteItem?._id;
-      if (newId) navigate(`${appsRoot}/debit-notes/view/${newId}`);
-      else
-        Notification(
-          "Error",
-          res?.error || t("Could not create Debit Note."),
-          "warning"
-        );
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.message || t("Could not create Debit Note."),
-        "warning"
-      );
-    } finally {
-      setCreatingDnId(null);
-    }
+  // Delete a GRN (with confirm). The backend re-computes the POV's received
+  // quantities; we then reload the list and refresh the POV detail so the
+  // KPI strip / line items reflect the change immediately.
+  const handleDelete = (g) => {
+    if (!g?._id) return;
+    mySwal
+      .fire({
+        title: t("Delete this GRN?"),
+        text: t(
+          "This removes the receipt and re-computes the Vendor PO quantities. This cannot be undone."
+        ),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, delete it!"),
+        cancelButtonText: t("Cancel"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(async (result) => {
+        if (!result.isConfirmed) return;
+        setDeletingId(g._id);
+        try {
+          const r = await dispatch(deleteGrn(g._id)).unwrap();
+          if (r?.actionFlag === "GRN_DLTD") {
+            Notification("Success", r?.success || t("GRN deleted."), "success");
+            load();
+            if (id) dispatch(getPoVendor(id));
+          } else {
+            Notification(
+              "Error",
+              r?.error || t("Could not delete GRN."),
+              "warning"
+            );
+          }
+        } catch (err) {
+          Notification(
+            "Error",
+            err?.message || t("Could not delete GRN."),
+            "warning"
+          );
+        } finally {
+          setDeletingId(null);
+        }
+      });
+  };
+
+  // Create a Debit Note from a confirmed GRN — opens a draft form (not
+  // persisted until Save), like creating a GRN from a POV.
+  const createDn = (g) => {
+    if (!g?._id) return;
+    navigate(`${appsRoot}/debit-notes/create/${g._id}`);
   };
 
   // Open a GRN's PDF inline in a new tab (proper name) via a short-lived
@@ -264,14 +249,9 @@ const GrnsTab = ({ registerActions }) => {
                           color="warning"
                           size="sm"
                           title={t("Create Debit Note for rejected goods")}
-                          disabled={creatingDnId === g._id}
                           onClick={() => createDn(g)}
                         >
-                          {creatingDnId === g._id ? (
-                            <Spinner size="sm" className="me-25" />
-                          ) : (
-                            <CornerUpLeft size={13} className="me-25" />
-                          )}
+                          <CornerUpLeft size={13} className="me-25" />
                           {t("Debit Note")}
                         </Button>
                       ) : null}
@@ -287,6 +267,20 @@ const GrnsTab = ({ registerActions }) => {
                           <Spinner size="sm" />
                         ) : (
                           <Download size={15} />
+                        )}
+                      </Button>
+                      <Button
+                        color="flat-danger"
+                        size="sm"
+                        className="p-25"
+                        title={t("Delete GRN")}
+                        disabled={deletingId === g._id}
+                        onClick={() => handleDelete(g)}
+                      >
+                        {deletingId === g._id ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <Trash2 size={15} />
                         )}
                       </Button>
                     </div>

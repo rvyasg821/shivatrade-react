@@ -89,6 +89,10 @@ const CompanySettingsPage = () => {
     logo_url: '', company_display_name: '', footer_address: '', footer_contact: '', footer_extra: '',
     location_code_mode: 'manual', location_code_prefix: '', location_code_next_seq: 1,
     employee_code_mode: 'manual', employee_code_prefix: '', employee_code_next_seq: 1,
+    // Per-module voucher prefixes (override the leading company prefix).
+    lead_voucher_prefix: '', rfq_voucher_prefix: '', quotation_voucher_prefix: '',
+    sales_order_voucher_prefix: '', invoice_voucher_prefix: '', po_vendor_voucher_prefix: '',
+    grn_voucher_prefix: '', debit_note_voucher_prefix: '',
   }
   const [settingsData, setSettingsData] = useState(defaultSettings)
 
@@ -317,9 +321,37 @@ const CompanySettingsPage = () => {
     </FormGroup>
   )
 
-  // Code preview helpers
-  const locationCodePreview = `${(settingsData.location_code_prefix || '').toUpperCase()}${String(settingsData.location_code_next_seq || 1).padStart(4, '0')}`
-  const employeeCodePreview = `${(settingsData.employee_code_prefix || '').toUpperCase()}${String(settingsData.employee_code_next_seq || 1).padStart(4, '0')}`
+  // Current Indian financial year (e.g. "2026-27") for voucher previews.
+  const fyPreview = (() => {
+    const d = new Date()
+    const start = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1
+    return `${start}-${String((start + 1) % 100).padStart(2, '0')}`
+  })()
+
+  // Unified document-numbering rows. 'counter' = simple running sequence
+  // (Location / Employee); 'voucher' = FY-based voucher with a per-module prefix.
+  const numberingRows = [
+    { key: 'location', label: 'Location Code', type: 'counter', prefixField: 'location_code_prefix', modeField: 'location_code_mode', seqField: 'location_code_next_seq' },
+    { key: 'employee', label: 'Employee Code', type: 'counter', prefixField: 'employee_code_prefix', modeField: 'employee_code_mode', seqField: 'employee_code_next_seq' },
+    { key: 'lead', label: 'Lead', type: 'voucher', prefixField: 'lead_voucher_prefix', token: 'RQ', style: 'separated' },
+    { key: 'rfq', label: 'RFQ', type: 'voucher', prefixField: 'rfq_voucher_prefix', token: 'RFQ', style: 'glued' },
+    { key: 'quotation', label: 'Quotation', type: 'voucher', prefixField: 'quotation_voucher_prefix', token: 'QT', style: 'glued' },
+    { key: 'sales_order', label: 'Sales Order', type: 'voucher', prefixField: 'sales_order_voucher_prefix', token: 'SO', style: 'separated' },
+    { key: 'invoice', label: 'Invoice', type: 'voucher', prefixField: 'invoice_voucher_prefix', token: 'INV', style: 'separated' },
+    { key: 'po_vendor', label: 'PO Vendor', type: 'voucher', prefixField: 'po_vendor_voucher_prefix', token: 'VPO', style: 'separated' },
+    { key: 'grn', label: 'GRN', type: 'voucher', prefixField: 'grn_voucher_prefix', token: 'GRN', style: 'glued' },
+    { key: 'debit_note', label: 'Debit Note', type: 'voucher', prefixField: 'debit_note_voucher_prefix', token: 'DN', style: 'separated' },
+  ]
+
+  const counterPreview = (row) =>
+    `${(settingsData[row.prefixField] || '').toUpperCase()}${String(settingsData[row.seqField] || 1).padStart(4, '0')}`
+
+  const voucherPreview = (row) => {
+    const p = (settingsData[row.prefixField] || '').toUpperCase() || 'COMPANY'
+    if (row.style === 'compact') return `${p}001/${fyPreview}`
+    if (row.style === 'glued') return `${p}/${row.token}0001/${fyPreview}`
+    return `${p}/${row.token}/0001/${fyPreview}`
+  }
 
   const showForm = settingsScope !== 'location' || settingsLocationId || !isCompanyAdmin
 
@@ -467,117 +499,70 @@ const CompanySettingsPage = () => {
             <TabPane tabId='general'>
               <Card>
                 <CardHeader className='border-bottom py-1'>
-                  <CardTitle tag='h5' className='mb-0'>Location Code Settings</CardTitle>
+                  <CardTitle tag='h5' className='mb-0'>Document Numbering</CardTitle>
                 </CardHeader>
                 <CardBody>
-                  <FormGroup>
-                    <Label className='form-label'>Code Generation Mode</Label>
-                    <div className='d-flex gap-2'>
-                      <FormGroup check>
-                        <Input type='radio' name='location_code_mode' id='loc_manual'
-                          checked={settingsData.location_code_mode === 'manual'}
-                          onChange={() => handleChange('location_code_mode', 'manual')} />
-                        <Label check for='loc_manual'>Manual</Label>
-                      </FormGroup>
-                      <FormGroup check>
-                        <Input type='radio' name='location_code_mode' id='loc_auto'
-                          checked={settingsData.location_code_mode === 'auto'}
-                          onChange={() => handleChange('location_code_mode', 'auto')} />
-                        <Label check for='loc_auto'>Auto-generate</Label>
-                      </FormGroup>
-                    </div>
-                    <small className='text-muted'>
-                      {settingsData.location_code_mode === 'auto'
-                        ? 'Location codes will be generated automatically when creating a new location.'
-                        : 'Users must enter a location code manually when creating a new location.'}
-                    </small>
-                  </FormGroup>
-                  <Row>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Prefix <small className='text-muted'>(optional)</small></Label>
-                        <Input type='text' maxLength={10}
-                          value={settingsData.location_code_prefix || ''}
-                          style={{ textTransform: 'uppercase' }}
-                          onChange={(e) => handleChange('location_code_prefix', e.target.value.toUpperCase())}
-                          placeholder='e.g. LOC, BR' />
-                      </FormGroup>
-                    </Col>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Next Sequence #</Label>
-                        <Input type='number' min={1}
-                          value={settingsData.location_code_next_seq || 1}
-                          onChange={(e) => handleChange('location_code_next_seq', Math.max(1, +e.target.value))} />
-                      </FormGroup>
-                    </Col>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Preview</Label>
-                        <div className='form-control bg-light' style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          {locationCodePreview}
-                        </div>
-                      </FormGroup>
-                    </Col>
-                  </Row>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardHeader className='border-bottom py-1'>
-                  <CardTitle tag='h5' className='mb-0'>Employee Code Settings</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <FormGroup>
-                    <Label className='form-label'>Code Generation Mode</Label>
-                    <div className='d-flex gap-2'>
-                      <FormGroup check>
-                        <Input type='radio' name='employee_code_mode' id='emp_manual'
-                          checked={settingsData.employee_code_mode === 'manual'}
-                          onChange={() => handleChange('employee_code_mode', 'manual')} />
-                        <Label check for='emp_manual'>Manual</Label>
-                      </FormGroup>
-                      <FormGroup check>
-                        <Input type='radio' name='employee_code_mode' id='emp_auto'
-                          checked={settingsData.employee_code_mode === 'auto'}
-                          onChange={() => handleChange('employee_code_mode', 'auto')} />
-                        <Label check for='emp_auto'>Auto-generate</Label>
-                      </FormGroup>
-                    </div>
-                    <small className='text-muted'>
-                      {settingsData.employee_code_mode === 'auto'
-                        ? 'Employee codes will be generated automatically when creating a new employee.'
-                        : 'Users must enter an employee code manually when creating a new employee.'}
-                    </small>
-                  </FormGroup>
-                  <Row>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Prefix <small className='text-muted'>(optional)</small></Label>
-                        <Input type='text' maxLength={10}
-                          value={settingsData.employee_code_prefix || ''}
-                          style={{ textTransform: 'uppercase' }}
-                          onChange={(e) => handleChange('employee_code_prefix', e.target.value.toUpperCase())}
-                          placeholder='e.g. EMP, PG' />
-                      </FormGroup>
-                    </Col>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Next Sequence #</Label>
-                        <Input type='number' min={1}
-                          value={settingsData.employee_code_next_seq || 1}
-                          onChange={(e) => handleChange('employee_code_next_seq', Math.max(1, +e.target.value))} />
-                      </FormGroup>
-                    </Col>
-                    <Col md={4}>
-                      <FormGroup>
-                        <Label className='form-label'>Preview</Label>
-                        <div className='form-control bg-light' style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          {employeeCodePreview}
-                        </div>
-                      </FormGroup>
-                    </Col>
-                  </Row>
+                  <small className='text-muted d-block mb-1'>
+                    Set the prefix for each document. Location &amp; Employee use a
+                    running sequence; sales &amp; purchase documents use a
+                    financial-year voucher number. Edit a row and click Save.
+                  </small>
+                  <Table bordered responsive className='mb-0 align-middle'>
+                    <thead className='table-light'>
+                      <tr>
+                        <th style={{ minWidth: 150 }}>Module</th>
+                        <th style={{ width: 170 }}>Mode</th>
+                        <th style={{ width: 160 }}>Prefix</th>
+                        <th style={{ width: 130 }}>Next #</th>
+                        <th>Preview</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {numberingRows.map((row) => (
+                        <tr key={row.key}>
+                          <td className='fw-bold'>{row.label}</td>
+                          <td>
+                            {row.type === 'counter' ? (
+                              <Input type='select' bsSize='sm'
+                                value={settingsData[row.modeField] || 'manual'}
+                                onChange={(e) => handleChange(row.modeField, e.target.value)}>
+                                <option value='manual'>Manual</option>
+                                <option value='auto'>Auto-generate</option>
+                              </Input>
+                            ) : (
+                              <span className='text-muted small'>Auto (FY)</span>
+                            )}
+                          </td>
+                          <td>
+                            <Input type='text' bsSize='sm'
+                              maxLength={row.type === 'counter' ? 10 : 15}
+                              style={{ textTransform: 'uppercase' }}
+                              value={settingsData[row.prefixField] || ''}
+                              onChange={(e) => handleChange(row.prefixField, e.target.value.toUpperCase())}
+                              placeholder={row.type === 'counter' ? 'e.g. LOC' : 'e.g. SHIVA'} />
+                          </td>
+                          <td>
+                            {row.type === 'counter' ? (
+                              <Input type='number' bsSize='sm' min={1}
+                                value={settingsData[row.seqField] || 1}
+                                onChange={(e) => handleChange(row.seqField, Math.max(1, +e.target.value))} />
+                            ) : (
+                              <span className='text-muted small'>Auto</span>
+                            )}
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                              {row.type === 'counter' ? counterPreview(row) : voucherPreview(row)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                  <small className='text-muted d-block mt-1'>
+                    Leave a sales/purchase prefix blank to keep the default company
+                    prefix. Changes apply to newly-created documents only.
+                  </small>
                 </CardBody>
               </Card>
             </TabPane>
