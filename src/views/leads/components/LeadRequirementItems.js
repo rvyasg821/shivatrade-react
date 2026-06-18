@@ -16,6 +16,10 @@ import { Plus, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 const LeadRequirementItems = ({
   control,
@@ -81,7 +85,7 @@ const LeadRequirementItems = ({
     setPage(Math.floor(newIdx / pageSize)); // jump to the page with the new row
   };
 
-  const onPickProduct = (idx, opt) => {
+  const onPickProduct = async (idx, opt) => {
     const raw = opt?.raw || {};
     setValue(`lines.${idx}.product_id`, opt ? opt.value : "");
     setValue(`lines.${idx}.product_code`, raw.code || "");
@@ -89,6 +93,36 @@ const LeadRequirementItems = ({
     // Auto-fill unit from the product's UoM when the row's unit is still blank.
     const uom = raw.unit_of_measure || raw.uom || "";
     if (uom) setValue(`lines.${idx}.unit`, uom);
+
+    // Auto-fill the Rate (+ vendor) from the cheapest current vendor in the
+    // price list for this product.
+    if (!opt?.value) {
+      setValue(`lines.${idx}.unit_price`, "");
+      setValue(`lines.${idx}.vendor_id`, "");
+      setValue(`lines.${idx}.vendor_code`, "");
+      setValue(`lines.${idx}.vendor_name`, "");
+      return;
+    }
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.priceList.byProduct}/${opt.value}`
+      );
+      const rows = resp?.data?.data || [];
+      const cheapest = [...rows].sort(
+        (a, b) => num(a?.unit_price) - num(b?.unit_price)
+      )[0];
+      if (cheapest) {
+        setValue(`lines.${idx}.unit_price`, String(cheapest.unit_price ?? ""));
+        setValue(`lines.${idx}.vendor_id`, cheapest.vendor_id || "");
+        setValue(`lines.${idx}.vendor_code`, cheapest.vendor_code || "");
+        setValue(`lines.${idx}.vendor_name`, cheapest.vendor_name || "");
+      } else {
+        // No price-list entry — leave the Rate blank for manual entry.
+        setValue(`lines.${idx}.unit_price`, "");
+      }
+    } catch {
+      setValue(`lines.${idx}.unit_price`, "");
+    }
   };
 
   return (
@@ -121,7 +155,7 @@ const LeadRequirementItems = ({
                 {t("Qty")}
               </th>
               <th className="text-end" style={{ width: 120 }}>
-                {t("Amount")} (₹)
+                {t("Rate")} (₹)
               </th>
               <th className="text-end" style={{ width: 130 }}>
                 {t("Value")} (₹)
