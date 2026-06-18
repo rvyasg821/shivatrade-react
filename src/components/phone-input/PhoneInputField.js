@@ -46,16 +46,19 @@ const PhoneInputField = ({
   const fullNumber = `${dialDigits}${phoneDigits}`;
 
   // react-phone-input-2 reads its initial value once on mount and ignores
-  // later prop changes — common headache when the form hydrates async.
-  // Bump a `mountKey` whenever the inbound number transitions from empty
-  // to non-empty (i.e. real hydration arrives) so the input remounts with
-  // the new initial value. After that, normal typing updates work fine
-  // and don't re-trigger the bump.
+  // later prop changes — a headache when the form hydrates async (e.g.
+  // selecting an existing customer auto-fills the phone). We remount via
+  // `key` whenever the inbound number changes EXTERNALLY — i.e. differs from
+  // what this field last emitted through onChange. That way hydration (and
+  // programmatic clears) refresh the input, while the user's own typing never
+  // triggers a disruptive remount. (The old empty→non-empty check missed
+  // hydration when country_code carried a dial code but no digits, so
+  // fullNumber was never "empty".)
   const [mountKey, setMountKey] = useState(0);
-  const hadDataRef = useRef(!!fullNumber);
+  const lastEmittedRef = useRef(fullNumber);
   useEffect(() => {
-    if (fullNumber && !hadDataRef.current) {
-      hadDataRef.current = true;
+    if (fullNumber !== lastEmittedRef.current) {
+      lastEmittedRef.current = fullNumber;
       setMountKey((k) => k + 1);
     }
   }, [fullNumber]);
@@ -99,6 +102,10 @@ const PhoneInputField = ({
           formatted: formatted || "",
           country_iso: (countryMeta?.countryCode || "").toUpperCase(),
         };
+        // Remember what we emit so the prop round-trip back into `fullNumber`
+        // is recognised as our own change (no remount), unlike external
+        // hydration which differs from this.
+        lastEmittedRef.current = `${(dial || "").replace("+", "")}${digits}`;
         onChange(next, countryMeta);
       }}
       inputProps={inputProps}

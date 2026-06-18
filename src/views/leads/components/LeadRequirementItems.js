@@ -93,6 +93,9 @@ const LeadRequirementItems = ({
     // Auto-fill unit from the product's UoM when the row's unit is still blank.
     const uom = raw.unit_of_measure || raw.uom || "";
     if (uom) setValue(`lines.${idx}.unit`, uom);
+    // Auto-fill HS Code / Part No from the product (editable afterwards).
+    setValue(`lines.${idx}.hs_code`, raw.hsn_code || raw.hs_code || "");
+    setValue(`lines.${idx}.part_no`, raw.part_no || "");
 
     // Auto-fill the Rate (+ vendor) from the cheapest current vendor in the
     // price list for this product.
@@ -112,7 +115,12 @@ const LeadRequirementItems = ({
         (a, b) => num(a?.unit_price) - num(b?.unit_price)
       )[0];
       if (cheapest) {
-        setValue(`lines.${idx}.unit_price`, String(cheapest.unit_price ?? ""));
+        setValue(
+          `lines.${idx}.unit_price`,
+          cheapest.unit_price != null
+            ? Number(cheapest.unit_price).toFixed(2)
+            : ""
+        );
         setValue(`lines.${idx}.vendor_id`, cheapest.vendor_id || "");
         setValue(`lines.${idx}.vendor_code`, cheapest.vendor_code || "");
         setValue(`lines.${idx}.vendor_name`, cheapest.vendor_name || "");
@@ -150,7 +158,10 @@ const LeadRequirementItems = ({
           <thead className="table-light">
             <tr>
               <th style={{ width: 36 }}>#</th>
+              <th style={{ width: 110 }}>{t("HS Code")}</th>
+              <th style={{ width: 110 }}>{t("Part No")}</th>
               <th style={{ minWidth: 240 }}>{t("Product")}</th>
+              <th style={{ width: 90 }}>{t("Unit")}</th>
               <th className="text-end" style={{ width: 110 }}>
                 {t("Qty")}
               </th>
@@ -160,7 +171,6 @@ const LeadRequirementItems = ({
               <th className="text-end" style={{ width: 130 }}>
                 {t("Value")} (₹)
               </th>
-              <th style={{ width: 110 }}>{t("Unit")}</th>
               <th style={{ minWidth: 150 }}>{t("Customer Ref")}</th>
               <th style={{ minWidth: 200 }}>{t("Description")}</th>
               <th style={{ width: 48 }} />
@@ -169,7 +179,7 @@ const LeadRequirementItems = ({
           <tbody>
             {lineFA.fields.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center text-muted py-3">
+                <td colSpan={11} className="text-center text-muted py-3">
                   {t('No requirement items yet — click "Add Row".')}
                 </td>
               </tr>
@@ -178,6 +188,34 @@ const LeadRequirementItems = ({
                 idx < pageStart || idx >= pageEnd ? null : (
                 <tr key={row.id}>
                   <td className="text-muted">{idx + 1}</td>
+                  <td>
+                    <Controller
+                      name={`lines.${idx}.hs_code`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          bsSize="sm"
+                          placeholder={t("HSN")}
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      )}
+                    />
+                  </td>
+                  <td>
+                    <Controller
+                      name={`lines.${idx}.part_no`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          bsSize="sm"
+                          placeholder={t("Part No")}
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      )}
+                    />
+                  </td>
                   <td>
                     <Controller
                       name={`lines.${idx}.product_id`}
@@ -201,6 +239,13 @@ const LeadRequirementItems = ({
                       )}
                     />
                   </td>
+                  <td className="align-middle">
+                    {watchedLines?.[idx]?.unit ? (
+                      watchedLines[idx].unit
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
+                  </td>
                   <td>
                     <Controller
                       name={`lines.${idx}.qty`}
@@ -210,6 +255,7 @@ const LeadRequirementItems = ({
                           bsSize="sm"
                           type="number"
                           min="0"
+                          step="0.01"
                           className="text-end"
                           {...field}
                           value={field.value ?? ""}
@@ -226,7 +272,7 @@ const LeadRequirementItems = ({
                           bsSize="sm"
                           type="number"
                           min="0"
-                          step="any"
+                          step="0.01"
                           className="text-end"
                           placeholder="0.00"
                           {...field}
@@ -237,20 +283,6 @@ const LeadRequirementItems = ({
                   </td>
                   <td className="text-end align-middle fw-semibold">
                     {fmtInr(lineValue(idx))}
-                  </td>
-                  <td>
-                    <Controller
-                      name={`lines.${idx}.unit`}
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          bsSize="sm"
-                          placeholder={t("e.g. PCS")}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      )}
-                    />
                   </td>
                   <td>
                     <Controller
