@@ -8,7 +8,7 @@
 // just aren't entered here, since a lead line is only a requirement.
 
 import { Fragment, useState } from "react";
-import { Controller, useFieldArray } from "react-hook-form";
+import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { Table, Input, Button } from "reactstrap";
 import Select from "react-select";
 import ReactPaginate from "react-paginate";
@@ -22,9 +22,41 @@ const LeadRequirementItems = ({
   setValue,
   productOptions = [],
   initLineItem,
+  currencySymbol = "₹",
+  currencyCode = "INR",
+  rate = 1,
 }) => {
   const { t } = useTranslation();
   const lineFA = useFieldArray({ control, name: "lines" });
+
+  // Amount and Value are in INR (the company's books / vendor price basis).
+  // Live values so the per-row "Value" recomputes as the operator types.
+  const watchedLines = useWatch({ control, name: "lines" });
+  const lineValue = (idx) => {
+    const l = watchedLines?.[idx] || {};
+    const v = (Number(l.qty) || 0) * (Number(l.unit_price) || 0);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const fmtInr = (v) =>
+    `₹${(Number(v) || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  const fmtNum = (v) =>
+    (Number(v) || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  // Footer totals: Σ(qty × amount) in INR, then the lead-currency value.
+  const inrTotal = (watchedLines || []).reduce(
+    (s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0),
+    0
+  );
+  const docRate = Number(rate) || 1;
+  const docTotal = inrTotal * docRate;
+  const isForeign =
+    currencyCode && String(currencyCode).toUpperCase() !== "INR";
 
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
@@ -88,6 +120,12 @@ const LeadRequirementItems = ({
               <th className="text-end" style={{ width: 110 }}>
                 {t("Qty")}
               </th>
+              <th className="text-end" style={{ width: 120 }}>
+                {t("Amount")} (₹)
+              </th>
+              <th className="text-end" style={{ width: 130 }}>
+                {t("Value")} (₹)
+              </th>
               <th style={{ width: 110 }}>{t("Unit")}</th>
               <th style={{ minWidth: 150 }}>{t("Customer Ref")}</th>
               <th style={{ minWidth: 200 }}>{t("Description")}</th>
@@ -97,7 +135,7 @@ const LeadRequirementItems = ({
           <tbody>
             {lineFA.fields.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-3">
+                <td colSpan={9} className="text-center text-muted py-3">
                   {t('No requirement items yet — click "Add Row".')}
                 </td>
               </tr>
@@ -144,6 +182,27 @@ const LeadRequirementItems = ({
                         />
                       )}
                     />
+                  </td>
+                  <td>
+                    <Controller
+                      name={`lines.${idx}.unit_price`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          bsSize="sm"
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="text-end"
+                          placeholder="0.00"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      )}
+                    />
+                  </td>
+                  <td className="text-end align-middle fw-semibold">
+                    {fmtInr(lineValue(idx))}
                   </td>
                   <td>
                     <Controller
@@ -201,6 +260,42 @@ const LeadRequirementItems = ({
           </tbody>
         </Table>
       </div>
+
+      {total > 0 && (
+        <div className="d-flex justify-content-end mb-2">
+          <Table size="sm" borderless className="w-auto mb-0">
+            <tbody>
+              <tr>
+                <td className="text-muted pe-3 py-25">{t("INR Total")}</td>
+                <td className="text-end fw-semibold py-25">
+                  {fmtInr(inrTotal)}
+                </td>
+              </tr>
+              {isForeign && (
+                <Fragment>
+                  <tr>
+                    <td className="text-muted pe-3 py-25">
+                      {t("Exchange Rate")}
+                    </td>
+                    <td className="text-end py-25">
+                      1 {currencyCode} = ₹{fmtNum(1 / docRate)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted pe-3 py-25">
+                      {currencyCode} {t("Value")}
+                    </td>
+                    <td className="text-end fw-bold py-25">
+                      {currencySymbol}
+                      {fmtNum(docTotal)}
+                    </td>
+                  </tr>
+                </Fragment>
+              )}
+            </tbody>
+          </Table>
+        </div>
+      )}
 
       {total > 0 && (
         <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 mb-3 gap-1">

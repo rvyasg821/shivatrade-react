@@ -331,7 +331,38 @@ const InvoiceAddEdit = () => {
   const [visited, setVisited] = useState(new Set([0]));
   const isLastStep = activeStep === STEPS.length - 1;
 
-  const onF = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+  const onF = (k, v) => {
+    setForm((s) => ({ ...s, [k]: v }));
+    // Clear this field's validation error as soon as it's edited.
+    setErrors((e) => (e[k] ? { ...e, [k]: undefined } : e));
+  };
+
+  // Exchange Rate field shows the intuitive inverse — ₹ per 1 foreign unit
+  // (e.g. 83.33) — while the form still STORES "foreign per ₹1" (system
+  // convention: doc = INR × rate, e.g. 0.012). Local input state, seeded from
+  // the stored value while unfocused; store 1/X on edit. (Same as the
+  // quotation / sales-order Step 1.)
+  const rateSameCurrency =
+    !form.currency_code ||
+    String(form.currency_code).toUpperCase() === "INR";
+  const [rateDisplay, setRateDisplay] = useState("");
+  const rateFocused = useRef(false);
+  useEffect(() => {
+    if (rateFocused.current) return;
+    if (rateSameCurrency) {
+      setRateDisplay("1");
+      return;
+    }
+    const r = Number(form.exchange_rate);
+    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.exchange_rate, rateSameCurrency]);
+
+  const onRateDisplayChange = (text) => {
+    setRateDisplay(text);
+    const inrPerForeign = Number(text);
+    onF("exchange_rate", inrPerForeign > 0 ? String(1 / inrPerForeign) : "");
+  };
 
   // ── Packing totals: auto-sum from line items, editable override ──────
   // Header Total Packages / Net / Gross default to the sum of the per-line
@@ -474,6 +505,25 @@ const InvoiceAddEdit = () => {
     if (cLutDate && !form.lut_date) onF("lut_date", cLutDate.slice(0, 10));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyStore?.companyItem?.lut_no, companyStore?.companyItem?.lut_date, isEdit]);
+
+  // Pre-fill Port of Loading (Step 2) from company profile's default on a new
+  // invoice. Operator can override per invoice; only fills when blank so it
+  // never clobbers a value the operator already picked.
+  useEffect(() => {
+    if (isEdit) return;
+    if (form.port_of_loading_id || form.port_of_loading_snapshot) return;
+    const polId =
+      companyStore?.companyItem?.default_port_of_loading_id || "";
+    const polSnap =
+      companyStore?.companyItem?.default_port_of_loading_snapshot || null;
+    if (polId) onF("port_of_loading_id", polId);
+    if (polSnap) onF("port_of_loading_snapshot", polSnap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    companyStore?.companyItem?.default_port_of_loading_id,
+    companyStore?.companyItem?.default_port_of_loading_snapshot,
+    isEdit,
+  ]);
 
   // Load a customer + its default address, then write into the named
   // snapshot field on form. Used when operator picks "From Customer
@@ -1345,6 +1395,25 @@ const InvoiceAddEdit = () => {
         if (num(lines[i].qty) <= 0) e[`line_${i}_qty`] = "Qty > 0";
         if (!lines[i].hsn_code) e[`line_${i}_hsn`] = "HSN required";
       }
+      // Shipment fields are now required (shipping module retired — this
+      // data is captured on the invoice instead).
+      if (!form.mode) e.mode = "Mode required";
+      if (!form.port_of_loading_id && !form.port_of_loading_snapshot)
+        e.port_of_loading_id = "Port of Loading required";
+      if (!form.port_of_discharge_id && !form.port_of_discharge_snapshot)
+        e.port_of_discharge_id = "Port of Discharge required";
+      if (!form.shipping_bill_no || !form.shipping_bill_no.trim())
+        e.shipping_bill_no = "Shipping Bill No. required";
+      if (!form.shipping_bill_date)
+        e.shipping_bill_date = "Shipping Bill Date required";
+      if (!form.place_of_delivery || !form.place_of_delivery.trim())
+        e.place_of_delivery = "Place of Delivery required";
+      if (!form.total_packages || num(form.total_packages) <= 0)
+        e.total_packages = "Total Packages required";
+      if (!form.net_weight_kg || num(form.net_weight_kg) <= 0)
+        e.net_weight_kg = "Net Weight required";
+      if (!form.gross_weight_kg || num(form.gross_weight_kg) <= 0)
+        e.gross_weight_kg = "Gross Weight required";
       return e;
     },
     tax: () => {
@@ -2107,19 +2176,30 @@ const InvoiceAddEdit = () => {
                   onF("currency_code", opt ? opt.value : "")
                 }
               />
-              <small className="text-muted">{t("Pulled from PO")}</small>
+              <small className="text-muted">{t("Pulled from SO")}</small>
             </Col>
             <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Exchange Rate")}</Label>
+              <Label className="form-label">
+                {t("Exchange Rate")}
+                {!rateSameCurrency && form.currency_code ? (
+                  <small className="text-muted">
+                    {" "}
+                    (₹ {t("per 1")} {form.currency_code})
+                  </small>
+                ) : null}
+              </Label>
               <Input
                 type="number"
-                step="0.000001"
+                step="0.01"
                 min="0"
-                value={form.exchange_rate}
-                onChange={(e) => onF("exchange_rate", e.target.value)}
+                disabled={rateSameCurrency}
+                value={rateDisplay}
+                onFocus={() => (rateFocused.current = true)}
+                onBlur={() => (rateFocused.current = false)}
+                onChange={(e) => onRateDisplayChange(e.target.value)}
               />
               <small className="text-muted">
-                {t("INR × rate = customer-currency amount.")}
+                {t("₹ per 1 unit of the invoice currency.")}
               </small>
             </Col>
             <Col md="4" className="mb-2">
@@ -2590,13 +2670,15 @@ const InvoiceAddEdit = () => {
         <h5 className="mt-2 mb-2">
           {t("Shipment & Shipping Bill")}
           <small className="text-muted ms-1">
-            ({t("optional — record after the goods ship")})
+            ({t("required fields marked")} <span className="text-danger">*</span>)
           </small>
         </h5>
         <div>
           <Row>
             <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Mode")}</Label>
+              <Label className="form-label">
+                {t("Mode")} <span className="text-danger">*</span>
+              </Label>
               <Select
                 classNamePrefix="select"
                 isClearable
@@ -2607,6 +2689,9 @@ const InvoiceAddEdit = () => {
                 }
                 onChange={(opt) => onF("mode", opt ? opt.value : "")}
               />
+              {errors.mode && (
+                <div className="text-danger small mt-25">{t("Mode required")}</div>
+              )}
             </Col>
             <Col md="4" className="mb-2">
               <Label className="form-label">{t("Export Scheme")}</Label>
@@ -2637,21 +2722,36 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Shipping Bill No.")}</Label>
+              <Label className="form-label">
+                {t("Shipping Bill No.")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 value={form.shipping_bill_no}
                 onChange={(e) => onF("shipping_bill_no", e.target.value)}
                 maxLength={60}
                 placeholder={t("Record-only (issued by CHA)")}
+                invalid={!!errors.shipping_bill_no}
               />
+              {errors.shipping_bill_no && (
+                <div className="text-danger small mt-25">
+                  {t("Shipping Bill No. required")}
+                </div>
+              )}
             </Col>
             <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Shipping Bill Date")}</Label>
+              <Label className="form-label">
+                {t("Shipping Bill Date")} <span className="text-danger">*</span>
+              </Label>
               <DateInput
                 id="inv-shipping-bill-date"
                 value={form.shipping_bill_date}
                 onChange={(_d, _s, iso) => onF("shipping_bill_date", iso || "")}
               />
+              {errors.shipping_bill_date && (
+                <div className="text-danger small mt-25">
+                  {t("Shipping Bill Date required")}
+                </div>
+              )}
             </Col>
           </Row>
 
@@ -2674,7 +2774,9 @@ const InvoiceAddEdit = () => {
               />
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Port of Loading")}</Label>
+              <Label className="form-label">
+                {t("Port of Loading")} <span className="text-danger">*</span>
+              </Label>
               <PortSelect
                 value={form.port_of_loading_snapshot}
                 countryCode="IN"
@@ -2684,9 +2786,16 @@ const InvoiceAddEdit = () => {
                   onF("port_of_loading_snapshot", port || null);
                 }}
               />
+              {errors.port_of_loading_id && (
+                <div className="text-danger small mt-25">
+                  {t("Port of Loading required")}
+                </div>
+              )}
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Port of Discharge")}</Label>
+              <Label className="form-label">
+                {t("Port of Discharge")} <span className="text-danger">*</span>
+              </Label>
               <PortSelect
                 value={form.port_of_discharge_snapshot}
                 countryCode={null}
@@ -2696,53 +2805,93 @@ const InvoiceAddEdit = () => {
                   onF("port_of_discharge_snapshot", port || null);
                 }}
               />
+              {errors.port_of_discharge_id && (
+                <div className="text-danger small mt-25">
+                  {t("Port of Discharge required")}
+                </div>
+              )}
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Place of Delivery")}</Label>
+              <Label className="form-label">
+                {t("Place of Delivery")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 value={form.place_of_delivery}
                 onChange={(e) => onF("place_of_delivery", e.target.value)}
                 maxLength={80}
+                invalid={!!errors.place_of_delivery}
               />
+              {errors.place_of_delivery && (
+                <div className="text-danger small mt-25">
+                  {t("Place of Delivery required")}
+                </div>
+              )}
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Total Packages")}</Label>
+              <Label className="form-label">
+                {t("Total Packages")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 type="number"
                 min="0"
                 step="1"
                 value={form.total_packages}
                 onChange={(e) => onPackingF("total_packages", e.target.value)}
+                invalid={!!errors.total_packages}
               />
-              <small className="text-muted">
-                {t("Auto-summed from line items; editable")}
-              </small>
+              {errors.total_packages ? (
+                <div className="text-danger small mt-25">
+                  {t("Total Packages required")}
+                </div>
+              ) : (
+                <small className="text-muted">
+                  {t("Auto-summed from line items; editable")}
+                </small>
+              )}
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Net Weight (kg)")}</Label>
+              <Label className="form-label">
+                {t("Net Weight (kg)")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 type="number"
                 min="0"
                 step="0.001"
                 value={form.net_weight_kg}
                 onChange={(e) => onPackingF("net_weight_kg", e.target.value)}
+                invalid={!!errors.net_weight_kg}
               />
-              <small className="text-muted">
-                {t("Auto-summed from line items; editable")}
-              </small>
+              {errors.net_weight_kg ? (
+                <div className="text-danger small mt-25">
+                  {t("Net Weight required")}
+                </div>
+              ) : (
+                <small className="text-muted">
+                  {t("Auto-summed from line items; editable")}
+                </small>
+              )}
             </Col>
             <Col md="3" className="mb-2">
-              <Label className="form-label">{t("Gross Weight (kg)")}</Label>
+              <Label className="form-label">
+                {t("Gross Weight (kg)")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 type="number"
                 min="0"
                 step="0.001"
                 value={form.gross_weight_kg}
                 onChange={(e) => onPackingF("gross_weight_kg", e.target.value)}
+                invalid={!!errors.gross_weight_kg}
               />
-              <small className="text-muted">
-                {t("Auto-summed from line items; editable")}
-              </small>
+              {errors.gross_weight_kg ? (
+                <div className="text-danger small mt-25">
+                  {t("Gross Weight required")}
+                </div>
+              ) : (
+                <small className="text-muted">
+                  {t("Auto-summed from line items; editable")}
+                </small>
+              )}
             </Col>
           </Row>
         </div>

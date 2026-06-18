@@ -279,25 +279,6 @@ const ViewInvoice = () => {
       });
   };
 
-  // Source Sales Orders — distinct SOs feeding this invoice, derived from the
-  // per-line voucher snapshots (SHIPPING_INVOICE_MERGE_PLAN §6). On-screen only.
-  const sourceSos = useMemo(() => {
-    const byKey = new Map();
-    for (const l of inv?.lines || []) {
-      const so = l.purchase_order_voucher_no || "";
-      const quote = l.quotation_voucher_no || "";
-      const key = `${so}|${quote}`;
-      if (!byKey.has(key)) {
-        byKey.set(key, {
-          so,
-          quote,
-          buyer_ref: l.customer_reference || "",
-        });
-      }
-    }
-    return Array.from(byKey.values()).filter((s) => s.so || s.quote);
-  }, [inv?.lines]);
-
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
@@ -435,9 +416,9 @@ const ViewInvoice = () => {
     }
 
     if (!isDraft && !isCancelled) {
-      // Book a Shipping from this Invoice - pre-fills consignee, country,
-      // and attaches the invoice automatically. Hidden if already booked.
-      if (!inv.shipping_id) {
+      // Book Shipping hidden — the shipping module is retired; shipment data
+      // is now captured directly on the invoice. (Kept for reversibility.)
+      if (false && !inv.shipping_id) {
         actions.push({
           icon: Truck,
           label: t("Book Shipping"),
@@ -531,7 +512,7 @@ const ViewInvoice = () => {
   const sourceFields = [
     inv?.purchase_order_voucher_no && {
       icon: Hash,
-      label: t("PO"),
+      label: t("SO"),
       value: inv.purchase_order_voucher_no,
     },
     !PFI_RETIRED &&
@@ -1348,39 +1329,8 @@ const ViewInvoice = () => {
                   <DetailFieldList items={sourceFields} />
                 </DetailPanel>
               )}
-              {sourceSos.length > 0 && (
-                <DetailPanel title={t("Source Sales Orders")}>
-                  {sourceSos.map((s, i) => (
-                    <div
-                      key={i}
-                      className={`small ${
-                        i > 0 ? "border-top pt-1 mt-1" : ""
-                      }`}
-                    >
-                      {s.so && (
-                        <div className="fw-semibold">
-                          {t("SO")} {s.so}
-                        </div>
-                      )}
-                      {s.quote && (
-                        <div className="text-muted">
-                          {t("Quote")} {s.quote}
-                        </div>
-                      )}
-                      {s.buyer_ref && (
-                        <div className="text-muted">
-                          {t("Req")} {s.buyer_ref}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {inv?.customer_po_no && (
-                    <div className="small border-top pt-1 mt-1 text-muted">
-                      {t("Buyer PO #")} {inv.customer_po_no}
-                    </div>
-                  )}
-                </DetailPanel>
-              )}
+              {/* "Source Sales Orders" panel removed — duplicated the SO/Quote
+                  already shown in Source Documents above. */}
               {tradeFields.length > 0 && (
                 <DetailPanel title={t("Trade Terms")}>
                   <DetailFieldList items={tradeFields} />

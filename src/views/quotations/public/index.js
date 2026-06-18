@@ -260,13 +260,9 @@ const QuotationPublicView = () => {
                 </div>
                 <div className="party-muted" style={{ fontSize: "0.8rem" }}>
                   {t("Date")}:{" "}
-                  <span className="fw-semibold">
-                    {q.quotation_date ? formatDate(q.quotation_date) : "-"}
-                  </span>{" "}
-                  · {t("Currency")}:{" "}
-                  <span className="fw-semibold">
-                    {sym} {q.currency_code || "-"}
-                  </span>
+                  {q.quotation_date ? formatDate(q.quotation_date) : "-"}
+                  {" · "}
+                  {t("Currency")}: {sym} {q.currency_code || "-"}
                 </div>
                 <span className="status-badge mt-1 d-inline-block">
                   {q.status || "-"}
