@@ -165,8 +165,9 @@ const ViewPoVendor = () => {
     trackingPerms?.can_view;
   const canDispatch = canUpdate && statusLower === "draft";
   const canReceive = canUpdate && statusLower === "dispatched";
-  const canCancel =
-    canUpdate && (statusLower === "draft" || statusLower === "dispatched");
+  // Cancel is only available before dispatch — once goods are dispatched the
+  // POV can no longer be cancelled from the detail page.
+  const canCancel = canUpdate && statusLower === "draft";
 
   const handleCancel = () => {
     mySwal

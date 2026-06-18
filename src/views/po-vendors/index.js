@@ -454,8 +454,8 @@ const PoVendorView = () => {
       center: true,
       cell: (row) => {
         const status = (row?.status || "").toLowerCase();
-        const canRowCancel =
-          (status === "draft" || status === "dispatched") && canEdit;
+        // Cancel only before dispatch — hidden once dispatched.
+        const canRowCancel = status === "draft" && canEdit;
         const canRowDelete = status === "draft" && canDelete;
         return (
           <div className="d-flex column-action align-items-center table-icon">

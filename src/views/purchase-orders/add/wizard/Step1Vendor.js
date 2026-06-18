@@ -8,7 +8,7 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 import { ExternalLink } from "react-feather";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
@@ -39,6 +39,33 @@ const Step1Vendor = ({
   } = useFormContext();
   const watchedRate = watch("exchange_rate");
   const [showAddressOverride, setShowAddressOverride] = useState(false);
+
+  // Exchange Rate field shows the intuitive inverse — ₹ per 1 foreign unit
+  // (e.g. 83.33) — while the form still STORES "foreign per ₹1" (system
+  // convention, e.g. 0.012). Local input state, seeded from the stored value
+  // while unfocused; store 1/X on edit. (Same as the quotation Step 1.)
+  const sameCurrency = !!rateMeta?.same;
+  const [rateDisplay, setRateDisplay] = useState("");
+  const rateFocused = useRef(false);
+  useEffect(() => {
+    if (rateFocused.current) return;
+    if (sameCurrency) {
+      setRateDisplay("1");
+      return;
+    }
+    const r = Number(watchedRate);
+    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
+  }, [watchedRate, sameCurrency]);
+
+  const onRateDisplayChange = (text) => {
+    setRateDisplay(text);
+    const inrPerForeign = Number(text);
+    setValue(
+      "exchange_rate",
+      inrPerForeign > 0 ? String(1 / inrPerForeign) : "",
+      { shouldDirty: true }
+    );
+  };
 
   return (
     <Row>
@@ -169,18 +196,33 @@ const Step1Vendor = ({
       </Col>
 
       <Col md="3" className="mb-2">
-        <Label className="form-label">{t("Exchange Rate")}</Label>
+        <Label className="form-label">
+          {t("Exchange Rate")}
+          {rateMeta?.toCode && !sameCurrency ? (
+            <small className="text-muted">
+              {" "}
+              (₹ {t("per 1")} {rateMeta.toCode})
+            </small>
+          ) : null}
+        </Label>
         <Controller
           name="exchange_rate"
           control={control}
           render={({ field }) => (
             <Input
               type="number"
-              step="0.000001"
+              step="0.01"
               min="0"
-              disabled={isLocked}
-              {...field}
-              value={field.value ?? ""}
+              disabled={isLocked || sameCurrency}
+              name={field.name}
+              innerRef={field.ref}
+              value={rateDisplay}
+              onFocus={() => (rateFocused.current = true)}
+              onBlur={() => {
+                rateFocused.current = false;
+                field.onBlur();
+              }}
+              onChange={(e) => onRateDisplayChange(e.target.value)}
             />
           )}
         />

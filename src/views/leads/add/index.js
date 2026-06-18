@@ -1,5 +1,12 @@
 // ** React Imports
-import { Fragment, useEffect, useMemo, useLayoutEffect, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 // ** Store
@@ -210,10 +217,39 @@ const LeadForm = () => {
     return r > 0 ? r : 1;
   })();
 
-  // Expected Value is a manual forecast (rep's subjective deal size). It is NOT
-  // auto-computed: requirement lines carry no price (vendor/pricing is decided
-  // later at the quotation). The detail page shows a separate computed
-  // "Estimated Sales Value" (Σ qty × product selling price) from the items.
+  // Expected Value auto-computes from the requirement lines — Σ(qty × amount)
+  // in the lead's selected currency — but stays editable: once the operator
+  // types a value (or an existing lead loads one), we stop overwriting it.
+  const watchLinesForValue = watch("lines");
+  const computedExpected = useMemo(
+    () =>
+      (watchLinesForValue || []).reduce(
+        (s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0),
+        0
+      ),
+    [watchLinesForValue]
+  );
+  const expectedTouched = useRef(false);
+  useEffect(() => {
+    if (expectedTouched.current) return;
+    if (!Array.isArray(watchLinesForValue) || watchLinesForValue.length === 0)
+      return;
+    // Expected Value is shown in the lead's currency, so convert the INR line
+    // total (Σ qty × amount) to the lead currency via the exchange rate.
+    const docValue = computedExpected * (leadRate || 1);
+    const rounded = Math.round((docValue + Number.EPSILON) * 100) / 100;
+    setValue("expected_value", rounded ? String(rounded) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedExpected, leadRate]);
+
+  // Editing an existing lead that already has an Expected Value: respect it
+  // (don't auto-overwrite from the lines).
+  useEffect(() => {
+    if (!isEditMode) return;
+    const ev = store?.leadItem?.expected_value;
+    if (ev != null && ev !== "") expectedTouched.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, store?.leadItem?._id]);
 
   useLayoutEffect(() => {
     dispatch(getCustomerDropdown());
@@ -769,6 +805,11 @@ const LeadForm = () => {
                     setValue={setValue}
                     productOptions={allProductOptions}
                     initLineItem={initQuotationLineItem}
+                    currencySymbol={
+                      getCurrencySymbol(watchCurrency || "INR") || "₹"
+                    }
+                    currencyCode={watchCurrency || "INR"}
+                    rate={leadRate}
                   />
                 </Col>
                 <Col md="3" className="mb-2">
@@ -814,9 +855,16 @@ const LeadForm = () => {
                           type="number"
                           min="0"
                           step="any"
-                          placeholder={t("Optional estimate")}
-                          {...field}
+                          placeholder={t("Auto from items; editable")}
+                          name={field.name}
+                          innerRef={field.ref}
+                          onBlur={field.onBlur}
                           value={field.value ?? ""}
+                          onChange={(e) => {
+                            // Manual edit — stop auto-syncing from the lines.
+                            expectedTouched.current = true;
+                            field.onChange(e);
+                          }}
                         />
                       </InputGroup>
                     )}

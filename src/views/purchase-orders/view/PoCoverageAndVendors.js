@@ -73,7 +73,7 @@ export const usePoCoverage = () => {
   return { po, coverage, povs, loading, reload: load };
 };
 
-export const PoCoveragePanel = ({ data }) => {
+export const PoCoveragePanel = ({ data, registerActions }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { po, coverage, povs, loading, reload } = data;
@@ -122,6 +122,51 @@ export const PoCoveragePanel = ({ data }) => {
   const fullyInvoiced =
     dispatchedTotal > 0 && invoiceableTotal <= 1e-6 && invoicedTotal > 0;
 
+  // Publish the Coverage tab's action buttons to the top-right of the tab bar
+  // (same placement/style as the Lead tabs' "Add Line").
+  useEffect(() => {
+    if (!registerActions) return undefined;
+    if (!canCreate && !canGenerateInvoice) {
+      registerActions(null);
+      return () => registerActions(null);
+    }
+    registerActions(
+      <Fragment>
+        {canCreate && (
+          <Fragment>
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              id="po-create-pov"
+            >
+              <Plus size={14} className="me-50" /> {t("Create POV")}
+            </Button>
+            <UncontrolledTooltip target="po-create-pov" placement="top">
+              {t(
+                "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
+              )}
+            </UncontrolledTooltip>
+          </Fragment>
+        )}
+        {canGenerateInvoice && (
+          <Button
+            color="primary"
+            size="sm"
+            onClick={() =>
+              navigate(`${appsRoot}/invoices/add?po_id=${po?._id}`)
+            }
+          >
+            <FileText size={14} className="me-50" />
+            {t("Generate Invoice")}
+          </Button>
+        )}
+      </Fragment>
+    );
+    return () => registerActions(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCreate, canGenerateInvoice, registerActions, po?._id]);
+
   return (
     <Fragment>
       {/* Invoice progress hint — shows whenever any qty has been invoiced
@@ -163,47 +208,8 @@ export const PoCoveragePanel = ({ data }) => {
         </div>
       )}
 
-      {/* Create POV — recovery only.
-          PO+POV are normally created atomically from PFI, so this button
-          stays hidden in the happy path (every PO line already has an
-          active POV → coverage.has_pending = false).
-          It surfaces automatically when has_pending = true — i.e. after a
-          POV cancel frees up its lines, or a new vendor line was added to
-          the PO post-creation. The Create POV modal filters by vendor and
-          only shows uncovered lines, so the recovery flow is clean. */}
-      {(canCreate || canGenerateInvoice) && (
-        <div className="d-flex justify-content-end mb-2 gap-1">
-          {canCreate && (
-            <Fragment>
-              <Button
-                color="success"
-                size="sm"
-                onClick={() => setCreateOpen(true)}
-                id="po-create-pov"
-              >
-                <Plus size={14} className="me-50" /> {t("Create POV")}
-              </Button>
-              <UncontrolledTooltip target="po-create-pov" placement="top">
-                {t(
-                  "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
-                )}
-              </UncontrolledTooltip>
-            </Fragment>
-          )}
-          {canGenerateInvoice && (
-            <Button
-              color="primary"
-              size="sm"
-              onClick={() =>
-                navigate(`${appsRoot}/invoices/add?po_id=${po?._id}`)
-              }
-            >
-              <FileText size={14} className="me-50" />
-              {t("Generate Invoice")}
-            </Button>
-          )}
-        </div>
-      )}
+      {/* Create POV / Generate Invoice actions are published to the tab bar
+          (top-right) via registerActions — see the effect above. */}
 
       {loading && !coverage ? (
         <div className="text-center py-3">

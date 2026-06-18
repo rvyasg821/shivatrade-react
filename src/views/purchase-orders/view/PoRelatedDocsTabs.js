@@ -1,6 +1,6 @@
 // Tabs hosting Line Items | Coverage | PO Vendors for the PO detail page.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Card,
   CardBody,
@@ -29,6 +29,14 @@ const PoRelatedDocsTabs = () => {
 
   const coverageData = usePoCoverage();
   const povCount = coverageData.povs.length;
+
+  // The active tab can publish action buttons to the right of the tab bar
+  // (e.g. the Coverage tab's "Generate Invoice"), same as the Lead tabs.
+  const [tabActions, setTabActions] = useState(null);
+  const registerActions = useCallback(
+    (node) => setTabActions(node || null),
+    []
+  );
 
   const tabBtn = (key, label, Icon, count) => (
     <NavItem>
@@ -64,11 +72,16 @@ const PoRelatedDocsTabs = () => {
   return (
     <Card className="mb-1">
       <CardBody>
-        <Nav pills className="mb-2">
-          {tabBtn("lines", t("Line Items"), Layers, linesCount)}
-          {tabBtn("vendors", t("Vendor POs"), Truck, povCount)}
-          {tabBtn("coverage", t("Coverage"), Activity, 0)}
-        </Nav>
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
+          <Nav pills className="mb-0">
+            {tabBtn("lines", t("Line Items"), Layers, linesCount)}
+            {tabBtn("vendors", t("Vendor POs"), Truck, povCount)}
+            {tabBtn("coverage", t("Coverage"), Activity, 0)}
+          </Nav>
+          {tabActions ? (
+            <div className="d-flex gap-1">{tabActions}</div>
+          ) : null}
+        </div>
 
         <TabContent activeTab={active}>
           <TabPane tabId="lines">
@@ -78,7 +91,12 @@ const PoRelatedDocsTabs = () => {
             <PoVendorsPanel data={coverageData} />
           </TabPane>
           <TabPane tabId="coverage">
-            <PoCoveragePanel data={coverageData} />
+            {active === "coverage" && (
+              <PoCoveragePanel
+                data={coverageData}
+                registerActions={registerActions}
+              />
+            )}
           </TabPane>
         </TabContent>
       </CardBody>
