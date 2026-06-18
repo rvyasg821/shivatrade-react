@@ -21,7 +21,7 @@ import AddTrackingEventModal from "@src/views/_shared/tracking/AddTrackingEventM
 import Notification from "@components/toast/notification";
 import { isAdminUser } from "@constant/defaultValues";
 
-const PoVendorTimelinePanel = () => {
+const PoVendorTimelinePanel = ({ height }) => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { t } = useTranslation();
@@ -120,8 +120,21 @@ const PoVendorTimelinePanel = () => {
 
   return (
     <Fragment>
-      <Card className="mb-1">
-        <CardBody>
+      <Card
+        className="mb-1"
+        style={
+          height
+            ? { height: `${height}px`, display: "flex", flexDirection: "column" }
+            : undefined
+        }
+      >
+        <CardBody
+          style={
+            height
+              ? { display: "flex", flexDirection: "column", minHeight: 0 }
+              : undefined
+          }
+        >
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h4 className="mb-0">{t("Event Timeline")}</h4>
             <span id="pov-add-event-btn-wrap">
@@ -144,11 +157,26 @@ const PoVendorTimelinePanel = () => {
               </UncontrolledTooltip>
             ) : null}
           </div>
-          <TrackingTimeline
-            events={trackingStore?.trackingEventTimeline || []}
-            emptyText={t("No tracking events yet - add the first one above.")}
-            onRetract={canRetractEvent ? onRetractEvent : undefined}
-          />
+          {/* Pinned to the left column's measured height; the feed scrolls
+              internally when it exceeds that height (matches Lead detail). */}
+          <div
+            style={
+              height
+                ? {
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    paddingRight: 8,
+                  }
+                : undefined
+            }
+          >
+            <TrackingTimeline
+              events={trackingStore?.trackingEventTimeline || []}
+              emptyText={t("No tracking events yet - add the first one above.")}
+              onRetract={canRetractEvent ? onRetractEvent : undefined}
+            />
+          </div>
         </CardBody>
       </Card>
 

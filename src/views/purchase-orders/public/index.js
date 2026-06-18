@@ -18,6 +18,7 @@ import {
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatDate } from "@src/utility/dateFormat";
+import { hostRestApiUrl } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import appLogo from "@src/assets/images/logo/login-logo.png";
 
@@ -91,6 +92,25 @@ const PurchaseOrderPublicView = () => {
   const money = (v) => `${sym}${fmt2(toCcy(v))}`;
   const moneyRaw = (v) => `${sym}${fmt2(num(v))}`;
 
+  // Letterhead logo — company logo (from profile) like the server PDF,
+  // falling back to the app logo if none is set.
+  const resolvedLogo = p?.company_logo_url
+    ? p.company_logo_url.startsWith("http")
+      ? p.company_logo_url
+      : `${hostRestApiUrl}${p.company_logo_url}`
+    : appLogo;
+
+  // Footer identity line — GSTIN · PAN · CIN · IEC · website (same as PDF).
+  const footerIdLine = [
+    p?.company_gstin ? `GSTIN: ${p.company_gstin}` : "",
+    p?.company_pan ? `PAN: ${p.company_pan}` : "",
+    p?.company_cin ? `CIN: ${p.company_cin}` : "",
+    p?.company_iec ? `IEC: ${p.company_iec}` : "",
+    p?.company_website || "",
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
+
   if (loading && !p) {
     return (
       <div className="d-flex justify-content-center py-5">
@@ -148,7 +168,7 @@ const PurchaseOrderPublicView = () => {
         }
         .po-doc .party-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 28px;
           margin-bottom: 24px;
         }
@@ -180,7 +200,7 @@ const PurchaseOrderPublicView = () => {
         .po-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
         /* Grand-total row sits inside <tbody> (not <tfoot>) so it does NOT
            repeat on every printed page. */
-        .po-doc table.items tr.row-grand-tr td {
+        .po-doc table.items tbody tr.row-grand-tr td {
           padding: 14px 12px 6px;
           font-size: 1rem;
           color: #09418b;
@@ -239,14 +259,33 @@ const PurchaseOrderPublicView = () => {
           </div>
 
           <div className="po-doc">
-            {/* Header */}
+            {/* Header — logo + company identity (left), doc meta (right),
+                mirroring the server PDF letterhead. */}
             <div className="qd-header d-flex justify-content-between align-items-start flex-wrap gap-2">
               <div>
                 <img
-                  src={appLogo}
+                  src={resolvedLogo}
                   alt="Logo"
-                  style={{ height: 60, marginBottom: 8 }}
+                  style={{
+                    maxHeight: 48,
+                    maxWidth: 180,
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                    marginBottom: 8,
+                  }}
+                  onError={(e) => {
+                    e.target.src = appLogo;
+                  }}
                 />
+                <div className="party-name">{p.company_name || "-"}</div>
+                {p.company_phone && (
+                  <div className="party-line">{p.company_phone}</div>
+                )}
+                {p.company_email && (
+                  <div className="party-line">{p.company_email}</div>
+                )}
               </div>
               <div className="text-end">
                 <h1 className="qd-title">{t("SALES ORDER")}</h1>
@@ -290,32 +329,9 @@ const PurchaseOrderPublicView = () => {
 
             {/* Body */}
             <div className="qd-body">
-              {/* Seller / Buyer / Meta */}
+              {/* Buyer + Ship To (seller identity now lives in the header
+                  letterhead, matching the PDF). */}
               <div className="party-grid">
-                <div>
-                  <Label>{t("Seller")}</Label>
-                  <div className="party-name">{p.company_name || "-"}</div>
-                  {p.company_address && (
-                    <div
-                      className="party-line"
-                      style={{ whiteSpace: "pre-line" }}
-                    >
-                      {p.company_address}
-                    </div>
-                  )}
-                  {p.company_phone && (
-                    <div className="party-line">{p.company_phone}</div>
-                  )}
-                  {p.company_email && (
-                    <div className="party-line">{p.company_email}</div>
-                  )}
-                  {p.company_gstin && (
-                    <div className="party-line party-muted">
-                      {t("GSTIN")}: {p.company_gstin}
-                    </div>
-                  )}
-                </div>
-
                 <div>
                   <Label>{t("Buyer")}</Label>
                   <div className="party-name">{p.customer_name || "-"}</div>
@@ -356,6 +372,16 @@ const PurchaseOrderPublicView = () => {
                   {p.expected_delivery_date && (
                     <div className="party-line party-muted">
                       {t("Expected")}: {formatDate(p.expected_delivery_date)}
+                    </div>
+                  )}
+                  {p.payment_terms && (
+                    <div className="party-line party-muted">
+                      {t("Payment")}: {p.payment_terms}
+                    </div>
+                  )}
+                  {p.delivery_terms && (
+                    <div className="party-line party-muted">
+                      {t("Delivery")}: {p.delivery_terms}
                     </div>
                   )}
                 </div>
@@ -428,29 +454,6 @@ const PurchaseOrderPublicView = () => {
                 </tbody>
               </Table>
 
-              {/* Terms */}
-              {(p.payment_terms || p.delivery_terms) && (
-                <div className="section">
-                  <Label>{t("Terms")}</Label>
-                  {p.payment_terms && (
-                    <div className="body">
-                      <span className="party-muted">
-                        {t("Payment Terms")}:{" "}
-                      </span>
-                      {p.payment_terms}
-                    </div>
-                  )}
-                  {p.delivery_terms && (
-                    <div className="body">
-                      <span className="party-muted">
-                        {t("Delivery Terms")}:{" "}
-                      </span>
-                      {p.delivery_terms}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Notes to Vendor */}
               {p.notes_to_vendor && (
                 <div className="section">
@@ -460,9 +463,17 @@ const PurchaseOrderPublicView = () => {
               )}
             </div>
 
-            {/* Footer */}
+            {/* Footer — address + identity line (GSTIN · PAN · CIN · IEC ·
+                website), mirroring the server PDF footer. */}
             <div className="qd-footer">
-              {t("This is a computer-generated sales order.")}
+              {p.company_footer_address && (
+                <div>{p.company_footer_address}</div>
+              )}
+              {footerIdLine && (
+                <div style={{ color: "#9ca3af", marginTop: 2 }}>
+                  {footerIdLine}
+                </div>
+              )}
             </div>
           </div>
         </div>

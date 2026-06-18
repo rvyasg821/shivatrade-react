@@ -486,11 +486,16 @@ const CompanySettingsPage = () => {
                 <Phone size={14} className='me-50' />WhatsApp
               </NavLink>
             </NavItem>
-            <NavItem>
-              <NavLink active={activeTab === 'branding'} onClick={() => setActiveTab('branding')}>
-                <Image size={14} className='me-50' />Branding
-              </NavLink>
-            </NavItem>
+            {/* Branding tab hidden — the company logo now lives on the
+                Company Profile page (beside Website). Footer/display-name
+                fields kept in the (hidden) pane below for reversibility. */}
+            {false && (
+              <NavItem>
+                <NavLink active={activeTab === 'branding'} onClick={() => setActiveTab('branding')}>
+                  <Image size={14} className='me-50' />Branding
+                </NavLink>
+              </NavItem>
+            )}
             {/* Notifications tab removed — managed per-module (Leave, Shift, Contract, Compliance) */}
           </Nav>
 
@@ -729,8 +734,8 @@ const CompanySettingsPage = () => {
               </Card>
             </TabPane>
 
-            {/* -- BRANDING TAB -- */}
-            <TabPane tabId='branding'>
+            {/* -- BRANDING TAB (hidden — logo moved to Company Profile) -- */}
+            {false && <TabPane tabId='branding'>
               <Card>
                 <CardHeader className='border-bottom py-1'>
                   <CardTitle tag='h5' className='mb-0'>Branding & Footer</CardTitle>
@@ -787,7 +792,7 @@ const CompanySettingsPage = () => {
                   </FormGroup>
                 </CardBody>
               </Card>
-            </TabPane>
+            </TabPane>}
 
             {/* Notifications tab removed — managed per-module (Leave, Shift, Contract, Compliance) */}
             {false && <TabPane tabId='notifications'>
