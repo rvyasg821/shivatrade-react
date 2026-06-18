@@ -18,6 +18,7 @@ import {
 } from "@src/views/quotations/store";
 import { fmt } from "@src/views/_shared/sales-doc/_helpers";
 import { formatDate } from "@src/utility/dateFormat";
+import { hostRestApiUrl } from "@constant/defaultValues";
 import appLogo from "@src/assets/images/logo/login-logo.png";
 
 const Label = ({ children }) => (
@@ -57,6 +58,25 @@ const QuotationPublicView = () => {
 
   const sym = q?.currency_symbol || q?.currency_code || "";
   const money = (v) => `${sym}${fmt(v)}`;
+
+  // Letterhead logo — company logo (from profile) like the server PDF,
+  // falling back to the app logo if none is set.
+  const resolvedLogo = q?.company_logo_url
+    ? q.company_logo_url.startsWith("http")
+      ? q.company_logo_url
+      : `${hostRestApiUrl}${q.company_logo_url}`
+    : appLogo;
+
+  // Footer identity line — GSTIN · PAN · CIN · IEC · website (same as PDF).
+  const footerIdLine = [
+    q?.company_gstin ? `GSTIN: ${q.company_gstin}` : "",
+    q?.company_pan ? `PAN: ${q.company_pan}` : "",
+    q?.company_cin ? `CIN: ${q.company_cin}` : "",
+    q?.company_iec ? `IEC: ${q.company_iec}` : "",
+    q?.company_website || "",
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
 
   if (loading && !q) {
     return (
@@ -113,7 +133,7 @@ const QuotationPublicView = () => {
         }
         .quotation-doc .party-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 28px;
           margin-bottom: 28px;
         }
@@ -143,7 +163,7 @@ const QuotationPublicView = () => {
           font-size: 0.88rem;
         }
         .quotation-doc table.items tbody tr:last-child td { border-bottom: 1px solid #e5e7eb; }
-        .quotation-doc table.items tr.row-grand-tr td {
+        .quotation-doc table.items tbody tr.row-grand-tr td {
           padding: 14px 12px 6px;
           font-size: 1rem;
           color: #09418b;
@@ -205,19 +225,48 @@ const QuotationPublicView = () => {
           )}
 
           <div className="quotation-doc">
-            {/* Header */}
+            {/* Header — logo + company identity (left), doc meta (right),
+                mirroring the server PDF letterhead. */}
             <div className="qd-header d-flex justify-content-between align-items-start flex-wrap gap-2">
               <div>
                 <img
-                  src={appLogo}
+                  src={resolvedLogo}
                   alt="Logo"
-                  style={{ height: 56 }}
+                  style={{
+                    maxHeight: 48,
+                    maxWidth: 180,
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                    marginBottom: 8,
+                  }}
+                  onError={(e) => {
+                    e.target.src = appLogo;
+                  }}
                 />
+                <div className="party-name">{q.company_name || "-"}</div>
+                {q.company_phone && (
+                  <div className="party-line">{q.company_phone}</div>
+                )}
+                {q.company_email && (
+                  <div className="party-line">{q.company_email}</div>
+                )}
               </div>
               <div className="text-end">
                 <h1 className="qd-title">{t("QUOTATION")}</h1>
                 <div className="party-muted" style={{ fontSize: "0.85rem" }}>
                   #{q.voucher_no || "-"}
+                </div>
+                <div className="party-muted" style={{ fontSize: "0.8rem" }}>
+                  {t("Date")}:{" "}
+                  <span className="fw-semibold">
+                    {q.quotation_date ? formatDate(q.quotation_date) : "-"}
+                  </span>{" "}
+                  · {t("Currency")}:{" "}
+                  <span className="fw-semibold">
+                    {sym} {q.currency_code || "-"}
+                  </span>
                 </div>
                 <span className="status-badge mt-1 d-inline-block">
                   {q.status || "-"}
@@ -227,32 +276,9 @@ const QuotationPublicView = () => {
 
             {/* Body */}
             <div className="qd-body">
-              {/* Party grid */}
+              {/* Party grid — Billed To + Details (seller identity now
+                  lives in the header letterhead, matching the PDF). */}
               <div className="party-grid">
-                <div>
-                  <Label>{t("From")}</Label>
-                  <div className="party-name">{q.company_name || "-"}</div>
-                  {q.company_address && (
-                    <div
-                      className="party-line"
-                      style={{ whiteSpace: "pre-line" }}
-                    >
-                      {q.company_address}
-                    </div>
-                  )}
-                  {q.company_phone && (
-                    <div className="party-line">{q.company_phone}</div>
-                  )}
-                  {q.company_email && (
-                    <div className="party-line">{q.company_email}</div>
-                  )}
-                  {q.company_iec && (
-                    <div className="party-line party-muted">
-                      {t("IEC")}: {q.company_iec}
-                    </div>
-                  )}
-                </div>
-
                 <div>
                   <Label>{t("Billed To")}</Label>
                   <div className="party-name">{q.customer_name || "-"}</div>
@@ -276,13 +302,7 @@ const QuotationPublicView = () => {
                 </div>
 
                 <div>
-                  <Label>{t("Quote Details")}</Label>
-                  <div className="party-line">
-                    <span className="party-muted">{t("Date")}: </span>
-                    <span className="fw-semibold">
-                      {q.quotation_date ? formatDate(q.quotation_date) : "-"}
-                    </span>
-                  </div>
+                  <Label>{t("Details")}</Label>
                   {q.valid_until && (
                     <div className="party-line">
                       <span className="party-muted">{t("Valid Until")}: </span>
@@ -291,12 +311,30 @@ const QuotationPublicView = () => {
                       </span>
                     </div>
                   )}
-                  <div className="party-line">
-                    <span className="party-muted">{t("Currency")}: </span>
-                    <span className="fw-semibold">
-                      {sym} {q.currency_code || "-"}
-                    </span>
-                  </div>
+                  {q.payment_terms && (
+                    <div className="party-line">
+                      <span className="party-muted">{t("Payment")}: </span>
+                      {q.payment_terms}
+                    </div>
+                  )}
+                  {q.delivery_terms && (
+                    <div className="party-line">
+                      <span className="party-muted">{t("Delivery")}: </span>
+                      {q.delivery_terms}
+                    </div>
+                  )}
+                  {q.delivery_location && (
+                    <div className="party-line">
+                      <span className="party-muted">{t("Ship To")}: </span>
+                      {q.delivery_location}
+                    </div>
+                  )}
+                  {!q.valid_until &&
+                    !q.payment_terms &&
+                    !q.delivery_terms &&
+                    !q.delivery_location && (
+                      <div className="party-line party-muted">-</div>
+                    )}
                 </div>
               </div>
 
@@ -368,35 +406,6 @@ const QuotationPublicView = () => {
                 </tbody>
               </Table>
 
-              {/* Terms */}
-              {(q.payment_terms ||
-                q.delivery_terms ||
-                q.delivery_location) && (
-                <div className="section">
-                  <Label>{t("Terms")}</Label>
-                  {q.payment_terms && (
-                    <div className="body">
-                      <span className="party-muted">{t("Payment Terms")}: </span>
-                      {q.payment_terms}
-                    </div>
-                  )}
-                  {q.delivery_terms && (
-                    <div className="body">
-                      <span className="party-muted">{t("Delivery Terms")}: </span>
-                      {q.delivery_terms}
-                    </div>
-                  )}
-                  {q.delivery_location && (
-                    <div className="body">
-                      <span className="party-muted">
-                        {t("Delivery Location")}:{" "}
-                      </span>
-                      {q.delivery_location}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Notes */}
               {q.notes_to_client && (
                 <div className="section">
@@ -406,16 +415,16 @@ const QuotationPublicView = () => {
               )}
             </div>
 
-            {/* Footer */}
+            {/* Footer — address + identity line (GSTIN · PAN · CIN · IEC ·
+                website), mirroring the server PDF footer. */}
             <div className="qd-footer">
-              {t("Thank you for your business.")}
-              {q.company_email && (
-                <span className="ms-1">
-                  · <a href={`mailto:${q.company_email}`}>{q.company_email}</a>
-                </span>
+              {q.company_footer_address && (
+                <div>{q.company_footer_address}</div>
               )}
-              {q.company_phone && (
-                <span className="ms-1">· {q.company_phone}</span>
+              {footerIdLine && (
+                <div style={{ color: "#9ca3af", marginTop: 2 }}>
+                  {footerIdLine}
+                </div>
               )}
             </div>
           </div>

@@ -1,7 +1,7 @@
 // Tabbed panel on the lead detail page: Requirement Items (default) + RFQ +
 // Quotation. Pill-style tabs matching the quotation detail page.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Card,
@@ -22,11 +22,21 @@ import RequirementItemsPanel from "./RequirementItemsPanel";
 import RfqsPanel from "./RfqsPanel";
 import QuotationsPanel from "./QuotationsPanel";
 
-const LeadDocsTabs = () => {
+const LeadDocsTabs = ({ onActiveTabChange }) => {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [active, setActive] = useState("requirement");
+
+  // Report the active tab so the parent can pin the Activity panel height to
+  // the Line Items ("requirement") tab only — not the RFQ / Quotation tabs.
+  const selectTab = useCallback(
+    (key) => {
+      setActive(key);
+      onActiveTabChange?.(key);
+    },
+    [onActiveTabChange]
+  );
 
   // Context-aware shortcut on the right of the tab bar — its action follows
   // the active tab: add a requirement line, raise an RFQ, or start a
@@ -68,7 +78,7 @@ const LeadDocsTabs = () => {
               <NavItem key={tab.key}>
                 <NavLink
                   active={isActive}
-                  onClick={() => setActive(tab.key)}
+                  onClick={() => selectTab(tab.key)}
                   style={{
                     color: isActive ? "#fff" : "#1a2238",
                     display: "inline-flex",

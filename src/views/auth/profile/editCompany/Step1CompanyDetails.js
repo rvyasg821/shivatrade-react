@@ -27,6 +27,9 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import PortSelect from "@src/views/_shared/port-master/PortSelect";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { Upload } from "react-feather";
 
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
@@ -34,7 +37,7 @@ import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Constant
-import { countryCodeEditable, disableCountryDropdown } from "@constant/defaultValues";
+import { countryCodeEditable, disableCountryDropdown, hostRestApiUrl } from "@constant/defaultValues";
 import {
   initCompanyAddressItem,
   initCompanyBankAccountItem,
@@ -83,6 +86,61 @@ const Step1CompanyDetails = () => {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [selectedTimezone, setSelectedTimezone] = useState(null);
   const [selectedCurrency, setSelectedCurrency] = useState(null);
+
+  // ── Company logo (stored on company-settings; uploaded inline here, beside
+  // the Website field). The upload endpoint persists logo_url immediately, so
+  // it does not depend on this form's Save button. ──
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  // Load the current logo once (read-only fetch from company-settings).
+  useEffect(() => {
+    instance
+      .get(API_ENDPOINTS.companySettings.settings)
+      .then((res) => setLogoUrl(res?.data?.data?.logo_url || ""))
+      .catch(() => {});
+  }, []);
+
+  const resolvedLogoUrl = (() => {
+    if (!logoUrl) return "";
+    if (logoUrl.startsWith("http")) return logoUrl;
+    return `${hostRestApiUrl}${logoUrl}`;
+  })();
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const allowed = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      Notification("Error", t("Only PNG, JPG, SVG, and WebP files are allowed"), "warning");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      Notification("Error", t("File size must be under 5MB"), "warning");
+      e.target.value = "";
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+      const res = await instance.post(API_ENDPOINTS.companySettings.uploadLogo, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res?.data?.statusCode === 200 && res?.data?.data?.logo_url) {
+        setLogoUrl(res.data.data.logo_url);
+        Notification("Success", t("Logo uploaded successfully"), "success");
+      } else {
+        Notification("Error", res?.data?.message || t("Upload failed"), "warning");
+      }
+    } catch (err) {
+      Notification("Error", err?.response?.data?.message || t("Upload failed"), "warning");
+    } finally {
+      setLogoUploading(false);
+      e.target.value = "";
+    }
+  };
 
   useEffect(() => {
     if (user?.loading) dispatch(startLoading());
@@ -165,6 +223,8 @@ const Step1CompanyDetails = () => {
       // ── PO defaults ──
       default_terms: "",
       authorised_signatory_name: "",
+      // Single-line address printed in the PDF document footer.
+      footer_address: "",
       // ── Multi-address & multi-bank ──
       addresses: [],
       bank_accounts: [],
@@ -257,6 +317,7 @@ const Step1CompanyDetails = () => {
         default_declaration_text: company.default_declaration_text || "",
         default_terms: company.default_terms || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
+        footer_address: company.footer_address || "",
         addresses: (company.addresses || []).map((a) => ({
           type: a.type || "corporate",
           label: a.label || "",
@@ -352,6 +413,8 @@ const Step1CompanyDetails = () => {
         values.authorised_signatory_name != null
           ? values.authorised_signatory_name.trim()
           : undefined,
+      footer_address:
+        values.footer_address != null ? values.footer_address.trim() : undefined,
       addresses: (values.addresses || [])
         .filter((a) =>
           a.address_line1?.trim() ||
@@ -505,6 +568,35 @@ const Step1CompanyDetails = () => {
                 <Controller name="website" control={control}
                   render={({ field }) => <Input {...field} disabled={isReadOnly} invalid={!!errors.website} />} />
                 <FormFeedback>{errors.website?.message}</FormFeedback>
+              </div>
+
+              <div className="mb-2 col-lg-6 col-md-6">
+                <Label>{t("Company Logo")}</Label>
+                <Label className="btn btn-outline-primary mb-0 w-100 d-flex align-items-center justify-content-center gap-50"
+                  style={{ cursor: isReadOnly ? "not-allowed" : "pointer" }}>
+                  {resolvedLogoUrl && (
+                    <img src={resolvedLogoUrl} alt="Logo preview"
+                      style={{ maxHeight: "24px", maxWidth: "80px" }}
+                      onError={(e) => { e.target.style.display = "none"; }} />
+                  )}
+                  <Upload size={14} />
+                  {logoUploading ? t("Uploading...") : t("Upload Logo")}
+                  <Input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    onChange={handleLogoUpload} hidden disabled={isReadOnly || logoUploading} />
+                </Label>
+                <small className="text-muted d-block mt-25">{t("PNG, JPG, SVG or WebP. Max 5MB.")}</small>
+              </div>
+
+              <div className="mb-2 col-12">
+                <Label>{t("Footer Address")}</Label>
+                <Controller name="footer_address" control={control}
+                  render={({ field }) => (
+                    <Input {...field} disabled={isReadOnly} maxLength={255}
+                      placeholder={t("Single-line address shown in document PDF footers")} />
+                  )} />
+                <small className="text-muted">
+                  {t("Printed as one line at the bottom of Quotation / Invoice PDFs.")}
+                </small>
               </div>
             </Row>
 

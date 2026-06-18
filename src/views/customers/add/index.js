@@ -61,7 +61,11 @@ import {
   initCustomerContactItem,
   initCustomerAddressItem,
 } from "@constant/reduxConstant";
-import { STATUS_OPTIONS, COUNTRY_OPTIONS } from "@constant/options";
+import {
+  STATUS_OPTIONS,
+  COUNTRY_OPTIONS,
+  EXCHANGE_TO_CURRENCY_OPTIONS,
+} from "@constant/options";
 
 const STEPS = [
   {
@@ -93,14 +97,22 @@ const CustomerForm = () => {
   const store = useSelector((state) => state.customer);
   const currencyStore = useSelector((state) => state.currency);
 
-  const currencyOptions = useMemo(
-    () =>
-      (currencyStore?.exchangeOptions || []).map((c) => ({
-        value: c.code || c.value,
-        label: `${c.symbol || ""} ${c.code || c.value}${c.name ? ` - ${c.name}` : ""}`.trim(),
-      })),
-    [currencyStore?.exchangeOptions]
-  );
+  // Exchange-rate options carry only the code; pull symbol + name from the
+  // shared currency constant so the picker reads "$ USD - US Dollar".
+  const currencyOptions = useMemo(() => {
+    const metaByCode = {};
+    for (const o of EXCHANGE_TO_CURRENCY_OPTIONS) metaByCode[o.value] = o;
+    return (currencyStore?.exchangeOptions || []).map((c) => {
+      const code = c.code || c.value;
+      const meta = metaByCode[code] || {};
+      const symbol = c.symbol || meta.symbol || "";
+      const label = meta.label || (c.name ? `${code} - ${c.name}` : code);
+      return {
+        value: code,
+        label: `${symbol} ${label}`.trim(),
+      };
+    });
+  }, [currencyStore?.exchangeOptions]);
   const isEditMode = !!id;
 
   const schema = useMemo(

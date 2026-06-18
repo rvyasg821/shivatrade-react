@@ -78,7 +78,10 @@ const TrackingTimeline = ({
                 <h6 className="mb-0" style={bodyStyle}>
                   {e.event_type_label || e.event_type || t("Event")}
                   {isSystem && !retracted && (
-                    <Badge color="light-info" className="ms-50">
+                    <Badge
+                      className="ms-50"
+                      style={{ backgroundColor: "#00cfe8", color: "#fff" }}
+                    >
                       {t("System")}
                     </Badge>
                   )}

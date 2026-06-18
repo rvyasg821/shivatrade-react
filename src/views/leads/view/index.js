@@ -5,7 +5,14 @@
 //   3. Summary card     — About + Opportunity (chips + brief)
 //   4. Two-panel row    — Activity (left) + Quotations (right)
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -118,16 +125,26 @@ const ViewLead = () => {
   const [showActivityComposer, setShowActivityComposer] = useState(false);
 
 
-  // Right-side Activity panel height tracks the left column's rendered
-  // height so the two columns visually match. Excess feed scrolls inside.
+  // Right-side Activity panel height tracks ONLY the Line Items
+  // ("requirement") tab so it doesn't balloon on the taller RFQ / Quotation
+  // tabs. Excess feed scrolls inside.
   const leftColRef = useRef(null);
+  const activeLeftTabRef = useRef("requirement");
   const [leftHeight, setLeftHeight] = useState(null);
+  const onLeftTabChange = useCallback((key) => {
+    activeLeftTabRef.current = key;
+  }, []);
   useEffect(() => {
     const el = leftColRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setLeftHeight(el.offsetHeight));
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const measure = () => {
+      if (activeLeftTabRef.current === "requirement") {
+        setLeftHeight(el.offsetHeight);
+      }
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setLeftHeight(el.offsetHeight);
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -452,7 +469,7 @@ const ViewLead = () => {
           ratio="9-3"
           left={
             <div ref={leftColRef}>
-              <LeadDocsTabs />
+              <LeadDocsTabs onActiveTabChange={onLeftTabChange} />
             </div>
           }
           right={

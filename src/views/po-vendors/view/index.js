@@ -7,7 +7,14 @@
 // Action buttons (Dispatch / Receive / Cancel) are contextual on status and
 // live in the header `actions` array, replacing the old left-side info card.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -96,6 +103,29 @@ const ViewPoVendor = () => {
   const authUserItem = authStore?.authUserItem || null;
   const p = store?.poVendorItem || {};
   const sym = p?.currency_symbol || "₹";
+
+  // Right-side Event Timeline height tracks ONLY the Line Items ("overview")
+  // tab so it doesn't balloon on the taller GRN / Debit Note / Expense tabs.
+  // Excess feed scrolls inside (like the Lead detail page's Activity panel).
+  const leftColRef = useRef(null);
+  const activeLeftTabRef = useRef("overview");
+  const [leftHeight, setLeftHeight] = useState(null);
+  const onLeftTabChange = useCallback((key) => {
+    activeLeftTabRef.current = key;
+  }, []);
+  useEffect(() => {
+    const el = leftColRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const measure = () => {
+      if (activeLeftTabRef.current === "overview") {
+        setLeftHeight(el.offsetHeight);
+      }
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
@@ -403,8 +433,12 @@ const ViewPoVendor = () => {
         {canViewTracking ? (
           <DetailTwoPanel
             ratio="8-4"
-            left={<PoVendorTabView />}
-            right={<PoVendorTimelinePanel />}
+            left={
+              <div ref={leftColRef}>
+                <PoVendorTabView onActiveTabChange={onLeftTabChange} />
+              </div>
+            }
+            right={<PoVendorTimelinePanel height={leftHeight} />}
           />
         ) : (
           // No tracking permission → hide the Event Timeline and let the tabs

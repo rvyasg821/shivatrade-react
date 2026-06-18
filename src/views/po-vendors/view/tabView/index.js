@@ -21,9 +21,19 @@ import ExpensesTab from "./ExpensesTab";
 import GrnsTab from "./GrnsTab";
 import DebitNotesTab from "./DebitNotesTab";
 
-const PoVendorTabView = () => {
+const PoVendorTabView = ({ onActiveTabChange }) => {
   const { t } = useTranslation();
   const [active, setActive] = useState("overview");
+
+  // Report the active tab so the parent can pin the Event Timeline height to
+  // the Line Items ("overview") tab only — not the taller GRN/DN/Expense tabs.
+  const selectTab = useCallback(
+    (key) => {
+      setActive(key);
+      onActiveTabChange?.(key);
+    },
+    [onActiveTabChange]
+  );
 
   // The active tab registers its own action buttons here, rendered on the
   // right of the tab bar (same pattern as the Lead / Quotation detail tabs).
@@ -38,7 +48,7 @@ const PoVendorTabView = () => {
     <NavItem>
       <NavLink
         active={active === key}
-        onClick={() => setActive(key)}
+        onClick={() => selectTab(key)}
         style={{
           color: active === key ? "#fff" : "#1a2238",
           display: "inline-flex",
