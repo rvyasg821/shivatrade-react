@@ -103,7 +103,7 @@ const AttendanceImportModal = ({ isOpen, toggle, onSuccess }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable backdrop="static" keyboard={false}>
       <ModalHeader toggle={handleClose}>
         {step === 1 && t("Import Attendance")}
         {step === 2 && t("Review Attendance Data")}

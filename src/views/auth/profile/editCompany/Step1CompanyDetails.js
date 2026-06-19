@@ -59,9 +59,14 @@ import {
 
 // ** Styles
 import "react-phone-input-2/lib/style.css";
-import { startLoading, stopLoading } from "../../../loadingstore";
 
-const Step1CompanyDetails = () => {
+const Step1CompanyDetails = ({ section = "all" }) => {
+  // Which form sections to render. The whole company (company details +
+  // addresses + bank accounts) is always loaded into the form, so saving from
+  // any tab persists everything — only the visible section differs.
+  const showCompany = section === "all" || section === "company";
+  const showAddress = section === "all" || section === "address";
+  const showBank = section === "all" || section === "bank";
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const companyStore = useSelector((state) => state.company);
@@ -141,11 +146,6 @@ const Step1CompanyDetails = () => {
       e.target.value = "";
     }
   };
-
-  useEffect(() => {
-    if (user?.loading) dispatch(startLoading());
-    else dispatch(stopLoading());
-  }, [user.loading]);
 
   const ProfileSchema = yup.object().shape({
     fname: yup.string().required(`${t("First Name is required")}.`),
@@ -485,6 +485,7 @@ const Step1CompanyDetails = () => {
         <CardBody>
           <Form autoComplete="off" onSubmit={handleSubmit(onSubmit)}>
 
+            {showCompany && (<>
             {/* ── Company Information ── */}
             <h6 className="fw-bold text-uppercase text-muted mb-1 mt-1">{t("Company Information")}</h6>
             <hr className="mt-0 mb-2" />
@@ -753,8 +754,11 @@ const Step1CompanyDetails = () => {
               </Col>
             </Row>
 
+            </>)}
+
+            {showAddress && (<>
             {/* ── Addresses (multi) ── */}
-            <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
+            <div className="d-flex justify-content-between align-items-center mb-2">
               <h4 className="mb-0">{t("Addresses")}</h4>
               <Button
                 type="button" size="sm" color="primary" outline disabled={isReadOnly}
@@ -776,7 +780,7 @@ const Step1CompanyDetails = () => {
                 { value: "other", label: t("Other") },
               ];
               return (
-                <Row key={row._key} className="border rounded p-2 mb-2 mx-0">
+                <Row key={row._key} className="p-2 mb-2 mx-0">
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Type")}</Label>
                     <Controller name={`addresses.${idx}.type`} control={control}
@@ -905,8 +909,11 @@ const Step1CompanyDetails = () => {
               );
             })}
 
+            </>)}
+
+            {showBank && (<>
             {/* ── Bank Accounts (multi) ── */}
-            <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
+            <div className="d-flex justify-content-between align-items-center mb-2">
               <h4 className="mb-0">{t("Bank Accounts")}</h4>
               <Button
                 type="button" size="sm" color="primary" outline disabled={isReadOnly}
@@ -934,7 +941,7 @@ const Step1CompanyDetails = () => {
                 value: c._id, label: `${c.code} - ${c.name}`,
               }));
               return (
-                <Row key={row._key} className="border rounded p-2 mb-2 mx-0">
+                <Row key={row._key} className="p-2 mb-2 mx-0">
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Bank Name")} <span className="text-danger">*</span></Label>
                     <Controller name={`bank_accounts.${idx}.bank_name`} control={control}
@@ -1066,6 +1073,8 @@ const Step1CompanyDetails = () => {
                 </Row>
               );
             })}
+
+            </>)}
 
             <div className="d-flex justify-content-end mt-3 gap-2 pt-2 pb-2">
               <Button type="submit" color="primary" disabled={isReadOnly || submitting}>

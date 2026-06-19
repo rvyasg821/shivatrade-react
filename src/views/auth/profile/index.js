@@ -1,5 +1,6 @@
 // ** React Imports
 import { Fragment, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
@@ -8,67 +9,51 @@ import { startLoading, stopLoading } from "../../loadingstore";
 import { getCompanyDetails } from "./editCompany/store";
 
 // ** Reactstrap Imports
-import { Col, Row,Spinner } from 'reactstrap';
+import { Spinner } from "reactstrap";
+import { ArrowLeft } from "react-feather";
+import { useTranslation } from "react-i18next";
 
 // ** Custom Components
 import Notification from "@components/toast/notification";
-import UserInfoCard from "./userInfoCard";
-import CompanyInfoCard from "../../../views/company/CompanyInfoCard";
-
+import { DetailHeader } from "@src/views/_shared/detail-page";
 import ProfileTabView from "./tabView";
 
 // ** Styles
-import '@styles/react/apps/app-users.scss'
-
+import "@styles/react/apps/app-users.scss";
 
 const Profile = () => {
-    // ** Store vars
-    const dispatch = useDispatch();
-    const store = useSelector((state) => state.auth);
+  const { t } = useTranslation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const store = useSelector((state) => state.auth);
+  const company = useSelector((state) => state.company?.companyItem || {});
 
-    useEffect(() => {
-        /* For blank message api called inside */
-        if (store?.actionFlag || store?.success || store?.error) {
-            //  Notification("abc");
-            dispatch(cleanAuthMessage(null))
-        }
+  useEffect(() => {
+    if (store?.actionFlag || store?.success || store?.error) {
+      dispatch(cleanAuthMessage(null));
+    }
+    if (store?.error) Notification("Error", store.error, "warning");
+  }, [store.actionFlag, store.success, store.error]);
 
-        /* Success toast notification */
-        if (store?.success) {
-            // Notification("Success", store.success, "success")
-        }
+  // Loading management
+  useEffect(() => {
+    if (!store?.loading) dispatch(startLoading());
+    else dispatch(stopLoading());
+  }, [store?.loading]);
 
-        /* Error toast notification */
-        if (store?.error) {
-            Notification("Error", store.error, "warning")
-        }
-    }, [store.actionFlag, store.success, store.error])
-// loadding 
-    useEffect(() => {
-        if (!store?.loading) {
-            
-            dispatch(startLoading())
-        } else {
-           
-            dispatch(stopLoading())
-        }
-    }, [store?.loading])
-
-    // permission check
-  const roleName = store?.authUserItem?.role?.name?.toLowerCase() || "";
-  const isUser=store?.authUserItem?.isSystemUser===true;
-
-  // Only Company Admin can manage subscriptions - all other roles see personal profile only
+  // Permission check
+  const profile = store?.authUserItem;
+  const roleName = profile?.role?.name?.toLowerCase() || "";
+  const isUser = profile?.isSystemUser === true;
   const isCompanyAdmin = roleName === "company admin";
   const isSuperAdmin = roleName === "super admin" || roleName === "admin";
 
-    // Fetch company data for all company-level roles (Company Admin, Location Admin, Employee, custom roles)
-    useEffect(() => {
-        if (!isSuperAdmin && !isUser) {
-            dispatch(getCompanyDetails());
-        }
-    }, [isSuperAdmin, isUser, dispatch]);
-    if (!store?.loading || !store?.authUserItem) {
+  // Fetch company data for all company-level roles.
+  useEffect(() => {
+    if (!isSuperAdmin && !isUser) dispatch(getCompanyDetails());
+  }, [isSuperAdmin, isUser, dispatch]);
+
+  if (!store?.loading || !profile) {
     return (
       <div
         className="d-flex justify-content-center align-items-center"
@@ -78,28 +63,44 @@ const Profile = () => {
       </div>
     );
   }
-    return (
-        <Fragment>
-            {/* {!store?.loading ? (
-                <SimpleSpinner />
-            ) : null} */}
 
-            <div className="app-user-view">
-                <Row>
-                    {/*  xs={{ order: 1 }} */}
-                    <Col xl={4} lg={5} md={{ order: 0, size: 5 }}>
-                        <UserInfoCard user={store?.authUserItem} />
-                    </Col>
+  // ── Header identity (company-facing for admins, else the user) ──
+  const title =
+    isCompanyAdmin && company?.company_name
+      ? company.company_name
+      : profile?.name || t("Profile");
+  const subtitle =
+    [isCompanyAdmin && profile?.name ? profile.name : null, profile?.email]
+      .filter(Boolean)
+      .join(" · ") || null;
 
-                    {/*  xs={{ order: 0 }} */}
-                    <Col xl={8} lg={7} md={{ order: 1, size: 7 }}>
-                        <ProfileTabView />
-                    </Col>
-                    
-                </Row>
-            </div>
-        </Fragment>
-    )
-}
+  return (
+    <Fragment>
+      <div className="app-user-view">
+        <DetailHeader
+          avatarText={title}
+          title={title}
+          subtitle={subtitle}
+          badge={
+            profile?.role?.name
+              ? { label: profile.role.name, color: "primary" }
+              : undefined
+          }
+          actions={[
+            {
+              icon: ArrowLeft,
+              label: t("Back"),
+              color: "secondary",
+              outline: true,
+              onClick: () => navigate(-1),
+            },
+          ]}
+        />
 
-export default Profile
+        <ProfileTabView />
+      </div>
+    </Fragment>
+  );
+};
+
+export default Profile;

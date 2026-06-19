@@ -411,8 +411,13 @@ const PurchaseOrderWizard = () => {
     if (!liveCurrencyCode) {
       setRateMeta(null);
       autoFilledForCurrency.current = null;
-      return;
+      return undefined;
     }
+    // Guard against a stale response: on edit the form briefly defaults to INR
+    // before the saved SO currency hydrates, firing an INR rate fetch. On a
+    // slow server that resolves AFTER hydration and would otherwise clobber the
+    // saved rate with 1. The cleanup cancels the previous currency's fetch.
+    let cancelled = false;
     const shouldWriteToField =
       autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
@@ -422,6 +427,7 @@ const PurchaseOrderWizard = () => {
         params: { to: liveCurrencyCode },
       })
       .then((resp) => {
+        if (cancelled) return;
         const data = resp?.data?.data;
         if (!data) return setRateMeta({ missing: true });
         if (shouldWriteToField) {
@@ -436,7 +442,12 @@ const PurchaseOrderWizard = () => {
           toCode: liveCurrencyCode,
         });
       })
-      .catch(() => setRateMeta({ missing: true }));
+      .catch(() => {
+        if (!cancelled) setRateMeta({ missing: true });
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveCurrencyCode, currencyStore?.exchangeOptions, isEdit]);
 

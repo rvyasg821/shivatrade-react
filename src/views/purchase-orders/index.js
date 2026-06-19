@@ -85,6 +85,7 @@ const PurchaseOrderView = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   const handleList = useCallback(
     (
@@ -188,7 +189,12 @@ const PurchaseOrderView = () => {
     if (store?.actionFlag || store?.success || store?.error) {
       dispatch(cleanPurchaseOrderMessage(null));
     }
-    if (store?.actionFlag === "PO_DLT") handleList();
+    if (store?.actionFlag === "PO_DLT") {
+      handleList();
+      // KPI tiles fetch separately — force a re-fetch so counts drop the
+      // deleted Sales Order.
+      setStatsRefreshKey((k) => k + 1);
+    }
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
   }, [store.actionFlag, store.success, store.error]);
@@ -486,6 +492,7 @@ const PurchaseOrderView = () => {
 
         <VoucherStatsTiles
           module="po"
+          refreshKey={statsRefreshKey}
           filters={{
             customer_id: customerFilter || undefined,
             status: statusFilter || undefined,

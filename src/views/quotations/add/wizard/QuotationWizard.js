@@ -420,8 +420,12 @@ const QuotationWizard = () => {
     if (!liveCurrencyCode) {
       setRateMeta(null);
       autoFilledForCurrency.current = null;
-      return;
+      return undefined;
     }
+    // Guard against a stale response clobbering a just-hydrated rate (e.g. an
+    // INR fetch from the form's initial default resolving after the saved
+    // currency loads on a slow server). The cleanup cancels the prior fetch.
+    let cancelled = false;
     const shouldWriteToField =
       autoFilledForCurrency.current !== liveCurrencyCode;
     const options = currencyStore?.exchangeOptions || [];
@@ -431,6 +435,7 @@ const QuotationWizard = () => {
         params: { to: liveCurrencyCode },
       })
       .then((resp) => {
+        if (cancelled) return;
         const data = resp?.data?.data;
         if (!data) return setRateMeta({ missing: true });
         if (shouldWriteToField) {
@@ -446,7 +451,12 @@ const QuotationWizard = () => {
           toCode: liveCurrencyCode,
         });
       })
-      .catch(() => setRateMeta({ missing: true }));
+      .catch(() => {
+        if (!cancelled) setRateMeta({ missing: true });
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveCurrencyCode, currencyStore?.exchangeOptions, isEdit]);
 

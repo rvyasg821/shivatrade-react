@@ -130,7 +130,7 @@ const VendorImportModal = ({ isOpen, toggle, onSuccess }) => {
   const validCount = preview?.summary?.valid_new || 0;
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable backdrop="static" keyboard={false}>
       <ModalHeader toggle={handleClose}>
         {step === 1 && t("Import Vendors")}
         {step === 2 && t("Review Import Data")}
