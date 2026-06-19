@@ -15,19 +15,16 @@ import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
 import PoLineItemsPanel from "./PoLineItemsPanel";
-import {
-  usePoCoverage,
-  PoCoveragePanel,
-  PoVendorsPanel,
-} from "./PoCoverageAndVendors";
+import { PoCoveragePanel, PoVendorsPanel } from "./PoCoverageAndVendors";
 
-const PoRelatedDocsTabs = () => {
+const PoRelatedDocsTabs = ({ coverageData }) => {
   const { t } = useTranslation();
   const [active, setActive] = useState("lines");
   const { purchaseOrderItem } = useSelector((s) => s.purchaseOrder);
   const linesCount = (purchaseOrderItem?.lines || []).length;
 
-  const coverageData = usePoCoverage();
+  // Coverage is owned by the parent (PO detail page) so the header "Generate
+  // POV" button shares the same data + reload.
   const povCount = coverageData.povs.length;
 
   // The active tab can publish action buttons to the right of the tab bar

@@ -1,9 +1,7 @@
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { getQuotation } from "@src/views/quotations/store";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
-import PoGeneratePreviewModal from "@src/views/_shared/sales-doc/PoGeneratePreviewModal";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import {
@@ -55,7 +53,6 @@ const QuotationInfoCard = () => {
 
   const { quotationItem } = useSelector((s) => s.quotation);
   const q = quotationItem || {};
-  const [poModalOpen, setPoModalOpen] = useState(false);
   const sym = q?.currency_symbol || q?.currency_code || "";
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
@@ -230,27 +227,21 @@ const QuotationInfoCard = () => {
               <>
                 <Button
                   color="success"
-                  onClick={() => setPoModalOpen(true)}
+                  onClick={() =>
+                    navigate(`${appsRoot}/quotations/generate-so/${id}`)
+                  }
                   id="qt-generate-pos"
                 >
-                  <Truck size={14} className="me-50" /> {t("Generate Sales Orders")}
+                  <Truck size={14} className="me-50" /> {t("Generate Sales Order")}
                 </Button>
                 <UncontrolledTooltip target="qt-generate-pos" placement="top">
-                  {t("Split this Quotation into vendor Sales Orders")}
+                  {t("Create a Sales Order from this quotation")}
                 </UncontrolledTooltip>
               </>
             )}
           </div>
         </CardBody>
       </Card>
-      <PoGeneratePreviewModal
-        isOpen={poModalOpen}
-        toggle={() => setPoModalOpen((s) => !s)}
-        sourceType="quotation"
-        sourceId={id}
-        sourceVoucherNo={q?.voucher_no}
-        onCreated={() => dispatch(getQuotation(id))}
-      />
     </Fragment>
   );
 };

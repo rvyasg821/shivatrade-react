@@ -1,37 +1,51 @@
-// ── PoVendor Recover Modal ─────────────────────────────────────────
-// Mirrors the PFI → PO "Generate POs" preview modal (PoGeneratePreviewModal).
-// Surfaces on the PO Coverage tab when has_pending = true — i.e. one or
-// more PO lines no longer have an active POV (cancelled or never had one).
+// ── Generate POV Modal ─────────────────────────────────────────────
+// Generates Vendor POs (POVs) from a Sales Order's pending lines. Opened
+// from the SO detail header ("Generate POV"). Mirrors the old quotation →
+// SO popup: assign a vendor per line (price-list candidates, cheapest
+// pre-picked) and add optional per-vendor charges; one POV is created per
+// unique vendor in a single call.
 //
-// Per-line vendor selector defaults to the PO line's current `vendor_id`.
-// Operator can switch to any active vendor; if changed, BE re-assigns the
-// PO line's vendor_id and spawns one POV per chosen vendor in a single
-// transaction.
+// Also doubles as the "recover" flow — when a POV is cancelled its lines go
+// back to pending and reappear here.
+//
+// Currency note: vendor costs are stored in INR (₹) — that's what the
+// per-line rate / per-vendor totals + charges show.
 
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
   Button,
   Table,
   Spinner,
   Input,
+  Badge,
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, RotateCcw, X } from "react-feather";
+import { AlertTriangle, RotateCcw, X, Plus, Trash2 } from "react-feather";
 import ReactPaginate from "react-paginate";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { recoverPoVendors } from "@src/views/po-vendors/store";
+import { getExpenseDropdown } from "@src/views/expenses/store";
+import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
+const fmt = (v) =>
+  v === null || v === undefined || v === ""
+    ? "-"
+    : Number(v).toLocaleString();
 
 /**
  * Props:
@@ -45,6 +59,9 @@ const PoVendorRecoverModal = ({
   toggle,
   purchaseOrder,
   onCreated,
+  // Render as a full page (Card chrome) instead of a modal. The page passes
+  // isOpen=true so the preview loads on mount.
+  asPage = false,
 }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -57,6 +74,8 @@ const PoVendorRecoverModal = ({
   const [assignment, setAssignment] = useState({});
   // dropped[purchase_order_line_id] = true → exclude from batch
   const [dropped, setDropped] = useState({});
+  // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
+  const [vendorExpenses, setVendorExpenses] = useState({});
 
   // ── Client-side pagination for the preview table ──
   const [pageSize, setPageSize] = useState(10);
@@ -64,7 +83,25 @@ const PoVendorRecoverModal = ({
 
   const poId = purchaseOrder?._id;
   const previewEndpoint = `${API_ENDPOINTS.poVendors.recoverPreview}/${poId}`;
-  const recoverEndpoint = `${API_ENDPOINTS.poVendors.recover}/${poId}`;
+
+  // ── Expense master (loaded once when modal opens) ──
+  const expenseStore = useSelector((s) => s.expense);
+  useEffect(() => {
+    if (isOpen && !expenseStore?.expenseDropdown?.length) {
+      dispatch(getExpenseDropdown());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+  const expenseOptions = useMemo(
+    () =>
+      (expenseStore?.expenseDropdown || []).map((e) => ({
+        value: e._id,
+        label: e.code ? `${e.code} - ${e.name}` : e.name,
+        raw: e,
+      })),
+    [expenseStore?.expenseDropdown]
+  );
+  const expenseTypeOptions = REBATE_EXPENSE_TYPE_OPTIONS;
 
   useEffect(() => {
     if (!isOpen || !poId) return;
@@ -73,6 +110,7 @@ const PoVendorRecoverModal = ({
     setActiveVendors([]);
     setAssignment({});
     setDropped({});
+    setVendorExpenses({});
     instance
       .get(previewEndpoint)
       .then((resp) => {
@@ -84,10 +122,8 @@ const PoVendorRecoverModal = ({
         const seedA = {};
         const seedD = {};
         for (const l of lines) {
-          seedA[l.purchase_order_line_id] = l.current_vendor_id || "";
-          // Auto-drop lines already fully covered (defensive — shouldn't
-          // normally appear in this modal, but the BE returns them so we
-          // hide by default).
+          seedA[l.purchase_order_line_id] =
+            l.suggested_vendor_id || l.current_vendor_id || "";
           if (l.fully_covered) seedD[l.purchase_order_line_id] = true;
         }
         setAssignment(seedA);
@@ -120,7 +156,34 @@ const PoVendorRecoverModal = ({
     });
   };
 
-  // Group active assignments by vendor → "N POVs will be created" preview.
+  // Per-line vendor options. Prefer price-list candidates (with ₹ rate +
+  // Cheapest badge); fall back to the flat active-vendor list when a line's
+  // product has no price-list rows.
+  const vendorOptionsForLine = (l) => {
+    const cands = l.candidate_vendors || [];
+    if (cands.length) {
+      const cheapestId = cands[0]?.vendor_id;
+      return cands.map((c) => ({
+        value: c.vendor_id,
+        label: `${c.vendor_name} · ₹${fmt(c.unit_price)}`,
+        isCheapest: c.vendor_id === cheapestId,
+      }));
+    }
+    return activeVendors.map((v) => ({
+      value: v.vendor_id,
+      label: v.vendor_name,
+    }));
+  };
+
+  // Unit price (₹) for the vendor chosen on a line, from its candidates.
+  const priceForLine = (l, vendorId) => {
+    const c = (l.candidate_vendors || []).find(
+      (x) => x.vendor_id === vendorId
+    );
+    return c ? Number(c.unit_price) || 0 : 0;
+  };
+
+  // Group active assignments by vendor → "N POVs" preview + goods total (₹).
   const vendorSummary = useMemo(() => {
     const map = new Map();
     for (const l of previewLines) {
@@ -128,13 +191,19 @@ const PoVendorRecoverModal = ({
       const vid = assignment[l.purchase_order_line_id];
       if (!vid) continue;
       const vendorName =
-        activeVendors.find((v) => v.vendor_id === vid)?.vendor_name || vid;
+        (l.candidate_vendors || []).find((c) => c.vendor_id === vid)
+          ?.vendor_name ||
+        activeVendors.find((v) => v.vendor_id === vid)?.vendor_name ||
+        vid;
       const existing = map.get(vid) || {
         vendor_id: vid,
         vendor_name: vendorName,
         lines: 0,
+        total: 0,
       };
       existing.lines += 1;
+      existing.total +=
+        num(l.pending_qty) * priceForLine(l, vid);
       map.set(vid, existing);
     }
     return Array.from(map.values()).sort((a, b) =>
@@ -142,8 +211,36 @@ const PoVendorRecoverModal = ({
     );
   }, [previewLines, assignment, dropped, activeVendors]);
 
+  // Prune charges for vendors no longer in the batch.
+  useEffect(() => {
+    const activeVendorIds = new Set(vendorSummary.map((v) => v.vendor_id));
+    setVendorExpenses((curr) => {
+      let changed = false;
+      const next = {};
+      for (const [vid, rows] of Object.entries(curr)) {
+        if (activeVendorIds.has(vid)) next[vid] = rows;
+        else changed = true;
+      }
+      return changed ? next : curr;
+    });
+  }, [vendorSummary]);
+
+  // Charges total for a single vendor block (percent against its goods total).
+  const chargesFor = (v) =>
+    (vendorExpenses[v.vendor_id] || []).reduce((s, r) => {
+      if (!r?.expense_id) return s;
+      return (
+        s +
+        (r.type === "percent"
+          ? (v.total * Number(r.value || 0)) / 100
+          : Number(r.value || 0))
+      );
+    }, 0);
+
   const hasUnassigned = previewLines.some(
-    (l) => !dropped[l.purchase_order_line_id] && !assignment[l.purchase_order_line_id]
+    (l) =>
+      !dropped[l.purchase_order_line_id] &&
+      !assignment[l.purchase_order_line_id]
   );
 
   const onSubmit = async () => {
@@ -157,14 +254,9 @@ const PoVendorRecoverModal = ({
       return;
     }
 
-    // 0-qty guard: a line with pending_qty <= 0 is fully covered already.
-    // The auto-drop on load handles the default case, but if the operator
-    // manually restored such a line we must block submission here — BE
-    // would also reject it, but a clear FE message is friendlier.
     const zeroQtyLines = previewLines.filter(
       (l) =>
-        !dropped[l.purchase_order_line_id] &&
-        num(l.pending_qty) <= 0
+        !dropped[l.purchase_order_line_id] && num(l.pending_qty) <= 0
     );
     if (zeroQtyLines.length > 0) {
       Notification(
@@ -198,16 +290,26 @@ const PoVendorRecoverModal = ({
       return;
     }
 
-    // delivery_address_id + notes are deliberately NOT sent — the BE
-    // inherits the PO's existing delivery_address (already set when the
-    // original POVs were created from PFI). Recovery just re-spawns POVs
-    // for the same address.
+    // Trim out empty vendor blocks (no rows) and rows missing expense_id.
+    const trimmedExpenses = {};
+    for (const [vid, rows] of Object.entries(vendorExpenses)) {
+      const cleaned = (rows || []).filter((r) => r?.expense_id);
+      if (cleaned.length) {
+        trimmedExpenses[vid] = cleaned.map((r) => ({
+          expense_id: r.expense_id,
+          type: r.type || "percent",
+          value: r.value || "0",
+        }));
+      }
+    }
+
     setCreating(true);
     try {
       const result = await dispatch(
         recoverPoVendors({
           purchase_order_id: poId,
           assignments,
+          vendor_expenses: trimmedExpenses,
         })
       ).unwrap();
       const created = result?.created || [];
@@ -230,31 +332,33 @@ const PoVendorRecoverModal = ({
   useEffect(() => {
     if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
   }, [pageCount, page]);
-  // Reset to the first page whenever the modal opens or the preview reloads.
   useEffect(() => {
     setPage(0);
   }, [isOpen, totalRows]);
 
-  return (
-    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
-      <ModalHeader toggle={toggle}>
-        {t("Recover POVs against SO")}{" "}
-        <code>{purchaseOrder?.voucher_no || ""}</code>
-      </ModalHeader>
-      <ModalBody>
+  const headerTitle = (
+    <>
+      {t("Generate POV")}{" "}
+      <span className="text-muted">{t("from Sales Order")}</span>{" "}
+      <code>{purchaseOrder?.voucher_no || ""}</code>
+    </>
+  );
+
+  const bodyNode = (
+    <>
         {loading ? (
           <div className="text-center py-5">
             <Spinner /> <span className="ms-2">{t("Loading preview…")}</span>
           </div>
         ) : previewLines.length === 0 ? (
           <div className="text-center text-muted py-4">
-            {t("No PO lines need recovery.")}
+            {t("No PO lines need a Vendor PO.")}
           </div>
         ) : (
           <>
             <p className="text-muted small mb-2">
               {t(
-                "Each line is defaulted to its current PO vendor. Change vendor to re-assign the line, or skip a line to leave it uncovered for now. One POV is created per unique vendor."
+                "Each line is pre-picked to the cheapest price-list vendor. Change the vendor to re-assign, or skip a line. One POV is created per unique vendor."
               )}
             </p>
             {previewLines.every((l) => l.fully_covered) && (
@@ -276,7 +380,10 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 90 }} className="text-end">
                       {t("Pending Qty")}
                     </th>
-                    <th style={{ minWidth: 260 }}>{t("Vendor")}</th>
+                    <th style={{ minWidth: 280 }}>{t("Vendor")} (₹)</th>
+                    <th style={{ width: 110 }} className="text-end">
+                      {t("Rate")}
+                    </th>
                     <th style={{ width: 70 }} className="text-center">
                       {t("Action")}
                     </th>
@@ -287,13 +394,12 @@ const PoVendorRecoverModal = ({
                     const rowNum = pageStart + idx + 1;
                     const isDropped = !!dropped[l.purchase_order_line_id];
                     const picked = assignment[l.purchase_order_line_id];
-                    const vendorOpts = activeVendors.map((v) => ({
-                      value: v.vendor_id,
-                      label: v.vendor_name,
-                    }));
+                    const vendorOpts = vendorOptionsForLine(l);
                     const pickedOpt = vendorOpts.find(
                       (o) => o.value === picked
                     );
+                    const rate = priceForLine(l, picked);
+                    const noVendor = vendorOpts.length === 0;
                     return (
                       <tr
                         key={l.purchase_order_line_id}
@@ -324,7 +430,19 @@ const PoVendorRecoverModal = ({
                           {num(l.pending_qty).toLocaleString()}
                         </td>
                         <td>
-                          {isDropped ? (
+                          {noVendor ? (
+                            <div className="text-danger d-flex align-items-center small">
+                              <AlertTriangle
+                                size={14}
+                                className="me-1 flex-shrink-0"
+                              />
+                              <span>
+                                {t(
+                                  "No vendor — add this product to a vendor's price list"
+                                )}
+                              </span>
+                            </div>
+                          ) : isDropped ? (
                             <span className="text-muted small">
                               {pickedOpt?.label || "—"}
                             </span>
@@ -342,6 +460,23 @@ const PoVendorRecoverModal = ({
                               placeholder={t("Pick a vendor")}
                               isClearable={false}
                               menuPortalTarget={document.body}
+                              menuPlacement="auto"
+                              menuPosition="fixed"
+                              maxMenuHeight={220}
+                              formatOptionLabel={(opt) => (
+                                <div className="d-flex align-items-center justify-content-between">
+                                  <span>{opt.label}</span>
+                                  {opt.isCheapest && (
+                                    <Badge
+                                      color="light-success"
+                                      className="ms-1"
+                                      pill
+                                    >
+                                      {t("Cheapest")}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
                               styles={{
                                 menuPortal: (base) => ({
                                   ...base,
@@ -350,6 +485,9 @@ const PoVendorRecoverModal = ({
                               }}
                             />
                           )}
+                        </td>
+                        <td className="text-end">
+                          {rate > 0 ? `₹${fmt(rate)}` : "-"}
                         </td>
                         <td className="text-center">
                           {isDropped ? (
@@ -425,44 +563,274 @@ const PoVendorRecoverModal = ({
               />
             </div>
 
+            {/* Per-vendor charges — mirrors the old quotation → SO popup. */}
             {vendorSummary.length > 0 && (
-              <div className="alert alert-info small mb-0">
-                <strong>{t("Will create")}: </strong>
-                {vendorSummary.length}{" "}
-                {vendorSummary.length === 1 ? t("POV") : t("POVs")}
-                <ul className="mb-0 mt-25">
-                  {vendorSummary.map((v) => (
-                    <li key={v.vendor_id}>
-                      <strong>{v.vendor_name}</strong> — {v.lines}{" "}
-                      {v.lines === 1 ? t("line") : t("lines")}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <>
+                <div className="alert alert-info small mb-2">
+                  <strong>{t("Will create")}: </strong>
+                  {vendorSummary.length}{" "}
+                  {vendorSummary.length === 1 ? t("POV") : t("POVs")}.{" "}
+                  {t("Add optional charges per vendor below.")}
+                </div>
+                {vendorSummary.map((v) => {
+                  const rows = vendorExpenses[v.vendor_id] || [];
+                  const usedIds = new Set(
+                    rows.map((r) => r.expense_id).filter(Boolean)
+                  );
+                  const updateRow = (idx, patch) =>
+                    setVendorExpenses((curr) => {
+                      const list = (curr[v.vendor_id] || []).map((r, i) =>
+                        i === idx ? { ...r, ...patch } : r
+                      );
+                      return { ...curr, [v.vendor_id]: list };
+                    });
+                  const removeRow = (idx) =>
+                    setVendorExpenses((curr) => {
+                      const list = (curr[v.vendor_id] || []).filter(
+                        (_, i) => i !== idx
+                      );
+                      const next = { ...curr };
+                      if (list.length === 0) delete next[v.vendor_id];
+                      else next[v.vendor_id] = list;
+                      return next;
+                    });
+                  const addRow = () =>
+                    setVendorExpenses((curr) => ({
+                      ...curr,
+                      [v.vendor_id]: [
+                        ...(curr[v.vendor_id] || []),
+                        {
+                          expense_id: "",
+                          type: "percent",
+                          value: "0",
+                          code: "",
+                          name: "",
+                        },
+                      ],
+                    }));
+                  const chargesTotal = chargesFor(v);
+                  return (
+                    <div key={v.vendor_id} className="po-gen-card mb-2">
+                      <div className="po-gen-head justify-content-between">
+                        <div className="small">
+                          <span className="text-muted">{t("PO to")}: </span>
+                          <span className="fw-semibold">{v.vendor_name}</span>
+                          <span className="ms-1">
+                            · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
+                            {chargesTotal > 0 && (
+                              <>
+                                {" "}
+                                + {t("Charges")} ₹{fmt(chargesTotal)} ={" "}
+                                <strong>₹{fmt(v.total + chargesTotal)}</strong>{" "}
+                                <span className="text-muted">
+                                  ({t("Taxable")})
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          color="primary"
+                          outline
+                          onClick={addRow}
+                        >
+                          <Plus size={12} className="me-25" />
+                          {t("Add Expense")}
+                        </Button>
+                      </div>
+                      <div className="p-1">
+                        {rows.length === 0 && (
+                          <div className="text-muted small text-center py-2">
+                            {t(
+                              "No charges. Click Add Expense to include Packing, Transport, etc."
+                            )}
+                          </div>
+                        )}
+                        {rows.length > 0 && (
+                          <Table
+                            size="sm"
+                            bordered
+                            className="mb-0 small align-middle"
+                          >
+                            <thead className="table-light">
+                              <tr>
+                                <th style={{ minWidth: 200 }}>
+                                  {t("Expense")}
+                                </th>
+                                <th style={{ width: 150 }}>{t("Type")}</th>
+                                <th style={{ width: 100 }}>{t("Value")}</th>
+                                <th
+                                  style={{ width: 100 }}
+                                  className="text-end"
+                                >
+                                  {t("Amount")}
+                                </th>
+                                <th style={{ width: 40 }} />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, idx) => {
+                                const pickOptions = expenseOptions.filter(
+                                  (o) =>
+                                    o.value === r.expense_id ||
+                                    !usedIds.has(o.value)
+                                );
+                                const amt =
+                                  r.type === "percent"
+                                    ? (v.total * Number(r.value || 0)) / 100
+                                    : Number(r.value || 0);
+                                return (
+                                  <tr key={idx}>
+                                    <td>
+                                      <Select
+                                        classNamePrefix="select"
+                                        options={pickOptions}
+                                        value={
+                                          expenseOptions.find(
+                                            (o) => o.value === r.expense_id
+                                          ) || null
+                                        }
+                                        onChange={(opt) => {
+                                          if (!opt) {
+                                            updateRow(idx, {
+                                              expense_id: "",
+                                              code: "",
+                                              name: "",
+                                            });
+                                            return;
+                                          }
+                                          updateRow(idx, {
+                                            expense_id: opt.value,
+                                            code: opt.raw?.code || "",
+                                            name: opt.raw?.name || "",
+                                            type: opt.raw?.type || r.type,
+                                            value:
+                                              opt.raw?.value != null
+                                                ? String(opt.raw.value)
+                                                : r.value,
+                                          });
+                                        }}
+                                        placeholder={t("Pick expense…")}
+                                        menuPortalTarget={document.body}
+                                        menuPlacement="auto"
+                                        menuPosition="fixed"
+                                        maxMenuHeight={200}
+                                        styles={{
+                                          menuPortal: (b) => ({
+                                            ...b,
+                                            zIndex: 9999,
+                                          }),
+                                        }}
+                                      />
+                                    </td>
+                                    <td>
+                                      <Select
+                                        classNamePrefix="select"
+                                        options={expenseTypeOptions}
+                                        value={
+                                          expenseTypeOptions.find(
+                                            (o) => o.value === r.type
+                                          ) || expenseTypeOptions[0]
+                                        }
+                                        onChange={(opt) =>
+                                          updateRow(idx, { type: opt.value })
+                                        }
+                                        menuPortalTarget={document.body}
+                                        menuPlacement="auto"
+                                        menuPosition="fixed"
+                                        maxMenuHeight={200}
+                                        styles={{
+                                          menuPortal: (b) => ({
+                                            ...b,
+                                            zIndex: 9999,
+                                          }),
+                                        }}
+                                      />
+                                    </td>
+                                    <td>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        bsSize="sm"
+                                        value={r.value}
+                                        onChange={(e) =>
+                                          updateRow(idx, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </td>
+                                    <td className="text-end">₹{fmt(amt)}</td>
+                                    <td className="text-center">
+                                      <Button
+                                        size="sm"
+                                        color="danger"
+                                        outline
+                                        onClick={() => removeRow(idx)}
+                                      >
+                                        <Trash2 size={12} />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </Table>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </>
         )}
-      </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={toggle} disabled={creating}>
-          {t("Cancel")}
-        </Button>
-        <Button
-          color="success"
-          onClick={onSubmit}
-          disabled={
-            creating ||
-            loading ||
-            vendorSummary.length === 0 ||
-            hasUnassigned
-          }
-        >
-          {creating ? <Spinner size="sm" /> : null}{" "}
-          {vendorSummary.length > 0
-            ? t(`Create ${vendorSummary.length} POV(s)`)
-            : t("Create POV(s)")}
-        </Button>
-      </ModalFooter>
+    </>
+  );
+
+  const footerNode = (
+    <>
+      <Button color="secondary" outline onClick={toggle} disabled={creating}>
+        {t("Cancel")}
+      </Button>
+      <Button
+        color="success"
+        onClick={onSubmit}
+        disabled={
+          creating || loading || vendorSummary.length === 0 || hasUnassigned
+        }
+      >
+        {creating ? <Spinner size="sm" /> : null}{" "}
+        {vendorSummary.length > 0
+          ? t(`Create ${vendorSummary.length} POV(s)`)
+          : t("Create POV(s)")}
+      </Button>
+    </>
+  );
+
+  // Full-page layout (preferred — opens as its own edit page); falls back to
+  // the modal for any caller that still opens it inline.
+  if (asPage) {
+    return (
+      <Card className="mb-1">
+        <CardHeader>
+          <h4 className="mb-0">{headerTitle}</h4>
+        </CardHeader>
+        <CardBody>{bodyNode}</CardBody>
+        <CardFooter className="d-flex justify-content-end gap-1">
+          {footerNode}
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  return (
+    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
+      <ModalHeader toggle={toggle}>{headerTitle}</ModalHeader>
+      <ModalBody>{bodyNode}</ModalBody>
+      <ModalFooter>{footerNode}</ModalFooter>
     </Modal>
   );
 };

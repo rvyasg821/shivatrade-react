@@ -31,6 +31,8 @@ import {
   Paperclip,
   Plus,
   Edit2,
+  AlertTriangle,
+  X,
 } from "react-feather";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
@@ -105,6 +107,10 @@ const ViewInvoice = () => {
   const canDelete = isAdmin || perms?.can_all || perms?.can_delete;
 
   const [busy, setBusy] = useState(false);
+  // Persistent banner shown above the header when issuing fails (e.g. Company
+  // Profile is missing GSTIN / PAN / IEC). The toast disappears; this stays put
+  // until the user fixes the data and retries (or dismisses it).
+  const [issueError, setIssueError] = useState("");
   const [activeTab, setActiveTab] = useState("details");
   const [payOpen, setPayOpen] = useState(false);
   // Tracking + shipment editor (SHIPPING_INVOICE_MERGE_PLAN §5c).
@@ -343,9 +349,22 @@ const ViewInvoice = () => {
       .then((res) => {
         if (!res.isConfirmed) return;
         setBusy(true);
+        setIssueError("");
         dispatch(issueInvoice(id))
           .unwrap()
-          .catch(() => {})
+          .then(() => setIssueError(""))
+          .catch((err) => {
+            // Surface the backend's "Company Profile is incomplete. Missing:…"
+            // message as a sticky banner, not just a fleeting toast. The thunk
+            // rejects with the message string itself (rejectWithValue), so
+            // `err` is usually that string.
+            const msg =
+              (typeof err === "string" && err) ||
+              err?.message ||
+              err?.data?.message ||
+              t("Could not issue the invoice. Please review the details.");
+            setIssueError(typeof msg === "string" ? msg : String(msg));
+          })
           .finally(() => setBusy(false));
       });
   };
@@ -427,27 +446,8 @@ const ViewInvoice = () => {
           color: "primary",
         });
       }
-      actions.push({
-        icon: Download,
-        label: t("Commercial Invoice"),
-        onClick: () => openInvoicePdf("commercial"),
-        outline: false,
-        className: "btn-brand-blue",
-      });
-      actions.push({
-        icon: Download,
-        label: t("Export Invoice"),
-        onClick: () => openInvoicePdf("export"),
-        outline: false,
-        className: "btn-brand-blue",
-      });
-      actions.push({
-        icon: Download,
-        label: t("Packing List"),
-        onClick: () => openInvoicePdf("packing-list"),
-        outline: false,
-        className: "btn-brand-blue",
-      });
+      // The 3 PDF downloads now live on a second row, right-aligned
+      // (see `pdfActions` → DetailHeader's actionsFooter slot).
     }
 
     actions.push({
@@ -469,6 +469,27 @@ const ViewInvoice = () => {
     t,
     inv?.shipping_id,
   ]);
+
+  // PDF downloads — shown on a second row, right-aligned, under the header
+  // action buttons. Available once the invoice is no longer a draft.
+  const pdfActions = useMemo(() => {
+    if (isDraft || isCancelled) return [];
+    return [
+      {
+        label: t("Commercial Invoice"),
+        onClick: () => openInvoicePdf("commercial"),
+      },
+      {
+        label: t("Export Invoice"),
+        onClick: () => openInvoicePdf("export"),
+      },
+      {
+        label: t("Packing List"),
+        onClick: () => openInvoicePdf("packing-list"),
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDraft, isCancelled, t]);
 
   // ── KPI tiles ───────────────────────────────────────────────────────
 
@@ -582,6 +603,30 @@ const ViewInvoice = () => {
   return (
     <Fragment>
       <div className="app-user-view">
+        {issueError && (
+          <div
+            className="d-flex align-items-start mb-1"
+            style={{
+              background: "#28c76f",
+              color: "#fff",
+              borderRadius: "0.5rem",
+              padding: "0.75rem 1rem",
+              boxShadow: "0 4px 24px 0 rgba(34, 41, 47, 0.1)",
+            }}
+            role="alert"
+          >
+            <AlertTriangle size={18} className="flex-shrink-0 mt-25 me-1" />
+            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+              <div className="fw-bold">{t("Cannot issue this invoice")}</div>
+              <div style={{ whiteSpace: "pre-line" }}>{issueError}</div>
+            </div>
+            <X
+              size={18}
+              className="cursor-pointer flex-shrink-0 ms-1"
+              onClick={() => setIssueError("")}
+            />
+          </div>
+        )}
         <DetailHeader
           avatarText="I"
           title={inv?.voucher_no || t("(Draft)")}
@@ -605,11 +650,30 @@ const ViewInvoice = () => {
           actions={headerActions.filter((a) => !a.hidden)}
           moreActions={[]}
           belowSlot={
-            <DetailPipeline
-              steps={PIPELINE_STEPS}
-              current={statusLower}
-              terminalSteps={TERMINAL_STEPS}
-            />
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <DetailPipeline
+                  steps={PIPELINE_STEPS}
+                  current={statusLower}
+                  terminalSteps={TERMINAL_STEPS}
+                />
+              </div>
+              {pdfActions.length ? (
+                <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end flex-shrink-0">
+                  {pdfActions.map((a, idx) => (
+                    <Button
+                      key={`inv-pdf-${idx}`}
+                      size="sm"
+                      className="d-flex align-items-center btn-brand-blue"
+                      onClick={a.onClick}
+                    >
+                      <Download size={14} className="me-50" />
+                      {a.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           }
         />
 

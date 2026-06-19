@@ -5,19 +5,25 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, CornerUpLeft, Trash2 } from "react-feather";
+import {
+  ExternalLink,
+  Download,
+  CornerUpLeft,
+  Trash2,
+  Inbox,
+} from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { appsRoot } from "@constant/defaultValues";
+import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
-import { deleteGrn } from "@src/views/grn/store";
+import { deleteGrn, cleanGrnMessage } from "@src/views/grn/store";
 import { getPoVendor } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
 
@@ -61,12 +67,34 @@ const GrnsTab = ({ registerActions }) => {
     load();
   }, [load]);
 
-  // "Create GRN" now lives in the POV detail header — keep the tab bar clear.
+  // Create GRN — published to the tab bar's top-right (compact), shown only
+  // once the POV is dispatched. Opens a draft GRN form.
+  const { poVendorItem } = useSelector((s) => s.poVendor);
+  const authUserItem = useSelector((s) => s.auth?.authUserItem) || null;
+  const isAdmin = isAdminUser(authUserItem);
+  const perms = authUserItem?.role?.permissions?.["po-vendors"];
+  const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
+  const canReceive =
+    canUpdate && (poVendorItem?.status || "").toLowerCase() === "dispatched";
+
   useEffect(() => {
     if (!registerActions) return undefined;
-    registerActions(null);
+    if (!canReceive) {
+      registerActions(null);
+      return () => registerActions(null);
+    }
+    registerActions(
+      <Button
+        color="primary"
+        size="sm"
+        onClick={() => navigate(`${appsRoot}/grn/create/${id}`)}
+      >
+        <Inbox size={14} className="me-50" /> {t("Create GRN")}
+      </Button>
+    );
     return () => registerActions(null);
-  }, [registerActions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canReceive, registerActions, id]);
 
   // Delete a GRN (with confirm). The backend re-computes the POV's received
   // quantities; we then reload the list and refresh the POV detail so the
@@ -94,6 +122,9 @@ const GrnsTab = ({ registerActions }) => {
         setDeletingId(g._id);
         try {
           const r = await dispatch(deleteGrn(g._id)).unwrap();
+          // Clear the slice message immediately so it doesn't linger and
+          // re-toast later when a GRN detail page mounts (it shows store.success).
+          dispatch(cleanGrnMessage());
           if (r?.actionFlag === "GRN_DLTD") {
             Notification("Success", r?.success || t("GRN deleted."), "success");
             load();
@@ -176,15 +207,20 @@ const GrnsTab = ({ registerActions }) => {
           <thead className="table-light">
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 200 }}>{t("GRN")}</th>
+              <th style={{ minWidth: 220 }} className="text-nowrap">
+                {t("GRN")}
+              </th>
               <th style={{ width: 140 }}>{t("Date")}</th>
-              <th style={{ width: 90 }} className="text-end">
-                {t("Lines")}
+              <th style={{ width: 100 }} className="text-end">
+                {t("Received")}
+              </th>
+              <th style={{ width: 100 }} className="text-end">
+                {t("Rejected")}
               </th>
               <th style={{ width: 130 }} className="text-center">
                 {t("Status")}
               </th>
-              <th style={{ width: 220 }} className="text-center">
+              <th style={{ width: 130 }} className="text-center">
                 {t("Actions")}
               </th>
             </tr>
@@ -195,10 +231,10 @@ const GrnsTab = ({ registerActions }) => {
               return (
                 <tr key={g._id}>
                   <td className="text-muted">{i + 1}</td>
-                  <td>
+                  <td className="text-nowrap">
                     <Link
                       to={`${appsRoot}/grn/view/${g._id}`}
-                      className="fw-bold d-inline-flex align-items-center"
+                      className="fw-bold d-inline-flex align-items-center text-nowrap"
                       ref={(el) =>
                         el &&
                         el.style.setProperty("color", "#09418B", "important")
@@ -209,7 +245,16 @@ const GrnsTab = ({ registerActions }) => {
                     </Link>
                   </td>
                   <td>{g.grn_date ? formatDate(g.grn_date) : "-"}</td>
-                  <td className="text-end">{g.line_count ?? "-"}</td>
+                  <td className="text-end">{num(g.received_qty).toFixed(2)}</td>
+                  <td className="text-end">
+                    {num(g.rejected_qty) > 0 ? (
+                      <span className="text-danger fw-semibold">
+                        {num(g.rejected_qty).toFixed(2)}
+                      </span>
+                    ) : (
+                      num(g.rejected_qty).toFixed(2)
+                    )}
+                  </td>
                   <td className="text-center">
                     <span
                       className="badge rounded-pill text-capitalize"
@@ -231,28 +276,28 @@ const GrnsTab = ({ registerActions }) => {
                     <div className="d-inline-flex align-items-center gap-1">
                       {g.has_debit_note && g.debit_note_id ? (
                         <Button
-                          color="warning"
+                          color="flat-warning"
                           size="sm"
-                          outline
+                          className="p-25"
+                          title={t("View Debit Note")}
                           onClick={() =>
                             navigate(
                               `${appsRoot}/debit-notes/view/${g.debit_note_id}`
                             )
                           }
                         >
-                          <CornerUpLeft size={13} className="me-25" />
-                          {t("Debit Note")}
+                          <CornerUpLeft size={15} />
                         </Button>
                       ) : g.status === "confirmed" &&
                         num(g.rejected_qty) > 0 ? (
                         <Button
-                          color="warning"
+                          color="flat-warning"
                           size="sm"
+                          className="p-25"
                           title={t("Create Debit Note for rejected goods")}
                           onClick={() => createDn(g)}
                         >
-                          <CornerUpLeft size={13} className="me-25" />
-                          {t("Debit Note")}
+                          <CornerUpLeft size={15} />
                         </Button>
                       ) : null}
                       <Button

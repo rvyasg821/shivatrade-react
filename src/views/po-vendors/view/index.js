@@ -30,7 +30,6 @@ import {
   Mail,
   Phone,
   Download,
-  Inbox,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -164,7 +163,6 @@ const ViewPoVendor = () => {
     trackingPerms?.can_read ||
     trackingPerms?.can_view;
   const canDispatch = canUpdate && statusLower === "draft";
-  const canReceive = canUpdate && statusLower === "dispatched";
   // Cancel is only available before dispatch — once goods are dispatched the
   // POV can no longer be cancelled from the detail page.
   const canCancel = canUpdate && statusLower === "draft";
@@ -215,10 +213,21 @@ const ViewPoVendor = () => {
       ? `${dispatchedSum.toLocaleString()} / ${orderedSum.toLocaleString()}`
       : null;
 
-  const grandTotal = useMemo(
+  // Vendor expenses (charges) snapshotted on the POV header — each row carries
+  // a pre-computed `amount`. The POV total = goods + these charges.
+  const expensesTotal = useMemo(
+    () =>
+      (p?.expenses_snapshot || []).reduce(
+        (s, e) => s + num(e?.amount),
+        0
+      ),
+    [p?.expenses_snapshot]
+  );
+  const goodsTotal = useMemo(
     () => lines.reduce((s, l) => s + num(l?.line_total), 0),
     [lines]
   );
+  const grandTotal = goodsTotal + expensesTotal;
 
   const etaDays = useMemo(
     () => daysUntil(p?.expected_arrival_date),
@@ -248,6 +257,12 @@ const ViewPoVendor = () => {
       key: "total",
       label: t("POV Total"),
       value: lines.length > 0 ? `${sym} ${fmtMoney(grandTotal)}` : "-",
+      sub:
+        expensesTotal > 0
+          ? `${t("Goods")} ${sym}${fmtMoney(goodsTotal)} + ${t(
+              "Charges"
+            )} ${sym}${fmtMoney(expensesTotal)}`
+          : null,
       icon: DollarSign,
       tone: "secondary",
     },
@@ -319,16 +334,8 @@ const ViewPoVendor = () => {
       onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
     });
   }
-  if (canReceive) {
-    // Create GRN — only after goods are dispatched. Opens a draft form (not
-    // persisted until Save), like creating an RFQ from a Lead.
-    headerActions.push({
-      icon: Inbox,
-      label: t("Create GRN"),
-      onClick: () => navigate(`${appsRoot}/grn/create/${id}`),
-    });
-    // Edit Dispatch lives in the Line Items tab's top-right action bar.
-  }
+  // "Create GRN" now lives in the GRNs tab's top-right action bar (shown
+  // while the POV is dispatched). Edit Dispatch lives in the Line Items tab.
   if (canCancel) {
     headerActions.push({
       icon: XIcon,

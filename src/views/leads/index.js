@@ -68,6 +68,7 @@ const LeadList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   const handleLeadLists = useCallback(
     (
@@ -170,6 +171,9 @@ const LeadList = () => {
       store?.actionFlag === "LEAD_CONV"
     ) {
       handleLeadLists();
+      // KPI tiles fetch independently — force them to re-fetch so the counts
+      // reflect the deleted/converted lead.
+      setStatsRefreshKey((k) => k + 1);
     }
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
@@ -544,6 +548,7 @@ const LeadList = () => {
 
         <VoucherStatsTiles
           module="lead"
+          refreshKey={statsRefreshKey}
           filters={{
             status: statusFilter || undefined,
             source: sourceFilter || undefined,

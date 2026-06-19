@@ -284,8 +284,17 @@ const PurchaseOrderWizard = () => {
         label: [a.label, a.address_line1, a.city, a.country]
           .filter(Boolean)
           .join(", "),
+        raw: a,
       }));
       setCustomerAddressOptions(opts);
+
+      // Default the currency from the customer record when not already set —
+      // mirrors the quotation wizard. Without this, picking a customer filled
+      // the address but left Currency blank.
+      if (cust.currency && !form.getValues("currency_code")) {
+        setValue("currency_code", cust.currency, { shouldDirty: true });
+      }
+
       // Auto-select the customer's address: prefer a default/primary one, else
       // the first. Only when none is chosen yet or the chosen one doesn't
       // belong to this customer (e.g. after switching customers) — a valid
@@ -302,6 +311,92 @@ const PurchaseOrderWizard = () => {
       }
     }
   }, [customerStore?.customerItem, watchedCustomer]);
+
+  // ── Consignee (Ship-to) ──
+  // "Same as Buyer" (default) → consignee mirrors the bill-to customer +
+  // address and the dropdowns are locked. Uncheck to ship to a different
+  // customer; the address then auto-selects that customer's default.
+  const watchedConsignee = useWatch({ control, name: "consignee_id" });
+  const watchedSameAsBuyer = useWatch({
+    control,
+    name: "consignee_same_as_buyer",
+  });
+  const [consigneeAddressOptions, setConsigneeAddressOptions] = useState([]);
+
+  // When "Same as Buyer" is on, keep consignee mirrored to the buyer.
+  useEffect(() => {
+    if (!watchedSameAsBuyer) return;
+    if (watchedCustomer && form.getValues("consignee_id") !== watchedCustomer) {
+      setValue("consignee_id", watchedCustomer, { shouldDirty: false });
+    }
+    const billAddr = form.getValues("customer_address_id") || "";
+    if (form.getValues("consignee_address_id") !== billAddr) {
+      setValue("consignee_address_id", billAddr, { shouldDirty: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedSameAsBuyer, watchedCustomer, watchedCustomerAddr]);
+
+  // Build the consignee address options. Mirror the bill-to options when
+  // "Same as Buyer"; otherwise load the picked consignee customer's addresses
+  // and auto-pick its default.
+  useEffect(() => {
+    if (watchedSameAsBuyer) {
+      setConsigneeAddressOptions(customerAddressOptions);
+      return undefined;
+    }
+    if (!watchedConsignee) {
+      setConsigneeAddressOptions([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const applyAddrs = (addrs) => {
+      if (cancelled) return;
+      const opts = (addrs || []).map((a) => ({
+        value: a._id,
+        label: [a.label, a.address_line1, a.city, a.country]
+          .filter(Boolean)
+          .join(", "),
+        raw: a,
+      }));
+      setConsigneeAddressOptions(opts);
+      if (addrs && addrs.length) {
+        const current = form.getValues("consignee_address_id");
+        const valid = opts.some((o) => o.value === current);
+        if (!valid) {
+          const def = addrs.find((a) => a.is_default || a.is_primary);
+          setValue("consignee_address_id", def?._id || addrs[0]?._id || "", {
+            shouldDirty: false,
+          });
+        }
+      } else {
+        setValue("consignee_address_id", "", { shouldDirty: false });
+      }
+    };
+
+    const sameAsBillTo =
+      watchedConsignee === watchedCustomer &&
+      customerStore?.customerItem?._id === watchedConsignee;
+    if (sameAsBillTo) {
+      applyAddrs(customerStore.customerItem.addresses || []);
+      return undefined;
+    }
+    instance
+      .get(`${API_ENDPOINTS.customers.get}/${watchedConsignee}`)
+      .then((resp) => applyAddrs(resp?.data?.data?.addresses || []))
+      .catch(() => {
+        if (!cancelled) setConsigneeAddressOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    watchedSameAsBuyer,
+    customerAddressOptions,
+    watchedConsignee,
+    watchedCustomer,
+    customerStore?.customerItem,
+  ]);
 
   // Exchange rate lookup on currency pick. The fetched master rate ALWAYS
   // populates `rateMeta` (the "Auto-filled / Custom" comparison hint), but
@@ -530,6 +625,26 @@ const PurchaseOrderWizard = () => {
     [currencyStore?.exchangeOptions]
   );
 
+  // Freeze the picked consignee address into a flat snapshot (name = consignee
+  // customer's label) so it survives even if the customer's address changes.
+  const buildConsigneeSnapshot = (addrId) => {
+    if (!addrId) return undefined;
+    const a = consigneeAddressOptions.find((o) => o.value === addrId)?.raw;
+    if (!a) return undefined;
+    const name = customerOptions.find(
+      (o) => o.value === form.getValues("consignee_id")
+    )?.label;
+    return {
+      name: name || undefined,
+      address_line1: a.address_line1 || undefined,
+      address_line2: a.address_line2 || undefined,
+      city: a.city || undefined,
+      state: a.state || undefined,
+      postcode: a.postcode || undefined,
+      country: a.country || undefined,
+    };
+  };
+
   // ── Submit ──
   const buildPayload = (values) => {
     if (isLocked) {
@@ -544,6 +659,11 @@ const PurchaseOrderWizard = () => {
       vendor_address_id: values.vendor_address_id || undefined,
       customer_id: values.customer_id || undefined,
       customer_address_id: values.customer_address_id || undefined,
+      // Consignee (Ship-to) — id + selected address + frozen snapshot.
+      consignee_same_as_buyer: values.consignee_same_as_buyer !== false,
+      consignee_id: values.consignee_id || undefined,
+      consignee_address_id: values.consignee_address_id || undefined,
+      consignee_snapshot: buildConsigneeSnapshot(values.consignee_address_id),
       quotation_id: values.quotation_id || undefined,
       pfi_id: values.pfi_id || undefined,
       po_date: values.po_date,
@@ -649,6 +769,7 @@ const PurchaseOrderWizard = () => {
     vendorOptions,
     customerOptions,
     customerAddressOptions,
+    consigneeAddressOptions,
     currencyOptions,
     rateMeta,
     vendorAddressOptions,

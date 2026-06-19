@@ -85,6 +85,7 @@ const PurchaseOrderList = lazy(() => import('@src/views/purchase-orders'));
 const AddPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
 const EditPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
 const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
+const GeneratePov = lazy(() => import('@src/views/purchase-orders/generate-pov'));
 const PurchaseOrderPublicView = lazy(() => import('@src/views/purchase-orders/public'));
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
@@ -770,6 +771,14 @@ const AppRoutes = [
     meta: {
       permissionId: purchaseOrdersModuleSlug,
       action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/purchase-orders/generate-pov/:poId`,
+    element: <GeneratePov />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'add',
     },
   },
   {
