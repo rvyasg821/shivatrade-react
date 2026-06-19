@@ -11,7 +11,7 @@
 // save mapping reads, so the backend is unchanged.
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { useFieldArray, useWatch, useFormState } from "react-hook-form";
 import {
   Table,
   Input,
@@ -47,6 +47,7 @@ const EditableCell = ({
   align = "end",
   width,
   suffix = "",
+  invalid = false,
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -91,7 +92,16 @@ const EditableCell = ({
   return (
     <div
       className={`ws-cell text-${align}${readOnly ? "" : " ws-editable"}`}
-      style={width ? { minWidth: width } : undefined}
+      style={{
+        ...(width ? { minWidth: width } : {}),
+        ...(invalid
+          ? {
+              border: "1px solid #ea5455",
+              backgroundColor: "rgba(234,84,85,0.08)",
+              borderRadius: "0.25rem",
+            }
+          : {}),
+      }}
       onClick={start}
       role={readOnly ? undefined : "button"}
       title={readOnly ? undefined : "Click to edit"}
@@ -123,6 +133,9 @@ const CostingWorksheet = ({
   const { t } = useTranslation();
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
+  // Per-line validation errors — drives the red highlight on required fields
+  // (e.g. Qty) so the user can fix them inline instead of just seeing a toast.
+  const { errors } = useFormState({ control });
   // Stored exchange_rate = "foreign per 1 INR" (e.g. 0.01). The banner lets the
   // user enter the intuitive inverse "1 {foreign} = X INR" (e.g. 100) and we
   // store 1/X. Local input state, seeded from the stored value while unfocused.
@@ -171,7 +184,7 @@ const CostingWorksheet = ({
     docCurrencyCode.toUpperCase() !== baseCurrencyCode.toUpperCase();
   const rate = num(exchangeRate) || 1;
 
-  const fetchVendors = (idx, productId) => {
+  const fetchVendors = (idx, productId, autoSelect = false) => {
     if (!productId) return;
     setLoadingVendors((m) => ({ ...m, [idx]: true }));
     instance
@@ -188,6 +201,11 @@ const CostingWorksheet = ({
             raw: r,
           }));
         setVendorsByLine((m) => ({ ...m, [idx]: rows }));
+        // On a fresh product pick, auto-select the cheapest vendor (rows are
+        // sorted cheapest-first) + its price.
+        if (autoSelect && rows.length) {
+          onPickVendor(idx, rows[0]);
+        }
       })
       .catch(() => setVendorsByLine((m) => ({ ...m, [idx]: [] })))
       .finally(() => setLoadingVendors((m) => ({ ...m, [idx]: false })));
@@ -225,7 +243,7 @@ const CostingWorksheet = ({
     setValue(`lines.${idx}.vendor_name`, "");
     setValue(`lines.${idx}.unit_price`, "");
     setVendorsByLine((m) => ({ ...m, [idx]: undefined }));
-    if (opt) fetchVendors(idx, opt.value);
+    if (opt) fetchVendors(idx, opt.value, true);
   };
 
   const onPickVendor = (idx, opt) => {
@@ -239,7 +257,12 @@ const CostingWorksheet = ({
   };
 
   const setField = (idx, field, value) =>
-    setValue(`lines.${idx}.${field}`, value);
+    // Revalidate so a required-field error (e.g. Qty) clears the moment a
+    // valid value is entered, instead of lingering until the next submit.
+    setValue(`lines.${idx}.${field}`, value, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
 
   const setSnapshot = (idx, kind, arr) => {
     const key =
@@ -476,6 +499,7 @@ const CostingWorksheet = ({
                         value={l.qty}
                         display={l.qty ? fmt(num(l.qty)) : null}
                         readOnly={readOnly}
+                        invalid={!!errors?.lines?.[idx]?.qty}
                         onCommit={(v) => setField(idx, "qty", v)}
                       />
                     </td>

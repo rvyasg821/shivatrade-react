@@ -233,10 +233,9 @@ const QuotationPublicView = () => {
                   src={resolvedLogo}
                   alt="Logo"
                   style={{
-                    maxHeight: 48,
-                    maxWidth: 180,
+                    height: 50,
+                    maxWidth: 200,
                     width: "auto",
-                    height: "auto",
                     objectFit: "contain",
                     display: "block",
                     marginBottom: 8,

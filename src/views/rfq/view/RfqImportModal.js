@@ -127,7 +127,7 @@ const RfqImportModal = ({
   const errorRows = (preview?.rows || []).filter((r) => r.status === "error");
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable backdrop="static" keyboard={false}>
       <ModalHeader toggle={handleClose}>
         {step === 1 ? t("Import Vendor Prices") : t("Review Import Data")}
       </ModalHeader>

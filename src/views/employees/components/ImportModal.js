@@ -107,7 +107,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable backdrop="static" keyboard={false}>
       <ModalHeader toggle={handleClose}>
         {step === 1 && t("Import Employees")}
         {step === 2 && t("Review Import Data")}

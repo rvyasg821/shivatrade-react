@@ -211,7 +211,7 @@ const LineItemImportModal = ({
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="lg" centered scrollable backdrop="static" keyboard={false}>
       <ModalHeader toggle={handleClose}>
         {step === 1 && t("Import Line Items")}
         {step === 2 && t("Review Import Data")}
