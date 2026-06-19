@@ -155,10 +155,10 @@ const VendorForm = () => {
           .trim()
           .required(t("Company name is required"))
           .max(200, t("Company name must be at most 200 characters")),
+        // Auto-generated (VND-0001) — optional/read-only in the form.
         vendor_code: yup
           .string()
           .trim()
-          .required(t("Vendor code is required"))
           .max(50, t("Vendor code must be at most 50 characters")),
         website: yup.string().trim().nullable().notRequired(),
         category_ids: yup.array().of(yup.string()).nullable().notRequired(),
@@ -167,7 +167,7 @@ const VendorForm = () => {
         status: yup
           .string()
           .oneOf(["active", "inactive"])
-          .required(t("Status is required")),
+          .notRequired(),
         contacts: yup
           .array()
           .of(
@@ -573,8 +573,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="vendor_code">
-                        {t("Vendor Code")}{" "}
-                        <span className="text-danger">*</span>
+                        {t("Vendor Code")}
                       </Label>
                       <Controller
                         name="vendor_code"
@@ -582,33 +581,16 @@ const VendorForm = () => {
                         render={({ field }) => (
                           <Input
                             id="vendor_code"
-                            maxLength={50}
-                            placeholder={t("Internal short code")}
-                            invalid={!!errors.vendor_code || codeExists}
+                            disabled
+                            placeholder={t("Auto-generated (e.g. VND-0001)")}
                             {...field}
                             value={field.value || ""}
-                            onBlur={(e) => {
-                              field.onBlur(e);
-                              handleVendorCodeBlur(e);
-                            }}
                           />
                         )}
                       />
-                      {codeChecking && (
-                        <small className="text-muted d-block">
-                          {t("Checking…")}
-                        </small>
-                      )}
-                      {errors.vendor_code && (
-                        <FormFeedback className="d-block">
-                          {errors.vendor_code.message}
-                        </FormFeedback>
-                      )}
-                      {!errors.vendor_code && codeExists && (
-                        <FormFeedback className="d-block">
-                          {t("Vendor code already exists for this company")}
-                        </FormFeedback>
-                      )}
+                      <small className="text-muted">
+                        {t("Generated automatically on save.")}
+                      </small>
                     </Col>
 
                     <Col md="6" className="mb-2">

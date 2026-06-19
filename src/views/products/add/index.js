@@ -111,10 +111,10 @@ const ProductForm = () => {
   const schema = useMemo(
     () =>
       yup.object().shape({
+        // Code is auto-generated (PRD-0001) — optional/read-only in the form.
         code: yup
           .string()
           .trim()
-          .required(t("Code / SKU is required"))
           .max(50, t("Code must be at most 50 characters")),
         name: yup
           .string()
@@ -442,7 +442,9 @@ const ProductForm = () => {
     const numOrUndef = (v) =>
       v === "" || v === null || v === undefined ? undefined : Number(v);
     const payload = {
-      code: data.code.trim().toUpperCase(),
+      // Omit on create → backend auto-generates (PRD-0001). On edit the
+      // existing code is preserved (the field is read-only).
+      code: data.code?.trim() ? data.code.trim().toUpperCase() : undefined,
       name: data.name.trim(),
       category_id: data.category_id || undefined,
       description: data.description?.trim() || undefined,
@@ -540,13 +542,7 @@ const ProductForm = () => {
 
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="code">
-                    {t("Code / SKU")} <span className="text-danger">*</span>
-                    {codeChecking && (
-                      <Loader
-                        size={14}
-                        className="ms-1 spinner-border-sm text-muted"
-                      />
-                    )}
+                    {t("Code / SKU")}
                   </Label>
                   <Controller
                     name="code"
@@ -554,26 +550,16 @@ const ProductForm = () => {
                     render={({ field }) => (
                       <Input
                         id="code"
-                        placeholder={t("e.g. WIDGET-001")}
-                        invalid={!!errors.code || codeExists}
+                        disabled
+                        placeholder={t("Auto-generated (e.g. PRD-0001)")}
                         {...field}
-                        onBlur={(e) => {
-                          field.onBlur();
-                          handleCodeBlur(e);
-                        }}
+                        value={field.value || ""}
                       />
                     )}
                   />
-                  {errors.code && (
-                    <FormFeedback className="d-block">
-                      {errors.code.message}
-                    </FormFeedback>
-                  )}
-                  {!errors.code && codeExists && (
-                    <FormFeedback className="d-block">
-                      {t("This Code / SKU is already in use")}
-                    </FormFeedback>
-                  )}
+                  <small className="text-muted">
+                    {t("Generated automatically on save.")}
+                  </small>
                 </Col>
 
                 <Col md="6" className="mb-2">

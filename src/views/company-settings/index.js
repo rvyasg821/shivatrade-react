@@ -89,6 +89,8 @@ const CompanySettingsPage = () => {
     logo_url: '', company_display_name: '', footer_address: '', footer_contact: '', footer_extra: '',
     location_code_mode: 'manual', location_code_prefix: '', location_code_next_seq: 1,
     employee_code_mode: 'manual', employee_code_prefix: '', employee_code_next_seq: 1,
+    product_code_prefix: 'PRD', product_code_next_seq: 1,
+    vendor_code_prefix: 'VND', vendor_code_next_seq: 1,
     // Per-module voucher prefixes (override the leading company prefix).
     lead_voucher_prefix: '', rfq_voucher_prefix: '', quotation_voucher_prefix: '',
     sales_order_voucher_prefix: '', invoice_voucher_prefix: '', po_vendor_voucher_prefix: '',
@@ -333,6 +335,8 @@ const CompanySettingsPage = () => {
   const numberingRows = [
     { key: 'location', label: 'Location Code', type: 'counter', prefixField: 'location_code_prefix', modeField: 'location_code_mode', seqField: 'location_code_next_seq' },
     { key: 'employee', label: 'Employee Code', type: 'counter', prefixField: 'employee_code_prefix', modeField: 'employee_code_mode', seqField: 'employee_code_next_seq' },
+    { key: 'product', label: 'Product Code', type: 'product', prefixField: 'product_code_prefix', seqField: 'product_code_next_seq' },
+    { key: 'vendor', label: 'Vendor Code', type: 'product', prefixField: 'vendor_code_prefix', seqField: 'vendor_code_next_seq', defaultPrefix: 'VND' },
     { key: 'lead', label: 'Lead', type: 'voucher', prefixField: 'lead_voucher_prefix', token: 'RQ', style: 'separated' },
     { key: 'rfq', label: 'RFQ', type: 'voucher', prefixField: 'rfq_voucher_prefix', token: 'RFQ', style: 'glued' },
     { key: 'quotation', label: 'Quotation', type: 'voucher', prefixField: 'quotation_voucher_prefix', token: 'QT', style: 'glued' },
@@ -345,6 +349,10 @@ const CompanySettingsPage = () => {
 
   const counterPreview = (row) =>
     `${(settingsData[row.prefixField] || '').toUpperCase()}${String(settingsData[row.seqField] || 1).padStart(4, '0')}`
+
+  // Auto codes with a dash, e.g. PRD-0001 / VND-0001.
+  const productPreview = (row) =>
+    `${(settingsData[row.prefixField] || row.defaultPrefix || 'PRD').toUpperCase()}-${String(settingsData[row.seqField] || 1).padStart(4, '0')}`
 
   const voucherPreview = (row) => {
     const p = (settingsData[row.prefixField] || '').toUpperCase() || 'COMPANY'
@@ -534,20 +542,22 @@ const CompanySettingsPage = () => {
                                 <option value='manual'>Manual</option>
                                 <option value='auto'>Auto-generate</option>
                               </Input>
+                            ) : row.type === 'product' ? (
+                              <span className='text-muted small'>Auto</span>
                             ) : (
                               <span className='text-muted small'>Auto (FY)</span>
                             )}
                           </td>
                           <td>
                             <Input type='text' bsSize='sm'
-                              maxLength={row.type === 'counter' ? 10 : 15}
+                              maxLength={row.type === 'voucher' ? 15 : 10}
                               style={{ textTransform: 'uppercase' }}
                               value={settingsData[row.prefixField] || ''}
                               onChange={(e) => handleChange(row.prefixField, e.target.value.toUpperCase())}
-                              placeholder={row.type === 'counter' ? 'e.g. LOC' : 'e.g. SHIVA'} />
+                              placeholder={row.type === 'product' ? 'e.g. PRD' : row.type === 'counter' ? 'e.g. LOC' : 'e.g. SHIVA'} />
                           </td>
                           <td>
-                            {row.type === 'counter' ? (
+                            {row.type === 'counter' || row.type === 'product' ? (
                               <Input type='number' bsSize='sm' min={1}
                                 value={settingsData[row.seqField] || 1}
                                 onChange={(e) => handleChange(row.seqField, Math.max(1, +e.target.value))} />
@@ -557,7 +567,7 @@ const CompanySettingsPage = () => {
                           </td>
                           <td>
                             <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                              {row.type === 'counter' ? counterPreview(row) : voucherPreview(row)}
+                              {row.type === 'counter' ? counterPreview(row) : row.type === 'product' ? productPreview(row) : voucherPreview(row)}
                             </span>
                           </td>
                         </tr>

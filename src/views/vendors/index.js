@@ -30,7 +30,8 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone, Upload } from "react-feather";
+import VendorImportModal from "./components/VendorImportModal";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -53,6 +54,7 @@ const VendorList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   const handleVendorLists = useCallback(
     (
@@ -402,10 +404,24 @@ const VendorList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
+              <Col
+                sm="3"
+                md="3"
+                className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap"
+              >
+                {canAdd && (
+                  <Button
+                    color="outline-secondary"
+                    className="text-nowrap"
+                    onClick={() => setImportOpen(true)}
+                  >
+                    {t("Import")} <Upload size={14} />
+                  </Button>
+                )}
                 {canAdd && (
                   <Button
                     color="primary"
+                    className="text-nowrap"
                     onClick={() => navigate(`${appsRoot}/vendors/add`)}
                   >
                     <PlusCircle size={14} className="me-50" />{t("Add")}
@@ -431,6 +447,12 @@ const VendorList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <VendorImportModal
+        isOpen={importOpen}
+        toggle={() => setImportOpen((prev) => !prev)}
+        onSuccess={() => handleVendorLists()}
+      />
     </Fragment>
   );
 };
