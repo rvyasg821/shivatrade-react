@@ -181,6 +181,8 @@ export const API_ENDPOINTS = {
     delete: `/admin/vendor/delete`,
     dropdown: `/admin/vendor/dropdown`,
     checkCode: `/admin/vendor/check-code`,
+    import: `/admin/vendor/import`,
+    sampleExcel: `/admin/vendor/sample-excel`,
   },
   currencies: {
     list: `/admin/currency/list`,
