@@ -20,6 +20,7 @@ import {
   Download,
   Mail,
   Briefcase,
+  Truck,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -52,6 +53,7 @@ import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCar
 
 import PoRelatedDocsTabs from "./PoRelatedDocsTabs";
 import PoCustomerOrderPanel from "./PoCustomerOrderPanel";
+import { usePoCoverage } from "./PoCoverageAndVendors";
 
 const PIPELINE_STEPS = [
   { value: "draft", label: "Draft" },
@@ -181,6 +183,17 @@ const ViewPurchaseOrder = () => {
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["purchase-orders"];
   const canEdit = isAdmin || perms?.can_all || perms?.can_update;
+  const povPerms = authUserItem?.role?.permissions?.["po-vendors"];
+  const canCreatePov = isAdmin || povPerms?.can_all || povPerms?.can_add;
+
+  // Live coverage (also drives the Coverage / Vendor PO tabs — shared so the
+  // header "Generate POV" button can gate on pending qty and refresh the tabs
+  // after creating POVs).
+  const coverageData = usePoCoverage();
+  const canGeneratePov =
+    canCreatePov &&
+    coverageData?.coverage?.has_pending &&
+    (statusLower === "confirmed" || statusLower === "in_process");
 
   // One-click status transitions. The allowed next-statuses mirror the
   // server-side transition matrix; we only render buttons that are legal.
@@ -318,6 +331,18 @@ const ViewPurchaseOrder = () => {
   }
 
   const headerActions = [
+    ...(canGeneratePov
+      ? [
+          {
+            icon: Truck,
+            label: t("Generate POV"),
+            color: "primary",
+            outline: false,
+            onClick: () =>
+              navigate(`${appsRoot}/purchase-orders/generate-pov/${id}`),
+          },
+        ]
+      : []),
     {
       icon: Edit,
       label: t("Edit"),
@@ -461,7 +486,7 @@ const ViewPurchaseOrder = () => {
 
         <DetailTwoPanel
           ratio="8-4"
-          left={<PoRelatedDocsTabs />}
+          left={<PoRelatedDocsTabs coverageData={coverageData} />}
           right={
             <Fragment>
               <DetailPanel title={t("Costing Breakdown")}>

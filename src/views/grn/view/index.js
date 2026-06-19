@@ -91,10 +91,10 @@ const GrnView = () => {
         part_no: l.part_no,
         hsn_code: l.hsn_code,
         unit: l.unit,
-        dispatched_qty: String(remaining),
-        received_qty: String(remaining),
-        accepted_qty: String(remaining),
-        rejected_qty: "0",
+        dispatched_qty: remaining.toFixed(2),
+        received_qty: remaining.toFixed(2),
+        accepted_qty: remaining.toFixed(2),
+        rejected_qty: "0.00",
         batch_no: "",
         remarks: "",
       }));
@@ -143,9 +143,12 @@ const GrnView = () => {
     const m = {};
     for (const l of grn.lines) {
       m[l._id] = {
-        received_qty: String(l.received_qty ?? ""),
-        accepted_qty: String(l.accepted_qty ?? ""),
-        rejected_qty: String(l.rejected_qty ?? ""),
+        received_qty:
+          l.received_qty != null ? num(l.received_qty).toFixed(2) : "",
+        accepted_qty:
+          l.accepted_qty != null ? num(l.accepted_qty).toFixed(2) : "",
+        rejected_qty:
+          l.rejected_qty != null ? num(l.rejected_qty).toFixed(2) : "",
         batch_no: l.batch_no || "",
         remarks: l.remarks || "",
       };
@@ -182,15 +185,14 @@ const GrnView = () => {
   const totals = useMemo(() => {
     let dispatched = 0;
     let received = 0;
-    let accepted = 0;
     let rejected = 0;
     for (const l of lines) {
       dispatched += num(l.dispatched_qty);
-      received += num(qc[l._id]?.received_qty ?? l.received_qty);
-      accepted += num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
+      // "Received" column = good qty (stored as accepted_qty).
+      received += num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
       rejected += num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
     }
-    return { dispatched, received, accepted, rejected };
+    return { dispatched, received, rejected };
   }, [lines, qc]);
 
   const setField = (lineId, field, value) =>
@@ -198,40 +200,42 @@ const GrnView = () => {
 
   const r4 = (n) => Math.round(num(n) * 10000) / 10000;
 
-  // Editing Received re-defaults the split (all accepted, none rejected);
-  // operator then adjusts. Capped at this line's dispatched qty.
+  // Received (good) + Rejected always equal Dispatched — the whole dispatched
+  // qty is accounted as either received-good or rejected. Editing Received
+  // auto-fills Rejected = Dispatched − Received (and vice versa). The "Received"
+  // column is the good qty; we store it as accepted_qty, and received_qty
+  // (total accounted) = good + rejected = dispatched.
   const onReceivedChange = (l, raw) => {
     const dispatched = r4(l.dispatched_qty);
     let v = num(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
     if (v > dispatched) v = dispatched;
+    const rejected = r4(dispatched - v);
     setQc((m) => ({
       ...m,
       [l._id]: {
         ...m[l._id],
-        received_qty: raw === "" ? "" : String(v),
-        accepted_qty: String(v),
-        rejected_qty: "0",
+        accepted_qty: raw === "" ? "" : String(v),
+        rejected_qty: String(rejected),
+        received_qty: String(dispatched),
       },
     }));
   };
 
-  // Accepted + Rejected always split the Received qty — editing one
-  // auto-adjusts the other (clamped to received), so they can never exceed it.
-  const onQtyChange = (l, field, raw) => {
-    const received = r4(qc[l._id]?.received_qty ?? l.received_qty);
+  // Editing Rejected auto-fills Received (good) = Dispatched − Rejected.
+  const onRejectedChange = (l, raw) => {
+    const dispatched = r4(l.dispatched_qty);
     let v = num(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
-    if (v > received) v = received;
-    const otherField =
-      field === "accepted_qty" ? "rejected_qty" : "accepted_qty";
-    const other = r4(received - v);
+    if (v > dispatched) v = dispatched;
+    const accepted = r4(dispatched - v);
     setQc((m) => ({
       ...m,
       [l._id]: {
         ...m[l._id],
-        [field]: raw === "" ? "" : String(v),
-        [otherField]: String(other),
+        rejected_qty: raw === "" ? "" : String(v),
+        accepted_qty: String(accepted),
+        received_qty: String(dispatched),
       },
     }));
   };
@@ -252,11 +256,14 @@ const GrnView = () => {
         // QC is keyed by po_vendor_line_id → map onto the new GRN lines.
         const linesPayload = (newGrn.lines || []).map((gl) => {
           const q = qc[gl.po_vendor_line_id] || {};
+          const acc = num(q.accepted_qty ?? gl.accepted_qty ?? "0");
+          const rej = num(q.rejected_qty ?? gl.rejected_qty ?? "0");
           return {
             _id: gl._id,
-            received_qty: String(q.received_qty ?? gl.received_qty ?? "0"),
-            accepted_qty: String(q.accepted_qty ?? gl.accepted_qty ?? "0"),
-            rejected_qty: String(q.rejected_qty ?? gl.rejected_qty ?? "0"),
+            // Total accounted = good (Received) + Rejected.
+            received_qty: String(r4(acc + rej)),
+            accepted_qty: String(acc),
+            rejected_qty: String(rej),
             batch_no: q.batch_no ?? "",
             remarks: q.remarks ?? "",
           };
@@ -278,14 +285,19 @@ const GrnView = () => {
     }
 
     const payload = {
-      lines: lines.map((l) => ({
-        _id: l._id,
-        received_qty: String(qc[l._id]?.received_qty ?? l.received_qty ?? "0"),
-        accepted_qty: String(qc[l._id]?.accepted_qty ?? l.accepted_qty ?? "0"),
-        rejected_qty: String(qc[l._id]?.rejected_qty ?? l.rejected_qty ?? "0"),
-        batch_no: qc[l._id]?.batch_no ?? l.batch_no ?? "",
-        remarks: qc[l._id]?.remarks ?? l.remarks ?? "",
-      })),
+      lines: lines.map((l) => {
+        const acc = num(qc[l._id]?.accepted_qty ?? l.accepted_qty ?? "0");
+        const rej = num(qc[l._id]?.rejected_qty ?? l.rejected_qty ?? "0");
+        return {
+          _id: l._id,
+          // Total accounted = good (Received) + Rejected.
+          received_qty: String(r4(acc + rej)),
+          accepted_qty: String(acc),
+          rejected_qty: String(rej),
+          batch_no: qc[l._id]?.batch_no ?? l.batch_no ?? "",
+          remarks: qc[l._id]?.remarks ?? l.remarks ?? "",
+        };
+      }),
     };
     if (statusOverride) payload.status = statusOverride;
     dispatch(updateGrn({ id, data: payload }));
@@ -488,9 +500,6 @@ const GrnView = () => {
                     {t("Received")}
                   </th>
                   <th className="text-end" style={{ width: 120 }}>
-                    {t("Accepted")}
-                  </th>
-                  <th className="text-end" style={{ width: 120 }}>
                     {t("Rejected")}
                   </th>
                   <th style={{ width: 130 }}>{t("Batch")}</th>
@@ -499,11 +508,6 @@ const GrnView = () => {
               </thead>
               <tbody>
                 {pageLines.map((l, i) => {
-                  const received = num(qc[l._id]?.received_qty ?? l.received_qty);
-                  const acc = num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
-                  const rej = num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
-                  const over = acc + rej > received + 1e-6;
-                  const recvOver = received > num(l.dispatched_qty) + 1e-6;
                   const sub = [
                     l.part_no ? `Part: ${l.part_no}` : null,
                     l.hsn_code ? `HSN: ${l.hsn_code}` : null,
@@ -547,8 +551,7 @@ const GrnView = () => {
                           max={num(l.dispatched_qty)}
                           step="any"
                           disabled={isLocked}
-                          invalid={recvOver}
-                          value={qc[l._id]?.received_qty ?? ""}
+                          value={qc[l._id]?.accepted_qty ?? ""}
                           onChange={(e) =>
                             onReceivedChange(l, e.target.value)
                           }
@@ -561,28 +564,12 @@ const GrnView = () => {
                           className="text-end"
                           style={{ fontSize: "inherit" }}
                           min="0"
+                          max={num(l.dispatched_qty)}
                           step="any"
                           disabled={isLocked}
-                          invalid={over}
-                          value={qc[l._id]?.accepted_qty ?? ""}
-                          onChange={(e) =>
-                            onQtyChange(l, "accepted_qty", e.target.value)
-                          }
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          type="number"
-                          bsSize="sm"
-                          className="text-end"
-                          style={{ fontSize: "inherit" }}
-                          min="0"
-                          step="any"
-                          disabled={isLocked}
-                          invalid={over}
                           value={qc[l._id]?.rejected_qty ?? ""}
                           onChange={(e) =>
-                            onQtyChange(l, "rejected_qty", e.target.value)
+                            onRejectedChange(l, e.target.value)
                           }
                         />
                       </td>
@@ -621,7 +608,6 @@ const GrnView = () => {
                   </td>
                   <td className="text-end">{totals.dispatched.toFixed(2)}</td>
                   <td className="text-end">{totals.received.toFixed(2)}</td>
-                  <td className="text-end">{totals.accepted.toFixed(2)}</td>
                   <td className="text-end">{totals.rejected.toFixed(2)}</td>
                   <td colSpan={2} />
                 </tr>
@@ -672,7 +658,7 @@ const GrnView = () => {
 
             <div className="small text-muted mt-1 px-1">
               {t(
-                "Accepted + Rejected must not exceed Received per line. Save & Confirm finalises the quality check."
+                "Received (good) + Rejected always equals Dispatched — adjusting one auto-fills the other. Save & Confirm finalises the quality check."
               )}
             </div>
           </div>

@@ -120,7 +120,7 @@ const RelatedDocsTabs = ({ canGenerate = false, onGenerate }) => {
               {canGenerate && (
                 <Button color="success" size="sm" onClick={onGenerate}>
                   <Truck size={14} className="me-25" />{" "}
-                  {t("Generate Sales Orders")}
+                  {t("Generate Sales Order")}
                 </Button>
               )}
             </div>

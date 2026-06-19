@@ -18,14 +18,13 @@ import {
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, AlertTriangle, Info, Plus, FileText } from "react-feather";
+import { ExternalLink, AlertTriangle, Info, FileText } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
-import PoVendorRecoverModal from "@src/views/_shared/po-vendor/PoVendorRecoverModal";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 
@@ -76,26 +75,18 @@ export const usePoCoverage = () => {
 export const PoCoveragePanel = ({ data, registerActions }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { po, coverage, povs, loading, reload } = data;
+  const { po, coverage, povs, loading } = data;
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
   const poStatus = (po?.status || "").toLowerCase();
 
   const isAdmin = isAdminUser(authUserItem);
-  const povPerms = authUserItem?.role?.permissions?.["po-vendors"];
-  const canCreatePov = isAdmin || povPerms?.can_all || povPerms?.can_add;
   const invoicePerms = authUserItem?.role?.permissions?.invoices;
   const canCreateInvoice =
     isAdmin || invoicePerms?.can_all || invoicePerms?.can_add;
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
-
-  const canCreate =
-    canCreatePov &&
-    coverage?.has_pending &&
-    (poStatus === "confirmed" || poStatus === "in_process");
 
   // Generate Invoice — gated on actual vendor dispatch + remaining
   // un-invoiced qty. Hides once everything dispatched is already on an
@@ -109,46 +100,21 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
     poStatus !== "draft" &&
     poStatus !== "cancelled";
 
-  const disabledReason = useMemo(() => {
-    if (!coverage) return t("Loading coverage…");
-    if (!(poStatus === "confirmed" || poStatus === "in_process"))
-      return t("PO must be in 'confirmed' or 'in_process' status.");
-    if (!coverage?.has_pending)
-      return t("All quantities are already covered by existing POVs.");
-    return null;
-  }, [coverage, poStatus, t]);
-
   const invoicedTotal = num(coverage?.totals?.invoiced);
   const fullyInvoiced =
     dispatchedTotal > 0 && invoiceableTotal <= 1e-6 && invoicedTotal > 0;
 
-  // Publish the Coverage tab's action buttons to the top-right of the tab bar
-  // (same placement/style as the Lead tabs' "Add Line").
+  // Publish the Coverage tab's action buttons to the top-right of the tab bar.
+  // POV creation now lives on the PO detail header ("Generate POV"); the
+  // Coverage tab only publishes "Generate Invoice".
   useEffect(() => {
     if (!registerActions) return undefined;
-    if (!canCreate && !canGenerateInvoice) {
+    if (!canGenerateInvoice) {
       registerActions(null);
       return () => registerActions(null);
     }
     registerActions(
       <Fragment>
-        {canCreate && (
-          <Fragment>
-            <Button
-              color="primary"
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              id="po-create-pov"
-            >
-              <Plus size={14} className="me-50" /> {t("Create POV")}
-            </Button>
-            <UncontrolledTooltip target="po-create-pov" placement="top">
-              {t(
-                "Create a POV for uncovered PO lines (e.g. after a POV cancellation)"
-              )}
-            </UncontrolledTooltip>
-          </Fragment>
-        )}
         {canGenerateInvoice && (
           <Button
             color="primary"
@@ -165,7 +131,7 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
     );
     return () => registerActions(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCreate, canGenerateInvoice, registerActions, po?._id]);
+  }, [canGenerateInvoice, registerActions, po?._id]);
 
   return (
     <Fragment>
@@ -379,16 +345,6 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
         )}
         </Fragment>
       )}
-
-      <PoVendorRecoverModal
-        isOpen={createOpen}
-        toggle={() => {
-          setCreateOpen((s) => !s);
-          if (createOpen) reload();
-        }}
-        purchaseOrder={po}
-        onCreated={() => reload()}
-      />
     </Fragment>
   );
 };

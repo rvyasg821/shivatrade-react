@@ -130,8 +130,8 @@ const DebitNoteView = () => {
           hsn_code: gl.hsn_code,
           unit: gl.unit,
           rejected_qty: String(num(gl.rejected_qty)),
-          returned_qty: String(num(gl.rejected_qty)),
-          unit_price: String(num(pl?.unit_price)),
+          returned_qty: num(gl.rejected_qty).toFixed(2),
+          unit_price: num(pl?.unit_price).toFixed(2),
           remarks: "",
         };
       });
@@ -156,8 +156,10 @@ const DebitNoteView = () => {
     const seed = {};
     for (const l of dn.lines) {
       seed[l._id] = {
-        returned_qty: l.returned_qty ?? "0",
-        unit_price: l.unit_price ?? "0",
+        returned_qty:
+          l.returned_qty != null ? num(l.returned_qty).toFixed(2) : "0.00",
+        unit_price:
+          l.unit_price != null ? num(l.unit_price).toFixed(2) : "0.00",
         remarks: l.remarks || "",
       };
     }
@@ -449,7 +451,7 @@ const DebitNoteView = () => {
                             className="text-end"
                           />
                         ) : (
-                          <span>{num(l.returned_qty)}</span>
+                          <span>{num(l.returned_qty).toFixed(2)}</span>
                         )}
                       </td>
                       <td className="text-end">

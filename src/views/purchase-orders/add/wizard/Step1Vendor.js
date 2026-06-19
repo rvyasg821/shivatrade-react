@@ -9,13 +9,11 @@ import { useTranslation } from "react-i18next";
 import { ExternalLink } from "react-feather";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
 import { getCurrencySymbol } from "@src/utility/currency";
-import LocationSelect from "@src/views/_shared/LocationSelect";
 
 const required = <span className="text-danger">*</span>;
 
@@ -23,6 +21,7 @@ const Step1Vendor = ({
   isLocked,
   customerOptions = [],
   customerAddressOptions = [],
+  consigneeAddressOptions = [],
   currencyOptions = [],
   rateMeta,
   sourcePfiVoucher,
@@ -38,7 +37,7 @@ const Step1Vendor = ({
     formState: { errors },
   } = useFormContext();
   const watchedRate = watch("exchange_rate");
-  const [showAddressOverride, setShowAddressOverride] = useState(false);
+  const sameAsBuyer = watch("consignee_same_as_buyer") !== false;
 
   // Exchange Rate field shows the intuitive inverse — ₹ per 1 foreign unit
   // (e.g. 83.33) — while the form still STORES "foreign per ₹1" (system
@@ -108,6 +107,104 @@ const Step1Vendor = ({
         )}
       </Col>
 
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("Bill-to Address")}</Label>
+        <Controller
+          name="customer_address_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked}
+              options={customerAddressOptions}
+              value={
+                customerAddressOptions.find((o) => o.value === field.value) ||
+                null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={
+                customerAddressOptions.length
+                  ? t("Select address")
+                  : t("Pick a customer first")
+              }
+            />
+          )}
+        />
+      </Col>
+
+      {/* ── Consignee (Ship-to) — "Same as Buyer" mirrors the bill-to customer
+          + address and locks the dropdowns; uncheck to ship elsewhere. ── */}
+      <Col md="6" className="mb-2">
+        <div className="d-flex align-items-center justify-content-between">
+          <Label className="form-label mb-0">{t("Consignee")}</Label>
+          <Controller
+            name="consignee_same_as_buyer"
+            control={control}
+            render={({ field }) => (
+              <div className="form-check mb-0">
+                <Input
+                  type="checkbox"
+                  id="consignee_same_as_buyer"
+                  disabled={isLocked}
+                  checked={field.value !== false}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+                <Label
+                  for="consignee_same_as_buyer"
+                  className="form-check-label small"
+                >
+                  {t("Same as Buyer")}
+                </Label>
+              </div>
+            )}
+          />
+        </div>
+        <Controller
+          name="consignee_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked || sameAsBuyer}
+              options={customerOptions}
+              value={
+                customerOptions.find((o) => o.value === field.value) || null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={t("Select consignee")}
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("Consignee Address")}</Label>
+        <Controller
+          name="consignee_address_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked || sameAsBuyer}
+              options={consigneeAddressOptions}
+              value={
+                consigneeAddressOptions.find((o) => o.value === field.value) ||
+                null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={
+                consigneeAddressOptions.length
+                  ? t("Select address")
+                  : t("Pick a consignee first")
+              }
+            />
+          )}
+        />
+      </Col>
+
       <Col md="3" className="mb-2">
         <Label className="form-label">
           {t("PO Date")} {required}
@@ -139,32 +236,6 @@ const Step1Vendor = ({
               value={field.value || ""}
               disabled={isLocked}
               onChange={(dates, str, iso) => field.onChange(iso)}
-            />
-          )}
-        />
-      </Col>
-
-      <Col md="6" className="mb-2">
-        <Label className="form-label">{t("Bill-to Address")}</Label>
-        <Controller
-          name="customer_address_id"
-          control={control}
-          render={({ field }) => (
-            <Select
-              classNamePrefix="select"
-              isClearable
-              isDisabled={isLocked}
-              options={customerAddressOptions}
-              value={
-                customerAddressOptions.find((o) => o.value === field.value) ||
-                null
-              }
-              onChange={(opt) => field.onChange(opt ? opt.value : "")}
-              placeholder={
-                customerAddressOptions.length
-                  ? t("Select address")
-                  : t("Pick a customer first")
-              }
             />
           )}
         />
@@ -317,72 +388,6 @@ const Step1Vendor = ({
             />
           )}
         />
-      </Col>
-
-      <Col md="12" className="mb-2">
-        <Label className="form-label">
-          {t("Delivery Address")} {required}
-        </Label>
-        <Controller
-          name="delivery_address_id"
-          control={control}
-          render={({ field }) => (
-            <LocationSelect
-              value={field.value || ""}
-              onChange={(id) => {
-                field.onChange(id);
-                // Clear any manual override when switching to a saved
-                // location — the snapshot text will come from the BE.
-                setValue("delivery_address", "", { shouldDirty: true });
-              }}
-              isDisabled={isLocked}
-            />
-          )}
-        />
-        <small className="text-muted">
-          {t(
-            "Pick a delivery location. Vendors will deliver here. Manage locations under the Locations menu."
-          )}
-        </small>
-
-        <button
-          type="button"
-          className="btn btn-link btn-sm p-0 mt-50"
-          onClick={() => setShowAddressOverride((s) => !s)}
-          disabled={isLocked}
-        >
-          {showAddressOverride ? (
-            <ChevronDown size={12} />
-          ) : (
-            <ChevronRight size={12} />
-          )}{" "}
-          {t("Override with custom text (advanced)")}
-        </button>
-        {showAddressOverride && (
-          <Controller
-            name="delivery_address"
-            control={control}
-            render={({ field }) => (
-              <Input
-                type="textarea"
-                rows="2"
-                className="mt-1"
-                placeholder={t(
-                  "One-off destination — factory-to-port direct, customer pickup, etc. Wins over the saved address when filled."
-                )}
-                disabled={isLocked}
-                invalid={!!errors.delivery_address}
-                {...field}
-                value={field.value || ""}
-              />
-            )}
-          />
-        )}
-        {errors.delivery_address && (
-          <FormFeedback className="d-block">
-            {errors.delivery_address.message}
-          </FormFeedback>
-        )}
       </Col>
 
       <Col md="12" className="mb-2">

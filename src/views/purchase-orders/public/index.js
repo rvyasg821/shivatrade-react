@@ -350,17 +350,36 @@ const PurchaseOrderPublicView = () => {
                   )}
                 </div>
 
-                {/* Ship To — moved into the party-grid so it sits
-                    immediately after Buyer. Falls back to buyer when no
-                    delivery_address is set. */}
+                {/* Consignee — always shows the actual ship-to party
+                    (snapshot), falling back to the buyer. Mirrors the PDF. */}
                 <div>
-                  <Label>{t("Ship To")}</Label>
-                  <div
-                    className="party-line"
-                    style={{ whiteSpace: "pre-line" }}
-                  >
-                    {p.delivery_address || p.customer_address || "-"}
-                  </div>
+                  <Label>{t("Consignee")}</Label>
+                  {(() => {
+                    const cs = p.consignee_snapshot || {};
+                    const addr =
+                      [
+                        cs.address_line1,
+                        cs.address_line2,
+                        [cs.city, cs.state, cs.postcode]
+                          .filter(Boolean)
+                          .join(", "),
+                        cs.country,
+                      ]
+                        .filter(Boolean)
+                        .join("\n") || p.customer_address;
+                    const name = cs.name || p.customer_name;
+                    return (
+                      <>
+                        {name && <div className="party-name">{name}</div>}
+                        <div
+                          className="party-line"
+                          style={{ whiteSpace: "pre-line" }}
+                        >
+                          {addr || "-"}
+                        </div>
+                      </>
+                    );
+                  })()}
                   {p.expected_delivery_date && (
                     <div className="party-line party-muted">
                       {t("Expected")}: {formatDate(p.expected_delivery_date)}

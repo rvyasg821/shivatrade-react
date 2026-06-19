@@ -231,6 +231,9 @@ const InvoiceAddEdit = () => {
     customer_address_id: "",
     consignee_id: "",
     consignee_address_id: "",
+    // SO-style "Same as Buyer" — when on, consignee mirrors the buyer and the
+    // dropdowns lock. UI-only (stripped from the payload).
+    consignee_same_as_buyer: true,
     // Notify Party — structured snapshot. The id is optional (set only
     // when picked from customer master); snapshot is the source of truth.
     notify_party_id: "",
@@ -576,6 +579,7 @@ const InvoiceAddEdit = () => {
           label: [a.label, a.address_line1, a.city, a.country]
             .filter(Boolean)
             .join(", "),
+          raw: a,
         }));
         setAddressOptionsByCustomer((s) => ({ ...s, [customerId]: opts }));
       } catch {
@@ -609,8 +613,12 @@ const InvoiceAddEdit = () => {
         // Consignee — inherit from PO if it carries one (set when the
         // source PFI had a consignee). Otherwise default to the buyer.
         consignee_id: po.consignee_id || po.customer_id || "",
-        consignee_address_id: po.customer_address_id || "",
+        consignee_address_id:
+          po.consignee_address_id || po.customer_address_id || "",
         consignee_from_customer: !!(po.consignee_id || po.customer_id),
+        // "Same as Buyer" when the SO's consignee is the buyer (or none).
+        consignee_same_as_buyer:
+          !po.consignee_id || po.consignee_id === po.customer_id,
         // When PO has a consignee_snapshot from PFI propagation, use it
         // directly; the snapshot is the source of truth on PDF.
         ...(po.consignee_snapshot
@@ -741,8 +749,12 @@ const InvoiceAddEdit = () => {
         customer_address_id: po?.customer_address_id || s.customer_address_id,
         consignee_id: po?.consignee_id || seed.customer_id || s.consignee_id,
         consignee_address_id:
-          po?.customer_address_id || s.consignee_address_id,
+          po?.consignee_address_id ||
+          po?.customer_address_id ||
+          s.consignee_address_id,
         consignee_from_customer: !!(po?.consignee_id || seed.customer_id),
+        consignee_same_as_buyer:
+          !po?.consignee_id || po.consignee_id === po.customer_id,
         ...(po?.consignee_snapshot
           ? { consignee_snapshot: po.consignee_snapshot }
           : {}),
@@ -778,30 +790,64 @@ const InvoiceAddEdit = () => {
     if (form.consignee_id) ensureAddresses(form.consignee_id);
   }, [form.consignee_id, ensureAddresses]);
 
-  // When consignee equals customer and ship-to address isn't set, mirror
-  // the bill-to address. Lets operator change later without bookkeeping.
+  // ── Consignee (Ship-to), SO-style ──
+  // "Same as Buyer" → mirror the buyer's customer + bill-to address.
   useEffect(() => {
-    if (!form.consignee_id || !form.customer_id) return;
-    if (form.consignee_id !== form.customer_id) return;
-    if (form.consignee_address_id) return;
-    if (!form.customer_address_id) return;
-    onF("consignee_address_id", form.customer_address_id);
+    if (!form.consignee_same_as_buyer) return;
+    setForm((s) => ({
+      ...s,
+      consignee_id: s.customer_id || "",
+      consignee_address_id: s.customer_address_id || "",
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.consignee_id, form.customer_id, form.customer_address_id]);
+  }, [form.consignee_same_as_buyer, form.customer_id, form.customer_address_id]);
 
-  // When consignee_from_customer is on and a customer id is set but the
-  // snapshot is empty (e.g. just arrived via PO pre-fill), load it.
+  // When NOT same-as-buyer, auto-pick the consignee customer's default address
+  // once its addresses load (and the current pick isn't valid for it).
   useEffect(() => {
-    if (!form.consignee_from_customer) return;
+    if (form.consignee_same_as_buyer) return;
     if (!form.consignee_id) return;
-    if (form.consignee_snapshot?.name) return;
-    prefillSnapshotFromCustomer(
-      form.consignee_id,
-      "consignee_snapshot",
-      "consignee_id"
-    );
+    const opts = addressOptionsByCustomer[form.consignee_id];
+    if (!opts || !opts.length) return;
+    const valid = opts.some((o) => o.value === form.consignee_address_id);
+    if (!valid) {
+      const def =
+        opts.find((o) => o.raw?.is_default || o.raw?.is_primary) || opts[0];
+      onF("consignee_address_id", def?.value || "");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.consignee_from_customer, form.consignee_id]);
+  }, [
+    form.consignee_same_as_buyer,
+    form.consignee_id,
+    addressOptionsByCustomer,
+  ]);
+
+  // Keep the consignee snapshot in sync with the picked consignee customer +
+  // address, so the saved invoice + PDF show the right ship-to.
+  useEffect(() => {
+    if (!form.consignee_id) return;
+    const opts = addressOptionsByCustomer[form.consignee_id] || [];
+    const a = opts.find((o) => o.value === form.consignee_address_id)?.raw || {};
+    const name =
+      customerOptions.find((o) => o.value === form.consignee_id)?.label || "";
+    // Don't wipe a pre-filled snapshot before the master data has loaded.
+    if (!name && !a.address_line1) return;
+    onF("consignee_snapshot", {
+      name,
+      address_line1: a.address_line1 || "",
+      address_line2: a.address_line2 || "",
+      city: a.city || "",
+      state: a.state || "",
+      postcode: a.postcode || "",
+      country: a.country || "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    form.consignee_id,
+    form.consignee_address_id,
+    addressOptionsByCustomer,
+    customerOptions,
+  ]);
 
   // Default bank pre-fill on new invoice — first matching by currency,
   // else first active. Skipped when bank_account_ids was already
@@ -869,6 +915,8 @@ const InvoiceAddEdit = () => {
       customer_address_id: inv.customer_address_id || "",
       consignee_id: inv.consignee_id || "",
       consignee_address_id: inv.consignee_address_id || "",
+      consignee_same_as_buyer:
+        !inv.consignee_id || inv.consignee_id === inv.customer_id,
       notify_party_id: inv.notify_party_id || "",
       notify_party_from_customer: !!inv.notify_party_id,
       notify_party_snapshot: {
@@ -1400,14 +1448,8 @@ const InvoiceAddEdit = () => {
       if (!form.mode) e.mode = "Mode required";
       if (!form.port_of_loading_id && !form.port_of_loading_snapshot)
         e.port_of_loading_id = "Port of Loading required";
-      if (!form.port_of_discharge_id && !form.port_of_discharge_snapshot)
-        e.port_of_discharge_id = "Port of Discharge required";
-      if (!form.shipping_bill_no || !form.shipping_bill_no.trim())
-        e.shipping_bill_no = "Shipping Bill No. required";
-      if (!form.shipping_bill_date)
-        e.shipping_bill_date = "Shipping Bill Date required";
-      if (!form.place_of_delivery || !form.place_of_delivery.trim())
-        e.place_of_delivery = "Place of Delivery required";
+      // Port of Discharge, Shipping Bill No./Date and Place of Delivery are
+      // optional — they aren't always known at invoice time.
       if (!form.total_packages || num(form.total_packages) <= 0)
         e.total_packages = "Total Packages required";
       if (!form.net_weight_kg || num(form.net_weight_kg) <= 0)
@@ -1494,6 +1536,8 @@ const InvoiceAddEdit = () => {
     OPTIONAL_NULLABLE.forEach((k) => {
       if (cleaned[k] === "") cleaned[k] = undefined;
     });
+    // UI-only flag — not an invoice field.
+    delete cleaned.consignee_same_as_buyer;
     // total_packages is @IsInt — send a number or omit.
     cleaned.total_packages =
       cleaned.total_packages === "" || cleaned.total_packages == null
@@ -1997,15 +2041,72 @@ const InvoiceAddEdit = () => {
         </div>
       </div>
 
-      {/* ── Consignee (Ship-to) ─────────────────────────────────────── */}
-      {renderPartyCard({
-        title: t("Consignee (Ship-to)"),
-        flagKey: "consignee_from_customer",
-        idKey: "consignee_id",
-        snapKey: "consignee_snapshot",
-        required: true,
-        errorKey: "consignee_id",
-      })}
+      {/* ── Consignee (Ship-to) — same style as the Sales Order form ── */}
+      <div className="mb-3">
+        <h5 className="mt-2 mb-2">{t("Consignee (Ship-to)")}</h5>
+        <Row>
+          <Col md="6" className="mb-1">
+            <div className="d-flex align-items-center justify-content-between">
+              <Label className="form-label mb-0">{t("Consignee")}</Label>
+              <div className="form-check mb-0">
+                <Input
+                  type="checkbox"
+                  id="inv-consignee-same-as-buyer"
+                  checked={form.consignee_same_as_buyer !== false}
+                  onChange={(e) =>
+                    onF("consignee_same_as_buyer", e.target.checked)
+                  }
+                />
+                <Label
+                  for="inv-consignee-same-as-buyer"
+                  className="form-check-label small"
+                >
+                  {t("Same as Buyer")}
+                </Label>
+              </div>
+            </div>
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={form.consignee_same_as_buyer !== false}
+              options={customerOptions}
+              value={
+                customerOptions.find((o) => o.value === form.consignee_id) ||
+                null
+              }
+              onChange={(opt) => onF("consignee_id", opt ? opt.value : "")}
+              placeholder={t("Select consignee")}
+            />
+            {errors.consignee_id && (
+              <FormFeedback className="d-block">
+                {errors.consignee_id}
+              </FormFeedback>
+            )}
+          </Col>
+          <Col md="6" className="mb-1">
+            <Label className="form-label">{t("Consignee Address")}</Label>
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={form.consignee_same_as_buyer !== false}
+              options={addressOptionsByCustomer[form.consignee_id] || []}
+              value={
+                (addressOptionsByCustomer[form.consignee_id] || []).find(
+                  (o) => o.value === form.consignee_address_id
+                ) || null
+              }
+              onChange={(opt) =>
+                onF("consignee_address_id", opt ? opt.value : "")
+              }
+              placeholder={
+                form.consignee_id
+                  ? t("Select address")
+                  : t("Pick a consignee first")
+              }
+            />
+          </Col>
+        </Row>
+      </div>
 
       {/* ── Notify Party ────────────────────────────────────────────── */}
       {renderPartyCard({
@@ -2723,7 +2824,7 @@ const InvoiceAddEdit = () => {
             </Col>
             <Col md="4" className="mb-2">
               <Label className="form-label">
-                {t("Shipping Bill No.")} <span className="text-danger">*</span>
+                {t("Shipping Bill No.")}
               </Label>
               <Input
                 value={form.shipping_bill_no}
@@ -2740,7 +2841,7 @@ const InvoiceAddEdit = () => {
             </Col>
             <Col md="4" className="mb-2">
               <Label className="form-label">
-                {t("Shipping Bill Date")} <span className="text-danger">*</span>
+                {t("Shipping Bill Date")}
               </Label>
               <DateInput
                 id="inv-shipping-bill-date"
@@ -2794,7 +2895,7 @@ const InvoiceAddEdit = () => {
             </Col>
             <Col md="3" className="mb-2">
               <Label className="form-label">
-                {t("Port of Discharge")} <span className="text-danger">*</span>
+                {t("Port of Discharge")}
               </Label>
               <PortSelect
                 value={form.port_of_discharge_snapshot}
@@ -2813,7 +2914,7 @@ const InvoiceAddEdit = () => {
             </Col>
             <Col md="3" className="mb-2">
               <Label className="form-label">
-                {t("Place of Delivery")} <span className="text-danger">*</span>
+                {t("Place of Delivery")}
               </Label>
               <Input
                 value={form.place_of_delivery}
