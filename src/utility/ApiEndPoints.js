@@ -267,6 +267,7 @@ export const API_ENDPOINTS = {
     list: `/admin/po-vendor/list`,
     stats: `/admin/po-vendor/stats`,
     get: `/admin/po-vendor/get`,
+    create: `/admin/po-vendor/create`, // standalone (no source Sales Order)
     update: `/admin/po-vendor/update`,
     delete: `/admin/po-vendor/delete`,
     fromPo: `/admin/po-vendor/from-po`, // append /:poId

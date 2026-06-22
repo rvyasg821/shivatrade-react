@@ -6,7 +6,7 @@ import { useFormContext } from "react-hook-form";
 import { Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
-import CostingWorksheet from "./CostingWorksheet";
+import CostingWorksheet from "@src/views/_shared/sales-doc/CostingWorksheet";
 
 const Step2Items = ({
   isLocked,

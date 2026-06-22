@@ -109,6 +109,31 @@ export const createPoVendorFromPo = createAsyncThunk(
   }
 );
 
+// ─── Create standalone (no source Sales Order) ─────────────────────────
+
+export const createPoVendorStandalone = createAsyncThunk(
+  "appPoVendor/createPoVendorStandalone",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(API_ENDPOINTS.poVendors.create, payload);
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_CRTD",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to create POV");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Recover (multi-vendor batch from PO Coverage tab) ─────────────────
 // Spawns N POVs in one call, grouped by vendor. Used by the recovery flow
 // when one or more POVs were cancelled and their PO lines need re-coverage.
