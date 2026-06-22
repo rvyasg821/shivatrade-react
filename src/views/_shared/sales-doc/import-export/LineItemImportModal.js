@@ -51,6 +51,9 @@ const LineItemImportModal = ({
   onConfirm,
 }) => {
   const { t } = useTranslation();
+  // Quotation & Sales Order use the costing-worksheet sheet (aliased headers +
+  // per-code expense/rebate value columns). PFI / Lead keep the legacy sheet.
+  const isCosting = docType === "quotation" || docType === "po";
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -228,14 +231,22 @@ const LineItemImportModal = ({
                   )}
                 </li>
                 <li>
-                  {t(
-                    "Required columns: product_code, qty. vendor_code is optional — blank falls back to the cheapest active vendor.",
-                  )}
+                  {isCosting
+                    ? t(
+                        "Required columns: productcode, qty. vendorcode is optional — blank falls back to the cheapest active vendor.",
+                      )
+                    : t(
+                        "Required columns: product_code, qty. vendor_code is optional — blank falls back to the cheapest active vendor.",
+                      )}
                 </li>
                 <li>
-                  {t(
-                    "Header row repeats the columns 'rebate' and 'expense'. Put a rebate/expense code (e.g. DBK, RODTEP, CHA) under each cell to attach it to the line; leave blank to skip.",
-                  )}
+                  {isCosting
+                    ? t(
+                        "Each expense/rebate code is its own column (e.g. PKC, TPC(%), DBK). Type an amount to apply it to that line — the typed value overrides the master; leave blank to skip. Computed columns (price/disc, value, grand total…) are ignored on import.",
+                      )
+                    : t(
+                        "Header row repeats the columns 'rebate' and 'expense'. Put a rebate/expense code (e.g. DBK, RODTEP, CHA) under each cell to attach it to the line; leave blank to skip.",
+                      )}
                 </li>
                 <li>
                   {t(

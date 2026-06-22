@@ -31,6 +31,7 @@ const Step2Items = ({
       docCurrencyCode={selectedCurrencyCode}
       baseCurrencyCode={baseCurrencyCode}
       readOnly={isLocked}
+      docType="po"
     />
   );
 };
