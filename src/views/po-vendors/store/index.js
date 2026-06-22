@@ -141,13 +141,13 @@ export const createPoVendorStandalone = createAsyncThunk(
 export const recoverPoVendors = createAsyncThunk(
   "appPoVendor/recoverPoVendors",
   async (
-    { purchase_order_id, assignments, vendor_expenses },
+    { purchase_order_id, assignments, vendor_expenses, vendor_advances },
     { rejectWithValue }
   ) => {
     try {
       const resp = await instance.post(
         `${API_ENDPOINTS.poVendors.recover}/${purchase_order_id}`,
-        { assignments, vendor_expenses }
+        { assignments, vendor_expenses, vendor_advances }
       );
       const body = resp?.data;
       if (body?.statusCode && body?.data) {
@@ -300,6 +300,60 @@ export const revertPoVendorToDraft = createAsyncThunk(
         };
       }
       return rejectWithValue(body?.message || "Failed to revert POV to draft");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
+// ─── Vendor payments ───────────────────────────────────────────────────
+
+export const recordPoVendorPayment = createAsyncThunk(
+  "appPoVendor/recordPoVendorPayment",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.payments}/${id}`,
+        data
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_PAY_SCS",
+          success: body?.message || "Payment recorded",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to record payment");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
+export const voidPoVendorPayment = createAsyncThunk(
+  "appPoVendor/voidPoVendorPayment",
+  async ({ id, paymentId, reason }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.payments}/${id}/void/${paymentId}`,
+        { reason: reason || undefined }
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_PAY_VOID_SCS",
+          success: body?.message || "Payment voided",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to void payment");
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || error.message || error
@@ -499,6 +553,36 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(revertPoVendorToDraft.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(recordPoVendorPayment.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(recordPoVendorPayment.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(recordPoVendorPayment.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(voidPoVendorPayment.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(voidPoVendorPayment.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(voidPoVendorPayment.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

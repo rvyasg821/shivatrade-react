@@ -49,7 +49,9 @@ const PoVendorTimelinePanel = ({ height }) => {
       povActionFlag === "POV_DISPATCHED" ||
       povActionFlag === "POV_CLOSED" ||
       povActionFlag === "POV_CANCELLED" ||
-      povActionFlag === "POV_UPDT"
+      povActionFlag === "POV_UPDT" ||
+      povActionFlag === "POV_PAY_SCS" ||
+      povActionFlag === "POV_PAY_VOID_SCS"
     ) {
       dispatch(getTrackingEventsByPov(id));
     }

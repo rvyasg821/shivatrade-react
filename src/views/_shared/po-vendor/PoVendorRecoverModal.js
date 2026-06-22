@@ -36,6 +36,7 @@ import ReactPaginate from "react-paginate";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import DateInput from "@components/date-input";
 import { recoverPoVendors } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
@@ -76,6 +77,14 @@ const PoVendorRecoverModal = ({
   const [dropped, setDropped] = useState({});
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
+  // Per-vendor optional advance paid. Shape:
+  // { [vendor_id]: { payment_date, amount, invoice_number, notes } }.
+  const [vendorAdvances, setVendorAdvances] = useState({});
+  const updateAdvance = (vid, patch) =>
+    setVendorAdvances((curr) => ({
+      ...curr,
+      [vid]: { ...(curr[vid] || {}), ...patch },
+    }));
 
   // ── Client-side pagination for the preview table ──
   const [pageSize, setPageSize] = useState(10);
@@ -111,6 +120,7 @@ const PoVendorRecoverModal = ({
     setAssignment({});
     setDropped({});
     setVendorExpenses({});
+    setVendorAdvances({});
     instance
       .get(previewEndpoint)
       .then((resp) => {
@@ -223,6 +233,15 @@ const PoVendorRecoverModal = ({
       }
       return changed ? next : curr;
     });
+    setVendorAdvances((curr) => {
+      let changed = false;
+      const next = {};
+      for (const [vid, adv] of Object.entries(curr)) {
+        if (activeVendorIds.has(vid)) next[vid] = adv;
+        else changed = true;
+      }
+      return changed ? next : curr;
+    });
   }, [vendorSummary]);
 
   // Charges total for a single vendor block (percent against its goods total).
@@ -303,6 +322,20 @@ const PoVendorRecoverModal = ({
       }
     }
 
+    // Per-vendor advances with a positive amount only.
+    const trimmedAdvances = {};
+    for (const [vid, adv] of Object.entries(vendorAdvances)) {
+      if (num(adv?.amount) > 0) {
+        trimmedAdvances[vid] = {
+          payment_date:
+            adv.payment_date || new Date().toISOString().slice(0, 10),
+          amount: String(num(adv.amount)),
+          invoice_number: adv.invoice_number?.trim() || undefined,
+          notes: adv.notes?.trim() || undefined,
+        };
+      }
+    }
+
     setCreating(true);
     try {
       const result = await dispatch(
@@ -310,6 +343,9 @@ const PoVendorRecoverModal = ({
           purchase_order_id: poId,
           assignments,
           vendor_expenses: trimmedExpenses,
+          vendor_advances: Object.keys(trimmedAdvances).length
+            ? trimmedAdvances
+            : undefined,
         })
       ).unwrap();
       const created = result?.created || [];
@@ -779,6 +815,71 @@ const PoVendorRecoverModal = ({
                             </tbody>
                           </Table>
                         )}
+                      </div>
+                      {/* Optional advance paid to this vendor */}
+                      <div className="px-1 pb-1">
+                        <div className="small fw-semibold mb-1">
+                          {t("Advance Paid")}{" "}
+                          <span className="text-muted">({t("optional")})</span>
+                        </div>
+                        <div className="row g-1">
+                          <div className="col-md-3">
+                            <DateInput
+                              id={`adv-date-${v.vendor_id}`}
+                              value={
+                                vendorAdvances[v.vendor_id]?.payment_date || ""
+                              }
+                              onChange={(_d, _s, iso) =>
+                                updateAdvance(v.vendor_id, {
+                                  payment_date: iso || "",
+                                })
+                              }
+                              placeholder={t("Date")}
+                            />
+                          </div>
+                          <div className="col-md-3">
+                            <Input
+                              type="number"
+                              bsSize="sm"
+                              min="0"
+                              step="any"
+                              placeholder={t("Amount ₹")}
+                              value={vendorAdvances[v.vendor_id]?.amount || ""}
+                              onChange={(e) =>
+                                updateAdvance(v.vendor_id, {
+                                  amount: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="col-md-3">
+                            <Input
+                              bsSize="sm"
+                              maxLength={120}
+                              placeholder={t("Invoice #")}
+                              value={
+                                vendorAdvances[v.vendor_id]?.invoice_number || ""
+                              }
+                              onChange={(e) =>
+                                updateAdvance(v.vendor_id, {
+                                  invoice_number: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="col-md-3">
+                            <Input
+                              bsSize="sm"
+                              placeholder={t("Notes")}
+                              value={vendorAdvances[v.vendor_id]?.notes || ""}
+                              onChange={(e) =>
+                                updateAdvance(v.vendor_id, {
+                                  notes: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );

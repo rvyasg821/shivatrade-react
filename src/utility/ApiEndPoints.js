@@ -278,6 +278,9 @@ export const API_ENDPOINTS = {
     revertDraft: `/admin/po-vendor`, // append /:id/revert-draft
     pdf: `/admin/po-vendor`, // append /:id/pdf  (and /:id/pdf-ticket)
     ticketPdf: `/public/po-vendor/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
+    paymentPdfTicket: `/admin/po-vendor`, // append /:id/payment-pdf-ticket/:paymentId
+    ticketPaymentPdf: `/public/po-vendor/payment-pdf`, // ?t=<ticket> (no-auth, new-tab open)
   },
   inventory: {
     list: `/admin/inventory/list`,
