@@ -224,6 +224,46 @@ export const STATS_CONFIG = {
     ],
   },
 
+  invoice: {
+    endpointKey: "invoices", // → API_ENDPOINTS.invoices.stats
+    tiles: [
+      {
+        key: "total",
+        label: "Total",
+        icon: "FileText",
+        color: "info",
+      },
+      {
+        key: "draft",
+        label: "Draft",
+        statuses: ["draft"],
+        icon: "Edit",
+        color: "secondary",
+      },
+      {
+        key: "outstanding",
+        label: "Issued + Partially Paid",
+        statuses: ["issued", "partially_paid"],
+        icon: "Clock",
+        color: "warning",
+      },
+      {
+        key: "paid",
+        label: "Paid",
+        statuses: ["paid"],
+        icon: "CheckCircle",
+        color: "success",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        statuses: ["cancelled"],
+        icon: "XCircle",
+        color: "danger",
+      },
+    ],
+  },
+
   pfi: {
     endpointKey: "pfis", // → API_ENDPOINTS.pfis.stats
     tiles: [

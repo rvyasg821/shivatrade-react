@@ -31,6 +31,7 @@ import {
   cleanInvoiceMessage,
 } from "./store";
 import MultiSoPickerModal from "./components/MultiSoPickerModal";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
@@ -59,6 +60,7 @@ const InvoicesList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [urlParams] = useSearchParams();
   const poFilter = urlParams.get("purchase_order_id") || "";
   const [dateFrom, setDateFrom] = useState("");
@@ -168,7 +170,10 @@ const InvoicesList = () => {
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
     if (store?.success || store?.error) dispatch(cleanInvoiceMessage());
-    if (store?.actionFlag === "INV_DLT_SCS") handleList();
+    if (store?.actionFlag === "INV_DLT_SCS") {
+      handleList();
+      setStatsRefreshKey((k) => k + 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.success, store?.error, store?.actionFlag]);
 
@@ -399,6 +404,23 @@ const InvoicesList = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Invoices")}</h3>
         </div>
+
+        <VoucherStatsTiles
+          module="invoice"
+          refreshKey={statsRefreshKey}
+          filters={{
+            status: statusFilter || undefined,
+            purchase_order_id: poFilter || undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            search: searchInput || undefined,
+          }}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) => {
+            setStatusFilter((prev) => (prev === csv ? "" : csv));
+            setCurrentPage(1);
+          }}
+        />
 
         <Card className="overflow-hidden">
           <CardBody>

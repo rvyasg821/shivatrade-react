@@ -22,6 +22,7 @@ import {
   Briefcase,
   Truck,
 } from "react-feather";
+import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -331,37 +332,10 @@ const ViewPurchaseOrder = () => {
   }
 
   const headerActions = [
-    ...(canGeneratePov
-      ? [
-          {
-            icon: Truck,
-            label: t("Generate POV"),
-            color: "primary",
-            outline: false,
-            onClick: () =>
-              navigate(`${appsRoot}/purchase-orders/generate-pov/${id}`),
-          },
-        ]
-      : []),
     {
       icon: Edit,
       label: t("Edit"),
       onClick: () => navigate(`${appsRoot}/purchase-orders/edit/${id}`),
-    },
-    {
-      icon: Eye,
-      label: t("Preview"),
-      color: "secondary",
-      outline: true,
-      onClick: () =>
-        window.open(`${appsRoot}/purchase-orders/preview/${id}`, "_blank"),
-    },
-    {
-      icon: Download,
-      label: t("Download"),
-      color: "secondary",
-      outline: true,
-      onClick: () => handleDownloadPdf(),
     },
     {
       icon: ArrowLeft,
@@ -474,11 +448,57 @@ const ViewPurchaseOrder = () => {
           actionsPrefix={statusDropdown}
           moreActions={[]}
           belowSlot={
-            <DetailPipeline
-              steps={PIPELINE_STEPS}
-              current={statusLower}
-              terminalSteps={TERMINAL_STEPS}
-            />
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <DetailPipeline
+                  steps={PIPELINE_STEPS}
+                  current={statusLower}
+                  terminalSteps={TERMINAL_STEPS}
+                />
+              </div>
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                {canGeneratePov && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    className="d-flex align-items-center"
+                    onClick={() =>
+                      navigate(
+                        `${appsRoot}/purchase-orders/generate-pov/${id}`
+                      )
+                    }
+                  >
+                    <Truck size={14} className="me-50" />
+                    {t("Generate POV")}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() =>
+                    window.open(
+                      `${appsRoot}/purchase-orders/preview/${id}`,
+                      "_blank"
+                    )
+                  }
+                >
+                  <Eye size={14} className="me-50" />
+                  {t("Preview")}
+                </Button>
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() => handleDownloadPdf()}
+                >
+                  <Download size={14} className="me-50" />
+                  {t("Download")}
+                </Button>
+              </div>
+            </div>
           }
         />
 
