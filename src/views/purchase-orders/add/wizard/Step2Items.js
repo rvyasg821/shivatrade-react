@@ -1,56 +1,37 @@
-// ── Step 2: Line Items (PO) ─────────────────────────────────────────
-// Uses the same SalesDocLineItems component as PFI/Quotation — the line
-// items table, add/edit popup (with rebate/expense/margin fields) and
-// costing breakdown all match PFI's flow.
+// ── Step 2: Line Items (Sales Order) ─────────────────────────────────
+// Identical line-item editor to the Quotation Step-2: the shared
+// CostingWorksheet (spreadsheet-style grid with vendor picker, inline
+// expense/rebate/margin popovers and a sticky totals footer).
 
 import { useFormContext } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 
-import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
-import { initPurchaseOrderLineItem } from "@constant/reduxConstant";
+import CostingWorksheet from "@src/views/_shared/sales-doc/CostingWorksheet";
 
 const Step2Items = ({
   isLocked,
   productOptions,
-  rebateOptions,
+  allProductOptions,
   expenseOptions,
+  rebateOptions,
   selectedCurrencyCode,
   baseCurrencyCode,
   exchangeRate,
-  hasExistingPovs,
 }) => {
   const { control, setValue, getValues } = useFormContext();
-  const { t } = useTranslation();
-  const docNumber = getValues?.("po_no") || "";
 
   return (
-    <>
-      {hasExistingPovs && (
-        <div className="alert alert-warning small mb-2">
-          {t(
-            "Active POV(s) reference this PO's lines — line items cannot be changed. Cancel the POV(s) to edit."
-          )}
-        </div>
-      )}
-      <SalesDocLineItems
-        control={control}
-        setValue={setValue}
-        productOptions={productOptions}
-        allProductOptions={productOptions}
-        initLineItem={initPurchaseOrderLineItem}
-        rebateOptions={rebateOptions}
-        expenseOptions={expenseOptions}
-        currencyCode={selectedCurrencyCode}
-        baseCurrencyCode={baseCurrencyCode}
-        exchangeRate={exchangeRate}
-        readOnly={isLocked || hasExistingPovs}
-        tableLayout="detailed"
-        displayInBase
-        docType="po"
-        docNumber={docNumber}
-        hideGst
-      />
-    </>
+    <CostingWorksheet
+      control={control}
+      setValue={setValue}
+      getValues={getValues}
+      productOptions={allProductOptions || productOptions}
+      expenseOptions={expenseOptions}
+      rebateOptions={rebateOptions}
+      exchangeRate={exchangeRate}
+      docCurrencyCode={selectedCurrencyCode}
+      baseCurrencyCode={baseCurrencyCode}
+      readOnly={isLocked}
+    />
   );
 };
 

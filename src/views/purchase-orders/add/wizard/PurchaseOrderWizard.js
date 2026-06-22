@@ -70,27 +70,6 @@ const PurchaseOrderWizard = () => {
   const [vendorPriceList, setVendorPriceList] = useState([]);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
   const [rateMeta, setRateMeta] = useState(null);
-  const [hasExistingPovs, setHasExistingPovs] = useState(false);
-
-  // On edit, check if ANY non-cancelled POV exists for this PO — even
-  // a draft POV references the PO lines via purchase_order_line_id, so
-  // changing the line set risks orphaning those references.
-  useEffect(() => {
-    if (!isEdit || !id) {
-      setHasExistingPovs(false);
-      return;
-    }
-    instance
-      .get(API_ENDPOINTS.poVendors.list, {
-        params: { purchase_order_id: id, page: 1, perPage: 200 },
-      })
-      .then((resp) => {
-        const items = resp?.data?.data || [];
-        const blocking = items.some((p) => p?.status !== "cancelled");
-        setHasExistingPovs(blocking);
-      })
-      .catch(() => setHasExistingPovs(false));
-  }, [id, isEdit]);
 
   const schema = useMemo(
     () =>
@@ -796,7 +775,6 @@ const PurchaseOrderWizard = () => {
     exchangeRate,
     totals,
     intraState,
-    hasExistingPovs,
     sourcePfiVoucher: store?.purchaseOrderItem?.pfi_voucher_no,
     sourcePfiId: store?.purchaseOrderItem?.pfi_id,
     sourceQuotationVoucher: store?.purchaseOrderItem?.quotation_voucher_no,

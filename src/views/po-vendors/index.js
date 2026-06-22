@@ -1,5 +1,5 @@
-// PO Vendor (POV) listing page. POVs are created from PO detail page —
-// no "Add" button here.
+// PO Vendor (POV) listing page. POVs can be created here via the "Create
+// POV" button (pick a Sales Order → vendor → lines) or from a PO detail page.
 
 import {
   Fragment,
@@ -26,6 +26,7 @@ import {
   Row,
   Card,
   Input,
+  Button,
   CardBody,
   UncontrolledTooltip,
 } from "reactstrap";
@@ -42,7 +43,16 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { Eye, Trash2, X, ExternalLink, User, Mail, Phone } from "react-feather";
+import {
+  Eye,
+  Trash2,
+  X,
+  ExternalLink,
+  User,
+  Mail,
+  Phone,
+  Plus,
+} from "react-feather";
 
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 import {
@@ -235,6 +245,7 @@ const PoVendorView = () => {
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canEdit = isAdmin || perms?.can_all || perms?.can_update;
   const canDelete = isAdmin || perms?.can_all || perms?.can_delete;
+  const canCreate = isAdmin || perms?.can_all || perms?.can_create;
 
   const vendorOptions = useMemo(
     () =>
@@ -520,6 +531,15 @@ const PoVendorView = () => {
       <div className="main-content po-vendor">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Vendor Purchase Orders")}</h3>
+          {canCreate && (
+            <Button
+              color="primary"
+              onClick={() => navigate(`${appsRoot}/po-vendors/create`)}
+            >
+              <Plus size={16} className="me-50" />
+              {t("Create POV")}
+            </Button>
+          )}
         </div>
 
         <VoucherStatsTiles

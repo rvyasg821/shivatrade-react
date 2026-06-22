@@ -62,7 +62,8 @@ const CustomerCostingTable = ({
         <Table size="sm" bordered className="mb-0 ws-customer-table">
           <colgroup>
             <col style={{ width: "5%" }} />
-            <col style={{ width: "52%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "37%" }} />
             <col style={{ width: "15%" }} />
             <col style={{ width: "14%" }} />
             <col style={{ width: "14%" }} />
@@ -70,6 +71,7 @@ const CustomerCostingTable = ({
           <thead className="table-light">
             <tr className="ws-head">
               <th className="text-center">#</th>
+              <th>{t("Part No")}</th>
               <th>{t("Product")}</th>
               <th className="text-end">{t("Qty")}</th>
               <th className="text-end">
@@ -83,7 +85,7 @@ const CustomerCostingTable = ({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center text-muted py-3">
+                <td colSpan={6} className="text-center text-muted py-3">
                   {t("No products.")}
                 </td>
               </tr>
@@ -91,15 +93,14 @@ const CustomerCostingTable = ({
               rows.map((r, i) => (
                 <tr key={r.l._id || i}>
                   <td className="text-center text-muted">{i + 1}</td>
+                  <td className="text-nowrap">{r.part || "-"}</td>
                   <td style={{ whiteSpace: "normal" }}>
                     <div className="fw-semibold text-capitalize text-wrap">
                       {r.name}
                     </div>
-                    {r.part || r.hsn ? (
+                    {r.hsn ? (
                       <div className="small text-muted">
-                        {r.part ? `${t("Part")}: ${r.part}` : ""}
-                        {r.part && r.hsn ? " · " : ""}
-                        {r.hsn ? `${t("HSN")}: ${r.hsn}` : ""}
+                        {`${t("HSN")}: ${r.hsn}`}
                       </div>
                     ) : null}
                   </td>
@@ -118,6 +119,7 @@ const CustomerCostingTable = ({
           {rows.length > 0 && (
             <tfoot className="table-light fw-bold">
               <tr>
+                <td />
                 <td />
                 <td>{t("Total")}</td>
                 <td className="text-end">{fmt(totalQty)}</td>
