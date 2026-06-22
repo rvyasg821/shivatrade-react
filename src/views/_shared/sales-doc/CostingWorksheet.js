@@ -35,6 +35,7 @@ import {
   computeLineCosting,
 } from "@src/views/_shared/sales-doc/_helpers";
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
+import Notification from "@components/toast/notification";
 
 // ── Click-to-edit numeric cell ──────────────────────────────────────────────
 // Shows `display` as a label; click → autofocused input bound to `value`.
@@ -129,6 +130,9 @@ const CostingWorksheet = ({
   docCurrencyCode = "INR",
   baseCurrencyCode = "INR",
   readOnly = false,
+  // Drives the import/export filename + backend layout. "quotation" by default;
+  // the Sales Order wizard passes "po".
+  docType = "quotation",
 }) => {
   const { t } = useTranslation();
   const lineFA = useFieldArray({ control, name: "lines" });
@@ -248,7 +252,30 @@ const CostingWorksheet = ({
 
   const onPickVendor = (idx, opt) => {
     const r = opt?.raw || {};
-    setValue(`lines.${idx}.vendor_id`, opt ? opt.value : "");
+    const newVendorId = opt ? opt.value : "";
+    const productId = liveLines[idx]?.product_id || "";
+    // Block the same product + same vendor on two lines. A product may still be
+    // added with a different vendor (multi-vendor model) — only an exact
+    // product+vendor duplicate is rejected.
+    if (newVendorId && productId) {
+      const dup = liveLines.some(
+        (l, i) =>
+          i !== idx &&
+          String(l?.product_id || "") === String(productId) &&
+          String(l?.vendor_id || "") === String(newVendorId)
+      );
+      if (dup) {
+        Notification(
+          "Validation",
+          t(
+            "This product is already added with the same vendor. Pick a different vendor or edit the existing row."
+          ),
+          "warning"
+        );
+        return;
+      }
+    }
+    setValue(`lines.${idx}.vendor_id`, newVendorId);
     setValue(`lines.${idx}.vendor_name`, r.vendor_name || "");
     setValue(`lines.${idx}.vendor_code`, r.vendor_code || "");
     if (opt && r.unit_price != null) {
@@ -361,11 +388,12 @@ const CostingWorksheet = ({
         </div>
         {!readOnly && (
           <div className="d-flex align-items-center flex-wrap gap-1">
-            {/* Bulk entry via Excel — shared sales-doc import/export
-                (docType "quotation"). Shares this worksheet's lineFA so imported
-                rows appear without a remount. */}
+            {/* Bulk entry via Excel — shared sales-doc import/export. docType
+                drives the filename + backend layout (quotation vs po). Shares
+                this worksheet's lineFA so imported rows appear without a
+                remount. */}
             <LineItemImportExportBar
-              docType="quotation"
+              docType={docType}
               control={control}
               lineFA={lineFA}
               initLineItem={emptyLine()}
