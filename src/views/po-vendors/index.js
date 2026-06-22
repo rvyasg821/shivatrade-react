@@ -531,15 +531,6 @@ const PoVendorView = () => {
       <div className="main-content po-vendor">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Vendor Purchase Orders")}</h3>
-          {canCreate && (
-            <Button
-              color="primary"
-              onClick={() => navigate(`${appsRoot}/po-vendors/create`)}
-            >
-              <Plus size={16} className="me-50" />
-              {t("Create POV")}
-            </Button>
-          )}
         </div>
 
         <VoucherStatsTiles
@@ -560,8 +551,8 @@ const PoVendorView = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="12" md="12">
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -621,8 +612,18 @@ const PoVendorView = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-            </Row>
+              </div>
+              {canCreate && (
+                <Button
+                  color="primary"
+                  className="text-nowrap"
+                  onClick={() => navigate(`${appsRoot}/po-vendors/create`)}
+                >
+                  <Plus size={16} className="me-50" />
+                  {t("Create POV")}
+                </Button>
+              )}
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="pov-tables">

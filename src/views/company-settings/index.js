@@ -95,6 +95,7 @@ const CompanySettingsPage = () => {
     lead_voucher_prefix: '', rfq_voucher_prefix: '', quotation_voucher_prefix: '',
     sales_order_voucher_prefix: '', invoice_voucher_prefix: '', po_vendor_voucher_prefix: '',
     grn_voucher_prefix: '', debit_note_voucher_prefix: '',
+    payment_voucher_prefix: '',
   }
   const [settingsData, setSettingsData] = useState(defaultSettings)
 
@@ -345,6 +346,7 @@ const CompanySettingsPage = () => {
     { key: 'po_vendor', label: 'PO Vendor', type: 'voucher', prefixField: 'po_vendor_voucher_prefix', token: 'VPO', style: 'separated' },
     { key: 'grn', label: 'GRN', type: 'voucher', prefixField: 'grn_voucher_prefix', token: 'GRN', style: 'glued' },
     { key: 'debit_note', label: 'Debit Note', type: 'voucher', prefixField: 'debit_note_voucher_prefix', token: 'DN', style: 'separated' },
+    { key: 'payment_voucher', label: 'Vendor Payment', type: 'voucher', prefixField: 'payment_voucher_prefix', token: 'PV', style: 'separated' },
   ]
 
   const counterPreview = (row) =>

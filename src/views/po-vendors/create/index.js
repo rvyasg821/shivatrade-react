@@ -28,6 +28,7 @@ import { CheckCircle, ArrowLeft, Plus, Trash2 } from "react-feather";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import DateInput from "@components/date-input";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 import {
   createPoVendorStandalone,
@@ -87,6 +88,14 @@ const CreatePoVendor = () => {
   const [coverage, setCoverage] = useState(null);
   const [coverByLine, setCoverByLine] = useState({});
   const [priceByLine, setPriceByLine] = useState({});
+
+  // Optional advance paid to the vendor (standalone only).
+  const [advance, setAdvance] = useState({
+    payment_date: new Date().toISOString().slice(0, 10),
+    amount: "",
+    invoice_number: "",
+    notes: "",
+  });
 
   const linkedMode = !!pickedSoId;
 
@@ -435,6 +444,7 @@ const CreatePoVendor = () => {
           );
           return;
         }
+        const advanceAmt = num(advance.amount);
         result = await dispatch(
           createPoVendorStandalone({
             vendor_id: vendorId,
@@ -442,6 +452,17 @@ const CreatePoVendor = () => {
             delivery_address_id: deliveryAddressId || undefined,
             notes: notes?.trim() || undefined,
             expenses: expensesPayload.length ? expensesPayload : undefined,
+            advance:
+              advanceAmt > 0
+                ? {
+                    payment_date:
+                      advance.payment_date ||
+                      new Date().toISOString().slice(0, 10),
+                    amount: String(advanceAmt),
+                    invoice_number: advance.invoice_number?.trim() || undefined,
+                    notes: advance.notes?.trim() || undefined,
+                  }
+                : undefined,
           })
         ).unwrap();
       }
@@ -478,30 +499,8 @@ const CreatePoVendor = () => {
           </CardHeader>
           <CardBody>
             <div className="row g-2 mb-2">
-              {/* Optional Sales Order link */}
-              <div className="col-md-4">
-                <Label className="form-label">
-                  {t("Link Sales Order")}{" "}
-                  <span className="text-muted small">({t("optional")})</span>
-                </Label>
-                <Select
-                  isClearable
-                  classNamePrefix="select"
-                  isLoading={soLoading}
-                  options={soOptions}
-                  value={soOptions.find((o) => o.value === pickedSoId) || null}
-                  onChange={(opt) => setPickedSoId(opt ? opt.value : "")}
-                  placeholder={t("Standalone — or pick an SO to pre-fill")}
-                />
-                <small className="text-muted">
-                  {linkedMode
-                    ? t("Lines come from the SO's pending quantities.")
-                    : t("Leave empty to create a standalone Vendor PO.")}
-                </small>
-              </div>
-
               {/* Vendor */}
-              <div className="col-md-4">
+              <div className="col-md-6">
                 <Label className="form-label">
                   {t("Vendor")} <span className="text-danger">*</span>
                 </Label>
@@ -515,7 +514,7 @@ const CreatePoVendor = () => {
               </div>
 
               {/* Delivery address */}
-              <div className="col-md-4">
+              <div className="col-md-6">
                 <Label className="form-label">
                   {t("Deliver To")}{" "}
                   {!linkedMode && <span className="text-danger">*</span>}
@@ -869,6 +868,73 @@ const CreatePoVendor = () => {
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
+
+            {/* Optional advance paid to the vendor (standalone only) */}
+            {!linkedMode && (
+              <div className="mt-3">
+                <Label className="form-label mb-1 d-block">
+                  {t("Advance Paid to Vendor")}{" "}
+                  <span className="text-muted small">({t("optional")})</span>
+                </Label>
+                <div className="border rounded p-2" style={{ maxWidth: 760 }}>
+                  <div className="row g-2">
+                    <div className="col-md-4">
+                      <Label className="form-label">{t("Payment Date")}</Label>
+                      <DateInput
+                        id="pov-advance-date"
+                        value={advance.payment_date}
+                        onChange={(_d, _s, iso) =>
+                          setAdvance((s) => ({ ...s, payment_date: iso || "" }))
+                        }
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <Label className="form-label">{t("Amount")}</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={advance.amount}
+                        placeholder="0.00"
+                        onChange={(e) =>
+                          setAdvance((s) => ({ ...s, amount: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <Label className="form-label">{t("Invoice Number")}</Label>
+                      <Input
+                        value={advance.invoice_number}
+                        maxLength={120}
+                        placeholder={t("Vendor's invoice number")}
+                        onChange={(e) =>
+                          setAdvance((s) => ({
+                            ...s,
+                            invoice_number: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="col-12">
+                      <Label className="form-label">{t("Notes")}</Label>
+                      <Input
+                        type="textarea"
+                        rows="2"
+                        value={advance.notes}
+                        onChange={(e) =>
+                          setAdvance((s) => ({ ...s, notes: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <small className="text-muted">
+                    {t(
+                      "Leave the amount blank to skip. The advance is recorded as a vendor payment on the new PO."
+                    )}
+                  </small>
+                </div>
+              </div>
+            )}
           </CardBody>
           <CardFooter className="d-flex justify-content-end gap-1">
             <Button color="secondary" outline onClick={backToList} disabled={creating}>
