@@ -17,7 +17,13 @@ import {
   Badge,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { CheckCircle, FileText, ArrowLeft } from "react-feather";
+import {
+  CheckCircle,
+  FileText,
+  ArrowLeft,
+  AlertTriangle,
+} from "react-feather";
+import { Link } from "react-router-dom";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -43,12 +49,43 @@ const GenerateSalesOrder = () => {
   const [advanceDate, setAdvanceDate] = useState("");
   const [advanceNotes, setAdvanceNotes] = useState("");
 
+  // Sales Orders already generated from this quotation (non-cancelled). If any
+  // exist we block a duplicate generation and warn the user.
+  const [existingSos, setExistingSos] = useState([]);
+
   // Load the quotation for the header voucher label + order total / currency.
   useEffect(() => {
     if (quotationId && q?._id !== quotationId)
       dispatch(getQuotation(quotationId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotationId]);
+
+  // Check whether this quotation already spawned a Sales Order.
+  useEffect(() => {
+    let cancelled = false;
+    if (!quotationId) return undefined;
+    instance
+      .get(API_ENDPOINTS.purchaseOrders.list, {
+        params: { quotation_id: quotationId, page: 1, perPage: 50 },
+      })
+      .then((resp) => {
+        if (cancelled) return;
+        const rows = resp?.data?.data || [];
+        setExistingSos(
+          rows.filter(
+            (r) => (r?.status || "").toLowerCase() !== "cancelled"
+          )
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setExistingSos([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [quotationId]);
+
+  const hasExistingSo = existingSos.length > 0;
 
   const sym = useMemo(
     () => getCurrencySymbol(q?.currency_code) || q?.currency_symbol || "",
@@ -61,13 +98,22 @@ const GenerateSalesOrder = () => {
     grandTotal > 0 &&
     Number(advanceAmount) >= grandTotal;
 
-  const canCreate = !creating && !!deliveryAddressId && !advanceTooHigh;
+  const canCreate =
+    !creating && !!deliveryAddressId && !advanceTooHigh && !hasExistingSo;
 
   const backToQuotation = () =>
     navigate(`${appsRoot}/quotations/view/${quotationId}`);
 
   const onCreate = async () => {
     if (creating) return;
+    if (hasExistingSo) {
+      Notification(
+        "Validation",
+        t("A Sales Order has already been generated from this quotation."),
+        "warning"
+      );
+      return;
+    }
     if (!deliveryAddressId) {
       Notification(
         "Validation",
@@ -145,15 +191,53 @@ const GenerateSalesOrder = () => {
             </h4>
           </CardHeader>
           <CardBody>
-            <div className="alert alert-info small mb-3">
-              <FileText size={14} className="me-1" />
-              {t(
-                "This creates the Sales Order only. Assign vendors and add charges later from the Sales Order detail using “Generate POV”."
-              )}
-            </div>
+            {hasExistingSo && (
+              <div
+                className="alert alert-danger d-flex align-items-center mb-3"
+                style={{ fontWeight: 500 }}
+              >
+                <AlertTriangle
+                  size={18}
+                  className="me-1 flex-shrink-0"
+                />
+                <span style={{ padding: 6 }}>
+                  {t(
+                    "A Sales Order has already been generated from this quotation"
+                  )}
+                  {": "}
+                  {existingSos.map((so, i) => (
+                    <Fragment key={so?._id || i}>
+                      {i > 0 ? ", " : ""}
+                      <Link
+                        to={`${appsRoot}/purchase-orders/view/${so?._id || ""}`}
+                        className="fw-bold alert-link"
+                      >
+                        {so?.voucher_no || t("(draft)")}
+                      </Link>
+                    </Fragment>
+                  ))}
+                  {". "}
+                  {t("Generating another would create a duplicate.")}
+                </span>
+              </div>
+            )}
 
-            <div className="row g-2" style={{ maxWidth: 640 }}>
-              <div className="col-12">
+            {!hasExistingSo && (
+              <div
+                className="alert alert-info d-flex align-items-center mb-3"
+                style={{ color: "#055160", fontWeight: 500 }}
+              >
+                <FileText size={16} className="me-1 flex-shrink-0" />
+                <span>
+                  {t(
+                    "This creates the Sales Order only. Assign vendors and add charges later from the Sales Order detail using “Generate POV”."
+                  )}
+                </span>
+              </div>
+            )}
+
+            <div className="row g-2">
+              <div className="col-md-3">
                 <label className="form-label fw-semibold">
                   {t("Deliver goods to")}{" "}
                   <span className="text-danger">*</span>
@@ -182,7 +266,7 @@ const GenerateSalesOrder = () => {
                 )}
               </div>
 
-              <div className="col-12">
+              <div className="col-md-3">
                 <label className="form-label fw-semibold">
                   {t("Customer PO #")}
                 </label>
@@ -196,7 +280,7 @@ const GenerateSalesOrder = () => {
                 />
               </div>
 
-              <div className="col-md-6">
+              <div className="col-md-3">
                 <label className="form-label fw-semibold">
                   {t("Advance Amount")}
                   {sym ? ` (${sym})` : ""}
@@ -225,7 +309,7 @@ const GenerateSalesOrder = () => {
                   )
                 )}
               </div>
-              <div className="col-md-6">
+              <div className="col-md-3">
                 <label className="form-label fw-semibold">
                   {t("Advance Date")}
                 </label>

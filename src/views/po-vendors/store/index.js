@@ -256,6 +256,33 @@ export const cancelPoVendor = createAsyncThunk(
   }
 );
 
+// ─── Revert to draft (cancelled only) ──────────────────────────────────
+
+export const revertPoVendorToDraft = createAsyncThunk(
+  "appPoVendor/revertPoVendorToDraft",
+  async (id, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.revertDraft}/${id}/revert-draft`
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_REVERTED",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to revert POV to draft");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Delete (draft only) ───────────────────────────────────────────────
 
 export const deletePoVendor = createAsyncThunk(
@@ -432,6 +459,21 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(cancelPoVendor.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(revertPoVendorToDraft.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(revertPoVendorToDraft.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(revertPoVendorToDraft.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

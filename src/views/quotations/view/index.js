@@ -486,22 +486,6 @@ const ViewQuotation = () => {
         ]
       : []),
     {
-      icon: Eye,
-      label: t("Preview"),
-      color: "secondary",
-      outline: true,
-      onClick: () =>
-        window.open(`${appsRoot}/quotations/preview/${id}`, "_blank"),
-    },
-    {
-      icon: Download,
-      label: pdfLoading ? t("Generating…") : t("Download"),
-      color: "secondary",
-      outline: true,
-      disabled: pdfLoading,
-      onClick: downloadPdf,
-    },
-    {
       icon: ArrowLeft,
       label: t("Back"),
       onClick: () => navigate(`${appsRoot}/quotations`),
@@ -625,13 +609,42 @@ const ViewQuotation = () => {
           actionsPrefix={statusDropdown}
           moreActions={[]}
           belowSlot={
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-1">
-              <DetailPipeline
-                steps={PIPELINE_STEPS}
-                current={statusLower}
-                terminalSteps={TERMINAL_STEPS}
-              />
-              {currencyToggle}
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <DetailPipeline
+                  steps={PIPELINE_STEPS}
+                  current={statusLower}
+                  terminalSteps={TERMINAL_STEPS}
+                />
+              </div>
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() =>
+                    window.open(
+                      `${appsRoot}/quotations/preview/${id}`,
+                      "_blank"
+                    )
+                  }
+                >
+                  <Eye size={14} className="me-50" />
+                  {t("Preview")}
+                </Button>
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  disabled={pdfLoading}
+                  onClick={downloadPdf}
+                >
+                  <Download size={14} className="me-50" />
+                  {pdfLoading ? t("Generating…") : t("Download")}
+                </Button>
+              </div>
             </div>
           }
         />

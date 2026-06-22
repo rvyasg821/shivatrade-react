@@ -23,6 +23,7 @@ import {
   Layers,
   Send,
   X as XIcon,
+  RotateCcw,
   ArrowLeft,
   ExternalLink,
   Activity,
@@ -31,12 +32,14 @@ import {
   Phone,
   Download,
 } from "react-feather";
+import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import {
   getPoVendor,
+  revertPoVendorToDraft,
   cleanPoVendorMessage,
   cancelPoVendor,
 } from "@src/views/po-vendors/store";
@@ -141,6 +144,7 @@ const ViewPoVendor = () => {
       (store?.actionFlag === "POV_DISPATCHED" ||
         store?.actionFlag === "POV_CLOSED" ||
         store?.actionFlag === "POV_CANCELLED" ||
+        store?.actionFlag === "POV_REVERTED" ||
         store?.actionFlag === "POV_UPDT")
     ) {
       dispatch(getPoVendor(id));
@@ -166,6 +170,31 @@ const ViewPoVendor = () => {
   // Cancel is only available before dispatch — once goods are dispatched the
   // POV can no longer be cancelled from the detail page.
   const canCancel = canUpdate && statusLower === "draft";
+  // A cancelled POV (no dispatch/receipt activity) can be put back to draft so
+  // its quantities are re-reserved against the PO.
+  const canRevert = canUpdate && statusLower === "cancelled";
+
+  const handleRevert = () => {
+    mySwal
+      .fire({
+        title: t("Revert this POV to draft?"),
+        text: t(
+          "Its ordered quantities will be re-reserved against the PO. Only possible if they haven't been re-issued on another POV."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, revert to draft"),
+        cancelButtonText: t("Keep cancelled"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (result.isConfirmed) dispatch(revertPoVendorToDraft(id));
+      });
+  };
 
   const handleCancel = () => {
     mySwal
@@ -343,13 +372,14 @@ const ViewPoVendor = () => {
       onClick: handleCancel,
     });
   }
-  headerActions.push({
-    icon: Download,
-    label: t("Download"),
-    color: "secondary",
-    outline: true,
-    onClick: () => handleDownloadPdf(),
-  });
+  if (canRevert) {
+    headerActions.push({
+      icon: RotateCcw,
+      label: t("Revert to Draft"),
+      color: "primary",
+      onClick: handleRevert,
+    });
+  }
   headerActions.push({
     icon: ArrowLeft,
     label: t("Back"),
@@ -428,11 +458,27 @@ const ViewPoVendor = () => {
           actions={headerActions}
           moreActions={[]}
           belowSlot={
-            <DetailPipeline
-              steps={PIPELINE_STEPS}
-              current={statusLower}
-              terminalSteps={TERMINAL_STEPS}
-            />
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <DetailPipeline
+                  steps={PIPELINE_STEPS}
+                  current={statusLower}
+                  terminalSteps={TERMINAL_STEPS}
+                />
+              </div>
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() => handleDownloadPdf()}
+                >
+                  <Download size={14} className="me-50" />
+                  {t("Download")}
+                </Button>
+              </div>
+            </div>
           }
         />
 

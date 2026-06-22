@@ -274,6 +274,7 @@ export const API_ENDPOINTS = {
     recover: `/admin/po-vendor/recover`, // append /:poId
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     cancel: `/admin/po-vendor`, // append /:id/cancel
+    revertDraft: `/admin/po-vendor`, // append /:id/revert-draft
     pdf: `/admin/po-vendor`, // append /:id/pdf  (and /:id/pdf-ticket)
     ticketPdf: `/public/po-vendor/pdf`, // ?t=<ticket> (no-auth, new-tab open)
   },
@@ -283,6 +284,7 @@ export const API_ENDPOINTS = {
   },
   invoices: {
     list: `/admin/invoice/list`,
+    stats: `/admin/invoice/stats`,
     get: `/admin/invoice/get`, // append /:id
     create: `/admin/invoice/create`,
     update: `/admin/invoice/update`, // append /:id
