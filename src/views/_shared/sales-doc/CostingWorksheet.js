@@ -253,18 +253,27 @@ const CostingWorksheet = ({
   const onPickVendor = (idx, opt) => {
     const r = opt?.raw || {};
     const newVendorId = opt ? opt.value : "";
-    const productId = liveLines[idx]?.product_id || "";
+    // Read the LIVE form state (not the watched `liveLines`, which can be a
+    // stale closure on the async auto-pick path) so the guard sees the row's
+    // just-set product_id and every other row's current vendor.
+    const allLines =
+      (typeof getValues === "function" && getValues("lines")) || liveLines || [];
+    const productId = allLines[idx]?.product_id || "";
     // Block the same product + same vendor on two lines. A product may still be
     // added with a different vendor (multi-vendor model) — only an exact
     // product+vendor duplicate is rejected.
     if (newVendorId && productId) {
-      const dup = liveLines.some(
+      const dup = allLines.some(
         (l, i) =>
           i !== idx &&
           String(l?.product_id || "") === String(productId) &&
           String(l?.vendor_id || "") === String(newVendorId)
       );
       if (dup) {
+        // Clear any vendor on this row so it can't silently keep a duplicate.
+        setValue(`lines.${idx}.vendor_id`, "");
+        setValue(`lines.${idx}.vendor_name`, "");
+        setValue(`lines.${idx}.vendor_code`, "");
         Notification(
           "Validation",
           t(
