@@ -24,8 +24,7 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
 import { isAdminUser } from "@constant/defaultValues";
@@ -165,30 +164,15 @@ const PaymentsTab = ({ registerActions }) => {
       });
   };
 
-  // Open the Payment Voucher PDF inline via a short-lived ticket (proper
-  // filename), same pattern as the dispatch-advice PDF.
-  const openVoucherPdf = async (paymentId) => {
-    const win = window.open("", "_blank");
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.poVendors.paymentPdfTicket}/${id}/payment-pdf-ticket/${paymentId}`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.poVendors.ticketPaymentPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        t("Error"),
-        err?.response?.data?.message || t("Could not open the voucher PDF"),
-        "warning"
-      );
-    }
-  };
+  // Open the Payment Voucher PDF in the in-app viewer (new tab, frontend
+  // origin) — fetched via the authed API, with a correctly-named Download.
+  const openVoucherPdf = (payment) =>
+    openPdfViewer({
+      kind: "po_vendor_payment",
+      id,
+      name: payment?.payment_voucher_no,
+      params: { paymentId: payment?._id },
+    });
 
   // Publish the Record Payment button to the tab bar (right of the titles).
   useEffect(() => {
@@ -280,7 +264,7 @@ const PaymentsTab = ({ registerActions }) => {
                         color="link"
                         className="p-0"
                         title={t("Download Voucher")}
-                        onClick={() => openVoucherPdf(pay._id)}
+                        onClick={() => openVoucherPdf(pay)}
                       >
                         <Download size={13} className="me-25" />
                         {pay.payment_voucher_no}

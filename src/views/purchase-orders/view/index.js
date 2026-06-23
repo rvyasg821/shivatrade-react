@@ -33,8 +33,7 @@ import {
   cleanPurchaseOrderMessage,
 } from "@src/views/purchase-orders/store";
 import Notification from "@components/toast/notification";
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
@@ -344,31 +343,10 @@ const ViewPurchaseOrder = () => {
     },
   ];
 
-  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const handleDownloadPdf = async () => {
-    if (!id) return;
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.purchaseOrders.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    }
-  };
+  // Open the PDF in the in-app viewer (new tab, frontend origin) — fetched via
+  // the authed API, shown there, with a correctly-named Download.
+  const handleDownloadPdf = () =>
+    openPdfViewer({ kind: "purchase_order", id, name: p?.voucher_no });
 
   // Change Status dropdown — rendered left of the action buttons, mirroring
   // the RFQ / Quotation detail pages.

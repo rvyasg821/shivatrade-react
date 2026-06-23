@@ -47,6 +47,7 @@ import Notification from "@components/toast/notification";
 import Avatar from "@components/avatar";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import RfqImportModal from "./RfqImportModal";
 
@@ -115,7 +116,6 @@ const RfqView = () => {
   const [saving, setSaving] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
-  const [pdfLoading, setPdfLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   // Unsaved-work flag: a draft with vendors added, or typed prices not yet
   // saved. Drives the "leave anyway?" guard on tab close / refresh.
@@ -210,6 +210,8 @@ const RfqView = () => {
         product_code: l.product_code,
         qty: l.qty,
         unit: l.unit,
+        hs_code: l.hs_code,
+        part_no: l.part_no,
       }))
     : rfq?.lines || [];
   const vendors = isDraft ? draftVendors : rfq?.vendors || [];
@@ -600,23 +602,15 @@ const RfqView = () => {
     }
   };
 
-  const downloadPdf = (vendorId) => {
-    const url = `${API_ENDPOINTS.rfq.pdf}/${id}/pdf${vendorId ? `?vendor_id=${vendorId}` : ""}`;
-    setPdfLoading(true);
-    instance
-      .get(url, { responseType: "blob" })
-      .then((resp) => {
-        const blob = new Blob([resp.data], { type: "application/pdf" });
-        const link = document.createElement("a");
-        link.href = window.URL.createObjectURL(blob);
-        link.download = `RFQ-${rfq?.voucher_no || id}.pdf`;
-        link.click();
-      })
-      .catch(() =>
-        Notification("Error", t("Could not generate the PDF."), "warning")
-      )
-      .finally(() => setPdfLoading(false));
-  };
+  // Open the RFQ PDF in the in-app viewer (new tab, frontend origin) — fetched
+  // via the authed API, shown there, with a correctly-named Download.
+  const downloadPdf = (vendorId) =>
+    openPdfViewer({
+      kind: "rfq",
+      id,
+      name: `RFQ-${rfq?.voucher_no || id}`,
+      params: vendorId ? { vendor_id: vendorId } : {},
+    });
 
   // Export a single vendor's price-request sheet (one .xlsx) — only the checked
   // products (the ones this vendor supplies). One vendor at a time.
@@ -881,17 +875,8 @@ const RfqView = () => {
                 outline
                 size="sm"
                 onClick={() => downloadPdf()}
-                disabled={pdfLoading}
               >
-                {pdfLoading ? (
-                  <>
-                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} className="me-25" /> {t("Quote Request PDF")}
-                  </>
-                )}
+                <Download size={14} className="me-25" /> {t("Quote Request PDF")}
               </Button>
             )}
             <Button
@@ -1063,7 +1048,9 @@ const RfqView = () => {
                       />
                     </th>
                     <th style={{ width: 30 }}>#</th>
-                    <th style={{ minWidth: 220 }}>{t("Item")}</th>
+                    <th style={{ minWidth: 200 }}>{t("Item")}</th>
+                    <th style={{ width: 120 }}>{t("HSN Code")}</th>
+                    <th style={{ width: 130 }}>{t("Part No")}</th>
                     <th className="text-end" style={{ width: 110 }}>
                       {t("Qty")}
                     </th>
@@ -1103,18 +1090,11 @@ const RfqView = () => {
                               {l.product_code}
                             </div>
                           )}
-                          {(l.part_no || l.hsn_code || l.hs_code) && (
-                            <div className="text-muted small">
-                              {l.part_no ? `${t("Part")}: ${l.part_no}` : ""}
-                              {l.part_no && (l.hsn_code || l.hs_code)
-                                ? " · "
-                                : ""}
-                              {l.hsn_code || l.hs_code
-                                ? `${t("HSN")}: ${l.hsn_code || l.hs_code}`
-                                : ""}
-                            </div>
-                          )}
                         </td>
+                        <td className="align-top">
+                          {l.hsn_code || l.hs_code || "-"}
+                        </td>
+                        <td className="align-top">{l.part_no || "-"}</td>
                         <td className="text-end align-top">
                           {limit2(l.qty)} {l.unit || ""}
                         </td>

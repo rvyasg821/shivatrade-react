@@ -21,6 +21,7 @@ import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { deleteGrn, cleanGrnMessage } from "@src/views/grn/store";
@@ -48,7 +49,6 @@ const GrnsTab = ({ registerActions }) => {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [downloadingId, setDownloadingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   const load = useCallback(() => {
@@ -155,34 +155,10 @@ const GrnsTab = ({ registerActions }) => {
     navigate(`${appsRoot}/debit-notes/create/${g._id}`);
   };
 
-  // Open a GRN's PDF inline in a new tab (proper name) via a short-lived
-  // ticket on the no-auth public route — a blob tab is named by its UUID.
-  const downloadGrnPdf = async (g) => {
-    if (!g?._id || downloadingId) return;
-    setDownloadingId(g._id);
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.grn.pdf}/${g._id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.grn.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    } finally {
-      setDownloadingId(null);
-    }
-  };
+  // Open a GRN's PDF in the in-app viewer (new tab, frontend origin) — fetched
+  // via the authed API, shown there, with a correctly-named Download.
+  const downloadGrnPdf = (g) =>
+    openPdfViewer({ kind: "grn", id: g?._id, name: g?.voucher_no });
 
   if (loading && !rows.length) {
     return (
@@ -305,14 +281,9 @@ const GrnsTab = ({ registerActions }) => {
                         size="sm"
                         className="p-25"
                         title={t("Download PDF")}
-                        disabled={downloadingId === g._id}
                         onClick={() => downloadGrnPdf(g)}
                       >
-                        {downloadingId === g._id ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <Download size={15} />
-                        )}
+                        <Download size={15} />
                       </Button>
                       <Button
                         color="flat-danger"

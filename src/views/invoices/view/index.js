@@ -54,7 +54,7 @@ import Select from "react-select";
 import DateInput from "@components/date-input";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { startLoading, stopLoading } from "@src/views/loadingstore";
+import { openPdfViewer } from "@src/utility/pdf";
 import Notification from "@components/toast/notification";
 import {
   appsRoot,
@@ -158,40 +158,16 @@ const ViewInvoice = () => {
     });
   };
 
-  // Fetch the PDF via the auth-aware axios instance, then open it as a
-  // blob URL. window.open(serverUrl) would skip the Bearer header → 401.
-  // Uses the global page overlay (SimpleSpinner) for the loading state.
-  const openInvoicePdf = async (doc, extraParams = {}) => {
-    dispatch(startLoading());
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.invoices.pdf}/${id}/pdf`,
-        { params: { doc, ...extraParams }, responseType: "blob" }
-      );
-      const blob = new Blob([resp.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const w = window.open(url, "_blank");
-      // Some popup blockers return null; fall back to a download.
-      if (!w) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${inv?.voucher_no || "invoice"}-${doc}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      // Revoke after a delay so the new tab has time to load it.
-      setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.response?.data?.message || "Failed to load PDF",
-        "warning"
-      );
-    } finally {
-      dispatch(stopLoading());
-    }
-  };
+  // Open an invoice PDF (commercial | export | packing-list | receipt) in the
+  // in-app viewer — new tab on the frontend origin, with a correctly-named
+  // Download. `extraParams` carries paymentId for the receipt voucher.
+  const openInvoicePdf = (doc, extraParams = {}) =>
+    openPdfViewer({
+      kind: "invoice",
+      id,
+      name: `${inv?.voucher_no || "invoice"}-${doc}`,
+      params: { doc, ...extraParams },
+    });
 
   const handleVoidPayment = (paymentId) => {
     mySwal

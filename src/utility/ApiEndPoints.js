@@ -220,8 +220,7 @@ export const API_ENDPOINTS = {
     rotateToken: `/admin/quotation/rotate-token`,
     unpublish: `/admin/quotation/unpublish`,
     publicPreview: `/admin/quotation/public-preview`,
-    pdf: `/admin/quotation`, // append /:id/pdf  (and /:id/pdf-ticket)
-    ticketPdf: `/public/quotation/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    pdf: `/admin/quotation`, // append /:id/pdf (authed; opened as a blob in a new tab)
     public: `/public/quotation`,
   },
   pfis: {
@@ -257,8 +256,7 @@ export const API_ENDPOINTS = {
     unpublish: `/admin/purchase-order/unpublish`, // append /:id
     public: `/public/purchase-order`, // append /:token
     publicPdf: `/public/purchase-order`, // append /:token/pdf
-    ticketPdf: `/public/purchase-order/pdf`, // ?t=<ticket> (no-auth, new-tab open)
-    pdf: `/admin/purchase-order`, // append /:id/pdf  (and /:id/pdf-ticket)
+    pdf: `/admin/purchase-order`, // append /:id/pdf (authed; opened as a blob in the in-app viewer)
     coverage: `/admin/purchase-order`, // append /:id/coverage
     pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId
     quotationCoverage: `/admin/purchase-order/quotation-coverage`, // append /:quotationId
@@ -276,11 +274,8 @@ export const API_ENDPOINTS = {
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     cancel: `/admin/po-vendor`, // append /:id/cancel
     revertDraft: `/admin/po-vendor`, // append /:id/revert-draft
-    pdf: `/admin/po-vendor`, // append /:id/pdf  (and /:id/pdf-ticket)
-    ticketPdf: `/public/po-vendor/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
-    paymentPdfTicket: `/admin/po-vendor`, // append /:id/payment-pdf-ticket/:paymentId
-    ticketPaymentPdf: `/public/po-vendor/payment-pdf`, // ?t=<ticket> (no-auth, new-tab open)
   },
   inventory: {
     list: `/admin/inventory/list`,
@@ -369,8 +364,7 @@ export const API_ENDPOINTS = {
     get: `/admin/grn/get`, // append /:id
     update: `/admin/grn/update`, // append /:id
     delete: `/admin/grn/delete`, // append /:id
-    pdf: `/admin/grn`, // append /:id/pdf  (and /:id/pdf-ticket)
-    ticketPdf: `/public/grn/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    pdf: `/admin/grn`, // append /:id/pdf (authed; opened in the in-app viewer)
   },
   debitNotes: {
     list: `/admin/debit-note/list`,
@@ -379,8 +373,7 @@ export const API_ENDPOINTS = {
     get: `/admin/debit-note/get`, // append /:id
     update: `/admin/debit-note/update`, // append /:id
     delete: `/admin/debit-note/delete`, // append /:id
-    pdf: `/admin/debit-note`, // append /:id/pdf  (and /:id/pdf-ticket)
-    ticketPdf: `/public/debit-note/pdf`, // ?t=<ticket> (no-auth, new-tab open)
+    pdf: `/admin/debit-note`, // append /:id/pdf (authed; opened in the in-app viewer)
   },
   rebates: {
     list: `/admin/rebate/list`,

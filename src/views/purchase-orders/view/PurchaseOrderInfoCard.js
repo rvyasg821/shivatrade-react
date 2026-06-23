@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -23,9 +23,7 @@ import { useTranslation } from "react-i18next";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import Notification from "@components/toast/notification";
+import { openPdfViewer } from "@src/utility/pdf";
 
 const InfoRow = ({ icon: Icon, value }) => {
   if (!value) return null;
@@ -75,35 +73,10 @@ const PurchaseOrderInfoCard = () => {
 
   const statusLabel = (p?.status || "-").replace(/_/g, " ");
 
-  const [downloading, setDownloading] = useState(false);
-  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const onDownloadPdf = async () => {
-    if (!id || downloading) return;
-    setDownloading(true);
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.purchaseOrders.pdf}/${id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.purchaseOrders.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    } finally {
-      setDownloading(false);
-    }
-  };
+  // Open the PDF in the in-app viewer (new tab, frontend origin) — fetched via
+  // the authed API, shown there, with a correctly-named Download.
+  const onDownloadPdf = () =>
+    openPdfViewer({ kind: "purchase_order", id, name: p?.voucher_no });
 
   return (
     <Fragment>
@@ -261,14 +234,9 @@ const PurchaseOrderInfoCard = () => {
 
           {/* Actions */}
           <div className="d-grid gap-1 mt-2">
-            <Button
-              color="primary"
-              onClick={onDownloadPdf}
-              disabled={downloading}
-              id="po-pdf-from-view"
-            >
+            <Button color="primary" onClick={onDownloadPdf} id="po-pdf-from-view">
               <Download size={14} className="me-50" />
-              {downloading ? t("Generating…") : t("Download PDF")}
+              {t("Download PDF")}
             </Button>
             <UncontrolledTooltip target="po-pdf-from-view" placement="top">
               {t("Download PO as PDF")}

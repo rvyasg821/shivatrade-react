@@ -76,6 +76,7 @@ const EditQuotation = lazy(() => import('@src/views/quotations/add'));
 const GenerateSalesOrder = lazy(() => import('@src/views/quotations/generate-so'));
 const ViewQuotation = lazy(() => import('@src/views/quotations/view'));
 const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
+const PdfViewer = lazy(() => import('@src/views/_shared/pdf-viewer'));
 const PfiList = lazy(() => import('@src/views/pfi'));
 const AddPfi = lazy(() => import('@src/views/pfi/add'));
 const EditPfi = lazy(() => import('@src/views/pfi/add'));
@@ -690,6 +691,17 @@ const AppRoutes = [
     element: <QuotationPublicView />,
     meta: {
       publicRoute: true,
+      layout: 'blank',
+    },
+  },
+  {
+    // In-app PDF viewer (authed, full-screen). Opened in a new tab by
+    // openPdfViewer({ kind, id }); keeps the URL on the frontend origin and
+    // offers a correctly-named Download. No permissionId — the API enforces
+    // per-document access on the fetch.
+    path: `${appsRoot}/pdf-viewer`,
+    element: <PdfViewer />,
+    meta: {
       layout: 'blank',
     },
   },

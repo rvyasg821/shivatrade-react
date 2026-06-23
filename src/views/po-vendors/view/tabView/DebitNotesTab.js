@@ -14,6 +14,7 @@ import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import {
@@ -53,40 +54,15 @@ const DebitNotesTab = ({ registerActions }) => {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [downloadingId, setDownloadingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   // A confirmed GRN with rejected goods but no Debit Note yet — the "Create
   // Debit Note" action is published only when one exists.
   const [pendingGrn, setPendingGrn] = useState(null);
 
-  // Open a Debit Note's PDF inline in a new tab via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const downloadPdf = async (d) => {
-    if (!d?._id || downloadingId) return;
-    setDownloadingId(d._id);
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.debitNotes.pdf}/${d._id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.debitNotes.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    } finally {
-      setDownloadingId(null);
-    }
-  };
+  // Open a Debit Note's PDF in the in-app viewer (new tab, frontend origin) —
+  // fetched via the authed API, shown there, with a correctly-named Download.
+  const downloadPdf = (d) =>
+    openPdfViewer({ kind: "debit_note", id: d?._id, name: d?.voucher_no });
 
   // Load the Debit Note list AND the POV's GRNs together, then derive whether
   // a Debit Note is "necessary": a confirmed GRN with rejected qty that isn't
@@ -313,14 +289,9 @@ const DebitNotesTab = ({ registerActions }) => {
                       size="sm"
                       className="p-25"
                       title={t("Download PDF")}
-                      disabled={downloadingId === d._id}
                       onClick={() => downloadPdf(d)}
                     >
-                      {downloadingId === d._id ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        <Download size={15} />
-                      )}
+                      <Download size={15} />
                     </Button>
                     <Button
                       color="flat-danger"

@@ -53,8 +53,7 @@ import {
   Mail,
 } from "react-feather";
 
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -200,30 +199,15 @@ const PurchaseOrderView = () => {
     if (store?.error) Notification("Error", store.error, "warning");
   }, [store.actionFlag, store.success, store.error]);
 
-  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const handleDownloadPdf = async (row) => {
+  // Open the PDF in the in-app viewer (new tab, frontend origin) — fetched via
+  // the authed API, shown there, with a correctly-named Download.
+  const handleDownloadPdf = (row) => {
     if (!row?._id) return;
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.purchaseOrders.pdf}/${row._id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.purchaseOrders.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    }
+    openPdfViewer({
+      kind: "purchase_order",
+      id: row._id,
+      name: row.voucher_no,
+    });
   };
 
   const handleDelete = (id = "") => {
