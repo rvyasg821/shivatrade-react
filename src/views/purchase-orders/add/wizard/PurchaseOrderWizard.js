@@ -103,7 +103,14 @@ const PurchaseOrderWizard = () => {
                 .string()
                 .required(t("Vendor is required")),
               product_id: yup.string().required(t("Product is required")),
-              qty: yup.string().required(t("Qty is required")),
+              qty: yup
+                .string()
+                .required(t("Qty is required"))
+                .test(
+                  "qty-positive",
+                  t("Qty must be greater than 0"),
+                  (v) => Number(v) > 0
+                ),
               unit_price: yup.string().required(t("Unit price is required")),
             })
           )

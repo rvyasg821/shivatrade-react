@@ -20,6 +20,7 @@ import {
   Download,
   Mail,
   Briefcase,
+  RotateCcw,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -270,6 +271,27 @@ const ViewQuotation = () => {
       .then((r) => r.isConfirmed && changeStatus("rejected", t("Could not reject")));
   };
 
+  const handleRevertToDraft = () => {
+    mySwal
+      .fire({
+        title: t("Revert to draft?"),
+        text: t("Moves this rejected quotation back to draft so it can be edited and re-sent."),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, revert to draft"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then(
+        (r) =>
+          r.isConfirmed &&
+          changeStatus("draft", t("Could not revert to draft"))
+      );
+  };
+
   useEffect(() => {
     if (id) dispatch(getQuotation(id));
     // Pull live currency master so symbols + base currency are dynamic.
@@ -375,6 +397,8 @@ const ViewQuotation = () => {
   const canSend = canEdit && statusLower === "draft";
   const canReject =
     canEdit && (statusLower === "draft" || statusLower === "sent");
+  // Revert: rejected → draft (re-open a turned-down quote for editing).
+  const canRevert = canEdit && statusLower === "rejected";
 
   const statusLabel = labelize(statusLower, QUOTATION_STATUS_OPTIONS);
 
@@ -476,6 +500,15 @@ const ViewQuotation = () => {
   // ── Header actions ── (status transitions live in the dropdown below; the
   // header keeps only Edit + Back to stay uncluttered.)
   const headerActions = [
+    ...(canRevert
+      ? [
+          {
+            icon: RotateCcw,
+            label: t("Revert to Draft"),
+            onClick: handleRevertToDraft,
+          },
+        ]
+      : []),
     ...(canEdit
       ? [
           {
