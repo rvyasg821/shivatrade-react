@@ -82,7 +82,7 @@ const STEPS = [
     key: "opportunity",
     label: "Opportunity",
     icon: Target,
-    fields: ["expected_value"],
+    fields: ["expected_value", "lines"],
   },
   {
     key: "address",
@@ -141,6 +141,23 @@ const LeadForm = () => {
           .min(0)
           .nullable()
           .notRequired(),
+        // Requirement lines: every row that has a product must carry a qty > 0.
+        lines: yup.array().of(
+          yup.object().shape({
+            qty: yup
+              .number()
+              .transform((v, o) => (o === "" || o === null ? undefined : v))
+              .when("product_id", {
+                is: (v) => !!v,
+                then: (s) =>
+                  s
+                    .typeError(t("Qty is required"))
+                    .positive(t("Qty must be greater than 0"))
+                    .required(t("Qty is required")),
+                otherwise: (s) => s.nullable().notRequired(),
+              }),
+          })
+        ),
       }),
     [t]
   );

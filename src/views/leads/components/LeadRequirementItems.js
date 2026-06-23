@@ -16,6 +16,7 @@ import { Plus, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
+import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
@@ -87,6 +88,38 @@ const LeadRequirementItems = ({
 
   const onPickProduct = async (idx, opt) => {
     const raw = opt?.raw || {};
+
+    // No duplicate products on a lead — match by product code. If the picked
+    // product already sits on another row, fold this row's qty into that row
+    // and drop the duplicate instead of adding a second line.
+    const pickedCode = String(raw.code || "").trim().toLowerCase();
+    if (opt?.value && pickedCode) {
+      const lines = lineFA.fields.map((f, i) => ({
+        ...f,
+        ...(watchedLines?.[i] || {}),
+      }));
+      const dupIdx = lines.findIndex(
+        (l, i) =>
+          i !== idx &&
+          String(l?.product_code || "").trim().toLowerCase() === pickedCode
+      );
+      if (dupIdx !== -1) {
+        const mergedQty = num(lines[dupIdx]?.qty) + num(lines[idx]?.qty);
+        lineFA.remove(idx);
+        const targetIdx = dupIdx > idx ? dupIdx - 1 : dupIdx;
+        if (mergedQty > 0) setValue(`lines.${targetIdx}.qty`, mergedQty);
+        setPage(Math.floor(targetIdx / pageSize));
+        Notification(
+          "Validation",
+          t(
+            "This product is already added. Quantity has been merged into the existing row."
+          ),
+          "warning"
+        );
+        return;
+      }
+    }
+
     setValue(`lines.${idx}.product_id`, opt ? opt.value : "");
     setValue(`lines.${idx}.product_code`, raw.code || "");
     setValue(`lines.${idx}.product_name`, raw.name || raw.product_name || "");
@@ -250,13 +283,14 @@ const LeadRequirementItems = ({
                     <Controller
                       name={`lines.${idx}.qty`}
                       control={control}
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <Input
                           bsSize="sm"
                           type="number"
                           min="0"
                           step="0.01"
                           className="text-end"
+                          invalid={!!fieldState.error}
                           {...field}
                           value={field.value ?? ""}
                         />
@@ -328,42 +362,6 @@ const LeadRequirementItems = ({
       </div>
 
       {total > 0 && (
-        <div className="d-flex justify-content-end mb-2">
-          <Table size="sm" borderless className="w-auto mb-0">
-            <tbody>
-              <tr>
-                <td className="text-muted pe-3 py-25">{t("INR Total")}</td>
-                <td className="text-end fw-semibold py-25">
-                  {fmtInr(inrTotal)}
-                </td>
-              </tr>
-              {isForeign && (
-                <Fragment>
-                  <tr>
-                    <td className="text-muted pe-3 py-25">
-                      {t("Exchange Rate")}
-                    </td>
-                    <td className="text-end py-25">
-                      1 {currencyCode} = ₹{fmtNum(1 / docRate)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted pe-3 py-25">
-                      {currencyCode} {t("Value")}
-                    </td>
-                    <td className="text-end fw-bold py-25">
-                      {currencySymbol}
-                      {fmtNum(docTotal)}
-                    </td>
-                  </tr>
-                </Fragment>
-              )}
-            </tbody>
-          </Table>
-        </div>
-      )}
-
-      {total > 0 && (
         <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 mb-3 gap-1">
           <div className="d-flex align-items-center small text-muted">
             <span className="me-50">{t("Show")}</span>
@@ -402,6 +400,42 @@ const LeadRequirementItems = ({
             pageLinkClassName="page-link"
             containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
           />
+        </div>
+      )}
+
+      {total > 0 && (
+        <div className="d-flex justify-content-end mb-2">
+          <Table size="sm" borderless className="w-auto mb-0">
+            <tbody>
+              <tr>
+                <td className="text-muted pe-3 py-25">{t("INR Total")}</td>
+                <td className="text-end fw-semibold py-25">
+                  {fmtInr(inrTotal)}
+                </td>
+              </tr>
+              {isForeign && (
+                <Fragment>
+                  <tr>
+                    <td className="text-muted pe-3 py-25">
+                      {t("Exchange Rate")}
+                    </td>
+                    <td className="text-end py-25">
+                      {currencySymbol}1 = ₹{fmtNum(1 / docRate)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted pe-3 py-25">
+                      {currencyCode} {t("Value")}
+                    </td>
+                    <td className="text-end fw-bold py-25">
+                      {currencySymbol}
+                      {fmtNum(docTotal)}
+                    </td>
+                  </tr>
+                </Fragment>
+              )}
+            </tbody>
+          </Table>
         </div>
       )}
     </Fragment>

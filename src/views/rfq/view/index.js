@@ -1,5 +1,5 @@
 // RFQ detail — vendor price comparison grid (lines × vendors), select best.
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -105,6 +105,10 @@ const RfqView = () => {
   // checkbox state per vendor: { vendorId: { lineId: bool } }. Auto-initialised
   // (sellable products checked) the first time a vendor is selected.
   const [checkedByVendor, setCheckedByVendor] = useState({});
+  // Vendors whose ticks the operator has manually edited this session. Once a
+  // vendor is here, the "auto-check the products it supplies" seed must never
+  // overwrite the operator's choice (it still yields to the server-saved set).
+  const userTouchedVendorsRef = useRef({});
   // Per-vendor Excel import (the round-trip return leg) — 2-step modal.
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [draftVendors, setDraftVendors] = useState([]);
@@ -250,21 +254,28 @@ const RfqView = () => {
       new Set(lines.map((l) => l.product_id).filter(Boolean))
     );
 
-    // Restore the vendor's saved checkbox selection if present; else seed it
-    // from the sellable set once the prices come back.
+    // A vendor's ticks are authoritative in this priority order:
+    //   1. the server-saved set (checked_line_ids),
+    //   2. the operator's manual edits this session (userTouchedVendorsRef),
+    //   3. the auto-checked "this vendor supplies the product" default.
+    // Only (3) is derived here, and it must never clobber (1) or (2). The old
+    // code keyed this off "does checkedByVendor already hold an object?", which
+    // a stale/empty object satisfied — so the auto-seed was skipped and the
+    // boxes stayed unchecked even though the vendor had prices.
     const savedVendor = (rfq?.vendors || []).find(
       (v) => v.vendor_id === addVendorId
     );
     const savedIds = Array.isArray(savedVendor?.checked_line_ids)
       ? savedVendor.checked_line_ids
       : [];
-    const hasChecks = !!checkedByVendor[addVendorId];
-    if (savedIds.length && !hasChecks) {
+    const canAutoSeed = () =>
+      !savedIds.length && !userTouchedVendorsRef.current[addVendorId];
+
+    // Always restore the server-saved set (authoritative) when one exists.
+    if (savedIds.length) {
       const checks = {};
       for (const lid of savedIds) checks[lid] = true;
-      setCheckedByVendor((m) =>
-        m[addVendorId] ? m : { ...m, [addVendorId]: checks }
-      );
+      setCheckedByVendor((m) => ({ ...m, [addVendorId]: checks }));
     }
 
     if (!productIds.length) return;
@@ -279,15 +290,14 @@ const RfqView = () => {
         const priceByProduct = {};
         for (const r of rows) priceByProduct[r.product_id] = r.unit_price;
 
-        // Seed checkboxes once (don't clobber saved/edited ticks).
-        if (!hasChecks && !savedIds.length) {
+        // Auto-check the lines this vendor supplies — re-derived whenever the
+        // prices resolve, but yields to a saved set or the operator's edits.
+        if (canAutoSeed()) {
           const init = {};
           for (const l of lines) {
             init[l._id] = !!(l.product_id && sellable.has(l.product_id));
           }
-          setCheckedByVendor((m) =>
-            m[addVendorId] ? m : { ...m, [addVendorId]: init }
-          );
+          setCheckedByVendor((m) => ({ ...m, [addVendorId]: init }));
         }
 
         // Prefill the last active price for lines without a value yet.
@@ -309,12 +319,10 @@ const RfqView = () => {
         });
       })
       .catch(() => {
-        if (!hasChecks && !savedIds.length) {
+        if (canAutoSeed()) {
           const init = {};
           for (const l of lines) init[l._id] = false;
-          setCheckedByVendor((m) =>
-            m[addVendorId] ? m : { ...m, [addVendorId]: init }
-          );
+          setCheckedByVendor((m) => ({ ...m, [addVendorId]: init }));
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -724,6 +732,7 @@ const RfqView = () => {
   const activeChecks = checkedByVendor[activeVendorId] || {};
   const toggleCheck = (lineId) => {
     if (!activeVendorId) return;
+    userTouchedVendorsRef.current[activeVendorId] = true;
     setCheckedByVendor((m) => ({
       ...m,
       [activeVendorId]: {
@@ -734,6 +743,7 @@ const RfqView = () => {
   };
   const toggleAllChecks = (val) => {
     if (!activeVendorId) return;
+    userTouchedVendorsRef.current[activeVendorId] = true;
     setCheckedByVendor((m) => {
       const next = {};
       for (const l of lines) next[l._id] = val;

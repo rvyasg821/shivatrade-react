@@ -322,6 +322,7 @@ const QuotationWizard = () => {
           qty: ll.qty != null ? String(ll.qty) : "",
           unit: ll.unit || m?.unit_of_measure || "",
           hs_code: ll.hs_code || (m?.hsn_code != null ? String(m.hsn_code) : ""),
+          part_no: ll.part_no || m?.part_no || "",
           // GST %, margin, and rebate/expense snapshots come from the product
           // master (source of truth); all overridable per line.
           tax_pct: m?.tax_pct != null ? String(m.tax_pct) : "0",
