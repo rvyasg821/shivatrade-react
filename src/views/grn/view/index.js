@@ -32,6 +32,7 @@ import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -63,7 +64,6 @@ const GrnView = () => {
 
   // Editable quality-check map keyed by grn line id.
   const [qc, setQc] = useState({});
-  const [pdfLoading, setPdfLoading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
   // Active (non-cancelled) Debit Note already raised against this GRN, if any.
@@ -303,28 +303,10 @@ const GrnView = () => {
     dispatch(updateGrn({ id, data: payload }));
   };
 
-  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const downloadPdf = () => {
-    setPdfLoading(true);
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    instance
-      .get(`${API_ENDPOINTS.grn.pdf}/${id}/pdf-ticket`)
-      .then((resp) => {
-        const ticket = resp?.data?.data?.ticket;
-        if (!ticket) throw new Error("no ticket");
-        const url = `${instance.defaults.baseURL}${
-          API_ENDPOINTS.grn.ticketPdf
-        }?t=${encodeURIComponent(ticket)}`;
-        if (win) win.location.href = url;
-        else window.open(url, "_blank");
-      })
-      .catch(() => {
-        if (win) win.close();
-        Notification("Error", t("Could not generate the PDF."), "warning");
-      })
-      .finally(() => setPdfLoading(false));
-  };
+  // Open the GRN PDF in the in-app viewer (new tab, frontend origin) — fetched
+  // via the authed API, shown there, with a correctly-named Download.
+  const downloadPdf = () =>
+    openPdfViewer({ kind: "grn", id, name: grn?.voucher_no });
 
   if (!grn) {
     return (
@@ -399,22 +381,8 @@ const GrnView = () => {
               </Button>
             ) : null}
             {!isCreate && (
-              <Button
-                color="secondary"
-                outline
-                size="sm"
-                onClick={downloadPdf}
-                disabled={pdfLoading}
-              >
-                {pdfLoading ? (
-                  <>
-                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} className="me-25" /> {t("PDF")}
-                  </>
-                )}
+              <Button color="secondary" outline size="sm" onClick={downloadPdf}>
+                <Download size={14} className="me-25" /> {t("PDF")}
               </Button>
             )}
             <Button

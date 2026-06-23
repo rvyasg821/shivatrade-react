@@ -27,8 +27,7 @@ import { getGrn } from "@src/views/grn/store";
 import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -66,31 +65,11 @@ const DebitNoteView = () => {
 
   // Editable line map keyed by debit-note line id.
   const [edits, setEdits] = useState({});
-  const [pdfLoading, setPdfLoading] = useState(false);
 
-  // Open the PDF inline in a new tab (proper name) via a short-lived ticket on
-  // the no-auth public route — a blob tab is named by its UUID.
-  const downloadPdf = () => {
-    if (pdfLoading) return;
-    setPdfLoading(true);
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    instance
-      .get(`${API_ENDPOINTS.debitNotes.pdf}/${id}/pdf-ticket`)
-      .then((resp) => {
-        const ticket = resp?.data?.data?.ticket;
-        if (!ticket) throw new Error("no ticket");
-        const url = `${instance.defaults.baseURL}${
-          API_ENDPOINTS.debitNotes.ticketPdf
-        }?t=${encodeURIComponent(ticket)}`;
-        if (win) win.location.href = url;
-        else window.open(url, "_blank");
-      })
-      .catch(() => {
-        if (win) win.close();
-        Notification("Error", t("Could not generate the PDF."), "warning");
-      })
-      .finally(() => setPdfLoading(false));
-  };
+  // Open the Debit Note PDF in the in-app viewer (new tab, frontend origin) —
+  // fetched via the authed API, shown there, with a correctly-named Download.
+  const downloadPdf = () =>
+    openPdfViewer({ kind: "debit_note", id, name: dn?.voucher_no });
 
   useEffect(() => {
     dispatch(stopLoading());
@@ -304,22 +283,8 @@ const DebitNoteView = () => {
           </div>
           <div className="d-flex gap-1">
             {!isCreate && (
-              <Button
-                color="secondary"
-                outline
-                size="sm"
-                onClick={downloadPdf}
-                disabled={pdfLoading}
-              >
-                {pdfLoading ? (
-                  <>
-                    <Spinner size="sm" className="me-25" /> {t("Generating…")}
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} className="me-25" /> {t("PDF")}
-                  </>
-                )}
+              <Button color="secondary" outline size="sm" onClick={downloadPdf}>
+                <Download size={14} className="me-25" /> {t("PDF")}
               </Button>
             )}
             <Button

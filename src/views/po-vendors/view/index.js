@@ -44,8 +44,7 @@ import {
   cancelPoVendor,
 } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
@@ -327,31 +326,10 @@ const ViewPoVendor = () => {
     },
   ];
 
-  // Open the dispatch-advice PDF inline in a new tab (proper name) via a
-  // short-lived ticket on the no-auth public route — a blob tab is UUID-named.
-  const handleDownloadPdf = async () => {
-    if (!id) return;
-    const win = window.open("", "_blank"); // sync open → not popup-blocked
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.poVendors.pdf}/${id}/pdf-ticket`
-      );
-      const ticket = resp?.data?.data?.ticket;
-      if (!ticket) throw new Error("no ticket");
-      const url = `${instance.defaults.baseURL}${
-        API_ENDPOINTS.poVendors.ticketPdf
-      }?t=${encodeURIComponent(ticket)}`;
-      if (win) win.location.href = url;
-      else window.open(url, "_blank");
-    } catch (err) {
-      if (win) win.close();
-      Notification(
-        "Error",
-        err?.response?.data?.message || t("Could not download PDF"),
-        "warning"
-      );
-    }
-  };
+  // Open the Vendor PO PDF in the in-app viewer (new tab, frontend origin) —
+  // fetched via the authed API, shown there, with a correctly-named Download.
+  const handleDownloadPdf = () =>
+    openPdfViewer({ kind: "po_vendor", id, name: p?.voucher_no });
 
 
   // ── Header actions (contextual to status) ──
