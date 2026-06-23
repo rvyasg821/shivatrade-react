@@ -328,6 +328,16 @@ const ViewInvoice = () => {
   const balanceDoc = grandDoc - num(inv?.advance_received);
   const grandInr = exchangeRate > 0 ? grandDoc / exchangeRate : grandDoc;
 
+  // Payment-status pill for the Payments tab summary cards (mirrors the POV
+  // Payments tab). Derived from amounts so it reads right even while draft.
+  const paidDoc = num(inv?.advance_received);
+  const payPill =
+    grandDoc > 0 && balanceDoc <= 0.01 && paidDoc > 0
+      ? { label: "Paid", color: "success" }
+      : paidDoc > 0
+        ? { label: "Partially Paid", color: "warning" }
+        : { label: "Unpaid", color: "secondary" };
+
   // ── Handlers ────────────────────────────────────────────────────────
 
   const handleIssue = () => {
@@ -684,7 +694,8 @@ const ViewInvoice = () => {
           left={
             <Card className="mb-1">
               <CardBody>
-                <Nav pills className="mb-2">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
+                <Nav pills className="mb-0">
                   <NavItem>
                     <NavLink
                       active={activeTab === "details"}
@@ -785,6 +796,44 @@ const ViewInvoice = () => {
                     </NavLink>
                   </NavItem>
                 </Nav>
+                  {/* Active tab's action button, pinned top-right of the tab
+                      bar (same pattern as the Lead / POV detail tabs). */}
+                  <div className="d-flex gap-1">
+                    {activeTab === "payments" &&
+                      (isIssued || isPartial) &&
+                      canEdit && (
+                        <Button
+                          size="sm"
+                          color="success"
+                          onClick={openPaymentModal}
+                        >
+                          <DollarSign size={14} className="me-50" />
+                          {t("Record Payment")}
+                        </Button>
+                      )}
+                    {activeTab === "shipment" && canEdit && !isCancelled && (
+                      <Button
+                        size="sm"
+                        color="primary"
+                        outline
+                        onClick={() => setShipmentEditOpen(true)}
+                      >
+                        <Edit2 size={14} className="me-50" />
+                        {t("Edit")}
+                      </Button>
+                    )}
+                    {activeTab === "tracking" && canEdit && !isCancelled && (
+                      <Button
+                        size="sm"
+                        color="primary"
+                        onClick={() => setAddEventOpen(true)}
+                      >
+                        <Plus size={14} className="me-50" />
+                        {t("Add Event")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
 
                 <TabContent activeTab={activeTab}>
                   <TabPane tabId="details">
@@ -801,6 +850,7 @@ const ViewInvoice = () => {
                         <tr>
                           <th style={{ width: 40 }}>#</th>
                           <th>{t("HSN")}</th>
+                          <th>{t("Part No")}</th>
                           <th>{t("Product / Description")}</th>
                           <th style={{ width: 110 }} className="text-end">
                             {t("Qty")}
@@ -830,6 +880,7 @@ const ViewInvoice = () => {
                           <tr key={l._id || i}>
                             <td>{i + 1}</td>
                             <td>{l.hsn_code || "-"}</td>
+                            <td>{l.part_no || "-"}</td>
                             <td>
                               <div className="fw-semibold">
                                 {l.product_name || "-"}
@@ -862,7 +913,7 @@ const ViewInvoice = () => {
                       </tbody>
                       <tfoot className="table-light">
                         <tr>
-                          <td colSpan="5" className="text-end fw-bold">
+                          <td colSpan="6" className="text-end fw-bold">
                             {t("Subtotal")}
                           </td>
                           <td className="text-end fw-bold">
@@ -1075,18 +1126,55 @@ const ViewInvoice = () => {
 
                 <TabPane tabId="payments">
                 <div className="mb-3">
-                  {(isIssued || isPartial) && canEdit && (
-                    <div className="d-flex justify-content-end mb-2">
-                      <Button
-                        size="sm"
-                        color="success"
-                        onClick={openPaymentModal}
-                      >
-                        <DollarSign size={14} className="me-50" />
-                        {t("Record Payment")}
-                      </Button>
-                    </div>
-                  )}
+                  {/* Money position summary — mirrors the POV Payments tab. */}
+                  <Row className="g-1 mb-2">
+                    <Col md="3" sm="6">
+                      <div className="border rounded p-1 h-100">
+                        <div className="text-muted small">
+                          {t("Invoice Value (Receivable)")}
+                        </div>
+                        <div className="fw-bolder text-body">
+                          {sym}
+                          {fmt(grandDoc)}
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md="3" sm="6">
+                      <div className="border rounded p-1 h-100">
+                        <div className="text-muted small">{t("Total Paid")}</div>
+                        <div className="fw-bolder text-body">
+                          {sym}
+                          {fmt(paidDoc)}
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md="3" sm="6">
+                      <div className="border rounded p-1 h-100">
+                        <div className="text-muted small">
+                          {t("Balance Receivable")}
+                        </div>
+                        <div
+                          className="fw-bolder"
+                          style={{
+                            color: balanceDoc > 0.01 ? "#c77700" : "#1f8a3b",
+                          }}
+                        >
+                          {sym}
+                          {fmt(balanceDoc)}
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md="3" sm="6">
+                      <div className="border rounded p-1 h-100">
+                        <div className="text-muted small">
+                          {t("Payment Status")}
+                        </div>
+                        <Badge color={payPill.color} className="mt-25 text-white">
+                          {t(payPill.label)}
+                        </Badge>
+                      </div>
+                    </Col>
+                  </Row>
                   <div>
                     {!Array.isArray(inv?.payments) || inv.payments.length === 0 ? (
                       <div className="text-muted text-center py-3">
@@ -1180,19 +1268,8 @@ const ViewInvoice = () => {
                 </TabPane>
 
                 <TabPane tabId="shipment">
-                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                  <div className="mb-2">
                     <h6 className="mb-0">{t("Shipment & Shipping Bill")}</h6>
-                    {canEdit && !isCancelled && (
-                      <Button
-                        size="sm"
-                        color="primary"
-                        outline
-                        onClick={() => setShipmentEditOpen(true)}
-                      >
-                        <Edit2 size={14} className="me-50" />
-                        {t("Edit")}
-                      </Button>
-                    )}
                   </div>
                   <Table responsive bordered size="sm" className="mb-0">
                     <tbody>
@@ -1269,18 +1346,8 @@ const ViewInvoice = () => {
                 </TabPane>
 
                 <TabPane tabId="tracking">
-                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                  <div className="mb-2">
                     <h6 className="mb-0">{t("Tracking Timeline")}</h6>
-                    {canEdit && !isCancelled && (
-                      <Button
-                        size="sm"
-                        color="primary"
-                        onClick={() => setAddEventOpen(true)}
-                      >
-                        <Plus size={14} className="me-50" />
-                        {t("Add Event")}
-                      </Button>
-                    )}
                   </div>
                   {events.length === 0 ? (
                     <div className="text-muted text-center py-3">
