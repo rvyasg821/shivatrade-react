@@ -63,6 +63,7 @@ import {
   PURCHASE_ORDER_STATUS_COLOR_MAP as STATUS_COLOR_MAP,
 } from "@constant/options";
 import { formatMoney } from "@src/utility/currency";
+import { formatDate } from "@src/utility/dateFormat";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 
 const PurchaseOrderView = () => {
@@ -368,6 +369,13 @@ const PurchaseOrderView = () => {
           </div>
         );
       },
+    },
+    {
+      name: t("Date"),
+      sortField: "po_date",
+      sortable: false,
+      minWidth: "120px",
+      selector: (row) => (row?.po_date ? formatDate(row.po_date) : "-"),
     },
     {
       name: t("Status"),
