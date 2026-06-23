@@ -1126,7 +1126,10 @@ const ViewInvoice = () => {
 
                 <TabPane tabId="payments">
                 <div className="mb-3">
-                  {/* Money position summary — mirrors the POV Payments tab. */}
+                  {/* Money position summary — mirrors the POV Payments tab.
+                      Only meaningful once the invoice is issued (a draft has no
+                      receivable position yet), so hide it while draft. */}
+                  {(isIssued || isPartial || isPaid) && (
                   <Row className="g-1 mb-2">
                     <Col md="3" sm="6">
                       <div className="border rounded p-1 h-100">
@@ -1175,6 +1178,7 @@ const ViewInvoice = () => {
                       </div>
                     </Col>
                   </Row>
+                  )}
                   <div>
                     {!Array.isArray(inv?.payments) || inv.payments.length === 0 ? (
                       <div className="text-muted text-center py-3">
