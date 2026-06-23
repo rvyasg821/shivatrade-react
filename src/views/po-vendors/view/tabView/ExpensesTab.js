@@ -232,7 +232,10 @@ const ExpensesTab = ({ registerActions }) => {
               styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
             />
           ) : (
-            <span>{r.type === "percent" ? "%" : "₹"}</span>
+            <span>
+              {(TYPE_OPTIONS.find((o) => o.value === r.type) || {}).label ||
+                r.type}
+            </span>
           )}
         </td>
         <td style={{ width: 140 }}>
