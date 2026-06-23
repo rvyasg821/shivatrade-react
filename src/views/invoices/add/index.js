@@ -687,6 +687,7 @@ const InvoiceAddEdit = () => {
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
+          part_no: l.part_no || "",
           // Description is seeded directly from product_name only —
           // operators can edit it later. We do NOT inherit the SO line's
           // long description blurb.
@@ -999,6 +1000,7 @@ const InvoiceAddEdit = () => {
         product_id: l.product_id,
         product_name: l.product_name,
         product_code: l.product_code,
+        part_no: l.part_no,
         description: l.description,
         hsn_code: l.hsn_code,
         customer_reference: l.customer_reference,
@@ -1238,6 +1240,7 @@ const InvoiceAddEdit = () => {
         product_id: row.product_id,
         product_name: row.product_name || "",
         product_code: row.product_code || "",
+        part_no: row.part_no || "",
         description: row.product_name || "",
         hsn_code: row.hsn_code || "",
         customer_reference: row.customer_reference || "",
@@ -1553,6 +1556,7 @@ const InvoiceAddEdit = () => {
       product_id: l.product_id,
       product_name: l.product_name,
       product_code: l.product_code,
+      part_no: l.part_no,
       description: l.description,
       hsn_code: l.hsn_code,
       customer_reference: l.customer_reference,
@@ -2403,6 +2407,7 @@ const InvoiceAddEdit = () => {
                 <tr>
                   <th style={{ width: 30 }}>#</th>
                   <th style={{ width: 110 }}>{t("HSN")} <span className="text-danger">*</span></th>
+                  <th style={{ width: 110 }}>{t("Part No")}</th>
                   <th style={{ minWidth: 180, maxWidth: 260 }}>
                     {t("Product / Description")}
                   </th>
@@ -2469,6 +2474,15 @@ const InvoiceAddEdit = () => {
                           }}
                           invalid={!!errors[`line_${i}_hsn`]}
                           placeholder="HSN"
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          value={l.part_no || ""}
+                          onChange={(e) =>
+                            updateLine(i, { part_no: e.target.value })
+                          }
+                          placeholder={t("Part No")}
                         />
                       </td>
                       <td>
@@ -2669,7 +2683,7 @@ const InvoiceAddEdit = () => {
               </tbody>
               <tfoot className="table-light">
                 <tr>
-                  <td colSpan="7" className="text-end fw-bold">
+                  <td colSpan="8" className="text-end fw-bold">
                     {t("Subtotal")}
                   </td>
                   <td className="text-end fw-bold">
