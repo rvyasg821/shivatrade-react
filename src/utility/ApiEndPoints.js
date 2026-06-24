@@ -280,6 +280,8 @@ export const API_ENDPOINTS = {
   inventory: {
     list: `/admin/inventory/list`,
     stats: `/admin/inventory/stats`,
+    stock: `/admin/inventory/stock`, // ledger on-hand summary
+    movements: `/admin/inventory/movements`, // append /:productId
     receipt: `/admin/inventory/receipt`, // append /:povLineId
   },
   invoices: {

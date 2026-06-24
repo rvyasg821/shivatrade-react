@@ -198,6 +198,8 @@ const PoVendorRecoverModal = ({
     const map = new Map();
     for (const l of previewLines) {
       if (dropped[l.purchase_order_line_id]) continue;
+      // Lines fully covered from stock create no POV — exclude from the count.
+      if (num(l.to_procure) <= 0) continue;
       const vid = assignment[l.purchase_order_line_id];
       if (!vid) continue;
       const vendorName =
@@ -212,8 +214,7 @@ const PoVendorRecoverModal = ({
         total: 0,
       };
       existing.lines += 1;
-      existing.total +=
-        num(l.pending_qty) * priceForLine(l, vid);
+      existing.total += num(l.to_procure) * priceForLine(l, vid);
       map.set(vid, existing);
     }
     return Array.from(map.values()).sort((a, b) =>
@@ -256,9 +257,11 @@ const PoVendorRecoverModal = ({
       );
     }, 0);
 
+  // Lines fully covered from stock (to_procure ≤ 0) need no vendor.
   const hasUnassigned = previewLines.some(
     (l) =>
       !dropped[l.purchase_order_line_id] &&
+      num(l.to_procure) > 0 &&
       !assignment[l.purchase_order_line_id]
   );
 
@@ -273,27 +276,14 @@ const PoVendorRecoverModal = ({
       return;
     }
 
-    const zeroQtyLines = previewLines.filter(
-      (l) =>
-        !dropped[l.purchase_order_line_id] && num(l.pending_qty) <= 0
-    );
-    if (zeroQtyLines.length > 0) {
-      Notification(
-        "Validation",
-        t(
-          `Cannot create POV with 0 qty. Skip these line(s): ${zeroQtyLines
-            .map((l) => l.product_name || l.purchase_order_line_id)
-            .join(", ")}`
-        ),
-        "warning"
-      );
-      return;
-    }
-
+    // Only lines that actually need procuring (to_procure > 0) and have a
+    // vendor are submitted. Lines fully covered from stock or already covered
+    // are simply skipped — they no longer block generation.
     const assignments = previewLines
       .filter(
         (l) =>
           !dropped[l.purchase_order_line_id] &&
+          num(l.to_procure) > 0 &&
           assignment[l.purchase_order_line_id]
       )
       .map((l) => ({
@@ -301,11 +291,19 @@ const PoVendorRecoverModal = ({
         vendor_id: assignment[l.purchase_order_line_id],
       }));
     if (assignments.length === 0) {
-      Notification(
-        "Validation",
-        t("No lines selected. Restore at least one line to proceed."),
-        "warning"
+      // Nothing left to buy — either everything is in stock, or no rows kept.
+      const allFromStock = previewLines.some(
+        (l) =>
+          !dropped[l.purchase_order_line_id] && num(l.to_procure) <= 0
       );
+      Notification(
+        allFromStock ? "Info" : "Validation",
+        allFromStock
+          ? t("All required lines are fulfilled from stock — no Vendor PO needed.")
+          : t("No lines selected. Restore at least one line to proceed."),
+        allFromStock ? "success" : "warning"
+      );
+      if (allFromStock) toggle?.();
       return;
     }
 
@@ -349,7 +347,7 @@ const PoVendorRecoverModal = ({
         })
       ).unwrap();
       const created = result?.created || [];
-      onCreated?.({ created });
+      onCreated?.({ created, all_from_stock: result?.all_from_stock });
       toggle?.();
     } catch (_err) {
       // Notification is fired by the page-level effect that watches
@@ -414,7 +412,13 @@ const PoVendorRecoverModal = ({
                     <th>{t("Product")}</th>
                     <th style={{ width: 80 }}>{t("Unit")}</th>
                     <th style={{ width: 90 }} className="text-end">
-                      {t("Pending Qty")}
+                      {t("Required")}
+                    </th>
+                    <th style={{ width: 80 }} className="text-end">
+                      {t("In Stock")}
+                    </th>
+                    <th style={{ width: 90 }} className="text-end">
+                      {t("To Procure")}
                     </th>
                     <th style={{ minWidth: 280 }}>{t("Vendor")} (₹)</th>
                     <th style={{ width: 110 }} className="text-end">
@@ -436,6 +440,8 @@ const PoVendorRecoverModal = ({
                     );
                     const rate = priceForLine(l, picked);
                     const noVendor = vendorOpts.length === 0;
+                    // Fully covered from on-hand stock → no Vendor PO needed.
+                    const fromStock = num(l.to_procure) <= 0;
                     return (
                       <tr
                         key={l.purchase_order_line_id}
@@ -465,8 +471,23 @@ const PoVendorRecoverModal = ({
                         <td className="text-end fw-semibold">
                           {num(l.pending_qty).toLocaleString()}
                         </td>
+                        <td
+                          className="text-end"
+                          style={{
+                            color: num(l.in_stock) > 0 ? "#28c76f" : "#6e6b7b",
+                          }}
+                        >
+                          {num(l.in_stock).toLocaleString()}
+                        </td>
+                        <td className="text-end fw-bold">
+                          {num(l.to_procure).toLocaleString()}
+                        </td>
                         <td>
-                          {noVendor ? (
+                          {fromStock ? (
+                            <span className="text-success small fw-semibold">
+                              — {t("from stock")} —
+                            </span>
+                          ) : noVendor ? (
                             <div className="text-danger d-flex align-items-center small">
                               <AlertTriangle
                                 size={14}

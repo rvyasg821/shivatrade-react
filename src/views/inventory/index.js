@@ -35,8 +35,12 @@ import {
   Input,
   CardBody,
   UncontrolledTooltip,
+  Nav,
+  NavItem,
+  NavLink,
 } from "reactstrap";
 import Select from "react-select";
+import { Layers, Truck } from "react-feather";
 
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
@@ -51,6 +55,7 @@ import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 
 import ReceiptDetailModal from "./ReceiptDetailModal";
 import InventoryStatsCards from "./InventoryStatsCards";
+import StockSummary from "./StockSummary";
 
 // Trim trailing zeros on a qty string ("11.0000" → "11", "11.50" → "11.5").
 const fmtQty = (v) => {
@@ -76,6 +81,9 @@ const InventoryView = () => {
 
   const [params, setParams] = useSearchParams();
   const receiptId = params.get("receipt");
+
+  // "stock" = ledger on-hand summary (primary); "receipts" = vendor register.
+  const [view, setView] = useState("stock");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
@@ -182,9 +190,10 @@ const InventoryView = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Re-fetch when any filter changes — debounce the free-text search 500ms
-  // so the table doesn't re-query on every keystroke.
+  // Re-fetch when any filter changes — debounce the free-text search 500ms.
+  // Only runs on the Receipts tab; the Stock Summary tab fetches itself.
   useEffect(() => {
+    if (view !== "receipts") return undefined;
     let handler;
     if (searchInput) {
       handler = setTimeout(() => {
@@ -200,6 +209,7 @@ const InventoryView = () => {
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    view,
     searchInput,
     categoryFilter,
     vendorFilter,
@@ -217,10 +227,11 @@ const InventoryView = () => {
   }, [store.actionFlag, store.success, store.error]);
 
   useEffect(() => {
+    if (view !== "receipts") return;
     if (!store?.loading) dispatch(startLoading());
     else dispatch(stopLoading());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store?.loading]);
+  }, [store?.loading, view]);
 
   const vendorOptions = useMemo(
     () =>
@@ -373,14 +384,55 @@ const InventoryView = () => {
           <h3 className="mb-0">{t("Inventory")}</h3>
         </div>
 
-        <InventoryStatsCards stats={store?.stats} />
+        <Nav pills className="mb-2">
+          <NavItem>
+            <NavLink
+              active={view === "stock"}
+              onClick={() => setView("stock")}
+              className="cursor-pointer d-flex align-items-center"
+              style={{
+                color: view === "stock" ? "#fff" : "#09418B",
+                gap: "0.5rem",
+              }}
+            >
+              <Layers size={15} />
+              {t("Stock Summary")}
+            </NavLink>
+          </NavItem>
+          <NavItem>
+            <NavLink
+              active={view === "receipts"}
+              onClick={() => setView("receipts")}
+              className="cursor-pointer d-flex align-items-center"
+              style={{
+                color: view === "receipts" ? "#fff" : "#09418B",
+                gap: "0.5rem",
+              }}
+            >
+              <Truck size={15} />
+              {t("Receipts")}
+            </NavLink>
+          </NavItem>
+        </Nav>
 
-        <Card className="overflow-hidden">
-          <CardBody>
-            <Row>
-              <Col sm="12" md="12">
+        {view === "stock" && (
+          <Card className="overflow-hidden">
+            <CardBody>
+              <StockSummary />
+            </CardBody>
+          </Card>
+        )}
+
+        {view === "receipts" && (
+          <Fragment>
+            <InventoryStatsCards stats={store?.stats} />
+
+            <Card className="overflow-hidden">
+              <CardBody>
                 <Row>
-                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                  <Col sm="12" md="12">
+                    <Row>
+                      <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-inventory"
@@ -439,21 +491,23 @@ const InventoryView = () => {
               </Col>
             </Row>
 
-            <Row className="mt-2">
-              <Col md="12" className="inventory-tables">
-                <DatatablePagination
-                  columns={columns}
-                  data={rows}
-                  currentPage={currentPage}
-                  rowsPerPage={rowsPerPage}
-                  pagination={store?.pagination}
-                  handleRowPerPage={handlePerPage}
-                  handlePagination={handlePagination}
-                />
-              </Col>
-            </Row>
-          </CardBody>
-        </Card>
+                <Row className="mt-2">
+                  <Col md="12" className="inventory-tables">
+                    <DatatablePagination
+                      columns={columns}
+                      data={rows}
+                      currentPage={currentPage}
+                      rowsPerPage={rowsPerPage}
+                      pagination={store?.pagination}
+                      handleRowPerPage={handlePerPage}
+                      handlePagination={handlePagination}
+                    />
+                  </Col>
+                </Row>
+              </CardBody>
+            </Card>
+          </Fragment>
+        )}
       </div>
 
       <ReceiptDetailModal

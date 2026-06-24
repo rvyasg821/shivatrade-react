@@ -18,7 +18,13 @@ import {
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, AlertTriangle, Info, FileText } from "react-feather";
+import {
+  ExternalLink,
+  AlertTriangle,
+  Info,
+  FileText,
+  Package,
+} from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -204,6 +210,15 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
                 {t("Received")}
               </th>
               <th
+                style={{ width: 82 }}
+                className="text-end text-nowrap"
+                title={t(
+                  "Quantity currently available in inventory for this product. Pending demand up to this amount can be fulfilled from stock instead of a new vendor PO."
+                )}
+              >
+                {t("In Stock")}
+              </th>
+              <th
                 style={{ width: 64 }}
                 className="text-end text-nowrap text-warning"
                 title={t(
@@ -226,11 +241,31 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
               .map((l) => {
               const short = num(l.short);
               const pending = num(l.pending);
+              const inStock = num(l.in_stock);
+              const fromStock = num(l.from_stock);
               return (
                 <tr key={l.purchase_order_line_id}>
                   <td>
                     <div className="fw-semibold text-capitalize">
                       {l?.product_name || "-"}
+                      {fromStock > 1e-6 ? (
+                        <Badge
+                          color="light-success"
+                          pill
+                          className="ms-1 align-middle"
+                          title={t(
+                            "{{qty}} of the pending quantity is available in stock — no vendor PO needed for it.",
+                            { qty: fromStock.toLocaleString() }
+                          )}
+                        >
+                          <Package size={11} className="me-25" />
+                          {fromStock >= pending - 1e-6
+                            ? t("From stock")
+                            : t("{{qty}} from stock", {
+                                qty: fromStock.toLocaleString(),
+                              })}
+                        </Badge>
+                      ) : null}
                     </div>
                     {(() => {
                       const sub = [
@@ -255,6 +290,17 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
                   </td>
                   <td className="text-end">
                     {num(l.received).toLocaleString()}
+                  </td>
+                  <td
+                    className={`text-end ${
+                      fromStock > 1e-6
+                        ? "text-success fw-semibold"
+                        : inStock > 1e-6
+                        ? ""
+                        : "text-muted"
+                    }`}
+                  >
+                    {inStock > 1e-6 ? inStock.toLocaleString() : "-"}
                   </td>
                   <td
                     className={`text-end ${
@@ -285,6 +331,11 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
               </td>
               <td className="text-end fw-bold">
                 {num(coverage.totals.received).toLocaleString()}
+              </td>
+              <td className="text-end fw-bold text-success">
+                {num(coverage.totals.from_stock) > 1e-6
+                  ? num(coverage.totals.from_stock).toLocaleString()
+                  : "-"}
               </td>
               <td className="text-end fw-bold text-warning">
                 {num(coverage.totals.short) > 1e-6
