@@ -19,7 +19,7 @@ import {
   Row,
   Table,
 } from "reactstrap";
-import { DollarSign, Download } from "react-feather";
+import { AlertTriangle, DollarSign, Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -45,6 +45,7 @@ const STATUS_PILL = {
   unpaid: { label: "Unpaid", color: "secondary" },
   partially_paid: { label: "Partially Paid", color: "warning" },
   paid: { label: "Paid", color: "success" },
+  overpaid: { label: "Overpaid", color: "danger" },
 };
 
 const PaymentsTab = ({ registerActions }) => {
@@ -105,8 +106,8 @@ const PaymentsTab = ({ registerActions }) => {
     if (!form.payment_date) e.payment_date = t("Date required");
     const amt = num(form.amount);
     if (!(amt > 0)) e.amount = t("Amount must be greater than 0");
-    else if (amt > balance + 0.01)
-      e.amount = `${t("Cannot exceed balance payable")} ${sym}${fmt(balance)}`;
+    // Overpaying the vendor is allowed (advances / rounding / FX) — we warn
+    // in the modal but never block. See `willOverpay` below.
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
@@ -212,13 +213,22 @@ const PaymentsTab = ({ registerActions }) => {
         </Col>
         <Col md="3" sm="6">
           <div className="border rounded p-1 h-100">
-            <div className="text-muted small">{t("Balance Payable")}</div>
+            <div className="text-muted small">
+              {balance < -0.01 ? t("Overpaid") : t("Balance Payable")}
+            </div>
             <div
               className="fw-bolder"
-              style={{ color: balance > 0.01 ? "#c77700" : "#1f8a3b" }}
+              style={{
+                color:
+                  balance < -0.01
+                    ? "#ea5455"
+                    : balance > 0.01
+                      ? "#c77700"
+                      : "#1f8a3b",
+              }}
             >
               {sym}
-              {fmt(balance)}
+              {fmt(Math.abs(balance))}
             </div>
           </div>
         </Col>
@@ -350,9 +360,22 @@ const PaymentsTab = ({ registerActions }) => {
                 <FormFeedback className="d-block">{errors.amount}</FormFeedback>
               )}
               <small className="text-muted">
-                {t("Balance payable")}: {sym}
-                {fmt(balance)}
+                {balance < -0.01
+                  ? `${t("Already overpaid by")}: ${sym}${fmt(
+                      Math.abs(balance)
+                    )}`
+                  : `${t("Balance payable")}: ${sym}${fmt(balance)}`}
               </small>
+              {num(form.amount) - balance > 0.01 && num(form.amount) > 0 ? (
+                <div className="d-flex align-items-start gap-50 mt-1 text-warning small">
+                  <AlertTriangle size={14} className="mt-25 flex-shrink-0" />
+                  <span>
+                    {t(
+                      "This payment overpays the vendor. It's allowed — the POV will be marked Overpaid."
+                    )}
+                  </span>
+                </div>
+              ) : null}
             </Col>
             <Col md="12" className="mb-2">
               <Label className="form-label">{t("Invoice Number")}</Label>
