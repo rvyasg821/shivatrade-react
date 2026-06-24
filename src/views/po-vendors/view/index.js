@@ -255,7 +255,14 @@ const ViewPoVendor = () => {
     () => lines.reduce((s, l) => s + num(l?.line_total), 0),
     [lines]
   );
-  const grandTotal = goodsTotal + expensesTotal;
+  // True amount payable to the vendor = goods + charges + GST. Use the
+  // backend's `order_value` (GST-inclusive — the exact figure the Payments
+  // tab shows) so this card can never drift from the payable; fall back to
+  // the pre-tax goods+charges sum only if order_value isn't present yet.
+  const preTaxTotal = goodsTotal + expensesTotal;
+  const orderValue = num(p?.order_value);
+  const grandTotal = orderValue > 0 ? orderValue : preTaxTotal;
+  const gstTotal = Math.max(0, grandTotal - preTaxTotal);
 
   const etaDays = useMemo(
     () => daysUntil(p?.expected_arrival_date),
@@ -286,10 +293,16 @@ const ViewPoVendor = () => {
       label: t("POV Total"),
       value: lines.length > 0 ? `${sym} ${fmtMoney(grandTotal)}` : "-",
       sub:
-        expensesTotal > 0
-          ? `${t("Goods")} ${sym}${fmtMoney(goodsTotal)} + ${t(
-              "Charges"
-            )} ${sym}${fmtMoney(expensesTotal)}`
+        lines.length > 0 && (expensesTotal > 0 || gstTotal > 0)
+          ? [
+              `${t("Goods")} ${sym}${fmtMoney(goodsTotal)}`,
+              expensesTotal > 0
+                ? `${t("Charges")} ${sym}${fmtMoney(expensesTotal)}`
+                : null,
+              gstTotal > 0 ? `${t("GST")} ${sym}${fmtMoney(gstTotal)}` : null,
+            ]
+              .filter(Boolean)
+              .join(" + ")
           : null,
       icon: DollarSign,
       tone: "secondary",
