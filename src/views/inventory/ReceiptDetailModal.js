@@ -1,5 +1,6 @@
-// Receipt detail modal — 3 stacked sections (Product · Receipt · Doc Chain).
-// Read-only. Opens via the listing's `?receipt=<pov_line_id>` URL param.
+// Receipt detail drawer — 3 stacked sections (Product · Receipt · Doc Chain).
+// Read-only, right-side Offcanvas (matches the product Vendor Pricing drawer).
+// Opens via the listing's `?receipt=<pov_line_id>` URL param.
 // A since-cancelled receipt 404s on fetch → we show a "no longer valid"
 // notice instead of stale data.
 
@@ -7,11 +8,9 @@ import { Fragment, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import {
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
+  Offcanvas,
+  OffcanvasHeader,
+  OffcanvasBody,
   Spinner,
   Badge,
 } from "reactstrap";
@@ -98,19 +97,19 @@ const ReceiptDetailModal = ({ isOpen, povLineId, toggle }) => {
   const hasShort = receipt?.short_qty && Number(receipt.short_qty) > 0;
 
   return (
-    <Modal
+    <Offcanvas
+      direction="end"
       isOpen={isOpen}
       toggle={toggle}
-      size="lg"
-      centered
-      scrollable
-      backdrop="static"
+      style={{ width: 560 }}
     >
-      <ModalHeader toggle={toggle}>
-        {t("Receipt Details")}
-        {product?.name ? ` — ${product.name}` : ""}
-      </ModalHeader>
-      <ModalBody>
+      <OffcanvasHeader toggle={toggle}>
+        <div className="fw-bold">{t("Receipt Details")}</div>
+        {product?.name ? (
+          <div className="small text-muted text-capitalize">{product.name}</div>
+        ) : null}
+      </OffcanvasHeader>
+      <OffcanvasBody>
         {loading ? (
           <div className="text-center py-4">
             <Spinner />
@@ -307,13 +306,8 @@ const ReceiptDetailModal = ({ isOpen, povLineId, toggle }) => {
             ) : null}
           </Fragment>
         ) : null}
-      </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={toggle}>
-          {t("Close")}
-        </Button>
-      </ModalFooter>
-    </Modal>
+      </OffcanvasBody>
+    </Offcanvas>
   );
 };
 
