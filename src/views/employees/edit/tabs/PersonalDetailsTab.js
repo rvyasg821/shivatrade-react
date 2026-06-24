@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { Row, Col, Label, Input, FormFeedback, Card, CardBody, CardHeader, CardTitle, InputGroup, InputGroupText } from "reactstrap";
+import { Row, Col, Label, Input, FormFeedback, Card, CardBody, CardHeader, CardTitle } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -8,9 +8,7 @@ import PhoneInput from "react-phone-input-2";
 import parsePhoneNumberFromString from "libphonenumber-js";
 import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
 import DateInput from "@components/date-input";
-import Select from "react-select";
-import { useSelector, useDispatch } from "react-redux";
-import { getRoleList } from "@src/views/roles/store";
+import { useSelector } from "react-redux";
 import InputPasswordToggle from "@components/input-password-toggle";
 import { Camera, CheckCircle } from "react-feather";
 import FaceCaptureModal from "@src/views/attendance/components/FaceCaptureModal";
@@ -21,21 +19,13 @@ import useFormLoading from "@src/hooks/useFormLoading";
 import "react-phone-input-2/lib/style.css";
 
 
-const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCreateMode = false, locations = [], codeSettings }, ref) => {
+const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCreateMode = false }, ref) => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
-  const dispatch = useDispatch();
   const companyItem = useSelector((state) => state.company?.companyItem);
   const authStore = useSelector((state) => state.auth);
   const locationCtx = useSelector((state) => state.locationContext);
-  const roleStore = useSelector((state) => state.role);
-
-  useEffect(() => {
-    if (isCreateMode) {
-      dispatch(getRoleList({ purpose: "user-form" }));
-    }
-  }, [isCreateMode]);
 
   // Resolve phone country: location > company > auth user company > "us"
   const resolvePhoneCountry = () => {
@@ -80,13 +70,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
     } catch { setEmailExists(false); }
   };
 
-  // Default location from header selector in create mode
-  useEffect(() => {
-    if (isCreateMode && locationCtx?.selectedLocationId) {
-      setValue('location_id', locationCtx.selectedLocationId);
-    }
-  }, [isCreateMode, locationCtx?.selectedLocationId]);
-
   // Face ID state
   const [faceModalOpen, setFaceModalOpen] = useState(false);
   const [capturedFaceImage, setCapturedFaceImage] = useState(null);
@@ -120,11 +103,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
     marital_status: yup.string().nullable(),
     nationality: yup.string().nullable(),
     ni_number: yup.string().nullable(),
-    // Create mode fields
-    ...(isCreateMode ? {
-      location_id: yup.string().required(t("Location is required")),
-      role_id: yup.string().required(t("Role is required")),
-    } : {}),
   };
   const schema = yup.object().shape(schemaShape);
 
@@ -152,7 +130,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
       marital_status: "",
       nationality: "",
       ni_number: "",
-      ...(isCreateMode ? { location_id: "", role_id: "" } : {}),
     },
   });
 
@@ -244,11 +221,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
     if (mobileValue) data.country_code = values.country_code;
     if (values.password) data.password = values.password;
     if (capturedFaceImage) data.face_image = capturedFaceImage;
-    // Create-mode fields (location + role live in this step on create).
-    if (isCreateMode) {
-      data.location_id = values.location_id;
-      data.role_id = values.role_id;
-    }
     return data;
   };
 
@@ -295,86 +267,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
             )} />
             <FormFeedback>{errors.last_name?.message}</FormFeedback>
           </Col>
-
-          {/* Row 2: Employee Code, Location (create mode) / Email, Password (edit mode) */}
-          {isCreateMode && (
-            <>
-              <Col md="6" className="mb-2">
-                <Label>{t("Location")} <span className="text-danger">*</span></Label>
-                <Controller
-                  name="location_id"
-                  control={control}
-                  render={({ field }) => {
-                    const options = locations.map(loc => ({
-                      value: loc._id,
-                      label: loc.location_name,
-                    }));
-                    const selected =
-                      options.find(o => o.value === field.value) || null;
-                    return (
-                      <Select
-                        classNamePrefix="select"
-                        className="react-select"
-                        isClearable={false}
-                        options={options}
-                        value={selected}
-                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
-                        placeholder={t("Select Location")}
-                      />
-                    );
-                  }}
-                />
-                <FormFeedback className="d-block">{errors.location_id?.message}</FormFeedback>
-              </Col>
-              <Col md="6" className="mb-2">
-                <Label>{t("Role")} <span className="text-danger">*</span></Label>
-                <Controller
-                  name="role_id"
-                  control={control}
-                  render={({ field }) => {
-                    const opts = (roleStore?.roleItems || [])
-                      .filter((r) => (r?.category || "") === "custom" && r?.isActive !== false)
-                      .map((r) => ({ value: r._id, label: r.name }));
-                    const selected =
-                      opts.find((o) => o.value === field.value) || null;
-                    return (
-                      <Select
-                        classNamePrefix="select"
-                        className="react-select"
-                        isClearable={false}
-                        options={opts}
-                        value={selected}
-                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
-                        placeholder={t("Select a role...")}
-                        noOptionsMessage={() => t("No custom roles. Create one in Master → Roles.")}
-                      />
-                    );
-                  }}
-                />
-                <FormFeedback className="d-block">{errors.role_id?.message}</FormFeedback>
-              </Col>
-              <Col md="6" className="mb-2">
-                <Label>{t("Employee Code")}</Label>
-                {codeSettings?.employee_code_mode === 'auto' ? (
-                  <InputGroup>
-                    {codeSettings?.employee_code_prefix && (
-                      <InputGroupText>{codeSettings.employee_code_prefix}</InputGroupText>
-                    )}
-                    <Input
-                      readOnly
-                      value={codeSettings?.employee_code_preview
-                        ? codeSettings.employee_code_preview.replace(codeSettings.employee_code_prefix || '', '')
-                        : t('Auto')}
-                      style={{ textTransform: 'uppercase' }}
-                    />
-                  </InputGroup>
-                ) : (
-                  <Input disabled value={t("Auto-generated on save")} className="bg-light" />
-                )}
-                <small className="text-muted">{t("Code will be auto-generated on save")}</small>
-              </Col>
-            </>
-          )}
 
           <Col md="6" className="mb-2">
             <Label>{t("Email")} <span className="text-danger">*</span></Label>

@@ -15,8 +15,6 @@ import {
   updateEmployee,
   cleanEmployeeMessage,
 } from "../store";
-import { getLocationList } from "../../locations/store";
-import { getCodeSettings } from "@src/views/company-settings/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Reactstrap Imports
@@ -61,10 +59,6 @@ const EmployeeEdit = () => {
 
   const store = useSelector((state) => state.employee);
   const companyData = useSelector((state) => state.authentication?.companyData);
-  const locationStore = useSelector((state) => state.location);
-  const codeSettingsStore = useSelector(
-    (state) => state.companySettings?.codeSettings
-  );
 
   const [employeeData, setEmployeeData] = useState(null);
 
@@ -91,14 +85,6 @@ const EmployeeEdit = () => {
       })
       .catch(() => {});
   }, []);
-
-  // Locations + code settings for the Job step (create needs them up front).
-  useEffect(() => {
-    if (isCreateMode) {
-      dispatch(getLocationList({ _limit: 200 }));
-      dispatch(getCodeSettings());
-    }
-  }, [isCreateMode, dispatch]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -137,21 +123,24 @@ const EmployeeEdit = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.loading]);
 
+  // Persist (create or update). Returns true on success, false on error —
+  // toasts are surfaced by the store effect either way.
   const handleSaveTab = async (tabData) => {
     if (isCreateMode) {
       try {
         await dispatch(createEmployee(tabData)).unwrap();
+        return true;
       } catch {
-        // surfaced by the store?.error effect
+        return false;
       }
-      return;
     }
-    if (!employeeId) return;
+    if (!employeeId) return false;
     try {
       await dispatch(updateEmployee({ id: employeeId, data: tabData })).unwrap();
       dispatch(getEmployee(employeeId));
+      return true;
     } catch {
-      // surfaced by the store?.error effect
+      return false;
     }
   };
 
@@ -175,10 +164,6 @@ const EmployeeEdit = () => {
   const isFirst = activeStep === 0;
   const isLast = activeStep === steps.length - 1;
 
-  // In create mode the employee must be created (step 1 Personal) before any
-  // later step is reachable.
-  const canLeaveFirstStep = isEdit || !!employeeId;
-
   const stepKey = steps[activeStep]?.key;
 
   // Validate + collect ONE step's payload WITHOUT saving. getData() triggers
@@ -190,7 +175,7 @@ const EmployeeEdit = () => {
       const p = personalRef.current ? await personalRef.current.getData() : {};
       if (p === undefined) return { ok: false };
       let j = {};
-      if (employeeId && jobRef.current) {
+      if (jobRef.current) {
         const jd = await jobRef.current.getData();
         if (jd === undefined) return { ok: false };
         j = jd || {};
@@ -210,12 +195,12 @@ const EmployeeEdit = () => {
     return { ok: true, payload: d };
   };
 
-  // Save button — persists EVERY step's edits in ONE merged update (so changes
-  // across steps aren't lost), with a single success/error toast from the
-  // store effect. On create only the basics exist yet. Validation failure on
+  // Save button — collects EVERY step and persists in ONE call. The backend
+  // create now accepts the full payload, so this is a single create (add) or
+  // update (edit) with a single success/error toast. A validation failure on
   // any step jumps to that step and warns.
   const onSave = async () => {
-    const keys = isCreateMode ? ["basic"] : steps.map((s) => s.key);
+    const keys = steps.map((s) => s.key);
     setSubmitting(true);
     try {
       let merged = {};
@@ -243,20 +228,13 @@ const EmployeeEdit = () => {
 
   const goToStep = (i) => {
     if (i === activeStep) return;
-    if (i > 0 && !canLeaveFirstStep) {
-      Notification(
-        "Validation",
-        t("Save the employee's basic details first."),
-        "warning"
-      );
-      return;
-    }
     setActiveStep(i);
     setVisited((v) => new Set(v).add(i));
   };
 
-  // Next validates the current step (highlighting + error toast) but never
-  // saves. It only advances when the step's required fields are valid.
+  // Next only validates the current step (highlighting + error toast) and
+  // advances — it never saves. Nothing is persisted until the final Save
+  // (deferred-create wizard, same as quotation).
   const onNext = async () => {
     const { ok } = await collectStep(stepKey);
     if (!ok) {
@@ -267,7 +245,9 @@ const EmployeeEdit = () => {
       );
       return;
     }
-    goToStep(Math.min(activeStep + 1, steps.length - 1));
+    const target = Math.min(activeStep + 1, steps.length - 1);
+    setActiveStep(target);
+    setVisited((v) => new Set(v).add(target));
   };
 
   const onBack = () => setActiveStep((s) => Math.max(s - 1, 0));
@@ -306,7 +286,7 @@ const EmployeeEdit = () => {
               activeStep={activeStep}
               visited={visited}
               onStepClick={goToStep}
-              isEdit={isEdit && canLeaveFirstStep}
+              isEdit={isEdit}
             />
 
             {/* All steps stay MOUNTED (only the active one is visible) so edits
@@ -319,19 +299,16 @@ const EmployeeEdit = () => {
                   {...tabProps}
                   getBackendImageUrl={getBackendImageUrl}
                   isCreateMode={isCreateMode}
-                  locations={locationStore?.locationItems || []}
-                  codeSettings={codeSettingsStore}
                 />
-                {employeeId && (
-                  <div className="mt-3 pt-2 border-top">
-                    <h5 className="fw-bolder mb-2">{t("Job Details")}</h5>
-                    <JobDetailsTab
-                      ref={jobRef}
-                      {...tabProps}
-                      employeeId={employeeId}
-                    />
-                  </div>
-                )}
+                <div className="mt-3 pt-2 border-top">
+                  <h5 className="fw-bolder mb-2">{t("Job Details")}</h5>
+                  <JobDetailsTab
+                    ref={jobRef}
+                    {...tabProps}
+                    employeeId={employeeId}
+                    isCreateMode={isCreateMode}
+                  />
+                </div>
               </div>
 
               <div style={{ display: stepKey === "address" ? "block" : "none" }}>
