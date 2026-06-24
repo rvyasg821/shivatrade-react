@@ -338,7 +338,28 @@ const ViewInvoice = () => {
         setIssueError("");
         dispatch(issueInvoice(id))
           .unwrap()
-          .then(() => setIssueError(""))
+          .then(() => {
+            setIssueError("");
+            // Show what was removed from inventory on issue (Goods Out).
+            const deducted = (lines || [])
+              .filter((l) => Number(l.qty) > 0)
+              .map(
+                (l) =>
+                  `${Number(l.qty).toLocaleString()} × ${
+                    l.product_name || l.product_code || t("item")
+                  }`
+              );
+            if (deducted.length) {
+              const shown = deducted.slice(0, 4).join(", ");
+              const more =
+                deducted.length > 4 ? ` +${deducted.length - 4} more` : "";
+              Notification(
+                t("Stock updated"),
+                t(`Removed from inventory: ${shown}${more}.`),
+                "info"
+              );
+            }
+          })
           .catch((err) => {
             // Surface the backend's "Company Profile is incomplete. Missing:…"
             // message as a sticky banner, not just a fleeting toast. The thunk

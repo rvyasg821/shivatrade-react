@@ -151,12 +151,15 @@ export const recoverPoVendors = createAsyncThunk(
       );
       const body = resp?.data;
       if (body?.statusCode && body?.data) {
+        const created = body.data.created || [];
+        const allFromStock = !!body.data.all_from_stock;
         return {
-          created: body.data.created || [],
+          created,
+          all_from_stock: allFromStock,
           actionFlag: "POV_RECOVERED",
-          success:
-            body?.message ||
-            `${(body.data.created || []).length} POV(s) created.`,
+          success: allFromStock
+            ? "All lines fulfilled from stock — no Vendor PO needed."
+            : body?.message || `${created.length} POV(s) created.`,
           error: "",
         };
       }

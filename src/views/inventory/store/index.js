@@ -67,6 +67,62 @@ export const getInventoryStats = createAsyncThunk(
   }
 );
 
+// ─── Stock summary (ledger on-hand) ─────────────────────────────────────
+
+export const getStockSummary = createAsyncThunk(
+  "appInventory/getStockSummary",
+  async (params) => {
+    try {
+      const resp = await instance.get(API_ENDPOINTS.inventory.stock, {
+        params,
+      });
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          stockItems: body.data,
+          stockPagination: body?._metadata?.pagination || null,
+          error: "",
+        };
+      }
+      return {
+        stockItems: [],
+        stockPagination: null,
+        error: body?.message || "Failed to load stock summary",
+      };
+    } catch (error) {
+      return {
+        stockItems: [],
+        stockPagination: null,
+        error: error?.response?.data?.message || error.message || error,
+      };
+    }
+  }
+);
+
+// ─── Movement history (drill-in modal) ──────────────────────────────────
+
+export const getMovementHistory = createAsyncThunk(
+  "appInventory/getMovementHistory",
+  async (productId, { rejectWithValue }) => {
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.inventory.movements}/${productId}`
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return { movementItem: body.data };
+      }
+      return rejectWithValue(body?.message || "Could not load movements.");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message ||
+          error.message ||
+          "Could not load movements."
+      );
+    }
+  }
+);
+
 // ─── Receipt detail (modal) ─────────────────────────────────────────────
 
 export const getReceiptDetail = createAsyncThunk(
@@ -99,6 +155,12 @@ export const appInventorySlice = createSlice({
     inventoryItems: [],
     pagination: null,
     stats: null,
+    stockItems: [],
+    stockPagination: null,
+    stockLoading: true,
+    movementItem: null,
+    movementLoading: false,
+    movementError: "",
     receiptItem: null,
     receiptLoading: false,
     receiptError: "",
@@ -117,6 +179,11 @@ export const appInventorySlice = createSlice({
       state.receiptItem = null;
       state.receiptError = "";
       state.receiptLoading = false;
+    },
+    clearMovementHistory: (state) => {
+      state.movementItem = null;
+      state.movementError = "";
+      state.movementLoading = false;
     },
   },
   extraReducers: (builder) => {
@@ -138,6 +205,32 @@ export const appInventorySlice = createSlice({
       .addCase(getInventoryStats.fulfilled, (state, action) => {
         state.stats = action.payload?.stats || null;
       })
+      .addCase(getStockSummary.pending, (state) => {
+        state.stockLoading = false;
+      })
+      .addCase(getStockSummary.fulfilled, (state, action) => {
+        state.stockItems = action.payload?.stockItems || [];
+        state.stockPagination = action.payload?.stockPagination || null;
+        state.stockLoading = true;
+        state.error = action.payload?.error || "";
+      })
+      .addCase(getStockSummary.rejected, (state) => {
+        state.stockLoading = true;
+      })
+      .addCase(getMovementHistory.pending, (state) => {
+        state.movementItem = null;
+        state.movementError = "";
+        state.movementLoading = true;
+      })
+      .addCase(getMovementHistory.fulfilled, (state, action) => {
+        state.movementItem = action.payload?.movementItem || null;
+        state.movementLoading = false;
+      })
+      .addCase(getMovementHistory.rejected, (state, action) => {
+        state.movementItem = null;
+        state.movementLoading = false;
+        state.movementError = action.payload || "Could not load movements.";
+      })
       .addCase(getReceiptDetail.pending, (state) => {
         state.receiptItem = null;
         state.receiptError = "";
@@ -156,7 +249,10 @@ export const appInventorySlice = createSlice({
   },
 });
 
-export const { cleanInventoryMessage, clearReceiptDetail } =
-  appInventorySlice.actions;
+export const {
+  cleanInventoryMessage,
+  clearReceiptDetail,
+  clearMovementHistory,
+} = appInventorySlice.actions;
 
 export default appInventorySlice.reducer;
