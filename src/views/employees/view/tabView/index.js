@@ -1,18 +1,14 @@
 // ** React Imports
 import { Fragment, useState, useEffect } from "react";
-import { ArrowLeft } from "react-feather";
 
-// ** Reactstrap Imports
-import { Button, Col, Row } from "reactstrap";
+import { Card, CardBody } from "reactstrap";
 
 import { useSelector } from "react-redux";
 import Tabs from "./tabs";
 import TabContents from "./tabContents";
-import { appsRoot } from "@constant/defaultValues";
 
 // ** Styles
 import "@styles/react/apps/app-users.scss";
-import { useNavigate } from "react-router-dom";
 
 // Helper to get tools from localStorage (same as nav)
 const getToolsFromStorage = () => {
@@ -27,8 +23,6 @@ const getToolsFromStorage = () => {
 };
 
 const EmployeeTabView = () => {
-  const navigate = useNavigate();
-
   // Get tools from all sources
   const reduxTools = useSelector((state) => state.authentication?.companyData?.tools) || [];
   const authUserItem = useSelector((state) => state.auth?.authUserItem) || {};
@@ -73,31 +67,12 @@ const EmployeeTabView = () => {
   };
 
   return (
-    <Fragment>
-      <div className="app-user-view">
-        <Row>
-          <Col
-            xl={12}
-            lg={12}
-            xs={{ order: 0 }}
-            md={{ order: 1, size: 12 }}
-          >
-            <div className="d-flex justify-content-between align-items-center mb-0">
-              <Tabs active={active} toggleTab={toggleTab} toolFlags={toolFlags} />
-              <Button
-                type="button"
-                color="primary"
-                onClick={() => navigate(-1)}
-              >
-                <ArrowLeft size={17} />
-              </Button>
-            </div>
-
-            <TabContents active={active} toolFlags={toolFlags} />
-          </Col>
-        </Row>
-      </div>
-    </Fragment>
+    <Card className="mb-1">
+      <CardBody>
+        <Tabs active={active} toggleTab={toggleTab} toolFlags={toolFlags} />
+        <TabContents active={active} toolFlags={toolFlags} />
+      </CardBody>
+    </Card>
   );
 };
 

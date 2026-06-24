@@ -1,12 +1,12 @@
-import { Fragment, useEffect } from "react";
-import { Row, Col, Label, Input, Button, Spinner, FormFeedback } from "reactstrap";
+import { Fragment, useEffect, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useTranslation } from "react-i18next";
 const FIELDS = ['kin_name', 'kin_relationship', 'kin_address', 'kin_postcode', 'kin_phone', 'kin_email'];
 
-const EmergencyContactTab = ({ employeeData, onSave, loading }) => {
+const EmergencyContactTab = forwardRef(({ employeeData }, ref) => {
   const { t } = useTranslation();
 
   const schema = yup.object().shape({
@@ -30,11 +30,21 @@ const EmergencyContactTab = ({ employeeData, onSave, loading }) => {
     }
   }, [employeeData]);
 
-  const onSubmit = (values) => onSave(values);
+  // Footer-driven save: the wizard collects each step's validated payload via
+  // getData() and persists once (resolves undefined when validation fails).
+  useImperativeHandle(ref, () => ({
+    getData: () =>
+      new Promise((resolve) => {
+        handleSubmit(
+          (values) => resolve(values),
+          () => resolve(undefined)
+        )();
+      }),
+  }));
 
   return (
     <Fragment>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => e.preventDefault()}>
         <Row>
           <Col md="6" className="mb-2">
             <Label>{t("Name")}</Label>
@@ -77,14 +87,9 @@ const EmergencyContactTab = ({ employeeData, onSave, loading }) => {
             <FormFeedback>{errors.kin_email?.message}</FormFeedback>
           </Col>
         </Row>
-        <div className="mt-2">
-          <Button type="submit" color="primary" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : t("Save Emergency Contact")}
-          </Button>
-        </div>
       </form>
     </Fragment>
   );
-};
+});
 
 export default EmergencyContactTab;

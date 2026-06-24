@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
-import { Row, Col, Label, Input, Button, Spinner, FormFeedback } from "reactstrap";
+import { Fragment, useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -8,7 +8,7 @@ import Select from "react-select";
 import { getCountryList } from "@src/views/auth/register/utils/countryTimezoneUtils";
 import { useSelector } from "react-redux";
 
-const AddressDetailsTab = ({ employeeData, onSave, loading }) => {
+const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
   const { t } = useTranslation();
   const countryList = getCountryList();
   const [selectedCountry, setSelectedCountry] = useState(null);
@@ -59,20 +59,28 @@ const AddressDetailsTab = ({ employeeData, onSave, loading }) => {
     }
   }, [employeeData, locationCtx, companyItem, authStore]);
 
-  const onSubmit = (values) => {
-    onSave({
-      address_1: values.address_1 || "",
-      address_2: values.address_2 || "",
-      city: values.city || "",
-      state: values.state || "",
-      zip_code: values.zip_code || "",
-      country: values.country || "",
-    });
-  };
+  const buildPayload = (values) => ({
+    address_1: values.address_1 || "",
+    address_2: values.address_2 || "",
+    city: values.city || "",
+    state: values.state || "",
+    zip_code: values.zip_code || "",
+    country: values.country || "",
+  });
+
+  useImperativeHandle(ref, () => ({
+    getData: () =>
+      new Promise((resolve) => {
+        handleSubmit(
+          (values) => resolve(buildPayload(values)),
+          () => resolve(undefined)
+        )();
+      }),
+  }));
 
   return (
     <Fragment>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => e.preventDefault()}>
         <Row>
           <Col md="6" className="mb-2">
             <Label>{t("Address Line 1")}</Label>
@@ -114,14 +122,9 @@ const AddressDetailsTab = ({ employeeData, onSave, loading }) => {
             {errors.country && <div className="text-danger small mt-25">{errors.country?.message}</div>}
           </Col>
         </Row>
-        <div className="mt-2">
-          <Button type="submit" color="primary" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : t("Save Address")}
-          </Button>
-        </div>
       </form>
     </Fragment>
   );
-};
+});
 
 export default AddressDetailsTab;

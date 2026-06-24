@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
-import { Row, Col, Label, Input, Button, Spinner, FormGroup, ButtonGroup } from "reactstrap";
+import { Fragment, useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Label, Input, Button, FormGroup, ButtonGroup } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +24,7 @@ const resolveInitialPayType = (employeeData) => {
   return PAY_TYPE.SALARIED;
 };
 
-const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
+const FinancialDetailsTab = forwardRef(({ employeeData }, ref) => {
   const { t } = useTranslation();
 
   const [payType, setPayType] = useState(PAY_TYPE.SALARIED);
@@ -113,9 +113,8 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
     setPayType(newType);
   };
 
-  const onSubmit = (values) => {
-    onSave({
-      weekly_working_hours: values.weekly_working_hours ? Number(values.weekly_working_hours) : null,
+  const buildPayload = (values) => ({
+    weekly_working_hours: values.weekly_working_hours ? Number(values.weekly_working_hours) : null,
       hourly_rate: values.hourly_rate ? Number(values.hourly_rate) : null,
       annual_salary: values.annual_salary ? Number(values.annual_salary) : null,
       pay_type: payType,
@@ -131,12 +130,21 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
       pension_provider: values.pension_provider || null,
       pension_employee_contribution: values.pension_employee_contribution ? Number(values.pension_employee_contribution) : null,
       pension_employer_contribution: values.pension_employer_contribution ? Number(values.pension_employer_contribution) : null,
-    });
-  };
+  });
+
+  useImperativeHandle(ref, () => ({
+    getData: () =>
+      new Promise((resolve) => {
+        handleSubmit(
+          (values) => resolve(buildPayload(values)),
+          () => resolve(undefined)
+        )();
+      }),
+  }));
 
   return (
     <Fragment>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => e.preventDefault()}>
 
         {/* ── Salary & Working Hours ── */}
         <h5 className="mb-2 fw-bold">{t("Salary & Working Hours")}</h5>
@@ -324,14 +332,9 @@ const FinancialDetailsTab = ({ employeeData, onSave, loading }) => {
           </Col>
         </Row> */}
 
-        <div className="mt-2">
-          <Button type="submit" color="primary" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : t("Save Financial Details")}
-          </Button>
-        </div>
       </form>
     </Fragment>
   );
-};
+});
 
 export default FinancialDetailsTab;

@@ -1,5 +1,5 @@
-import { Fragment, useState, useEffect } from "react";
-import { Row, Col, Label, Input, Button, FormFeedback, Spinner, Card, CardBody, CardHeader, CardTitle, InputGroup, InputGroupText } from "reactstrap";
+import { Fragment, useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Label, Input, FormFeedback, Card, CardBody, CardHeader, CardTitle, InputGroup, InputGroupText } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -21,7 +21,7 @@ import useFormLoading from "@src/hooks/useFormLoading";
 import "react-phone-input-2/lib/style.css";
 
 
-const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl, isCreateMode = false, locations = [], codeSettings }) => {
+const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCreateMode = false, locations = [], codeSettings }, ref) => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
@@ -222,41 +222,48 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
     if (country?.format) setPhonePlaceholder(country.format);
   };
 
-  const onSubmit = async (values) => {
-    setSubmitting(true);
-    try {
-      const dialCode = (values?.country_code?.dialCode || "").replace("+", "");
-      let mobileValue = values?.mobile || "";
-      if (dialCode && mobileValue.startsWith(dialCode)) {
-        mobileValue = mobileValue.slice(dialCode.length);
-      }
-
-      const data = {
-        first_name: values.first_name,
-        middle_name: values.middle_name || null,
-        last_name: values.last_name,
-        email: values.email,
-        mobile: mobileValue.trim(),
-        gender: values.gender,
-        date_of_birth: values.date_of_birth || null,
-        marital_status: values.marital_status || null,
-        nationality: values.nationality || null,
-        ni_number: values.ni_number || null,
-      };
-      if (mobileValue) data.country_code = values.country_code;
-      if (values.password) data.password = values.password;
-      if (capturedFaceImage) data.face_image = capturedFaceImage;
-      // Add create-mode fields
-      if (isCreateMode) {
-        data.location_id = values.location_id;
-        data.role_id = values.role_id;
-      }
-      if (emailExists) return;
-      await onSave(data);
-    } finally {
-      setSubmitting(false);
+  const buildPayload = (values) => {
+    const dialCode = (values?.country_code?.dialCode || "").replace("+", "");
+    let mobileValue = values?.mobile || "";
+    if (dialCode && mobileValue.startsWith(dialCode)) {
+      mobileValue = mobileValue.slice(dialCode.length);
     }
+
+    const data = {
+      first_name: values.first_name,
+      middle_name: values.middle_name || null,
+      last_name: values.last_name,
+      email: values.email,
+      mobile: mobileValue.trim(),
+      gender: values.gender,
+      date_of_birth: values.date_of_birth || null,
+      marital_status: values.marital_status || null,
+      nationality: values.nationality || null,
+      ni_number: values.ni_number || null,
+    };
+    if (mobileValue) data.country_code = values.country_code;
+    if (values.password) data.password = values.password;
+    if (capturedFaceImage) data.face_image = capturedFaceImage;
+    // Create-mode fields (location + role live in this step on create).
+    if (isCreateMode) {
+      data.location_id = values.location_id;
+      data.role_id = values.role_id;
+    }
+    return data;
   };
+
+  // Footer-driven save: wizard collects the validated payload. Resolves
+  // undefined on a validation failure (or duplicate email) so it won't save.
+  useImperativeHandle(ref, () => ({
+    getData: () =>
+      new Promise((resolve) => {
+        handleSubmit(
+          (values) => resolve(emailExists ? undefined : buildPayload(values)),
+          () => resolve(undefined)
+        )();
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }));
 
   const handleFaceCapture = (base64) => {
     setCapturedFaceImage(base64);
@@ -265,7 +272,7 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
 
   return (
     <Fragment>
-      <form onSubmit={handleSubmit(onSubmit)} autoComplete="off">
+      <form onSubmit={(e) => e.preventDefault()} autoComplete="off">
         <Row>
           {/* Row 1: First Name, Middle Name, Last Name */}
           <Col md="4" className="mb-2">
@@ -461,12 +468,6 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
             )} />
           </Col> */}
         </Row>
-
-        <div className="mt-2">
-          <Button type="submit" color="primary" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : isCreateMode ? t("Create Employee & Continue") : t("Save Personal Details")}
-          </Button>
-        </div>
       </form>
 
       <FaceCaptureModal
@@ -477,6 +478,6 @@ const PersonalDetailsTab = ({ employeeData, onSave, loading, getBackendImageUrl,
       />
     </Fragment>
   );
-};
+});
 
 export default PersonalDetailsTab;
