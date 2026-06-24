@@ -18,7 +18,7 @@ import Notification from "@components/toast/notification";
 
 import useFormLoading from "@src/hooks/useFormLoading";
 
-const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
+const JobDetailsTab = forwardRef(({ employeeData, employeeId, isCreateMode = false }, ref) => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
@@ -41,7 +41,8 @@ const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
   const [employeeCodeAuto, setEmployeeCodeAuto] = useState(false);
 
   const schema = yup.object().shape({
-    employee_code: yup.string().required(t("Employee Code is required")),
+    // Auto-generated on the backend → never user-required.
+    employee_code: yup.string().nullable(),
     designation: yup.string().required(t("Designation is required")),
     department: yup.string().required(t("Department is required")),
     date_of_joining: yup.string().required(t("Date of Joining is required")).transform((v) => (v === "" ? null : v)).nullable(),
@@ -49,7 +50,7 @@ const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
     role_id: yup.string().required(t("Role is required")),
   });
 
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     mode: "all",
     shouldFocusError: false,
     resolver: yupResolver(schema),
@@ -98,6 +99,15 @@ const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
       setLocationOptions(options);
     }
   }, [locationStore?.locationItems]);
+
+  // Create mode: default the primary location to the header's selected one.
+  useEffect(() => {
+    if (isCreateMode && !employeeData && selectedLocationId && locationOptions.length) {
+      const opt = locationOptions.find((o) => o.value === selectedLocationId);
+      if (opt) setValue("location_id", opt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateMode, employeeData, selectedLocationId, locationOptions]);
 
   useEffect(() => {
     if (employeeData && locationOptions.length > 0) {
@@ -163,11 +173,12 @@ const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
   };
 
   const buildPayload = (values) => ({
+    // Omit when empty so the backend auto-generates the code (create mode).
     employee_code: (() => {
-      const raw = (values.employee_code || "").toUpperCase();
+      const raw = (values.employee_code || "").trim().toUpperCase();
+      if (!raw) return undefined;
       const pfx = employeeCodePrefix.toUpperCase();
-      if (pfx && raw.startsWith(pfx)) return raw;
-      return `${employeeCodePrefix}${raw}`;
+      return pfx && raw.startsWith(pfx) ? raw : `${employeeCodePrefix}${raw}`;
     })(),
     designation: values.designation || "",
     department: values.department || "",
@@ -199,23 +210,53 @@ const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
       <form onSubmit={(e) => e.preventDefault()}>
         <Row>
           <Col md="6" className="mb-2">
-            <Label>{t("Employee Code")} <span className="text-danger">*</span></Label>
-            <Controller name="employee_code" control={control} render={({ field }) => (
-              employeeCodePrefix ? (
+            <Label>{t("Employee Code")}</Label>
+            {isCreateMode && employeeCodeAuto ? (
+              // Create + auto: show the NEXT code that will be assigned as a
+              // read-only preview (not bound to the form, so the backend still
+              // generates it on save).
+              <Fragment>
                 <InputGroup>
-                  <InputGroupText>{employeeCodePrefix}</InputGroupText>
-                  <Input {...field} style={{ textTransform: "uppercase" }} invalid={!!errors.employee_code}
-                    readOnly={employeeCodeAuto}
-                    onChange={(e) => !employeeCodeAuto && field.onChange(e.target.value.toUpperCase())} />
+                  {employeeCodePrefix && (
+                    <InputGroupText>{employeeCodePrefix}</InputGroupText>
+                  )}
+                  <Input
+                    readOnly
+                    style={{ textTransform: "uppercase" }}
+                    value={
+                      codeSettingsStore?.employee_code_preview
+                        ? codeSettingsStore.employee_code_preview.replace(
+                            employeeCodePrefix || "",
+                            ""
+                          )
+                        : t("Auto")
+                    }
+                  />
                 </InputGroup>
-              ) : (
-                <Input {...field} style={{ textTransform: "uppercase" }} invalid={!!errors.employee_code}
-                  readOnly={employeeCodeAuto}
-                  onChange={(e) => !employeeCodeAuto && field.onChange(e.target.value.toUpperCase())} />
-              )
-            )} />
-            <FormFeedback>{errors.employee_code?.message}</FormFeedback>
-            {employeeCodeAuto && <small className="text-muted">{t("Auto-generated code (read-only)")}</small>}
+                <small className="text-muted">
+                  {t("Code will be auto-generated on save")}
+                </small>
+              </Fragment>
+            ) : (
+              <Fragment>
+                <Controller name="employee_code" control={control} render={({ field }) => (
+                  employeeCodePrefix ? (
+                    <InputGroup>
+                      <InputGroupText>{employeeCodePrefix}</InputGroupText>
+                      <Input {...field} style={{ textTransform: "uppercase" }} invalid={!!errors.employee_code}
+                        readOnly={employeeCodeAuto}
+                        onChange={(e) => !employeeCodeAuto && field.onChange(e.target.value.toUpperCase())} />
+                    </InputGroup>
+                  ) : (
+                    <Input {...field} style={{ textTransform: "uppercase" }} invalid={!!errors.employee_code}
+                      readOnly={employeeCodeAuto}
+                      onChange={(e) => !employeeCodeAuto && field.onChange(e.target.value.toUpperCase())} />
+                  )
+                )} />
+                <FormFeedback>{errors.employee_code?.message}</FormFeedback>
+                {employeeCodeAuto && <small className="text-muted">{t("Auto-generated code (read-only)")}</small>}
+              </Fragment>
+            )}
           </Col>
 
           <Col md="6" className="mb-2">
