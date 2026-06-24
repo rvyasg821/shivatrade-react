@@ -102,9 +102,10 @@ const EmployeeList = () => {
       search,
       status,
     };
-    const effectiveLoc = isLocationAdmin
-      ? selectedLocationId
-      : locationFilter || "";
+    // Scope to the top-level header location for every role — same as the
+    // Inventory listing. `locationFilter` stays as a fallback (currently the
+    // page-level dropdown is disabled, so the header is the single source).
+    const effectiveLoc = selectedLocationId || locationFilter || "";
     if (effectiveLoc) {
       params.location_id = effectiveLoc;
     }
@@ -149,9 +150,7 @@ const EmployeeList = () => {
         search: searchInput,
         status: statusFilter,
       };
-      const effectiveLoc = isLocationAdmin
-        ? selectedLocationId
-        : locationFilter || "";
+      const effectiveLoc = selectedLocationId || locationFilter || "";
       if (effectiveLoc) {
         params.location_id = effectiveLoc;
       }

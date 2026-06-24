@@ -1,10 +1,10 @@
-import { Fragment, useState } from "react";
-import { Row, Col, Button, Spinner } from "reactstrap";
+import { Fragment, useState, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Camera, CheckCircle } from "react-feather";
 import FaceCaptureModal from "@src/views/attendance/components/FaceCaptureModal";
 
-const FaceRegistrationTab = ({ employeeData, employeeId, onSave, loading, getBackendImageUrl }) => {
+const FaceRegistrationTab = forwardRef(({ employeeData, getBackendImageUrl }, ref) => {
   const { t } = useTranslation();
   const [faceModalOpen, setFaceModalOpen] = useState(false);
   const [capturedFaceImage, setCapturedFaceImage] = useState(null);
@@ -23,11 +23,11 @@ const FaceRegistrationTab = ({ employeeData, employeeId, onSave, loading, getBac
     setFaceModalOpen(false);
   };
 
-  const handleSaveFace = () => {
-    if (capturedFaceImage) {
-      onSave({ face_image: capturedFaceImage });
-    }
-  };
+  // Footer-driven save: returns the captured face payload, or null when there's
+  // nothing new to persist (the wizard then skips the save for this step).
+  useImperativeHandle(ref, () => ({
+    getData: () => (capturedFaceImage ? { face_image: capturedFaceImage } : null),
+  }));
 
   return (
     <Fragment>
@@ -80,12 +80,6 @@ const FaceRegistrationTab = ({ employeeData, employeeId, onSave, loading, getBac
           <small className="text-muted d-block mb-2">
             {t("Capture a clear face photo for attendance face verification.")}
           </small>
-
-          {capturedFaceImage && (
-            <Button color="primary" onClick={handleSaveFace} disabled={loading}>
-              {loading ? <Spinner size="sm" /> : t("Save Face Registration")}
-            </Button>
-          )}
         </Col>
       </Row>
 
@@ -97,6 +91,6 @@ const FaceRegistrationTab = ({ employeeData, employeeId, onSave, loading, getBac
       />
     </Fragment>
   );
-};
+});
 
 export default FaceRegistrationTab;

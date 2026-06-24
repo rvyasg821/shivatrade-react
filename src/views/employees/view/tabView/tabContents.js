@@ -8,7 +8,6 @@ import {
   TabContent,
   Card,
   CardBody,
-  CardHeader,
   CardTitle,
   Spinner,
   Badge,
@@ -141,29 +140,27 @@ const AttendanceTab = ({ userId }) => {
   const data = store?.annualReport || [];
 
   return (
-    <Card className="overflow-hidden shadow-sm border-0">
-      <CardBody>
-        <div className="d-flex align-items-center justify-content-between mb-1">
-          <CardTitle tag="h5" className="mb-0">{t("Attendance")}</CardTitle>
-          <div className="d-flex align-items-center gap-50">
-            <Label className="form-label small mb-0">{t("Year")}</Label>
-            <Input type="number" bsSize="sm" style={{ width: "90px" }} value={reportYear} onChange={(e) => setReportYear(+e.target.value)} />
-          </div>
+    <Fragment>
+      <div className="d-flex align-items-center justify-content-between mb-1">
+        <CardTitle tag="h5" className="mb-0">{t("Attendance")}</CardTitle>
+        <div className="d-flex align-items-center gap-50">
+          <Label className="form-label small mb-0">{t("Year")}</Label>
+          <Input type="number" bsSize="sm" style={{ width: "90px" }} value={reportYear} onChange={(e) => setReportYear(+e.target.value)} />
         </div>
-        {store?.loading === false ? (
-          <div className="text-center my-4">
-            <Spinner color="primary" />
-          </div>
-        ) : (
-          <DatatablePagination
-            columns={columns}
-            data={data}
-            loading={store?.loading}
-            disablePagination
-          />
-        )}
-      </CardBody>
-    </Card>
+      </div>
+      {store?.loading === false ? (
+        <div className="text-center my-4">
+          <Spinner color="primary" />
+        </div>
+      ) : (
+        <DatatablePagination
+          columns={columns}
+          data={data}
+          loading={store?.loading}
+          disablePagination
+        />
+      )}
+    </Fragment>
   );
 };
 
@@ -268,36 +265,35 @@ const LeaveTab = ({ userId }) => {
   const total = store?.requestTotal || 0;
 
   return (
-    <Card className="overflow-hidden shadow-sm border-0">
-      <CardBody>
-        {store?.loading === false ? (
-          <div className="text-center my-4">
-            <Spinner color="primary" />
-          </div>
-        ) : data.length > 0 ? (
-          <Row>
-            <Col md="12">
-              <DatatablePagination
-                columns={columns}
-                data={data}
-                currentPage={currentPage}
-                rowsPerPage={rowsPerPage}
-                pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
-                handlePagination={(page) => setCurrentPage(page + 1)}
-                handleRowPerPage={(val) => {
-                  setRowsPerPage(val);
-                  setCurrentPage(1);
-                }}
-              />
-            </Col>
-          </Row>
-        ) : (
-          <div className="text-center fw-semibold text-muted py-3">
-            {t("No leave requests found.")}
-          </div>
-        )}
-      </CardBody>
-    </Card>
+    <Fragment>
+      <CardTitle tag="h5" className="mb-1">{t("Leave")}</CardTitle>
+      {store?.loading === false ? (
+        <div className="text-center my-4">
+          <Spinner color="primary" />
+        </div>
+      ) : data.length > 0 ? (
+        <Row>
+          <Col md="12">
+            <DatatablePagination
+              columns={columns}
+              data={data}
+              currentPage={currentPage}
+              rowsPerPage={rowsPerPage}
+              pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
+              handlePagination={(page) => setCurrentPage(page + 1)}
+              handleRowPerPage={(val) => {
+                setRowsPerPage(val);
+                setCurrentPage(1);
+              }}
+            />
+          </Col>
+        </Row>
+      ) : (
+        <div className="text-center fw-semibold text-muted py-3">
+          {t("No leave requests found.")}
+        </div>
+      )}
+    </Fragment>
   );
 };
 
@@ -537,37 +533,35 @@ const DocumentsTab = ({ userId }) => {
   const total = store?.pagination?.total || 0;
 
   return (
-    <Card className="overflow-hidden shadow-sm border-0">
-      <CardHeader className="border-bottom py-1 d-flex align-items-center justify-content-between">
-        <CardTitle tag="h6" className="mb-0">{t("Documents")}</CardTitle>
+    <Fragment>
+      <div className="d-flex align-items-center justify-content-between border-bottom pb-1 mb-1">
+        <CardTitle tag="h5" className="mb-0">{t("Documents")}</CardTitle>
         <Button color="primary" size="sm" onClick={openUploadModal}>
           <Upload size={14} className="me-50" />{t("Upload Documents")}
         </Button>
-      </CardHeader>
-      <CardBody>
-        {store?.loading === false ? (
-          <div className="text-center my-4">
-            <Spinner color="primary" />
-          </div>
-        ) : data.length > 0 ? (
-          <DatatablePagination
-            columns={columns}
-            data={data}
-            currentPage={currentPage}
-            rowsPerPage={rowsPerPage}
-            pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
-            handlePagination={(page) => setCurrentPage(page + 1)}
-            handleRowPerPage={(val) => {
-              setRowsPerPage(val);
-              setCurrentPage(1);
-            }}
-          />
-        ) : (
-          <div className="text-center fw-semibold text-muted py-3">
-            {t("No documents found.")}
-          </div>
-        )}
-      </CardBody>
+      </div>
+      {store?.loading === false ? (
+        <div className="text-center my-4">
+          <Spinner color="primary" />
+        </div>
+      ) : data.length > 0 ? (
+        <DatatablePagination
+          columns={columns}
+          data={data}
+          currentPage={currentPage}
+          rowsPerPage={rowsPerPage}
+          pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
+          handlePagination={(page) => setCurrentPage(page + 1)}
+          handleRowPerPage={(val) => {
+            setRowsPerPage(val);
+            setCurrentPage(1);
+          }}
+        />
+      ) : (
+        <div className="text-center fw-semibold text-muted py-3">
+          {t("No documents found.")}
+        </div>
+      )}
 
       {/* Bulk Upload Modal */}
       <Modal isOpen={uploadModal} toggle={() => {}} backdrop="static" keyboard={false} size="lg" centered scrollable>
@@ -675,7 +669,7 @@ const DocumentsTab = ({ userId }) => {
           ) : null}
         </ModalFooter>
       </Modal>
-    </Card>
+    </Fragment>
   );
 };
 
@@ -811,37 +805,35 @@ const ContractsTab = ({ userId }) => {
   const total = store?.contractTotal || 0;
 
   return (
-    <Card className="overflow-hidden shadow-sm border-0">
-      <CardHeader className="border-bottom py-1 d-flex align-items-center justify-content-between">
-        <CardTitle tag="h6" className="mb-0">{t("Contracts")}</CardTitle>
+    <Fragment>
+      <div className="d-flex align-items-center justify-content-between border-bottom pb-1 mb-1">
+        <CardTitle tag="h5" className="mb-0">{t("Contracts")}</CardTitle>
         <Button color="primary" size="sm" onClick={() => setIssueModal(true)}>
           <Send size={14} className="me-50" />{t("Assign Contract")}
         </Button>
-      </CardHeader>
-      <CardBody>
-        {store?.loading === false ? (
-          <div className="text-center my-4">
-            <Spinner color="primary" />
-          </div>
-        ) : data.length > 0 ? (
-          <DatatablePagination
-            columns={columns}
-            data={data}
-            currentPage={currentPage}
-            rowsPerPage={rowsPerPage}
-            pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
-            handlePagination={(page) => setCurrentPage(page + 1)}
-            handleRowPerPage={(val) => {
-              setRowsPerPage(val);
-              setCurrentPage(1);
-            }}
-          />
-        ) : (
-          <div className="text-center fw-semibold text-muted py-3">
-            {t("No contracts found.")}
-          </div>
-        )}
-      </CardBody>
+      </div>
+      {store?.loading === false ? (
+        <div className="text-center my-4">
+          <Spinner color="primary" />
+        </div>
+      ) : data.length > 0 ? (
+        <DatatablePagination
+          columns={columns}
+          data={data}
+          currentPage={currentPage}
+          rowsPerPage={rowsPerPage}
+          pagination={{ total, totalPage: Math.ceil(total / rowsPerPage) }}
+          handlePagination={(page) => setCurrentPage(page + 1)}
+          handleRowPerPage={(val) => {
+            setRowsPerPage(val);
+            setCurrentPage(1);
+          }}
+        />
+      ) : (
+        <div className="text-center fw-semibold text-muted py-3">
+          {t("No contracts found.")}
+        </div>
+      )}
 
       {/* Assign Contract Modal */}
       <Modal isOpen={issueModal} toggle={() => setIssueModal(false)} centered>
@@ -881,7 +873,7 @@ const ContractsTab = ({ userId }) => {
           </Button>
         </ModalFooter>
       </Modal>
-    </Card>
+    </Fragment>
   );
 };
 
@@ -1018,13 +1010,9 @@ const ComplianceTab = ({ userId }) => {
 
   if (!loaded) {
     return (
-      <Card className="overflow-hidden shadow-sm border-0">
-        <CardBody>
-          <div className="text-center my-4">
-            <Spinner color="primary" />
-          </div>
-        </CardBody>
-      </Card>
+      <div className="text-center my-4">
+        <Spinner color="primary" />
+      </div>
     );
   }
 

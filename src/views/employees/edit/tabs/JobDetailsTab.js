@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
-import { Row, Col, Label, Input, Button, FormFeedback, Spinner, InputGroup, InputGroupText } from "reactstrap";
+import { Fragment, useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { Row, Col, Label, Input, Button, FormFeedback, InputGroup, InputGroupText } from "reactstrap";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -18,7 +18,7 @@ import Notification from "@components/toast/notification";
 
 import useFormLoading from "@src/hooks/useFormLoading";
 
-const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
+const JobDetailsTab = forwardRef(({ employeeData, employeeId }, ref) => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
@@ -162,38 +162,41 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
     }
   };
 
-  const onSubmit = async (values) => {
-    setSubmitting(true);
-    try {
-      await onSave({
-        employee_code: (() => {
-          const raw = (values.employee_code || "").toUpperCase();
-          const pfx = employeeCodePrefix.toUpperCase();
-          if (pfx && raw.startsWith(pfx)) return raw;
-          return `${employeeCodePrefix}${raw}`;
-        })(),
-        designation: values.designation || "",
-        department: values.department || "",
-        employment_type: values.employment_type || "",
-        date_of_joining: values.date_of_joining || null,
-        location_id: isLocationAdmin && selectedLocationId
-          ? selectedLocationId
-          : (values.location_id?.value || values.location_id || ""),
-        additional_location_ids: Array.isArray(values.additional_location_ids)
-          ? values.additional_location_ids
-          : [],
-        role_id: values.role_id || "",
-        reporting_to: values.reporting_to || null,
-        is_active: values.is_active,
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const buildPayload = (values) => ({
+    employee_code: (() => {
+      const raw = (values.employee_code || "").toUpperCase();
+      const pfx = employeeCodePrefix.toUpperCase();
+      if (pfx && raw.startsWith(pfx)) return raw;
+      return `${employeeCodePrefix}${raw}`;
+    })(),
+    designation: values.designation || "",
+    department: values.department || "",
+    employment_type: values.employment_type || "",
+    date_of_joining: values.date_of_joining || null,
+    location_id: isLocationAdmin && selectedLocationId
+      ? selectedLocationId
+      : (values.location_id?.value || values.location_id || ""),
+    additional_location_ids: Array.isArray(values.additional_location_ids)
+      ? values.additional_location_ids
+      : [],
+    role_id: values.role_id || "",
+    reporting_to: values.reporting_to || null,
+    is_active: values.is_active,
+  });
+
+  useImperativeHandle(ref, () => ({
+    getData: () =>
+      new Promise((resolve) => {
+        handleSubmit(
+          (values) => resolve(buildPayload(values)),
+          () => resolve(undefined)
+        )();
+      }),
+  }));
 
   return (
     <Fragment>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => e.preventDefault()}>
         <Row>
           <Col md="6" className="mb-2">
             <Label>{t("Employee Code")} <span className="text-danger">*</span></Label>
@@ -426,14 +429,9 @@ const JobDetailsTab = ({ employeeData, employeeId, onSave, loading }) => {
           </Col>
         </Row> */}
 
-        <div className="mt-2">
-          <Button type="submit" color="primary" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : t("Save Job Details")}
-          </Button>
-        </div>
       </form>
     </Fragment>
   );
-};
+});
 
 export default JobDetailsTab;

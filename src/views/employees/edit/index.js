@@ -1,50 +1,52 @@
-// ** React Imports
-import { Fragment, useState, useEffect, useLayoutEffect } from "react";
+// Employee add/edit — multi-step wizard (same look as the lead / quotation
+// wizards). Step 1 merges Personal + Job because those hold the required
+// fields; the rest are optional sections. Each step reuses its existing
+// self-contained tab form (own RHF + Save), so the create-mode sequencing
+// (Personal creates the employee → Job + later steps unlock) is preserved.
+
+import { Fragment, useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
-import { getEmployee, createEmployee, updateEmployee, cleanEmployeeMessage } from "../store";
+import {
+  getEmployee,
+  createEmployee,
+  updateEmployee,
+  cleanEmployeeMessage,
+} from "../store";
 import { getLocationList } from "../../locations/store";
 import { getCodeSettings } from "@src/views/company-settings/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Reactstrap Imports
-import {
-  Row,
-  Col,
-  Nav,
-  NavItem,
-  NavLink,
-  TabContent,
-  TabPane,
-  Card,
-  CardBody,
-} from "reactstrap";
+import { Card, CardBody, Button, Spinner } from "reactstrap";
+import { ChevronLeft, ChevronRight, Save } from "react-feather";
 
 // ** Third Party Components
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, User, MapPin, Briefcase, DollarSign, Users, Globe, Camera } from "react-feather";
+import { ArrowLeft, User, MapPin, DollarSign, Users, Camera } from "react-feather";
 
 // ** Custom Components
 import Notification from "@components/toast/notification";
+import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
 
 // ** Constant
 import { appsRoot, hostRestApiUrl } from "@constant/defaultValues";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
-// ** Tab Components
+// ** Step (tab) Components — reused as-is
 import PersonalDetailsTab from "./tabs/PersonalDetailsTab";
 import AddressDetailsTab from "./tabs/AddressDetailsTab";
 import JobDetailsTab from "./tabs/JobDetailsTab";
 import FinancialDetailsTab from "./tabs/FinancialDetailsTab";
 import EmergencyContactTab from "./tabs/EmergencyContactTab";
-import ImmigrationTab from "./tabs/ImmigrationTab";
 import FaceRegistrationTab from "./tabs/FaceRegistrationTab";
 
 // ** Styles
 import "@styles/react/apps/app-users.scss";
+import "@src/views/_shared/wizard/wizard.scss";
 
 const EmployeeEdit = () => {
   const { id: paramId } = useParams();
@@ -55,32 +57,42 @@ const EmployeeEdit = () => {
   // Track employee ID — starts null for create mode, set after first save
   const [employeeId, setEmployeeId] = useState(paramId || null);
   const isCreateMode = !employeeId;
+  const isEdit = !isCreateMode;
 
   const store = useSelector((state) => state.employee);
   const companyData = useSelector((state) => state.authentication?.companyData);
   const locationStore = useSelector((state) => state.location);
+  const codeSettingsStore = useSelector(
+    (state) => state.companySettings?.codeSettings
+  );
 
-  const [activeTab, setActiveTab] = useState("personal");
   const [employeeData, setEmployeeData] = useState(null);
 
-  // Check if hrm-compliance tool is enabled in subscription
-  const subscribedTools = companyData?.tools || [];
-  const hasComplianceTool = subscribedTools.some(
-    (tool) => tool?.slug === "hrm-compliance" || tool?._id === "hrm-compliance"
-  );
+  // ── Wizard navigation state ───────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
+  const [visited, setVisited] = useState(new Set([0]));
+  const [submitting, setSubmitting] = useState(false);
+
+  // Imperative handles to each step's form — the footer Save drives them.
+  const personalRef = useRef(null);
+  const jobRef = useRef(null);
+  const addressRef = useRef(null);
+  const financialRef = useRef(null);
+  const emergencyRef = useRef(null);
+  const faceRef = useRef(null);
 
   const [faceCaptureEnabled, setFaceCaptureEnabled] = useState(false);
   useEffect(() => {
-    // Check if face capture is enabled in attendance settings
-    instance.get(API_ENDPOINTS.attendance.settings)
-      .then(res => {
+    // Face capture is gated on the attendance setting.
+    instance
+      .get(API_ENDPOINTS.attendance.settings)
+      .then((res) => {
         if (res.data?.data?.face_capture_enabled) setFaceCaptureEnabled(true);
       })
       .catch(() => {});
   }, []);
 
-  // Fetch locations and code settings for create mode
-  const codeSettingsStore = useSelector((state) => state.companySettings?.codeSettings);
+  // Locations + code settings for the Job step (create needs them up front).
   useEffect(() => {
     if (isCreateMode) {
       dispatch(getLocationList({ _limit: 200 }));
@@ -93,62 +105,44 @@ const EmployeeEdit = () => {
   }, []);
 
   useEffect(() => {
-    if (employeeId) {
-      dispatch(getEmployee(employeeId));
-    }
+    if (employeeId) dispatch(getEmployee(employeeId));
   }, [employeeId]);
 
   useEffect(() => {
     if (store?.actionFlag === "EMP_SCS" && store?.employeeItem) {
       setEmployeeData(store.employeeItem);
     }
-
     if (store?.actionFlag === "EMP_UPDT" && store?.employeeItem) {
       setEmployeeData(store.employeeItem);
     }
-
-    // Handle employee creation — update ID, URL, and move to next tab
+    // Employee created — capture the id + URL; the Job form unlocks in step 1.
     if (store?.actionFlag === "EMP_CRTD" && store?.employeeItem) {
       const newId = store.employeeItem._id;
       setEmployeeId(newId);
       setEmployeeData(store.employeeItem);
-      // Update URL without full page reload
       navigate(`${appsRoot}/employees/edit/${newId}`, { replace: true });
-      // Move to next tab (Job Details)
-      setActiveTab("job");
     }
 
     if (store?.actionFlag || store?.success || store?.error) {
       dispatch(cleanEmployeeMessage(null));
     }
-
-    if (store?.success) {
-      Notification("Success", store.success, "success");
-    }
-    if (store?.error) {
-      Notification("Error", store.error, "warning");
-    }
+    if (store?.success) Notification("Success", store.success, "success");
+    if (store?.error) Notification("Error", store.error, "warning");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.actionFlag, store.success, store.error]);
 
   useEffect(() => {
-    if (!store?.loading) {
-      dispatch(startLoading());
-    } else {
-      dispatch(stopLoading());
-    }
+    if (!store?.loading) dispatch(startLoading());
+    else dispatch(stopLoading());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.loading]);
-
-  const toggleTab = (tab) => {
-    if (activeTab !== tab) setActiveTab(tab);
-  };
 
   const handleSaveTab = async (tabData) => {
     if (isCreateMode) {
-      // First tab save — create the employee
       try {
         await dispatch(createEmployee(tabData)).unwrap();
       } catch {
-        // Error handled by useEffect watching store?.error
+        // surfaced by the store?.error effect
       }
       return;
     }
@@ -157,152 +151,274 @@ const EmployeeEdit = () => {
       await dispatch(updateEmployee({ id: employeeId, data: tabData })).unwrap();
       dispatch(getEmployee(employeeId));
     } catch {
-      // Error handled by useEffect watching store?.error
+      // surfaced by the store?.error effect
     }
   };
 
   function getBackendImageUrl(photo) {
     if (typeof photo !== "string" || !photo.trim()) return null;
     if (photo.startsWith("http")) return photo;
-    const cleanPath = photo.replace(/^\/+/, "");
-    return `${hostRestApiUrl}/${cleanPath}`;
+    return `${hostRestApiUrl}/${photo.replace(/^\/+/, "")}`;
   }
 
-  const tabs = [
-    { id: "personal", label: t("Personal"), icon: <User size={16} /> },
-    { id: "address", label: t("Address"), icon: <MapPin size={16} /> },
-    { id: "job", label: t("Job Details"), icon: <Briefcase size={16} /> },
-    { id: "financial", label: t("Financial"), icon: <DollarSign size={16} /> },
-    { id: "emergency", label: t("Emergency"), icon: <Users size={16} /> },
-    ...(faceCaptureEnabled && !isCreateMode
-      ? [{ id: "faceid", label: t("Face ID"), icon: <Camera size={16} /> }]
+  // ── Steps ─────────────────────────────────────────────────────────────
+  const steps = [
+    { key: "basic", label: t("Basic Info"), icon: User },
+    { key: "address", label: t("Address"), icon: MapPin },
+    { key: "financial", label: t("Financial"), icon: DollarSign },
+    { key: "emergency", label: t("Emergency"), icon: Users },
+    ...(faceCaptureEnabled && isEdit
+      ? [{ key: "faceid", label: t("Face ID"), icon: Camera }]
       : []),
   ];
+
+  const isFirst = activeStep === 0;
+  const isLast = activeStep === steps.length - 1;
+
+  // In create mode the employee must be created (step 1 Personal) before any
+  // later step is reachable.
+  const canLeaveFirstStep = isEdit || !!employeeId;
+
+  const stepKey = steps[activeStep]?.key;
+
+  // Validate + collect ONE step's payload WITHOUT saving. getData() triggers
+  // that form's validation (highlighting fields) and resolves the payload,
+  // `undefined` on a validation failure, or `null` for nothing to save.
+  // All steps stay mounted, so edits on inactive steps are still collected.
+  const collectStep = async (key) => {
+    if (key === "basic") {
+      const p = personalRef.current ? await personalRef.current.getData() : {};
+      if (p === undefined) return { ok: false };
+      let j = {};
+      if (employeeId && jobRef.current) {
+        const jd = await jobRef.current.getData();
+        if (jd === undefined) return { ok: false };
+        j = jd || {};
+      }
+      return { ok: true, payload: { ...(p || {}), ...j } };
+    }
+    const refByStep = {
+      address: addressRef,
+      financial: financialRef,
+      emergency: emergencyRef,
+      faceid: faceRef,
+    };
+    const r = refByStep[key];
+    const d = r?.current ? await r.current.getData() : null;
+    if (d === undefined) return { ok: false };
+    if (d === null) return { ok: true, payload: null }; // nothing to save
+    return { ok: true, payload: d };
+  };
+
+  // Save button — persists EVERY step's edits in ONE merged update (so changes
+  // across steps aren't lost), with a single success/error toast from the
+  // store effect. On create only the basics exist yet. Validation failure on
+  // any step jumps to that step and warns.
+  const onSave = async () => {
+    const keys = isCreateMode ? ["basic"] : steps.map((s) => s.key);
+    setSubmitting(true);
+    try {
+      let merged = {};
+      for (const key of keys) {
+        const { ok, payload } = await collectStep(key);
+        if (!ok) {
+          const idx = steps.findIndex((s) => s.key === key);
+          if (idx >= 0) setActiveStep(idx);
+          Notification(
+            "Validation",
+            t("Please complete the required fields before saving."),
+            "warning"
+          );
+          return;
+        }
+        if (payload) merged = { ...merged, ...payload };
+      }
+      if (Object.keys(merged).length > 0) {
+        await handleSaveTab(merged);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const goToStep = (i) => {
+    if (i === activeStep) return;
+    if (i > 0 && !canLeaveFirstStep) {
+      Notification(
+        "Validation",
+        t("Save the employee's basic details first."),
+        "warning"
+      );
+      return;
+    }
+    setActiveStep(i);
+    setVisited((v) => new Set(v).add(i));
+  };
+
+  // Next validates the current step (highlighting + error toast) but never
+  // saves. It only advances when the step's required fields are valid.
+  const onNext = async () => {
+    const { ok } = await collectStep(stepKey);
+    if (!ok) {
+      Notification(
+        "Validation",
+        t("Please complete the required fields before continuing."),
+        "warning"
+      );
+      return;
+    }
+    goToStep(Math.min(activeStep + 1, steps.length - 1));
+  };
+
+  const onBack = () => setActiveStep((s) => Math.max(s - 1, 0));
+  const tabProps = { employeeData };
 
   return (
     <Fragment>
       <div className="main-content employees">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <div className="d-flex align-items-center gap-2">
-            <h3 className="mb-0">
-              {isCreateMode ? t("Add Employee") : t("Edit Employee")}
-              {employeeData && (
-                <span className="text-muted fw-normal ms-1" style={{ fontSize: "0.85rem" }}>
-                  - {employeeData.first_name} {employeeData.last_name}
-                </span>
-              )}
-            </h3>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft size={17} />
-            </button>
-          </div>
+          <h3 className="mb-0">
+            {isCreateMode ? t("Add Employee") : t("Edit Employee")}
+            {employeeData && (
+              <span
+                className="text-muted fw-normal ms-1"
+                style={{ fontSize: "0.85rem" }}
+              >
+                - {employeeData.first_name} {employeeData.last_name}
+              </span>
+            )}
+          </h3>
+          <Button
+            color="primary"
+            size="sm"
+            outline
+            onClick={() => navigate(-1)}
+            className="d-flex align-items-center"
+          >
+            <ArrowLeft size={16} className="me-50" /> {t("Back")}
+          </Button>
         </div>
 
         <Card>
-          <CardBody className="p-0">
-            <Nav tabs className="mb-0 border-bottom px-2 pt-1">
-              {tabs.map((tab) => {
-                const isDisabled = isCreateMode && tab.id !== "personal";
-                return (
-                  <NavItem key={tab.id}>
-                    <NavLink
-                      active={activeTab === tab.id}
-                      onClick={() => !isDisabled && toggleTab(tab.id)}
-                      className={`d-flex align-items-center gap-50 ${isDisabled ? 'text-muted' : 'cursor-pointer'}`}
-                      style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                    >
-                      {tab.icon}
-                      <span>{tab.label}</span>
-                    </NavLink>
-                  </NavItem>
-                );
-              })}
-            </Nav>
+          <CardBody className="quotation-wizard">
+            <WizardHeader
+              steps={steps}
+              activeStep={activeStep}
+              visited={visited}
+              onStepClick={goToStep}
+              isEdit={isEdit && canLeaveFirstStep}
+            />
 
-            <div className="p-2">
-              <TabContent activeTab={activeTab}>
-                <TabPane tabId="personal">
-                  {activeTab === "personal" && (
-                    <PersonalDetailsTab
-                      employeeData={employeeData}
-                      onSave={handleSaveTab}
-                      loading={!store?.loading}
-                      getBackendImageUrl={getBackendImageUrl}
-                      isCreateMode={isCreateMode}
-                      locations={locationStore?.locationItems || []}
-                      codeSettings={codeSettingsStore}
-                    />
-                  )}
-                </TabPane>
-
-                <TabPane tabId="address">
-                  {activeTab === "address" && (
-                    <AddressDetailsTab
-                      employeeData={employeeData}
-                      onSave={handleSaveTab}
-                      loading={!store?.loading}
-                    />
-                  )}
-                </TabPane>
-
-                <TabPane tabId="job">
-                  {activeTab === "job" && (
+            {/* All steps stay MOUNTED (only the active one is visible) so edits
+                made on one step aren't lost when you move to another — Save
+                then persists every step's data together. */}
+            <div className="wizard-step-body mt-2">
+              <div style={{ display: stepKey === "basic" ? "block" : "none" }}>
+                <PersonalDetailsTab
+                  ref={personalRef}
+                  {...tabProps}
+                  getBackendImageUrl={getBackendImageUrl}
+                  isCreateMode={isCreateMode}
+                  locations={locationStore?.locationItems || []}
+                  codeSettings={codeSettingsStore}
+                />
+                {employeeId && (
+                  <div className="mt-3 pt-2 border-top">
+                    <h5 className="fw-bolder mb-2">{t("Job Details")}</h5>
                     <JobDetailsTab
-                      employeeData={employeeData}
+                      ref={jobRef}
+                      {...tabProps}
                       employeeId={employeeId}
-                      onSave={handleSaveTab}
-                      loading={!store?.loading}
                     />
-                  )}
-                </TabPane>
-
-                <TabPane tabId="financial">
-                  {activeTab === "financial" && (
-                    <FinancialDetailsTab
-                      employeeData={employeeData}
-                      onSave={handleSaveTab}
-                      loading={!store?.loading}
-                    />
-                  )}
-                </TabPane>
-
-                <TabPane tabId="emergency">
-                  {activeTab === "emergency" && (
-                    <EmergencyContactTab
-                      employeeData={employeeData}
-                      onSave={handleSaveTab}
-                      loading={!store?.loading}
-                    />
-                  )}
-                </TabPane>
-
-                {faceCaptureEnabled && !isCreateMode && (
-                  <TabPane tabId="faceid">
-                    {activeTab === "faceid" && (
-                      <FaceRegistrationTab
-                        employeeData={employeeData}
-                        employeeId={employeeId}
-                        onSave={handleSaveTab}
-                        loading={!store?.loading}
-                        getBackendImageUrl={getBackendImageUrl}
-                      />
-                    )}
-                  </TabPane>
+                  </div>
                 )}
+              </div>
 
-                <TabPane tabId="documents">
-                </TabPane>
+              <div style={{ display: stepKey === "address" ? "block" : "none" }}>
+                <AddressDetailsTab ref={addressRef} {...tabProps} />
+              </div>
 
-                <TabPane tabId="contracts">
-                </TabPane>
+              <div
+                style={{ display: stepKey === "financial" ? "block" : "none" }}
+              >
+                <FinancialDetailsTab ref={financialRef} {...tabProps} />
+              </div>
 
-              </TabContent>
+              <div
+                style={{ display: stepKey === "emergency" ? "block" : "none" }}
+              >
+                <EmergencyContactTab ref={emergencyRef} {...tabProps} />
+              </div>
+
+              {faceCaptureEnabled && isEdit && (
+                <div
+                  style={{ display: stepKey === "faceid" ? "block" : "none" }}
+                >
+                  <FaceRegistrationTab
+                    ref={faceRef}
+                    {...tabProps}
+                    employeeId={employeeId}
+                    getBackendImageUrl={getBackendImageUrl}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer — single Save per step (drives the active step's form),
+                plus Next/Back/Cancel. Same pattern as the quotation wizard. */}
+            <div className="wizard-footer mt-2">
+              <div className="footer-left">
+                <Button
+                  type="button"
+                  color="secondary"
+                  outline
+                  onClick={() => navigate(-1)}
+                  disabled={submitting}
+                >
+                  {t("Cancel")}
+                </Button>
+                {!isFirst && (
+                  <Button
+                    type="button"
+                    color="secondary"
+                    outline
+                    onClick={onBack}
+                    disabled={submitting}
+                  >
+                    <ChevronLeft size={15} className="me-25" />
+                    {t("Back")}
+                  </Button>
+                )}
+              </div>
+              <div className="footer-right">
+                <Button
+                  type="button"
+                  color="primary"
+                  outline={!isLast}
+                  onClick={onSave}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <Fragment>
+                      <Save size={15} className="me-25" />
+                      {t("Save")}
+                    </Fragment>
+                  )}
+                </Button>
+                {!isLast && (
+                  <Button
+                    type="button"
+                    color="primary"
+                    onClick={onNext}
+                    disabled={submitting}
+                  >
+                    {t("Next")}
+                    <ChevronRight size={15} className="ms-25" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardBody>
         </Card>
