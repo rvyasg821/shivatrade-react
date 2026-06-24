@@ -279,6 +279,7 @@ export const API_ENDPOINTS = {
   },
   inventory: {
     list: `/admin/inventory/list`,
+    stats: `/admin/inventory/stats`,
     receipt: `/admin/inventory/receipt`, // append /:povLineId
   },
   invoices: {

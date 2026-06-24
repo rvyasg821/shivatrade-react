@@ -4,8 +4,9 @@
 // action — receipts come from the GRN flow. The detail modal opens via the
 // `?receipt=<pov_line_id>` URL param (deep-linkable + back-friendly).
 //
-// Uses a plain reactstrap <Table> (not the datatable) so we control header
-// no-wrap + column widths and never force a horizontal scrollbar.
+// Uses the shared DatatablePagination (react-data-table-component) so the
+// listing matches the rest of the app (RFQ / leads) — server-side paging,
+// "Show N of total" footer and the standard pager.
 
 import {
   Fragment,
@@ -18,7 +19,11 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 
 import { useDispatch, useSelector } from "react-redux";
-import { getInventoryList, cleanInventoryMessage } from "./store";
+import {
+  getInventoryList,
+  getInventoryStats,
+  cleanInventoryMessage,
+} from "./store";
 import { getVendorDropdown } from "../vendors/store";
 import { getCategoryDropdown } from "../categories/store";
 import { startLoading, stopLoading } from "../loadingstore";
@@ -29,13 +34,12 @@ import {
   Card,
   Input,
   CardBody,
-  Table,
   UncontrolledTooltip,
 } from "reactstrap";
 import Select from "react-select";
-import ReactPaginate from "react-paginate";
 
 import Notification from "@components/toast/notification";
+import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -46,6 +50,7 @@ import { Eye, ExternalLink } from "react-feather";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 
 import ReceiptDetailModal from "./ReceiptDetailModal";
+import InventoryStatsCards from "./InventoryStatsCards";
 
 // Trim trailing zeros on a qty string ("11.0000" → "11", "11.50" → "11.5").
 const fmtQty = (v) => {
@@ -54,8 +59,6 @@ const fmtQty = (v) => {
   if (!Number.isFinite(n)) return "-";
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
-
-const PAGE_SIZES = [10, 25, 50, 100];
 
 const InventoryView = () => {
   const { t } = useTranslation();
@@ -119,6 +122,36 @@ const InventoryView = () => {
     ]
   );
 
+  // KPI cards reflect the filtered set (no page/perPage/sort) — re-fetched
+  // alongside the list whenever a filter changes.
+  const fetchStats = useCallback(
+    (
+      search = searchInput,
+      categoryId = categoryFilter,
+      vendorId = vendorFilter,
+      from = dateFrom,
+      to = dateTo
+    ) => {
+      const p = {};
+      if (search) p.search = search;
+      if (categoryId) p.category_id = categoryId;
+      if (vendorId) p.vendor_id = vendorId;
+      if (selectedLocationId) p.location_id = selectedLocationId;
+      if (from) p.date_from = from;
+      if (to) p.date_to = to;
+      dispatch(getInventoryStats(p));
+    },
+    [
+      searchInput,
+      categoryFilter,
+      vendorFilter,
+      selectedLocationId,
+      dateFrom,
+      dateTo,
+      dispatch,
+    ]
+  );
+
   const handlePagination = (selected) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     setCurrentPage(selected + 1);
@@ -126,9 +159,10 @@ const InventoryView = () => {
   };
 
   const handlePerPage = (value) => {
-    setRowsPerPage(value);
+    const perPage = Number(value) || defaultPerPageRow;
+    setRowsPerPage(perPage);
     setCurrentPage(1);
-    handleList(1, value);
+    handleList(1, perPage);
   };
 
   const handleSearch = (value) => setSearchInput(value);
@@ -156,10 +190,12 @@ const InventoryView = () => {
       handler = setTimeout(() => {
         setCurrentPage(1);
         handleList(1, rowsPerPage, searchInput);
+        fetchStats(searchInput);
       }, 500);
     } else {
       setCurrentPage(1);
       handleList(1, rowsPerPage, searchInput);
+      fetchStats(searchInput);
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,8 +244,127 @@ const InventoryView = () => {
   );
 
   const rows = store?.inventoryItems || [];
-  const total = store?.pagination?.total || 0;
-  const pageCount = Math.max(1, Math.ceil(total / rowsPerPage));
+
+  const columns = [
+    {
+      name: t("#"),
+      width: "60px",
+      selector: (row, index) => (
+        <span className="text-muted">
+          {(currentPage - 1) * rowsPerPage + index + 1}
+        </span>
+      ),
+    },
+    {
+      name: t("Product"),
+      grow: 2,
+      selector: (row) => (
+        <div className="py-1">
+          <div className="fw-bold">{row?.product_name || "-"}</div>
+          {row?.product_code ? (
+            <div className="small text-muted text-nowrap">
+              {row.product_code}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      name: t("Category"),
+      selector: (row) => (
+        <span className="text-nowrap">{row?.category_name || "—"}</span>
+      ),
+    },
+    {
+      name: t("SO # / POV #"),
+      grow: 2,
+      selector: (row) => (
+        <div className="py-1">
+          <div>
+            {row?.po_id ? (
+              <Link
+                to={`${appsRoot}/purchase-orders/view/${row.po_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-nowrap d-inline-flex align-items-center"
+              >
+                {row?.po_voucher_no || "-"}
+                <ExternalLink size={11} className="ms-50" />
+              </Link>
+            ) : (
+              <span className="text-nowrap">{row?.po_voucher_no || "-"}</span>
+            )}
+          </div>
+          <div className="mt-25">
+            {row?.pov_id ? (
+              <Link
+                to={`${appsRoot}/po-vendors/view/${row.pov_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-nowrap d-inline-flex align-items-center small text-muted"
+              >
+                {row?.pov_voucher_no || "-"}
+                <ExternalLink size={11} className="ms-50" />
+              </Link>
+            ) : (
+              <span className="text-nowrap small text-muted">
+                {row?.pov_voucher_no || "-"}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      name: t("Vendor"),
+      grow: 2,
+      selector: (row) => (
+        <span className="text-nowrap text-capitalize">
+          {row?.vendor_name || "-"}
+        </span>
+      ),
+    },
+    {
+      name: t("Qty in Stock"),
+      center: true,
+      minWidth: "150px",
+      selector: (row) => (
+        <span className="text-nowrap fw-bold">
+          {fmtQty(row?.accepted_qty ?? row?.received_qty)}
+          {row?.uom ? ` ${row.uom}` : ""}
+        </span>
+      ),
+    },
+    {
+      name: t("Receipt Date"),
+      center: true,
+      minWidth: "150px",
+      selector: (row) => (
+        <span className="text-nowrap">
+          {row?.arrival_date ? formatDate(row.arrival_date) : "-"}
+        </span>
+      ),
+    },
+    {
+      name: t("Action"),
+      center: true,
+      cell: (row, index) => (
+        <span
+          className="cursor-pointer text-primary"
+          id={`inv-view-${row?.pov_line_id || index}`}
+          onClick={() => openReceipt(row?.pov_line_id)}
+        >
+          <Eye size={18} />
+          <UncontrolledTooltip
+            placement="top"
+            target={`inv-view-${row?.pov_line_id || index}`}
+          >
+            {t("View")}
+          </UncontrolledTooltip>
+        </span>
+      ),
+    },
+  ];
 
   return (
     <Fragment>
@@ -217,6 +372,8 @@ const InventoryView = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Inventory")}</h3>
         </div>
+
+        <InventoryStatsCards stats={store?.stats} />
 
         <Card className="overflow-hidden">
           <CardBody>
@@ -282,154 +439,19 @@ const InventoryView = () => {
               </Col>
             </Row>
 
-            <div className="table-responsive mt-2">
-              <Table className="align-middle mb-0" size="sm" bordered hover>
-                <thead className="table-light">
-                  <tr className="text-nowrap">
-                    <th style={{ width: 50 }}>#</th>
-                    <th>{t("Product")}</th>
-                    <th>{t("Category")}</th>
-                    <th>{t("SO # / POV #")}</th>
-                    <th>{t("Vendor")}</th>
-                    <th className="text-end">{t("Qty in Stock")}</th>
-                    <th>{t("Receipt Date")}</th>
-                    <th className="text-center">{t("Action")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center text-muted py-4">
-                        {t("There are no records to display")}
-                      </td>
-                    </tr>
-                  ) : (
-                    rows.map((row, index) => (
-                      <tr key={row.pov_line_id || index}>
-                        <td className="text-muted">
-                          {(currentPage - 1) * rowsPerPage + index + 1}
-                        </td>
-                        <td style={{ minWidth: 200 }}>
-                          <div className="fw-bold text-nowrap">
-                            {row?.product_code || "-"}
-                          </div>
-                          {row?.product_name ? (
-                            <div className="small text-muted">
-                              {row.product_name}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td className="text-nowrap">
-                          {row?.category_name || "—"}
-                        </td>
-                        <td style={{ minWidth: 190 }}>
-                          <div>
-                            {row?.po_id ? (
-                              <Link
-                                to={`${appsRoot}/purchase-orders/view/${row.po_id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-nowrap d-inline-flex align-items-center"
-                              >
-                                {row?.po_voucher_no || "-"}
-                                <ExternalLink size={11} className="ms-50" />
-                              </Link>
-                            ) : (
-                              <span className="text-nowrap">
-                                {row?.po_voucher_no || "-"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-25">
-                            {row?.pov_id ? (
-                              <Link
-                                to={`${appsRoot}/po-vendors/view/${row.pov_id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-nowrap d-inline-flex align-items-center small text-muted"
-                              >
-                                {row?.pov_voucher_no || "-"}
-                                <ExternalLink size={11} className="ms-50" />
-                              </Link>
-                            ) : (
-                              <span className="text-nowrap small text-muted">
-                                {row?.pov_voucher_no || "-"}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="text-nowrap text-capitalize">
-                          {row?.vendor_name || "-"}
-                        </td>
-                        <td className="text-end text-nowrap fw-bold">
-                          {fmtQty(row?.accepted_qty ?? row?.received_qty)}
-                          {row?.uom ? ` ${row.uom}` : ""}
-                        </td>
-                        <td className="text-nowrap">
-                          {row?.arrival_date ? formatDate(row.arrival_date) : "-"}
-                        </td>
-                        <td className="text-center">
-                          <span
-                            className="cursor-pointer text-primary"
-                            id={`inv-view-${row?.pov_line_id || index}`}
-                            onClick={() => openReceipt(row?.pov_line_id)}
-                          >
-                            <Eye size={18} />
-                            <UncontrolledTooltip
-                              placement="top"
-                              target={`inv-view-${row?.pov_line_id || index}`}
-                            >
-                              {t("View")}
-                            </UncontrolledTooltip>
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
-            </div>
-
-            {total > 0 && (
-              <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-                <div className="d-flex align-items-center small text-muted">
-                  <span className="me-50">{t("Show")}</span>
-                  <Input
-                    type="select"
-                    bsSize="sm"
-                    value={rowsPerPage}
-                    onChange={(e) =>
-                      handlePerPage(Number(e.target.value) || defaultPerPageRow)
-                    }
-                    style={{ width: 80 }}
-                  >
-                    {PAGE_SIZES.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </Input>
-                  <span className="ms-1">
-                    {t("of")} {total} {t("rows")}
-                  </span>
-                </div>
-                <ReactPaginate
-                  previousLabel=""
-                  nextLabel=""
-                  forcePage={currentPage - 1}
-                  pageCount={pageCount}
-                  activeClassName="active"
-                  onPageChange={({ selected }) => handlePagination(selected)}
-                  pageClassName="page-item"
-                  nextLinkClassName="page-link"
-                  nextClassName="page-item next"
-                  previousClassName="page-item prev"
-                  previousLinkClassName="page-link"
-                  pageLinkClassName="page-link"
-                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+            <Row className="mt-2">
+              <Col md="12" className="inventory-tables">
+                <DatatablePagination
+                  columns={columns}
+                  data={rows}
+                  currentPage={currentPage}
+                  rowsPerPage={rowsPerPage}
+                  pagination={store?.pagination}
+                  handleRowPerPage={handlePerPage}
+                  handlePagination={handlePagination}
                 />
-              </div>
-            )}
+              </Col>
+            </Row>
           </CardBody>
         </Card>
       </div>

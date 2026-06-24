@@ -45,6 +45,28 @@ export const getInventoryList = createAsyncThunk(
   }
 );
 
+// ─── Stats (header KPI cards) ───────────────────────────────────────────
+// Aggregates over the same filtered set as the list. Failures are swallowed
+// to null so a stats hiccup never blanks the listing.
+
+export const getInventoryStats = createAsyncThunk(
+  "appInventory/getInventoryStats",
+  async (params) => {
+    try {
+      const resp = await instance.get(API_ENDPOINTS.inventory.stats, {
+        params,
+      });
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return { stats: body.data };
+      }
+      return { stats: null };
+    } catch (error) {
+      return { stats: null };
+    }
+  }
+);
+
 // ─── Receipt detail (modal) ─────────────────────────────────────────────
 
 export const getReceiptDetail = createAsyncThunk(
@@ -76,6 +98,7 @@ export const appInventorySlice = createSlice({
   initialState: {
     inventoryItems: [],
     pagination: null,
+    stats: null,
     receiptItem: null,
     receiptLoading: false,
     receiptError: "",
@@ -111,6 +134,9 @@ export const appInventorySlice = createSlice({
       })
       .addCase(getInventoryList.rejected, (state) => {
         state.loading = true;
+      })
+      .addCase(getInventoryStats.fulfilled, (state, action) => {
+        state.stats = action.payload?.stats || null;
       })
       .addCase(getReceiptDetail.pending, (state) => {
         state.receiptItem = null;
