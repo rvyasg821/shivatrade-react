@@ -271,32 +271,95 @@ const CreatePoVendor = () => {
         .catch(() => resolve(null));
     });
 
+  const vendorLabel = () =>
+    vendorOptions.find((o) => o.value === vendorId)?.label ||
+    t("the selected vendor");
+
   const onPickProduct = async (key, opt) => {
-    const raw = opt?.raw || {};
+    // Cleared selection — reset the row.
+    if (!opt) {
+      setRow(key, {
+        product_id: "",
+        product_name: "",
+        part_no: "",
+        hsn_code: "",
+        unit: "",
+        tax_pct: "0",
+        unit_price: "",
+      });
+      return;
+    }
+    // A vendor is required first — the product must exist in ITS price list.
+    if (!vendorId) {
+      Notification(
+        "Validation",
+        t("Select a vendor first, then add products."),
+        "warning"
+      );
+      return;
+    }
+    // Gate: the product must be in the selected vendor's price list.
+    const price = await fetchVendorPrice(opt.value, vendorId);
+    if (price == null) {
+      Notification(
+        "Validation",
+        t(
+          `"${opt.raw?.name || opt.label}" is not in ${vendorLabel()}'s price list — add it there first.`
+        ),
+        "warning"
+      );
+      return; // do not add the product
+    }
+    const raw = opt.raw || {};
     setRow(key, {
-      product_id: opt ? opt.value : "",
+      product_id: opt.value,
       product_name: raw.name || "",
       part_no: raw.part_no || "",
       hsn_code: raw.hsn_code || "",
       unit: raw.unit_of_measure || "",
       tax_pct: raw.tax_pct != null ? String(raw.tax_pct) : "0",
-      unit_price: "",
+      unit_price: price,
     });
-    // Auto-fill the rate from the selected vendor's price list.
-    if (opt && vendorId) {
-      const price = await fetchVendorPrice(opt.value, vendorId);
-      if (price != null) setRow(key, { unit_price: price });
-    }
   };
 
-  // Re-fill rates for product rows when the vendor changes (standalone mode).
+  // On vendor change (standalone): re-fill rates, and DROP any product that
+  // isn't in the new vendor's price list — a POV line must always reference a
+  // product the vendor actually quotes.
   useEffect(() => {
     if (linkedMode || !vendorId) return;
-    lines.forEach((r) => {
-      if (!r.product_id) return;
-      fetchVendorPrice(r.product_id, vendorId).then((price) => {
-        if (price != null) setRow(r.key, { unit_price: price });
-      });
+    const rows = lines.filter((r) => r.product_id);
+    if (!rows.length) return;
+    Promise.all(
+      rows.map((r) =>
+        fetchVendorPrice(r.product_id, vendorId).then((price) => ({ r, price }))
+      )
+    ).then((results) => {
+      const removed = [];
+      for (const { r, price } of results) {
+        if (price != null) {
+          setRow(r.key, { unit_price: price });
+        } else {
+          setRow(r.key, {
+            product_id: "",
+            product_name: "",
+            part_no: "",
+            hsn_code: "",
+            unit: "",
+            tax_pct: "0",
+            unit_price: "",
+          });
+          removed.push(r.product_name || r.product_id);
+        }
+      }
+      if (removed.length) {
+        Notification(
+          "Validation",
+          t(
+            `Cleared ${removed.length} product(s) not in ${vendorLabel()}'s price list: ${removed.join(", ")}.`
+          ),
+          "warning"
+        );
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorId]);
