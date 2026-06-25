@@ -318,6 +318,9 @@ const CostingWorksheet = ({
       acc.rebate += c.rebates;
       acc.margin += c.margin;
       acc.grand += c.lineTotal;
+      acc.netWt += num(l?.net_weight_kg);
+      acc.grossWt += num(l?.gross_weight_kg);
+      acc.packages += num(l?.package_count);
       return acc;
     },
     {
@@ -328,6 +331,9 @@ const CostingWorksheet = ({
       rebate: 0,
       margin: 0,
       grand: 0,
+      netWt: 0,
+      grossWt: 0,
+      packages: 0,
     }
   );
   // exchange_rate is stored as "foreign units per 1 INR" (system convention),
@@ -357,6 +363,9 @@ const CostingWorksheet = ({
     grand: 120,
     rateDoc: 92,
     amt: 110,
+    netwt: 92,
+    grosswt: 92,
+    pkg: 76,
     act: 40,
   };
 
@@ -436,6 +445,9 @@ const CostingWorksheet = ({
             <col style={{ width: W.grand }} />
             {isForeign && <col style={{ width: W.rateDoc }} />}
             <col style={{ width: W.amt }} />
+            <col style={{ width: W.netwt }} />
+            <col style={{ width: W.grosswt }} />
+            <col style={{ width: W.pkg }} />
             {!readOnly && <col style={{ width: W.act }} />}
           </colgroup>
           <thead className="table-light">
@@ -463,6 +475,9 @@ const CostingWorksheet = ({
               <th className="text-end">
                 {t("Amt")} {isForeign ? docCurrencyCode : "₹"}
               </th>
+              <th className="text-end">{t("Net Wt")}</th>
+              <th className="text-end">{t("Gross Wt")}</th>
+              <th className="text-end">{t("Pkgs")}</th>
               {!readOnly && <th />}
             </tr>
           </thead>
@@ -653,6 +668,40 @@ const CostingWorksheet = ({
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(amtDoc)}
                     </td>
+                    <td className="p-0">
+                      <EditableCell
+                        value={l.net_weight_kg}
+                        display={
+                          num(l.net_weight_kg)
+                            ? fmt(num(l.net_weight_kg))
+                            : null
+                        }
+                        readOnly={readOnly}
+                        onCommit={(v) => setField(idx, "net_weight_kg", v)}
+                      />
+                    </td>
+                    <td className="p-0">
+                      <EditableCell
+                        value={l.gross_weight_kg}
+                        display={
+                          num(l.gross_weight_kg)
+                            ? fmt(num(l.gross_weight_kg))
+                            : null
+                        }
+                        readOnly={readOnly}
+                        onCommit={(v) => setField(idx, "gross_weight_kg", v)}
+                      />
+                    </td>
+                    <td className="p-0">
+                      <EditableCell
+                        value={l.package_count}
+                        display={
+                          num(l.package_count) ? num(l.package_count) : null
+                        }
+                        readOnly={readOnly}
+                        onCommit={(v) => setField(idx, "package_count", v)}
+                      />
+                    </td>
                     {!readOnly && (
                       <td className="text-center">
                         <Trash2
@@ -689,6 +738,9 @@ const CostingWorksheet = ({
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}
                 </td>
+                <td className="text-end">{fmt(totals.netWt)}</td>
+                <td className="text-end">{fmt(totals.grossWt)}</td>
+                <td className="text-end">{fmt(totals.packages)}</td>
                 {!readOnly && <td />}
               </tr>
             </tfoot>
@@ -715,6 +767,9 @@ function emptyLine() {
     product_expenses_snapshot: [],
     hsn_code: "",
     part_no: "",
+    net_weight_kg: "0",
+    gross_weight_kg: "0",
+    package_count: 0,
   };
 }
 
