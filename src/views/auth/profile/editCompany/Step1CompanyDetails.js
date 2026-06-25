@@ -220,6 +220,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       default_port_of_loading_id: "",
       default_port_of_loading_snapshot: null,
       default_declaration_text: "",
+      default_remarks: "",
       // ── PO defaults ──
       default_terms: "",
       authorised_signatory_name: "",
@@ -316,6 +317,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
           company.default_port_of_loading_snapshot || null,
         default_declaration_text: company.default_declaration_text || "",
         default_terms: company.default_terms || "",
+        default_remarks: company.default_remarks || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
         footer_address: company.footer_address || "",
         addresses: (company.addresses || []).map((a) => ({
@@ -408,6 +410,10 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       default_terms:
         values.default_terms != null
           ? values.default_terms.trim()
+          : undefined,
+      default_remarks:
+        values.default_remarks != null
+          ? values.default_remarks.trim()
           : undefined,
       authorised_signatory_name:
         values.authorised_signatory_name != null
@@ -746,6 +752,24 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                       rows="3"
                       maxLength={4000}
                       placeholder="e.g. Goods must conform to agreed specifications..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+              <Col md="12" className="mb-2">
+                <Label className="form-label" for="default_remarks">
+                  {t("Default Remarks (Sales Order)")}
+                </Label>
+                <Controller name="default_remarks" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="default_remarks"
+                      type="textarea"
+                      rows="4"
+                      maxLength={4000}
+                      placeholder="e.g. 1. 100% Advance along with Purchase order. 2. Partial shipment allowed..."
                       disabled={isReadOnly}
                       {...field}
                       value={field.value || ""}

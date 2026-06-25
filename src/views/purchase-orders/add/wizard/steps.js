@@ -34,7 +34,7 @@ export const STEPS = [
     key: "review",
     label: "Review & Save",
     icon: CheckCircle,
-    fields: ["status", "notes_to_vendor", "internal_notes"],
+    fields: ["status", "internal_notes", "remarks"],
     Component: Step3Review,
     canEnter: (form) => (form.getValues("lines") || []).length > 0,
   },

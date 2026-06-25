@@ -464,13 +464,6 @@ const PurchaseOrderPublicView = () => {
                 </tbody>
               </Table>
 
-              {/* Notes to Vendor */}
-              {p.notes_to_vendor && (
-                <div className="section">
-                  <Label>{t("Notes")}</Label>
-                  <div className="body">{p.notes_to_vendor}</div>
-                </div>
-              )}
             </div>
 
             {/* Footer — address + identity line (GSTIN · PAN · CIN · IEC ·

@@ -154,24 +154,14 @@ const PoPartiesPanel = () => {
         </Col>
       </Row>
 
-      {(p?.notes_to_vendor || p?.internal_notes) && (
+      {p?.internal_notes && (
         <Row className="g-1 mt-1">
-          {p?.notes_to_vendor && (
-            <Col md="6">
-              <SectionLabel icon={FileText}>{t("Notes to Vendor")}</SectionLabel>
-              <div className="small lh-base" style={{ whiteSpace: "pre-line" }}>
-                {p.notes_to_vendor}
-              </div>
-            </Col>
-          )}
-          {p?.internal_notes && (
-            <Col md="6">
-              <SectionLabel icon={FileText}>{t("Internal Notes")}</SectionLabel>
-              <div className="small lh-base" style={{ whiteSpace: "pre-line" }}>
-                {p.internal_notes}
-              </div>
-            </Col>
-          )}
+          <Col md="12">
+            <SectionLabel icon={FileText}>{t("Internal Notes")}</SectionLabel>
+            <div className="small lh-base" style={{ whiteSpace: "pre-line" }}>
+              {p.internal_notes}
+            </div>
+          </Col>
         </Row>
       )}
     </Fragment>
