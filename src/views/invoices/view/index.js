@@ -34,7 +34,6 @@ import {
   AlertTriangle,
   X,
 } from "react-feather";
-import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -71,6 +70,7 @@ import {
   SHIPPING_BILL_TYPE_OPTIONS,
 } from "@constant/options";
 import { getCurrencySymbol } from "@src/utility/currency";
+import CustomerCostingTable from "@src/views/_shared/sales-doc/CustomerCostingTable";
 import { formatDate, formatDateTime } from "@src/utility/dateFormat";
 import { PFI_RETIRED } from "@src/configs/appMode";
 
@@ -279,8 +279,6 @@ const ViewInvoice = () => {
   const isCancelled = (inv?.status || "").toLowerCase() === "cancelled";
 
   const lines = inv?.lines || [];
-  const [linesPageSize, setLinesPageSize] = useState(10);
-  const [linesPage, setLinesPage] = useState(0);
 
   // Line items live in INR. Subtotal is the sum of line totals (INR);
   // the doc-currency value is INR × exchange_rate, matching the add /
@@ -1005,176 +1003,17 @@ const ViewInvoice = () => {
 
                 <TabContent activeTab={activeTab}>
                   <TabPane tabId="details">
-              {/* Line Items */}
+              {/* Line Items — same customer-facing table + logic as the
+                  Sales Order / Quotation detail (shared CustomerCostingTable:
+                  Part No · Product · Qty · Rate · Amount, with computed
+                  per-line costing incl. discount/rebate/expense/margin). */}
               <div className="mb-3">
-                <div>
-                  {lines.length === 0 ? (
-                    <div className="text-muted text-center py-2">
-                      {t("No lines")}
-                    </div>
-                  ) : (
-                    <Table responsive bordered size="sm" className="align-top mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th style={{ width: 40 }}>#</th>
-                          <th>{t("HSN")}</th>
-                          <th>{t("Part No")}</th>
-                          <th>{t("Product / Description")}</th>
-                          <th style={{ width: 110 }} className="text-end">
-                            {t("Qty")}
-                          </th>
-                          <th style={{ width: 100 }} className="text-end">
-                            {t("Unit Price")}
-                          </th>
-                          <th style={{ width: 100 }} className="text-end">
-                            {t("Line Total")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const totalRows = lines.length;
-                          const pageCount = Math.max(
-                            1,
-                            Math.ceil(totalRows / linesPageSize),
-                          );
-                          const safePage = Math.min(linesPage, pageCount - 1);
-                          const start = safePage * linesPageSize;
-                          return lines
-                            .slice(start, start + linesPageSize)
-                            .map((l, pi) => {
-                              const i = start + pi;
-                              return (
-                          <tr key={l._id || i}>
-                            <td>{i + 1}</td>
-                            <td>{l.hsn_code || "-"}</td>
-                            <td>{l.part_no || "-"}</td>
-                            <td>
-                              <div className="fw-semibold">
-                                {l.product_name || "-"}
-                              </div>
-                              {l.product_code && (
-                                <small className="text-muted">
-                                  {l.product_code}
-                                </small>
-                              )}
-                              {l.description &&
-                                l.description !== l.product_name && (
-                                  <div className="small text-muted mt-25">
-                                    {l.description}
-                                  </div>
-                                )}
-                            </td>
-                            <td className="text-end">
-                              {fmt(l.qty, 2)} {l.uqc_code || l.unit || ""}
-                            </td>
-                            <td className="text-end">
-                              ₹{fmt(l.unit_price, 2)}
-                            </td>
-                            <td className="text-end fw-semibold">
-                              ₹{fmt(l.line_total)}
-                            </td>
-                          </tr>
-                              );
-                            });
-                        })()}
-                      </tbody>
-                      <tfoot className="table-light">
-                        <tr>
-                          <td colSpan="6" className="text-end fw-bold">
-                            {t("Subtotal")}
-                          </td>
-                          <td className="text-end fw-bold">
-                            {sym && sym !== "₹" ? (
-                              <span
-                                className="d-inline-flex align-items-center"
-                                style={{
-                                  whiteSpace: "nowrap",
-                                  justifyContent: "flex-end",
-                                  lineHeight: 1.1,
-                                }}
-                              >
-                                <span style={{ color: "#1a2238" }}>
-                                  ₹{fmt(subtotalInr)}
-                                </span>
-                                <span
-                                  className="text-muted fw-normal mx-1"
-                                  style={{ fontSize: "0.72rem" }}
-                                >
-                                  × {fmt(exchangeRate, 4)} =
-                                </span>
-                                <span
-                                  style={{
-                                    color: "#1a2238",
-                                    background: "#eef0f3",
-                                    padding: "1px 6px",
-                                    borderRadius: 4,
-                                  }}
-                                >
-                                  {sym}
-                                  {fmt(subtotalDoc)}
-                                </span>
-                              </span>
-                            ) : (
-                              <span style={{ color: "#1a2238" }}>
-                                ₹{fmt(subtotalInr)}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </Table>
-                  )}
-                  {lines.length > 0 && (() => {
-                    const totalRows = lines.length;
-                    const pageCount = Math.max(
-                      1,
-                      Math.ceil(totalRows / linesPageSize),
-                    );
-                    const safePage = Math.min(linesPage, pageCount - 1);
-                    return (
-                      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-                        <div className="d-flex align-items-center small text-muted">
-                          <span className="me-50">{t("Show")}</span>
-                          <Input
-                            type="select"
-                            bsSize="sm"
-                            value={linesPageSize}
-                            onChange={(e) => {
-                              setLinesPageSize(Number(e.target.value) || 10);
-                              setLinesPage(0);
-                            }}
-                            style={{ width: 80 }}
-                          >
-                            {[10, 25, 50, 100].map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </Input>
-                          <span className="ms-50">
-                            {t("of")} {totalRows} {t("rows")}
-                          </span>
-                        </div>
-                        <ReactPaginate
-                          previousLabel=""
-                          nextLabel=""
-                          pageCount={pageCount}
-                          activeClassName="active"
-                          forcePage={safePage}
-                          onPageChange={({ selected }) => setLinesPage(selected)}
-                          pageClassName="page-item"
-                          nextLinkClassName="page-link"
-                          nextClassName="page-item next"
-                          previousClassName="page-item prev"
-                          previousLinkClassName="page-link"
-                          pageLinkClassName="page-link"
-                          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                        />
-                      </div>
-                    );
-                  })()}
-                </div>
+                <CustomerCostingTable
+                  lines={lines}
+                  exchangeRate={exchangeRate}
+                  docCurrencyCode={inv?.currency_code || "INR"}
+                  baseCurrencyCode="INR"
+                />
               </div>
 
               {/* Costing summary */}

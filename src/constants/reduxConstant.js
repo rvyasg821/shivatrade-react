@@ -557,6 +557,10 @@ const initPurchaseOrderLineItem = {
   product_rebates_amount: "0",
   product_expenses_amount: "0",
   margin_amount: "0",
+  // Export / packing — carried from quotation/PFI line, editable in the worksheet.
+  net_weight_kg: "0",
+  gross_weight_kg: "0",
+  package_count: 0,
   seq: 0,
 };
 
