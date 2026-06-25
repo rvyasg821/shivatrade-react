@@ -316,64 +316,235 @@ const ViewInvoice = () => {
 
   // ── Handlers ────────────────────────────────────────────────────────
 
-  const handleIssue = () => {
-    mySwal
-      .fire({
-        title: t("Issue Invoice?"),
-        text: t(
-          "A voucher number will be assigned and snapshots will be frozen. Only Shipping link, Advance and Notes are editable after issue."
-        ),
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, issue"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-secondary ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then((res) => {
-        if (!res.isConfirmed) return;
-        setBusy(true);
+  const handleIssue = async () => {
+    const fmtN = (v) =>
+      Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+    // Goods-Out preview: per-product required vs current on-hand (single pool,
+    // same comparison the backend issue() guard uses). Lets us list what leaves
+    // stock and DISABLE the Issue button when any product is short.
+    mySwal.fire({
+      title: t("Checking stock…"),
+      didOpen: () => Swal.showLoading(),
+      allowOutsideClick: false,
+      showConfirmButton: false,
+    });
+    let preview = null;
+    try {
+      const resp = await instance.get(
+        `${API_ENDPOINTS.invoices.issuePreview}/${id}`
+      );
+      preview = resp?.data?.data || null;
+    } catch {
+      preview = null; // fall back to a plain confirm; backend still guards.
+    }
+
+    let rows = (preview?.lines || []).map((r) => ({
+      key: r.product_id,
+      name: r.product_name || r.product_code || t("item"),
+      code: r.product_code || "",
+      uom: r.uom || "",
+      required: Number(r.required) || 0,
+      available: Number(r.available) || 0,
+      short: !!r.short,
+    }));
+    // Fallback (preview unavailable) — aggregate qty from the loaded lines;
+    // availability unknown, so don't block (the server guard still applies).
+    if (!preview) {
+      const byProduct = new Map();
+      for (const l of lines || []) {
+        const q = Number(l.qty) || 0;
+        if (q <= 0) continue;
+        const key = (
+          l.product_id ||
+          l.product_code ||
+          l.product_name ||
+          ""
+        ).toString();
+        const ex = byProduct.get(key) || {
+          key,
+          name: l.product_name || l.product_code || t("item"),
+          code: l.product_code || "",
+          uom: l.uqc_code || l.unit || "",
+          required: 0,
+          available: null,
+          short: false,
+        };
+        ex.required += q;
+        byProduct.set(key, ex);
+      }
+      rows = [...byProduct.values()];
+    }
+
+    const hasShortage = rows.some((r) => r.short);
+    const shortCount = rows.filter((r) => r.short).length;
+    const totalUnits = rows.reduce((s, r) => s + r.required, 0);
+    // Shortages first (so the cap never hides them), then by name.
+    const ordered = [...rows].sort(
+      (a, b) =>
+        Number(b.short) - Number(a.short) ||
+        (a.name || "").localeCompare(b.name || "")
+    );
+    const PREVIEW_CAP = 50;
+    const previewRows = ordered.slice(0, PREVIEW_CAP);
+    const moreCount = ordered.length - previewRows.length;
+
+    const res = await mySwal.fire({
+      title: t("Issue Invoice?"),
+      width: 680,
+      html: (
+        <div className="text-start">
+          <p className="mb-1" style={{ fontSize: "0.9rem" }}>
+            {t(
+              "Snapshots will be frozen. Only Shipping link, Advance and Notes are editable after issue."
+            )}
+          </p>
+          {rows.length > 0 && (
+            <Fragment>
+              {hasShortage ? (
+                <div
+                  className="alert alert-danger py-50 px-1 mt-1 mb-1"
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  <strong>{shortCount}</strong>{" "}
+                  {shortCount === 1
+                    ? t("product is short on stock")
+                    : t("products are short on stock")}{" "}
+                  — {t("restock before issuing.")}
+                </div>
+              ) : (
+                <div
+                  className="alert alert-warning py-50 px-1 mt-1 mb-1"
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  <strong>{fmtN(totalUnits)}</strong> {t("units")}{" "}
+                  {t("across")} <strong>{rows.length}</strong>{" "}
+                  {rows.length === 1 ? t("product") : t("products")}{" "}
+                  {t("will go out of stock.")}
+                </div>
+              )}
+              <div
+                style={{
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  border: "1px solid #ebe9f1",
+                  borderRadius: 6,
+                }}
+              >
+                <table
+                  className="table table-sm mb-0 align-middle"
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  <thead
+                    className="table-light"
+                    style={{ position: "sticky", top: 0, zIndex: 1 }}
+                  >
+                    <tr>
+                      <th>{t("Product")}</th>
+                      <th className="text-end">{t("Qty out")}</th>
+                      <th className="text-end">{t("Available")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((r) => (
+                      <tr
+                        key={r.key}
+                        style={r.short ? { background: "#fdecea" } : undefined}
+                      >
+                        <td className="text-start">
+                          {r.name}
+                          {r.code ? (
+                            <span className="text-muted"> · {r.code}</span>
+                          ) : null}
+                        </td>
+                        <td className="text-end text-danger fw-semibold text-nowrap">
+                          −{fmtN(r.required)}
+                          {r.uom ? ` ${r.uom}` : ""}
+                        </td>
+                        <td
+                          className={`text-end text-nowrap fw-semibold ${
+                            r.short ? "text-danger" : "text-success"
+                          }`}
+                        >
+                          {r.available === null ? "—" : fmtN(r.available)}
+                          {r.available !== null && r.uom ? ` ${r.uom}` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {moreCount > 0 && (
+                <div className="text-muted small mt-50">
+                  +{moreCount}{" "}
+                  {moreCount === 1 ? t("more product") : t("more products")}{" "}
+                  {t("(see the invoice for the full list)")}
+                </div>
+              )}
+            </Fragment>
+          )}
+        </div>
+      ),
+      icon: hasShortage ? "warning" : "question",
+      showCancelButton: true,
+      confirmButtonText: t("Yes, issue"),
+      customClass: {
+        confirmButton: "btn btn-primary",
+        cancelButton: "btn btn-outline-secondary ms-1",
+      },
+      buttonsStyling: false,
+      // Short on stock → keep the Issue button visible but disabled.
+      didOpen: () => {
+        if (hasShortage) {
+          const btn = Swal.getConfirmButton();
+          if (btn) {
+            btn.disabled = true;
+            btn.classList.add("disabled");
+          }
+        }
+      },
+    });
+
+    if (!res.isConfirmed) return;
+    setBusy(true);
+    setIssueError("");
+    dispatch(issueInvoice(id))
+      .unwrap()
+      .then(() => {
         setIssueError("");
-        dispatch(issueInvoice(id))
-          .unwrap()
-          .then(() => {
-            setIssueError("");
-            // Show what was removed from inventory on issue (Goods Out).
-            const deducted = (lines || [])
-              .filter((l) => Number(l.qty) > 0)
-              .map(
-                (l) =>
-                  `${Number(l.qty).toLocaleString()} × ${
-                    l.product_name || l.product_code || t("item")
-                  }`
-              );
-            if (deducted.length) {
-              const shown = deducted.slice(0, 4).join(", ");
-              const more =
-                deducted.length > 4 ? ` +${deducted.length - 4} more` : "";
-              Notification(
-                t("Stock updated"),
-                t(`Removed from inventory: ${shown}${more}.`),
-                "info"
-              );
-            }
-          })
-          .catch((err) => {
-            // Surface the backend's "Company Profile is incomplete. Missing:…"
-            // message as a sticky banner, not just a fleeting toast. The thunk
-            // rejects with the message string itself (rejectWithValue), so
-            // `err` is usually that string.
-            const msg =
-              (typeof err === "string" && err) ||
-              err?.message ||
-              err?.data?.message ||
-              t("Could not issue the invoice. Please review the details.");
-            setIssueError(typeof msg === "string" ? msg : String(msg));
-          })
-          .finally(() => setBusy(false));
-      });
+        // Show what was removed from inventory on issue (Goods Out).
+        const deducted = (lines || [])
+          .filter((l) => Number(l.qty) > 0)
+          .map(
+            (l) =>
+              `${Number(l.qty).toLocaleString()} × ${
+                l.product_name || l.product_code || t("item")
+              }`
+          );
+        if (deducted.length) {
+          const shown = deducted.slice(0, 4).join(", ");
+          const more =
+            deducted.length > 4 ? ` +${deducted.length - 4} more` : "";
+          Notification(
+            t("Stock updated"),
+            t(`Removed from inventory: ${shown}${more}.`),
+            "info"
+          );
+        }
+      })
+      .catch((err) => {
+        // Surface the backend's "Company Profile is incomplete. Missing:…"
+        // message as a sticky banner, not just a fleeting toast. The thunk
+        // rejects with the message string itself (rejectWithValue), so
+        // `err` is usually that string.
+        const msg =
+          (typeof err === "string" && err) ||
+          err?.message ||
+          err?.data?.message ||
+          t("Could not issue the invoice. Please review the details.");
+        setIssueError(typeof msg === "string" ? msg : String(msg));
+      })
+      .finally(() => setBusy(false));
   };
 
   const handleCancel = () => {

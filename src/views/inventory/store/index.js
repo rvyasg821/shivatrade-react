@@ -67,38 +67,6 @@ export const getInventoryStats = createAsyncThunk(
   }
 );
 
-// ─── Stock summary (ledger on-hand) ─────────────────────────────────────
-
-export const getStockSummary = createAsyncThunk(
-  "appInventory/getStockSummary",
-  async (params) => {
-    try {
-      const resp = await instance.get(API_ENDPOINTS.inventory.stock, {
-        params,
-      });
-      const body = resp?.data;
-      if (body?.statusCode && body?.data) {
-        return {
-          stockItems: body.data,
-          stockPagination: body?._metadata?.pagination || null,
-          error: "",
-        };
-      }
-      return {
-        stockItems: [],
-        stockPagination: null,
-        error: body?.message || "Failed to load stock summary",
-      };
-    } catch (error) {
-      return {
-        stockItems: [],
-        stockPagination: null,
-        error: error?.response?.data?.message || error.message || error,
-      };
-    }
-  }
-);
-
 // ─── Movement history (drill-in modal) ──────────────────────────────────
 
 export const getMovementHistory = createAsyncThunk(
@@ -155,9 +123,6 @@ export const appInventorySlice = createSlice({
     inventoryItems: [],
     pagination: null,
     stats: null,
-    stockItems: [],
-    stockPagination: null,
-    stockLoading: true,
     movementItem: null,
     movementLoading: false,
     movementError: "",
@@ -204,18 +169,6 @@ export const appInventorySlice = createSlice({
       })
       .addCase(getInventoryStats.fulfilled, (state, action) => {
         state.stats = action.payload?.stats || null;
-      })
-      .addCase(getStockSummary.pending, (state) => {
-        state.stockLoading = false;
-      })
-      .addCase(getStockSummary.fulfilled, (state, action) => {
-        state.stockItems = action.payload?.stockItems || [];
-        state.stockPagination = action.payload?.stockPagination || null;
-        state.stockLoading = true;
-        state.error = action.payload?.error || "";
-      })
-      .addCase(getStockSummary.rejected, (state) => {
-        state.stockLoading = true;
       })
       .addCase(getMovementHistory.pending, (state) => {
         state.movementItem = null;

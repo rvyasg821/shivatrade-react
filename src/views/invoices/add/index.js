@@ -418,10 +418,13 @@ const InvoiceAddEdit = () => {
     });
   }, [packingSums]);
 
-  // Header edit → that field stops auto-tracking the lines.
+  // Header edit pins the field to manual; clearing it (empty) re-arms
+  // auto-tracking so it resumes summing from the per-line packing — and
+  // immediately reflects the current line sum instead of staying blank.
   const onPackingF = (k, v) => {
-    packingAuto.current[k] = false;
-    onF(k, v);
+    const empty = v === "" || v == null;
+    packingAuto.current[k] = empty;
+    onF(k, empty ? packingSums[k] : v);
   };
 
   // Sea modes show a "BL No." label; air / unset show "AWB / BL No.".
@@ -697,7 +700,7 @@ const InvoiceAddEdit = () => {
           unit: l.unit || "Nos",
           uqc_code: mapUomToUqc(l.unit),
           qty: String(cap),
-          unit_price: String(l.unit_price || 0),
+          unit_price: String(Number(l.unit_price || 0).toFixed(2)),
           // Carry the full costing from the SO line so the invoice total
           // equals the SO total (was hardcoded 0 / margin dropped).
           discount_pct: String(l.discount_pct || 0),
@@ -1007,7 +1010,7 @@ const InvoiceAddEdit = () => {
         unit: l.unit,
         uqc_code: l.uqc_code,
         qty: l.qty,
-        unit_price: l.unit_price,
+        unit_price: String(Number(l.unit_price || 0).toFixed(2)),
         discount_pct: l.discount_pct,
         margin_pct: l.margin_pct,
         tax_pct: l.tax_pct,
@@ -1247,7 +1250,7 @@ const InvoiceAddEdit = () => {
         unit: row.unit || "Nos",
         uqc_code: mapUomToUqc(row.unit),
         qty: String(qty),
-        unit_price: String(row.unit_price || 0),
+        unit_price: String(Number(row.unit_price || 0).toFixed(2)),
         // Carry the full costing from the SO line so the invoice total
         // equals the SO total (was hardcoded 0 / margin dropped).
         discount_pct: String(row.discount_pct || 0),
@@ -1375,7 +1378,7 @@ const InvoiceAddEdit = () => {
           qty: String(data.qty ?? "0"),
           unit: data.unit || "",
           uqc_code: data.uqc_code || "",
-          unit_price: String(data.unit_price ?? "0"),
+          unit_price: String(Number(data.unit_price ?? 0).toFixed(2)),
           discount_pct: String(data.discount_pct ?? "0"),
           margin_pct: String(data.margin_pct ?? "0"),
           igst_rate_pct: String(data.igst_rate_pct ?? "0"),
