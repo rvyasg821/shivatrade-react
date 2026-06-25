@@ -91,30 +91,6 @@ export const getMovementHistory = createAsyncThunk(
   }
 );
 
-// ─── Receipt detail (modal) ─────────────────────────────────────────────
-
-export const getReceiptDetail = createAsyncThunk(
-  "appInventory/getReceiptDetail",
-  async (povLineId, { rejectWithValue }) => {
-    try {
-      const resp = await instance.get(
-        `${API_ENDPOINTS.inventory.receipt}/${povLineId}`
-      );
-      const body = resp?.data;
-      if (body?.statusCode && body?.data) {
-        return { receiptItem: body.data };
-      }
-      return rejectWithValue(body?.message || "This receipt is no longer valid.");
-    } catch (error) {
-      return rejectWithValue(
-        error?.response?.data?.message ||
-          error.message ||
-          "This receipt is no longer valid."
-      );
-    }
-  }
-);
-
 // ─── Slice ─────────────────────────────────────────────────────────────
 
 export const appInventorySlice = createSlice({
@@ -126,9 +102,6 @@ export const appInventorySlice = createSlice({
     movementItem: null,
     movementLoading: false,
     movementError: "",
-    receiptItem: null,
-    receiptLoading: false,
-    receiptError: "",
     actionFlag: "",
     loading: true,
     success: "",
@@ -139,11 +112,6 @@ export const appInventorySlice = createSlice({
       state.actionFlag = "";
       state.success = "";
       state.error = "";
-    },
-    clearReceiptDetail: (state) => {
-      state.receiptItem = null;
-      state.receiptError = "";
-      state.receiptLoading = false;
     },
     clearMovementHistory: (state) => {
       state.movementItem = null;
@@ -183,29 +151,11 @@ export const appInventorySlice = createSlice({
         state.movementItem = null;
         state.movementLoading = false;
         state.movementError = action.payload || "Could not load movements.";
-      })
-      .addCase(getReceiptDetail.pending, (state) => {
-        state.receiptItem = null;
-        state.receiptError = "";
-        state.receiptLoading = true;
-      })
-      .addCase(getReceiptDetail.fulfilled, (state, action) => {
-        state.receiptItem = action.payload?.receiptItem || null;
-        state.receiptLoading = false;
-        state.receiptError = "";
-      })
-      .addCase(getReceiptDetail.rejected, (state, action) => {
-        state.receiptItem = null;
-        state.receiptLoading = false;
-        state.receiptError = action.payload || "This receipt is no longer valid.";
       });
   },
 });
 
-export const {
-  cleanInventoryMessage,
-  clearReceiptDetail,
-  clearMovementHistory,
-} = appInventorySlice.actions;
+export const { cleanInventoryMessage, clearMovementHistory } =
+  appInventorySlice.actions;
 
 export default appInventorySlice.reducer;

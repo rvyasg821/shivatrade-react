@@ -16,7 +16,6 @@ import {
   useLayoutEffect,
   useMemo,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
 
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -48,11 +47,10 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 import { useTranslation } from "react-i18next";
 
-import { Eye, ExternalLink, Activity } from "react-feather";
+import { Activity } from "react-feather";
 
-import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import { defaultPerPageRow } from "@constant/defaultValues";
 
-import ReceiptDetailModal from "./ReceiptDetailModal";
 import InventoryStatsCards from "./InventoryStatsCards";
 import MovementHistoryModal from "./MovementHistoryModal";
 
@@ -91,9 +89,6 @@ const InventoryView = () => {
     ],
     [companyLocations, t]
   );
-
-  const [params, setParams] = useSearchParams();
-  const receiptId = params.get("receipt");
 
   // Product whose stock-movement ledger drawer is open (Action → Stock Movements).
   const [openProductId, setOpenProductId] = useState(null);
@@ -192,15 +187,6 @@ const InventoryView = () => {
   };
 
   const handleSearch = (value) => setSearchInput(value);
-
-  // This page has no other query params, so set/clear the whole search
-  // string directly — avoids the same-ref / function-updater pitfalls of
-  // mutating the existing URLSearchParams.
-  const openReceipt = (id) => {
-    if (id) setParams({ receipt: id });
-  };
-
-  const closeReceipt = () => setParams({});
 
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
@@ -308,55 +294,6 @@ const InventoryView = () => {
       ),
     },
     {
-      name: t("SO # / POV #"),
-      grow: 2,
-      selector: (row) => (
-        <div className="py-1">
-          <div>
-            {row?.po_id ? (
-              <Link
-                to={`${appsRoot}/purchase-orders/view/${row.po_id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-nowrap d-inline-flex align-items-center"
-              >
-                {row?.po_voucher_no || "-"}
-                <ExternalLink size={11} className="ms-50" />
-              </Link>
-            ) : (
-              <span className="text-nowrap">{row?.po_voucher_no || "-"}</span>
-            )}
-          </div>
-          <div className="mt-25">
-            {row?.pov_id ? (
-              <Link
-                to={`${appsRoot}/po-vendors/view/${row.pov_id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-nowrap d-inline-flex align-items-center small text-muted"
-              >
-                {row?.pov_voucher_no || "-"}
-                <ExternalLink size={11} className="ms-50" />
-              </Link>
-            ) : (
-              <span className="text-nowrap small text-muted">
-                {row?.pov_voucher_no || "-"}
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: t("Vendor"),
-      grow: 2,
-      selector: (row) => (
-        <span className="text-nowrap text-capitalize">
-          {row?.vendor_name || "-"}
-        </span>
-      ),
-    },
-    {
       name: t("Qty in Stock"),
       center: true,
       minWidth: "150px",
@@ -388,10 +325,11 @@ const InventoryView = () => {
     {
       name: t("Action"),
       center: true,
-      minWidth: "110px",
+      minWidth: "90px",
       cell: (row, index) => (
-        <div className="d-flex align-items-center gap-1">
-          {/* Stock Movements — the product's IN/OUT ledger + running balance. */}
+        <div className="d-flex align-items-center justify-content-center">
+          {/* Stock Movements — the product's IN/OUT ledger + running balance
+              (every GRN-in / sale-out with its source voucher). */}
           <span
             className="cursor-pointer text-primary"
             id={`inv-mov-${row?.product_id || index}`}
@@ -403,20 +341,6 @@ const InventoryView = () => {
               target={`inv-mov-${row?.product_id || index}`}
             >
               {t("Stock Movements")}
-            </UncontrolledTooltip>
-          </span>
-          {/* History — this receipt's details + document chain. */}
-          <span
-            className="cursor-pointer text-primary"
-            id={`inv-view-${row?.pov_line_id || index}`}
-            onClick={() => openReceipt(row?.pov_line_id)}
-          >
-            <Eye size={18} />
-            <UncontrolledTooltip
-              placement="top"
-              target={`inv-view-${row?.pov_line_id || index}`}
-            >
-              {t("History")}
             </UncontrolledTooltip>
           </span>
         </div>
@@ -549,12 +473,6 @@ const InventoryView = () => {
           </CardBody>
         </Card>
       </div>
-
-      <ReceiptDetailModal
-        isOpen={!!receiptId}
-        povLineId={receiptId}
-        toggle={closeReceipt}
-      />
 
       <MovementHistoryModal
         isOpen={!!openProductId}

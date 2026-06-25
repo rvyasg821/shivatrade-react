@@ -47,8 +47,10 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
   }, [isOpen, productId]);
 
   const product = data?.product || {};
-  // Newest first for display (the ledger comes oldest→newest with balances).
-  const movements = [...(data?.movements || [])].reverse();
+  // Oldest first (bank-statement style) — the ledger already comes
+  // oldest→newest with the running balance, so the latest row sits at the
+  // bottom showing the current on-hand.
+  const movements = data?.movements || [];
 
   return (
     <Offcanvas
