@@ -141,13 +141,24 @@ export const createPoVendorStandalone = createAsyncThunk(
 export const recoverPoVendors = createAsyncThunk(
   "appPoVendor/recoverPoVendors",
   async (
-    { purchase_order_id, assignments, vendor_expenses, vendor_advances },
+    {
+      purchase_order_id,
+      assignments,
+      vendor_expenses,
+      vendor_advances,
+      vendor_delivery_locations,
+    },
     { rejectWithValue }
   ) => {
     try {
       const resp = await instance.post(
         `${API_ENDPOINTS.poVendors.recover}/${purchase_order_id}`,
-        { assignments, vendor_expenses, vendor_advances }
+        {
+          assignments,
+          vendor_expenses,
+          vendor_advances,
+          vendor_delivery_locations,
+        }
       );
       const body = resp?.data;
       if (body?.statusCode && body?.data) {

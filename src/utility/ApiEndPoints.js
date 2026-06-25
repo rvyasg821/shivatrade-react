@@ -292,6 +292,7 @@ export const API_ENDPOINTS = {
     update: `/admin/invoice/update`, // append /:id
     delete: `/admin/invoice/delete`, // append /:id
     issue: `/admin/invoice/issue`, // append /:id
+    issuePreview: `/admin/invoice/issue-preview`, // append /:id
     cancel: `/admin/invoice/cancel`, // append /:id
     pdf: `/admin/invoice`, // append /:id/pdf?doc=commercial|packing-list
     poAddable: `/admin/invoice/po-addable`, // append /:poId?exclude_invoice_id=...

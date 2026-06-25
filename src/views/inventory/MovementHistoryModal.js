@@ -102,8 +102,11 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
                     </td>
                     <td>
                       <Badge
-                        color={isIn ? "light-success" : "light-danger"}
-                        className="text-nowrap"
+                        color=""
+                        className="text-nowrap text-white"
+                        style={{
+                          backgroundColor: isIn ? "#28c76f" : "#ea5455",
+                        }}
                       >
                         {isIn ? (
                           <ArrowDownLeft size={12} className="me-25" />
@@ -112,7 +115,10 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
                         )}
                         {isIn ? t("IN") : t("OUT")}
                       </Badge>
-                      <div className="small text-muted text-capitalize">
+                      <div
+                        className="small text-capitalize fw-medium mt-25"
+                        style={{ color: "#5e5873" }}
+                      >
                         {(m.movement_type || "").replace(/_/g, " ")}
                       </div>
                     </td>

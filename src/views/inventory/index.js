@@ -35,27 +35,26 @@ import {
   Input,
   CardBody,
   UncontrolledTooltip,
-  Nav,
-  NavItem,
-  NavLink,
+  Label,
 } from "reactstrap";
 import Select from "react-select";
-import { Layers, Truck } from "react-feather";
 
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
 import { formatDate } from "@src/utility/dateFormat";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 import { useTranslation } from "react-i18next";
 
-import { Eye, ExternalLink } from "react-feather";
+import { Eye, ExternalLink, Activity } from "react-feather";
 
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 
 import ReceiptDetailModal from "./ReceiptDetailModal";
 import InventoryStatsCards from "./InventoryStatsCards";
-import StockSummary from "./StockSummary";
+import MovementHistoryModal from "./MovementHistoryModal";
 
 // Trim trailing zeros on a qty string ("11.0000" → "11", "11.50" → "11.5").
 const fmtQty = (v) => {
@@ -72,18 +71,32 @@ const InventoryView = () => {
   const store = useSelector((s) => s.inventory);
   const vendorStore = useSelector((s) => s.vendor);
   const categoryStore = useSelector((s) => s.category);
-  // Top-level header location switcher — scopes the register to the
-  // deliver-to location stored on each POV (Locations master id). The
-  // header auto-selects a default, so this is normally always set.
-  const selectedLocationId = useSelector(
-    (s) => s.locationContext?.selectedLocationId
+
+  // In-page deliver-to location filter (top-level, scopes BOTH tabs). Empty
+  // string = All Locations. Options come from the Locations master; the value
+  // matches each POV's `delivery_address_id`, which the stock ledger carries
+  // as `grn_in.location_id`. Defaults to All so stock is always visible.
+  const [locationFilter, setLocationFilter] = useState("");
+  const [companyLocations, setCompanyLocations] = useState([]);
+  const selectedLocationId = locationFilter;
+  const locationOptions = useMemo(
+    () => [
+      { value: "", label: t("All Locations") },
+      ...companyLocations.map((l) => ({
+        value: l._id,
+        label: l.location_code
+          ? `${l.location_code} - ${l.location_name}`
+          : l.location_name,
+      })),
+    ],
+    [companyLocations, t]
   );
 
   const [params, setParams] = useSearchParams();
   const receiptId = params.get("receipt");
 
-  // "stock" = ledger on-hand summary (primary); "receipts" = vendor register.
-  const [view, setView] = useState("stock");
+  // Product whose stock-movement ledger drawer is open (Action → Stock Movements).
+  const [openProductId, setOpenProductId] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
@@ -92,6 +105,7 @@ const InventoryView = () => {
   const [vendorFilter, setVendorFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [inStockOnly, setInStockOnly] = useState(false);
 
   const handleList = useCallback(
     (
@@ -115,6 +129,7 @@ const InventoryView = () => {
       if (selectedLocationId) p.location_id = selectedLocationId;
       if (from) p.date_from = from;
       if (to) p.date_to = to;
+      if (inStockOnly) p.in_stock_only = true;
       dispatch(getInventoryList(p));
     },
     [
@@ -126,6 +141,7 @@ const InventoryView = () => {
       selectedLocationId,
       dateFrom,
       dateTo,
+      inStockOnly,
       dispatch,
     ]
   );
@@ -147,6 +163,7 @@ const InventoryView = () => {
       if (selectedLocationId) p.location_id = selectedLocationId;
       if (from) p.date_from = from;
       if (to) p.date_to = to;
+      if (inStockOnly) p.in_stock_only = true;
       dispatch(getInventoryStats(p));
     },
     [
@@ -156,6 +173,7 @@ const InventoryView = () => {
       selectedLocationId,
       dateFrom,
       dateTo,
+      inStockOnly,
       dispatch,
     ]
   );
@@ -187,13 +205,17 @@ const InventoryView = () => {
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
     dispatch(getCategoryDropdown());
+    instance
+      .get(`${API_ENDPOINTS.locations.list}`, {
+        params: { status: "ACTIVE", dropdown: "yes" },
+      })
+      .then((resp) => setCompanyLocations(resp?.data?.data || []))
+      .catch(() => setCompanyLocations([]));
     window.scrollTo(0, 0);
   }, []);
 
   // Re-fetch when any filter changes — debounce the free-text search 500ms.
-  // Only runs on the Receipts tab; the Stock Summary tab fetches itself.
   useEffect(() => {
-    if (view !== "receipts") return undefined;
     let handler;
     if (searchInput) {
       handler = setTimeout(() => {
@@ -209,13 +231,13 @@ const InventoryView = () => {
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    view,
     searchInput,
     categoryFilter,
     vendorFilter,
     selectedLocationId,
     dateFrom,
     dateTo,
+    inStockOnly,
   ]);
 
   useEffect(() => {
@@ -227,11 +249,10 @@ const InventoryView = () => {
   }, [store.actionFlag, store.success, store.error]);
 
   useEffect(() => {
-    if (view !== "receipts") return;
     if (!store?.loading) dispatch(startLoading());
     else dispatch(stopLoading());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store?.loading, view]);
+  }, [store?.loading]);
 
   const vendorOptions = useMemo(
     () =>
@@ -339,12 +360,20 @@ const InventoryView = () => {
       name: t("Qty in Stock"),
       center: true,
       minWidth: "150px",
-      selector: (row) => (
-        <span className="text-nowrap fw-bold">
-          {fmtQty(row?.accepted_qty ?? row?.received_qty)}
-          {row?.uom ? ` ${row.uom}` : ""}
-        </span>
-      ),
+      // Live ledger on-hand (GRN-in − invoice-out) — drops to 0 once sold out,
+      // not the received qty. Green = in stock, red = negative, muted = zero.
+      selector: (row) => {
+        const n = Number(row?.on_hand) || 0;
+        return (
+          <span
+            className="text-nowrap fw-bold"
+            style={{ color: n > 0 ? "#28c76f" : n < 0 ? "#ea5455" : "#6e6b7b" }}
+          >
+            {fmtQty(row?.on_hand)}
+            {row?.uom ? ` ${row.uom}` : ""}
+          </span>
+        );
+      },
     },
     {
       name: t("Receipt Date"),
@@ -359,20 +388,38 @@ const InventoryView = () => {
     {
       name: t("Action"),
       center: true,
+      minWidth: "110px",
       cell: (row, index) => (
-        <span
-          className="cursor-pointer text-primary"
-          id={`inv-view-${row?.pov_line_id || index}`}
-          onClick={() => openReceipt(row?.pov_line_id)}
-        >
-          <Eye size={18} />
-          <UncontrolledTooltip
-            placement="top"
-            target={`inv-view-${row?.pov_line_id || index}`}
+        <div className="d-flex align-items-center gap-1">
+          {/* Stock Movements — the product's IN/OUT ledger + running balance. */}
+          <span
+            className="cursor-pointer text-primary"
+            id={`inv-mov-${row?.product_id || index}`}
+            onClick={() => row?.product_id && setOpenProductId(row.product_id)}
           >
-            {t("View")}
-          </UncontrolledTooltip>
-        </span>
+            <Activity size={18} />
+            <UncontrolledTooltip
+              placement="top"
+              target={`inv-mov-${row?.product_id || index}`}
+            >
+              {t("Stock Movements")}
+            </UncontrolledTooltip>
+          </span>
+          {/* History — this receipt's details + document chain. */}
+          <span
+            className="cursor-pointer text-primary"
+            id={`inv-view-${row?.pov_line_id || index}`}
+            onClick={() => openReceipt(row?.pov_line_id)}
+          >
+            <Eye size={18} />
+            <UncontrolledTooltip
+              placement="top"
+              target={`inv-view-${row?.pov_line_id || index}`}
+            >
+              {t("History")}
+            </UncontrolledTooltip>
+          </span>
+        </div>
       ),
     },
   ];
@@ -384,55 +431,30 @@ const InventoryView = () => {
           <h3 className="mb-0">{t("Inventory")}</h3>
         </div>
 
-        <Nav pills className="mb-2">
-          <NavItem>
-            <NavLink
-              active={view === "stock"}
-              onClick={() => setView("stock")}
-              className="cursor-pointer d-flex align-items-center"
-              style={{
-                color: view === "stock" ? "#fff" : "#09418B",
-                gap: "0.5rem",
-              }}
-            >
-              <Layers size={15} />
-              {t("Stock Summary")}
-            </NavLink>
-          </NavItem>
-          <NavItem>
-            <NavLink
-              active={view === "receipts"}
-              onClick={() => setView("receipts")}
-              className="cursor-pointer d-flex align-items-center"
-              style={{
-                color: view === "receipts" ? "#fff" : "#09418B",
-                gap: "0.5rem",
-              }}
-            >
-              <Truck size={15} />
-              {t("Receipts")}
-            </NavLink>
-          </NavItem>
-        </Nav>
+        <InventoryStatsCards stats={store?.stats} />
 
-        {view === "stock" && (
-          <Card className="overflow-hidden">
-            <CardBody>
-              <StockSummary />
-            </CardBody>
-          </Card>
-        )}
-
-        {view === "receipts" && (
-          <Fragment>
-            <InventoryStatsCards stats={store?.stats} />
-
-            <Card className="overflow-hidden">
-              <CardBody>
+        <Card className="overflow-hidden">
+          <CardBody>
+            <Row>
+              <Col sm="12" md="12">
                 <Row>
-                  <Col sm="12" md="12">
-                    <Row>
-                      <Col sm="6" md="3" className="mb-2 mb-md-0">
+                  {/* Deliver-to location — scopes the register (All = no filter). */}
+                  <Col sm="6" md className="mb-2 mb-md-0">
+                    <Select
+                      classNamePrefix="select"
+                      placeholder={t("All Locations")}
+                      options={locationOptions}
+                      value={
+                        locationOptions.find(
+                          (o) => o.value === locationFilter
+                        ) || locationOptions[0]
+                      }
+                      onChange={(opt) =>
+                        setLocationFilter(opt ? opt.value : "")
+                      }
+                    />
+                  </Col>
+                  <Col sm="6" md className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-inventory"
@@ -442,7 +464,7 @@ const InventoryView = () => {
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md className="mb-2 mb-md-0">
                     <Select
                       isClearable
                       classNamePrefix="select"
@@ -458,7 +480,7 @@ const InventoryView = () => {
                       }
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md className="mb-2 mb-md-0">
                     <Select
                       isClearable
                       classNamePrefix="select"
@@ -471,7 +493,7 @@ const InventoryView = () => {
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md className="mb-2 mb-md-0">
                     <DateInput
                       id="inv-date-from"
                       value={dateFrom}
@@ -479,7 +501,7 @@ const InventoryView = () => {
                       placeholder={t("Received From")}
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md className="mb-2 mb-md-0">
                     <DateInput
                       id="inv-date-to"
                       value={dateTo}
@@ -487,33 +509,57 @@ const InventoryView = () => {
                       placeholder={t("Received To")}
                     />
                   </Col>
+                  <Col
+                    xs="12"
+                    md="auto"
+                    className="mb-2 mb-md-0 d-flex align-items-center"
+                  >
+                    <div className="form-check form-switch mb-0">
+                      <Input
+                        type="switch"
+                        id="inv-in-stock-only"
+                        checked={inStockOnly}
+                        onChange={(e) => setInStockOnly(e.target.checked)}
+                      />
+                      <Label
+                        className="form-check-label text-nowrap"
+                        for="inv-in-stock-only"
+                      >
+                        {t("In stock only")}
+                      </Label>
+                    </div>
+                  </Col>
                 </Row>
               </Col>
             </Row>
 
-                <Row className="mt-2">
-                  <Col md="12" className="inventory-tables">
-                    <DatatablePagination
-                      columns={columns}
-                      data={rows}
-                      currentPage={currentPage}
-                      rowsPerPage={rowsPerPage}
-                      pagination={store?.pagination}
-                      handleRowPerPage={handlePerPage}
-                      handlePagination={handlePagination}
-                    />
-                  </Col>
-                </Row>
-              </CardBody>
-            </Card>
-          </Fragment>
-        )}
+            <Row className="mt-2">
+              <Col md="12" className="inventory-tables">
+                <DatatablePagination
+                  columns={columns}
+                  data={rows}
+                  currentPage={currentPage}
+                  rowsPerPage={rowsPerPage}
+                  pagination={store?.pagination}
+                  handleRowPerPage={handlePerPage}
+                  handlePagination={handlePagination}
+                />
+              </Col>
+            </Row>
+          </CardBody>
+        </Card>
       </div>
 
       <ReceiptDetailModal
         isOpen={!!receiptId}
         povLineId={receiptId}
         toggle={closeReceipt}
+      />
+
+      <MovementHistoryModal
+        isOpen={!!openProductId}
+        productId={openProductId}
+        toggle={() => setOpenProductId(null)}
       />
     </Fragment>
   );

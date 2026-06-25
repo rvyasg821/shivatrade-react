@@ -27,6 +27,9 @@ import {
   Spinner,
   Input,
   Badge,
+  Row,
+  Col,
+  Label,
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
@@ -86,6 +89,29 @@ const PoVendorRecoverModal = ({
       [vid]: { ...(curr[vid] || {}), ...patch },
     }));
 
+  // Per-vendor deliver-to location — ShivaTrade's receiving location (Locations
+  // master id) where that vendor's goods land. Required per vendor; auto-filled
+  // to the company default. Flows to the POV's delivery_address_id → the GRN
+  // stamps it on the stock ledger so on-hand is location-scoped.
+  // Shape: { [vendor_id]: location_id }.
+  const [vendorLocations, setVendorLocations] = useState({});
+  const [companyLocations, setCompanyLocations] = useState([]);
+  const defaultLocationId = useMemo(() => {
+    const def =
+      companyLocations.find((l) => l.is_default) || companyLocations[0];
+    return def?._id || "";
+  }, [companyLocations]);
+  const locationOptions = useMemo(
+    () =>
+      companyLocations.map((l) => ({
+        value: l._id,
+        label: l.location_code
+          ? `${l.location_code} - ${l.location_name}`
+          : l.location_name,
+      })),
+    [companyLocations]
+  );
+
   // ── Client-side pagination for the preview table ──
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
@@ -112,6 +138,18 @@ const PoVendorRecoverModal = ({
   );
   const expenseTypeOptions = REBATE_EXPENSE_TYPE_OPTIONS;
 
+  // ── Company locations (deliver-to options, loaded once when modal opens) ──
+  useEffect(() => {
+    if (!isOpen || companyLocations.length) return;
+    instance
+      .get(`${API_ENDPOINTS.locations.list}`, {
+        params: { status: "ACTIVE", dropdown: "yes" },
+      })
+      .then((resp) => setCompanyLocations(resp?.data?.data || []))
+      .catch(() => setCompanyLocations([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || !poId) return;
     setLoading(true);
@@ -121,6 +159,7 @@ const PoVendorRecoverModal = ({
     setDropped({});
     setVendorExpenses({});
     setVendorAdvances({});
+    setVendorLocations({});
     instance
       .get(previewEndpoint)
       .then((resp) => {
@@ -243,7 +282,20 @@ const PoVendorRecoverModal = ({
       }
       return changed ? next : curr;
     });
-  }, [vendorSummary]);
+    // Seed each active vendor's deliver-to location to the default, prune the
+    // rest. Keeps an explicit operator pick if one was already made.
+    setVendorLocations((curr) => {
+      let changed = false;
+      const next = {};
+      for (const vid of activeVendorIds) {
+        const val = curr[vid] || defaultLocationId;
+        next[vid] = val;
+        if (val !== curr[vid]) changed = true;
+      }
+      if (Object.keys(curr).length !== Object.keys(next).length) changed = true;
+      return changed ? next : curr;
+    });
+  }, [vendorSummary, defaultLocationId]);
 
   // Charges total for a single vendor block (percent against its goods total).
   const chargesFor = (v) =>
@@ -307,6 +359,23 @@ const PoVendorRecoverModal = ({
       return;
     }
 
+    // Deliver-to location is required per vendor (auto-filled to the default).
+    // Guard in case the default never loaded or the operator cleared one.
+    const submittingVendorIds = [...new Set(assignments.map((a) => a.vendor_id))];
+    const missingLoc = submittingVendorIds.filter((vid) => !vendorLocations[vid]);
+    if (missingLoc.length) {
+      Notification(
+        "Validation",
+        t("Pick a deliver-to location for every vendor."),
+        "warning"
+      );
+      return;
+    }
+    const trimmedLocations = {};
+    for (const vid of submittingVendorIds) {
+      trimmedLocations[vid] = vendorLocations[vid];
+    }
+
     // Trim out empty vendor blocks (no rows) and rows missing expense_id.
     const trimmedExpenses = {};
     for (const [vid, rows] of Object.entries(vendorExpenses)) {
@@ -344,6 +413,7 @@ const PoVendorRecoverModal = ({
           vendor_advances: Object.keys(trimmedAdvances).length
             ? trimmedAdvances
             : undefined,
+          vendor_delivery_locations: trimmedLocations,
         })
       ).unwrap();
       const created = result?.created || [];
@@ -697,6 +767,34 @@ const PoVendorRecoverModal = ({
                         </Button>
                       </div>
                       <div className="p-1">
+                        {/* Deliver-to location (ShivaTrade's receiving
+                            location). Required — auto-filled to the default;
+                            sets the POV's delivery_address_id → stock ledger. */}
+                        <Row className="mb-1">
+                          <Col md="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Deliver to location")}{" "}
+                              <span className="text-danger">*</span>
+                            </Label>
+                            <Select
+                              classNamePrefix="select"
+                              placeholder={t("Select location…")}
+                              options={locationOptions}
+                              value={
+                                locationOptions.find(
+                                  (o) => o.value === vendorLocations[v.vendor_id]
+                                ) || null
+                              }
+                              onChange={(opt) =>
+                                setVendorLocations((curr) => ({
+                                  ...curr,
+                                  [v.vendor_id]: opt ? opt.value : "",
+                                }))
+                              }
+                              noOptionsMessage={() => t("No locations found")}
+                            />
+                          </Col>
+                        </Row>
                         {rows.length === 0 && (
                           <div className="text-muted small text-center py-2">
                             {t(
