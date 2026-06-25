@@ -231,18 +231,6 @@ const OverviewTab = () => {
       {/* Totals + Notes */}
       <Row className="g-3">
         <Col md="7">
-          {p?.notes_to_vendor && (
-            <div className="mb-2">
-              <SectionHeader
-                icon={FileText}
-                label={t("Notes to Vendor")}
-                color="warning"
-              />
-              <div className="small" style={{ whiteSpace: "pre-wrap" }}>
-                {p.notes_to_vendor}
-              </div>
-            </div>
-          )}
           {p?.internal_notes && (
             <div className="mb-2">
               <SectionHeader

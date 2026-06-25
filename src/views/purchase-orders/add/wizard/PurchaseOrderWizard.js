@@ -91,8 +91,8 @@ const PurchaseOrderWizard = () => {
         expected_delivery_date: yup.string().nullable(),
         payment_terms: yup.string().nullable().max(100),
         delivery_terms: yup.string().nullable().max(100),
-        notes_to_vendor: yup.string().nullable().max(2000),
         internal_notes: yup.string().nullable().max(2000),
+        remarks: yup.string().nullable().max(4000),
         status: yup.string().nullable(),
         vendor_address_id: yup.string().nullable(),
         lines: yup
@@ -240,6 +240,17 @@ const PurchaseOrderWizard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.purchaseOrderItem?._id]);
+
+  // New SO: pre-fill Remarks from the company's standard remarks block (the
+  // operator can still edit it before saving). Skipped on edit / once typed.
+  useEffect(() => {
+    if (isEdit) return;
+    const def = companyStore?.companyItem?.default_remarks;
+    if (def && !form.getValues("remarks")) {
+      form.setValue("remarks", def);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyStore?.companyItem?.default_remarks, isEdit]);
 
   // Pre-fill delivery_address is now handled by CompanyAddressSelect
   // (auto-picks the first warehouse/corporate address). No legacy
@@ -669,8 +680,8 @@ const PurchaseOrderWizard = () => {
       delivery_address_id: values.delivery_address_id || undefined,
       payment_terms: values.payment_terms?.trim() || undefined,
       delivery_terms: values.delivery_terms?.trim() || undefined,
-      notes_to_vendor: values.notes_to_vendor?.trim() || undefined,
       internal_notes: values.internal_notes?.trim() || undefined,
+      remarks: values.remarks != null ? values.remarks.trim() : undefined,
       currency_code: values.currency_code || "INR",
       exchange_rate: values.exchange_rate || "1",
       status: values.status || "draft",

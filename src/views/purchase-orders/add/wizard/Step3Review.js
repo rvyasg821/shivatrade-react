@@ -66,24 +66,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
         />
 
         <Row>
-          <Col md="6" className="mb-2">
-            <Label className="form-label">{t("Notes to Vendor")}</Label>
-            <Controller
-              name="notes_to_vendor"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  type="textarea"
-                  rows="3"
-                  placeholder={t("Visible on the PO PDF.")}
-                  disabled={isLocked}
-                  {...field}
-                  value={field.value || ""}
-                />
-              )}
-            />
-          </Col>
-          <Col md="6" className="mb-2">
+          <Col md="12" className="mb-2">
             <Label className="form-label">{t("Internal Notes")}</Label>
             <Controller
               name="internal_notes"
@@ -95,6 +78,30 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
                   placeholder={t(
                     "Hidden from PDF. Editable even when status is locked."
                   )}
+                  {...field}
+                  value={field.value || ""}
+                />
+              )}
+            />
+          </Col>
+        </Row>
+
+        <Row>
+          <Col md="12" className="mb-2">
+            <Label className="form-label">
+              {t("Remarks (Sales Order PDF)")}
+            </Label>
+            <Controller
+              name="remarks"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="textarea"
+                  rows="4"
+                  placeholder={t(
+                    "Prints in the Remarks block on the SO PDF. Pre-filled from the company default; edit as needed."
+                  )}
+                  disabled={isLocked}
                   {...field}
                   value={field.value || ""}
                 />
