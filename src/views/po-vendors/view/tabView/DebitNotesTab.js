@@ -17,6 +17,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import { getCurrencySymbol } from "@src/utility/currency";
 import {
   deleteDebitNote,
   cleanDebitNoteMessage,
@@ -222,8 +223,11 @@ const DebitNotesTab = ({ registerActions }) => {
               <th style={{ width: 36 }}>#</th>
               <th style={{ minWidth: 200 }}>{t("Debit Note")}</th>
               <th style={{ width: 130 }}>{t("Date")}</th>
-              <th style={{ width: 80 }} className="text-end">
-                {t("Lines")}
+              <th style={{ width: 90 }} className="text-end">
+                {t("Qty")}
+              </th>
+              <th style={{ width: 120 }} className="text-end">
+                {t("Price")}
               </th>
               <th style={{ width: 140 }} className="text-end">
                 {t("Amount")}
@@ -245,7 +249,7 @@ const DebitNotesTab = ({ registerActions }) => {
                   <td>
                     <Link
                       to={`${appsRoot}/debit-notes/view/${d._id}`}
-                      className="fw-bold d-inline-flex align-items-center"
+                      className="fw-bold d-inline-flex align-items-center text-nowrap"
                       ref={(el) =>
                         el &&
                         el.style.setProperty("color", "#09418B", "important")
@@ -261,10 +265,23 @@ const DebitNotesTab = ({ registerActions }) => {
                     ) : null}
                   </td>
                   <td>{d.dn_date ? formatDate(d.dn_date) : "-"}</td>
-                  <td className="text-end">{d.line_count ?? "-"}</td>
                   <td className="text-end text-nowrap">
+                    {d.total_qty != null
+                      ? num(d.total_qty).toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
+                  </td>
+                  <td className="text-end text-nowrap">
+                    {d.unit_price != null && d.unit_price !== ""
+                      ? `${getCurrencySymbol(d.currency_code) || ""}${fmtMoney(
+                          d.unit_price
+                        )}`
+                      : "—"}
+                  </td>
+                  <td className="text-end text-nowrap">
+                    {getCurrencySymbol(d.currency_code) || ""}
                     {fmtMoney(d.total_amount)}
-                    {d.currency_code ? ` ${d.currency_code}` : ""}
                   </td>
                   <td className="text-center">
                     <span
