@@ -287,6 +287,7 @@ const InvoiceLineImportModal = ({
                   <tr>
                     <th style={{ width: 60 }}>{t("Row")}</th>
                     <th style={{ width: 110 }}>{t("Status")}</th>
+                    <th style={{ width: 200 }}>{t("Product")}</th>
                     <th>{t("Details")}</th>
                   </tr>
                 </thead>
@@ -296,6 +297,14 @@ const InvoiceLineImportModal = ({
                       <td>{r.rowNum}</td>
                       <td>
                         <StatusBadge status={r.status} />
+                      </td>
+                      <td className="small">
+                        <div>{r.data?.product_code || "—"}</div>
+                        {r.data?.product_name ? (
+                          <div className="text-muted">
+                            {r.data.product_name}
+                          </div>
+                        ) : null}
                       </td>
                       <td>
                         {r.errors?.length > 0 && (

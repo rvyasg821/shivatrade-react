@@ -249,6 +249,15 @@ const LineItemImportModal = ({
                       )}
                 </li>
                 <li>
+                  {isCosting
+                    ? t(
+                        "productname is display-only — it shows which product each code is. The row is always resolved by productcode, so editing the name has no effect.",
+                      )
+                    : t(
+                        "product_name is shown for reference — the row is resolved by product_code.",
+                      )}
+                </li>
+                <li>
                   {t(
                     "Rows matching an existing line (by product_code + vendor_code) will update that line — no duplicates are created.",
                   )}
@@ -366,7 +375,12 @@ const LineItemImportModal = ({
                           </Badge>
                         </td>
                         <td className="small">
-                          {r.data?.product_code || "—"}
+                          <div>{r.data?.product_code || "—"}</div>
+                          {r.data?.product_name ? (
+                            <div className="text-muted">
+                              {r.data.product_name}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="small">{r.data?.vendor_code || "—"}</td>
                         <td className="small">

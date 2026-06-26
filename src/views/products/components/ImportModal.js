@@ -176,7 +176,16 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
                     "Download the sample Excel — columns follow the Add Product form order",
                   )}
                 </li>
-                <li>{t("Required columns: name, code, category_name")}</li>
+                <li>
+                  {t(
+                    "See the 'Reference' sheet in the sample file for all valid Unit of Measure and Category values to copy",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "Required columns: name, category_name, unit_of_measure",
+                  )}
+                </li>
                 <li>
                   {t(
                     "Category and currency must already exist for your company (matched by name / code)",
@@ -210,26 +219,6 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
                 <li>
                   {t(
                     "Currency defaults to your company's default (home) currency and Country of Origin defaults to India when left blank",
-                  )}
-                </li>
-                <li>
-                  {t(
-                    "Currency code is required only when a selling price is set",
-                  )}
-                </li>
-                <li>
-                  {t(
-                    "Rebates / Expenses: one master code per cell (e.g. DBK). For multiple, add extra 'rebates' / 'expenses' columns after quality_parameters",
-                  )}
-                </li>
-                <li>
-                  {t(
-                    "An unknown rebate / expense code is skipped with a warning — only that link is dropped, the row still imports",
-                  )}
-                </li>
-                <li>
-                  {t(
-                    "On update, the rebates / expenses columns fully replace the product's existing links (leave blank to clear)",
                   )}
                 </li>
                 <li>
