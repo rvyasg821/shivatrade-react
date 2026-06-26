@@ -24,6 +24,7 @@ const LineItemsPanel = ({ bare = false }) => {
       exchangeRate={q?.exchange_rate}
       docCurrencyCode={q?.currency_code || baseCurrency?.code || "INR"}
       baseCurrencyCode={baseCurrency?.code || "INR"}
+      showHsn
     />
   );
 

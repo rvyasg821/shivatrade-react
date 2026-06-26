@@ -241,6 +241,14 @@ const ViewPurchaseOrder = () => {
       text: t("It will move to the In Process stage."),
       confirmButtonText: t("Yes, start"),
     });
+  const confirmStartAction = (newStatus) =>
+    changeStatus(newStatus, {
+      title: t("Confirm & start processing?"),
+      text: t(
+        "It will be confirmed and moved straight to the In Process stage."
+      ),
+      confirmButtonText: t("Yes, confirm & start"),
+    });
   const completeAction = (newStatus) =>
     changeStatus(newStatus, {
       title: t("Mark this order complete?"),
@@ -275,6 +283,12 @@ const ViewPurchaseOrder = () => {
         label: t("Confirm"),
         dotColor: dot("confirmed"),
         onClick: () => confirmAction("confirmed"),
+      });
+      statusActions.push({
+        key: "in_process",
+        label: t("Confirm & Start"),
+        dotColor: dot("in_process"),
+        onClick: () => confirmStartAction("in_process"),
       });
       statusActions.push({
         key: "cancelled",

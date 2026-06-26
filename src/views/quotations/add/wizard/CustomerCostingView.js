@@ -20,6 +20,7 @@ const CustomerCostingView = ({
       exchangeRate={exchangeRate}
       docCurrencyCode={docCurrencyCode}
       baseCurrencyCode={baseCurrencyCode}
+      showHsn
     />
   );
 };

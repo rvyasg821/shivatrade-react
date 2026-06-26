@@ -23,6 +23,7 @@ const PoLineItemsPanel = ({ bare = false }) => {
       exchangeRate={p?.exchange_rate}
       docCurrencyCode={p?.currency_code || "INR"}
       baseCurrencyCode="INR"
+      showHsn
     />
   );
 

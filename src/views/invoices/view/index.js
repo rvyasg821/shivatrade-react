@@ -1013,6 +1013,7 @@ const ViewInvoice = () => {
                   exchangeRate={exchangeRate}
                   docCurrencyCode={inv?.currency_code || "INR"}
                   baseCurrencyCode="INR"
+                  showHsn
                 />
               </div>
 
