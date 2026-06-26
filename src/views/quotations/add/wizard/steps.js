@@ -24,6 +24,9 @@ export const STEPS = [
     fields: [
       "customer_id",
       "customer_address_id",
+      "consignee_same_as_buyer",
+      "consignee_id",
+      "consignee_address_id",
       "quotation_date",
       "valid_until",
       "currency_code",

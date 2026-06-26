@@ -556,6 +556,7 @@ const QuotationWizard = () => {
         label: [a.label, a.address_line1, a.city, a.country]
           .filter(Boolean)
           .join(", "),
+        raw: a,
       }));
       setCustomerAddressOptions(opts);
 
@@ -581,6 +582,116 @@ const QuotationWizard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
+
+  // ── Consignee (Ship-to) — mirrors the Sales Order form ──────────────
+  // "Same as Buyer" (default) → consignee mirrors the bill-to customer +
+  // address and the dropdowns are locked. Uncheck to ship to a different
+  // customer; the address then auto-selects that customer's default.
+  const watchedConsignee = useWatch({ control, name: "consignee_id" });
+  const watchedSameAsBuyer = useWatch({
+    control,
+    name: "consignee_same_as_buyer",
+  });
+  const watchedCustomerAddr = useWatch({
+    control,
+    name: "customer_address_id",
+  });
+  const [consigneeAddressOptions, setConsigneeAddressOptions] = useState([]);
+
+  // When "Same as Buyer" is on, keep consignee mirrored to the buyer.
+  useEffect(() => {
+    if (!watchedSameAsBuyer) return;
+    if (watchedCustomer && getValues("consignee_id") !== watchedCustomer) {
+      setValue("consignee_id", watchedCustomer, { shouldDirty: false });
+    }
+    const billAddr = getValues("customer_address_id") || "";
+    if (getValues("consignee_address_id") !== billAddr) {
+      setValue("consignee_address_id", billAddr, { shouldDirty: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedSameAsBuyer, watchedCustomer, watchedCustomerAddr]);
+
+  // Build the consignee address options. Mirror the bill-to options when
+  // "Same as Buyer"; otherwise load the picked consignee customer's addresses
+  // and auto-pick its default.
+  useEffect(() => {
+    if (watchedSameAsBuyer) {
+      setConsigneeAddressOptions(customerAddressOptions);
+      return undefined;
+    }
+    if (!watchedConsignee) {
+      setConsigneeAddressOptions([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const applyAddrs = (addrs) => {
+      if (cancelled) return;
+      const opts = (addrs || []).map((a) => ({
+        value: a._id,
+        label: [a.label, a.address_line1, a.city, a.country]
+          .filter(Boolean)
+          .join(", "),
+        raw: a,
+      }));
+      setConsigneeAddressOptions(opts);
+      if (addrs && addrs.length) {
+        const current = getValues("consignee_address_id");
+        const valid = opts.some((o) => o.value === current);
+        if (!valid) {
+          const def = addrs.find((a) => a.is_default || a.is_primary);
+          setValue("consignee_address_id", def?._id || addrs[0]?._id || "", {
+            shouldDirty: false,
+          });
+        }
+      } else {
+        setValue("consignee_address_id", "", { shouldDirty: false });
+      }
+    };
+
+    const sameAsBillTo =
+      watchedConsignee === watchedCustomer &&
+      customerStore?.customerItem?._id === watchedConsignee;
+    if (sameAsBillTo) {
+      applyAddrs(customerStore.customerItem.addresses || []);
+      return undefined;
+    }
+    instance
+      .get(`${API_ENDPOINTS.customers.get}/${watchedConsignee}`)
+      .then((resp) => applyAddrs(resp?.data?.data?.addresses || []))
+      .catch(() => {
+        if (!cancelled) setConsigneeAddressOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    watchedSameAsBuyer,
+    customerAddressOptions,
+    watchedConsignee,
+    watchedCustomer,
+    customerStore?.customerItem,
+  ]);
+
+  // Freeze the picked consignee address into a flat snapshot (name = consignee
+  // customer's label) so it survives even if the customer's address changes.
+  const buildConsigneeSnapshot = (addrId) => {
+    if (!addrId) return undefined;
+    const a = consigneeAddressOptions.find((o) => o.value === addrId)?.raw;
+    if (!a) return undefined;
+    const name = customerOptions.find(
+      (o) => o.value === getValues("consignee_id")
+    )?.label;
+    return {
+      name: name || undefined,
+      address_line1: a.address_line1 || undefined,
+      address_line2: a.address_line2 || undefined,
+      city: a.city || undefined,
+      state: a.state || undefined,
+      postcode: a.postcode || undefined,
+      country: a.country || undefined,
+    };
+  };
 
   // ── Toast on success / error ────────────────────────────────────────
   // Save keeps you on the current step. After a fresh create we silently
@@ -683,6 +794,12 @@ const QuotationWizard = () => {
       rfq_id: values.rfq_id || undefined,
       customer_id: values.customer_id || undefined,
       customer_address_id: values.customer_address_id || undefined,
+      // Consignee (Ship-to) — id + selected address + frozen snapshot.
+      // Propagated onto the Sales Order on Generate Sales Order.
+      consignee_same_as_buyer: values.consignee_same_as_buyer !== false,
+      consignee_id: values.consignee_id || undefined,
+      consignee_address_id: values.consignee_address_id || undefined,
+      consignee_snapshot: buildConsigneeSnapshot(values.consignee_address_id),
       quotation_date: values.quotation_date,
       valid_until: values.valid_until || undefined,
       currency_code: values.currency_code,
@@ -797,6 +914,7 @@ const QuotationWizard = () => {
     rateMeta,
     customerOptions,
     customerAddressOptions,
+    consigneeAddressOptions,
     currencyOptions,
     productOptions: allProductOptions,
     allProductOptions,

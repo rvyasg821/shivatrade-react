@@ -186,58 +186,44 @@ const RfqImportModal = ({
             {errorRows.length === 0 && (
               <Alert
                 color="success"
-                className="mb-2 p-2 d-flex align-items-center"
+                className="mb-0 p-2 d-flex align-items-center"
               >
                 <CheckCircle size={18} className="me-1 flex-shrink-0" />
                 {t("All rows are valid and ready to import.")}
               </Alert>
             )}
-            {/* Full per-row review: every entry with its computed action
-                (New / Update / Error) checked against the price list. */}
-            <div style={{ maxHeight: "400px", overflow: "auto" }}>
-              <Table size="sm" bordered responsive className="mb-0">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>{t("Product")}</th>
-                    <th>{t("Price")}</th>
-                    <th>{t("Action")}</th>
-                    <th>{t("Details")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(preview?.rows || []).map((row) => {
-                    const cfg =
-                      row.status === "valid_new"
-                        ? { rowCls: "", color: "light-success", label: "New" }
-                        : row.status === "valid_update"
-                        ? { rowCls: "", color: "light-warning", label: "Update" }
-                        : { rowCls: "table-danger", color: "light-danger", label: "Error" };
-                    const notes =
-                      row.errors?.length
-                        ? row.errors.join(", ")
-                        : (row.warnings || []).join(", ");
-                    return (
-                      <tr key={row.rowNum} className={cfg.rowCls}>
+            {/* Only when there are errors: list the failing rows so they can
+                be fixed. Valid (New / Update) rows stay hidden — just counts. */}
+            {errorRows.length > 0 && (
+              <div style={{ maxHeight: "400px", overflow: "auto" }}>
+                <Table size="sm" bordered responsive className="mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{t("Product")}</th>
+                      <th>{t("Price")}</th>
+                      <th>{t("Details")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {errorRows.map((row) => (
+                      <tr key={row.rowNum} className="table-danger">
                         <td>{row.rowNum}</td>
-                        <td className="small">{row.data?.product_code || "—"}</td>
-                        <td className="small">{row.data?.unit_price || "—"}</td>
-                        <td>
-                          <Badge color={cfg.color}>{t(cfg.label)}</Badge>
+                        <td className="small">
+                          {row.data?.product_code || "—"}
                         </td>
-                        <td
-                          className={`small ${
-                            row.errors?.length ? "text-danger" : "text-muted"
-                          }`}
-                        >
-                          {notes}
+                        <td className="small">
+                          {row.data?.unit_price || "—"}
+                        </td>
+                        <td className="small text-danger">
+                          {row.errors?.join(", ") || ""}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-            </div>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            )}
           </div>
         )}
       </ModalBody>

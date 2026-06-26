@@ -116,6 +116,10 @@ const RfqView = () => {
   const [saving, setSaving] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
+  // Price Comparison matrix has its own paginator, independent of the
+  // "Collect Vendor Prices" table above.
+  const [cmpPageSize, setCmpPageSize] = useState(10);
+  const [cmpPage, setCmpPage] = useState(0);
   const [exporting, setExporting] = useState(false);
   // Unsaved-work flag: a draft with vendors added, or typed prices not yet
   // saved. Drives the "leave anyway?" guard on tab close / refresh.
@@ -226,6 +230,16 @@ const RfqView = () => {
   useEffect(() => {
     if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
   }, [pageCount, page]);
+
+  // Price Comparison paginator (independent of the table above).
+  const cmpTotal = lines.length;
+  const cmpPageCount = Math.max(1, Math.ceil(cmpTotal / cmpPageSize));
+  const cmpSafePage = Math.min(cmpPage, cmpPageCount - 1);
+  const cmpStart = cmpSafePage * cmpPageSize;
+  const cmpLines = lines.slice(cmpStart, cmpStart + cmpPageSize);
+  useEffect(() => {
+    if (cmpPage > cmpPageCount - 1) setCmpPage(Math.max(0, cmpPageCount - 1));
+  }, [cmpPageCount, cmpPage]);
 
   // The RFQ is single-vendor. The active vendor is the one selected in the
   // dropdown, defaulting to the RFQ's saved vendor.
@@ -1239,7 +1253,7 @@ const RfqView = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((l) => {
+                  {cmpLines.map((l) => {
                     const cells = vendors.map((v) => {
                       const p = num(priceMap[key(l._id, v.vendor_id)]);
                       const eff = p > 0 ? p : null;
@@ -1281,6 +1295,47 @@ const RfqView = () => {
                   })}
                 </tbody>
               </Table>
+              {cmpTotal > 0 && (
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 p-1">
+                  <div className="d-flex align-items-center small text-muted">
+                    <span className="me-50">{t("Show")}</span>
+                    <Input
+                      type="select"
+                      bsSize="sm"
+                      value={cmpPageSize}
+                      onChange={(e) => {
+                        setCmpPageSize(Number(e.target.value) || 10);
+                        setCmpPage(0);
+                      }}
+                      style={{ width: 80 }}
+                    >
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </Input>
+                    <span className="ms-50">
+                      {t("of")} {cmpTotal} {t("rows")}
+                    </span>
+                  </div>
+                  <ReactPaginate
+                    previousLabel=""
+                    nextLabel=""
+                    pageCount={cmpPageCount}
+                    activeClassName="active"
+                    forcePage={cmpSafePage}
+                    onPageChange={({ selected }) => setCmpPage(selected)}
+                    pageClassName="page-item"
+                    nextLinkClassName="page-link"
+                    nextClassName="page-item next"
+                    previousClassName="page-item prev"
+                    previousLinkClassName="page-link"
+                    pageLinkClassName="page-link"
+                    containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                  />
+                </div>
+              )}
             </CardBody>
           </Card>
         )}

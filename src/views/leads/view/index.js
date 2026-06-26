@@ -39,7 +39,12 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { getLead, cleanLeadMessage, convertLead } from "@src/views/leads/store";
+import {
+  getLead,
+  cleanLeadMessage,
+  convertLead,
+  updateLead,
+} from "@src/views/leads/store";
 import { formatMoney, convertFromInr } from "@src/utility/currency";
 import { getExchangeRateOptions } from "@src/views/currencies/store";
 import { getCategoryDropdown } from "@src/views/categories/store";
@@ -64,6 +69,7 @@ import {
   DetailSocials,
   DetailTwoPanel,
   DetailPanel,
+  StatusChangeDropdown,
   useFollowUpStatus,
 } from "@src/views/_shared/detail-page";
 
@@ -285,6 +291,55 @@ const ViewLead = () => {
       });
   };
 
+  // One-click status change from the header (no need to open the edit form).
+  const changeStatus = (status) =>
+    dispatch(updateLead({ id, data: { status } }))
+      .unwrap()
+      .then(() => dispatch(getLead(id)))
+      .catch((err) =>
+        Notification("Error", err || t("Could not change status"), "warning")
+      );
+
+  const onPickStatus = (opt) => {
+    if (!opt || opt.value === l?.status) return;
+    // Flipping to "Won" auto-creates a customer on the server, so warn first.
+    const toWon = opt.value === "won";
+    mySwal
+      .fire({
+        title: t("Change status to {{s}}?", { s: opt.label }),
+        text: toWon
+          ? t(
+              "Marking this lead as Won will also create a customer from its company and contact details."
+            )
+          : t("This updates the lead's status and logs it on the timeline."),
+        icon: toWon ? "warning" : "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, change"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((r) => r.isConfirmed && changeStatus(opt.value));
+  };
+
+  const statusActions = LEAD_STATUS_OPTIONS.map((opt) => ({
+    key: opt.value,
+    label: opt.label,
+    dotColor: LEAD_STATUS_BADGE_COLOR[opt.value] || "secondary",
+    current: l?.status === opt.value,
+    onClick: () => onPickStatus(opt),
+  }));
+
+  const statusDropdown = canEditLead ? (
+    <StatusChangeDropdown
+      items={statusActions}
+      toggleColor="outline-secondary"
+      menuEnd
+    />
+  ) : null;
+
   const headerActions = [
     {
       icon: UserPlus,
@@ -450,9 +505,10 @@ const ViewLead = () => {
           }
           badge={{
             label: statusLabel,
-            color: "secondary",
+            color: LEAD_STATUS_BADGE_COLOR[l?.status] || "secondary",
           }}
           actions={headerActions}
+          actionsPrefix={statusDropdown}
           moreActions={moreActions}
           belowSlot={
             <DetailPipeline
