@@ -72,12 +72,18 @@ const ViewCustomer = () => {
     (s) => (s.purchaseOrder?.purchaseOrderItems || []).length
   );
   const invoiceList = useSelector((s) => s.invoice?.invoiceItems || []);
-  const invoiceCount = invoiceList.length;
-  // Total revenue = sum of billed invoice values (exclude unbilled drafts and
-  // cancelled invoices). Customer invoices are all in the customer's currency.
-  const totalRevenue = invoiceList
-    .filter(
-      (iv) => !["draft", "cancelled"].includes((iv?.status || "").toLowerCase())
+  // The invoice store is shared across customers — scope to THIS customer.
+  const customerInvoices = invoiceList.filter(
+    (iv) => String(iv?.customer_id || "") === String(id)
+  );
+  const invoiceCount = customerInvoices.length;
+  // Total revenue = sum of ISSUED invoices (issued + its downstream paid
+  // states). Drafts (not yet issued), cancelled, and any other status are
+  // excluded. Customer invoices are all in the customer's currency.
+  const REVENUE_STATUSES = ["issued", "partially_paid", "paid"];
+  const totalRevenue = customerInvoices
+    .filter((iv) =>
+      REVENUE_STATUSES.includes((iv?.status || "").toLowerCase())
     )
     .reduce((sum, iv) => sum + (Number(iv?.grand_total) || 0), 0);
 

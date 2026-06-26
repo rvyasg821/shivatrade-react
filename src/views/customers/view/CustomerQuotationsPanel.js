@@ -63,15 +63,19 @@ const CustomerQuotationsPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const rows = store?.quotationItems || [];
-  const loading = !!store?.loading;
+  // Filter to THIS customer (the store is shared across customers/pages).
+  const rows = (store?.quotationItems || []).filter(
+    (r) => String(r?.customer_id || "") === String(id)
+  );
+  // Inverted-flag convention: `loading === false` means a fetch is in flight.
+  const fetching = store?.loading === false;
   const total = rows.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageStart = safePage * pageSize;
   const pagedRows = rows.slice(pageStart, pageStart + pageSize);
 
-  if (loading && total === 0) {
+  if (fetching && total === 0) {
     return (
       <div className="text-center py-3">
         <Spinner />

@@ -21,6 +21,9 @@ const CustomerCostingTable = ({
   exchangeRate = 1,
   docCurrencyCode = "INR",
   baseCurrencyCode = "INR",
+  // Opt-in dedicated HSN column. When off, HSN still shows as a sub-line
+  // under the product name (keeps existing callers unchanged).
+  showHsn = false,
 }) => {
   const { t } = useTranslation();
   const prodById = new Map(
@@ -75,8 +78,9 @@ const CustomerCostingTable = ({
         <Table size="sm" bordered className="mb-0 ws-customer-table">
           <colgroup>
             <col style={{ width: "5%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "37%" }} />
+            <col style={{ width: showHsn ? "13%" : "15%" }} />
+            {showHsn && <col style={{ width: "12%" }} />}
+            <col style={{ width: showHsn ? "27%" : "37%" }} />
             <col style={{ width: "15%" }} />
             <col style={{ width: "14%" }} />
             <col style={{ width: "14%" }} />
@@ -85,6 +89,7 @@ const CustomerCostingTable = ({
             <tr className="ws-head">
               <th className="text-center">#</th>
               <th>{t("Part No")}</th>
+              {showHsn && <th>{t("HSN")}</th>}
               <th>{t("Product")}</th>
               <th className="text-end">{t("Qty")}</th>
               <th className="text-end">
@@ -98,7 +103,10 @@ const CustomerCostingTable = ({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-3">
+                <td
+                  colSpan={showHsn ? 7 : 6}
+                  className="text-center text-muted py-3"
+                >
                   {t("No products.")}
                 </td>
               </tr>
@@ -109,11 +117,14 @@ const CustomerCostingTable = ({
                     {pageStart + i + 1}
                   </td>
                   <td className="text-nowrap">{r.part || "-"}</td>
+                  {showHsn && (
+                    <td className="text-nowrap">{r.hsn || "-"}</td>
+                  )}
                   <td style={{ whiteSpace: "normal" }}>
                     <div className="fw-semibold text-capitalize text-wrap">
                       {r.name}
                     </div>
-                    {r.hsn ? (
+                    {!showHsn && r.hsn ? (
                       <div className="small text-muted">
                         {`${t("HSN")}: ${r.hsn}`}
                       </div>
@@ -136,6 +147,7 @@ const CustomerCostingTable = ({
               <tr>
                 <td />
                 <td />
+                {showHsn && <td />}
                 <td>
                   {t("Grand Total")}
                   {totalRows > pageSize ? (

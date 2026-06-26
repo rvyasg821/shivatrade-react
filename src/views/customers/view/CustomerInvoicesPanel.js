@@ -54,15 +54,25 @@ const CustomerInvoicesPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const rows = store?.invoiceItems || [];
-  const loading = !!store?.loading;
+  // Filter to THIS customer's invoices: the invoice store is shared, so a
+  // previously-viewed customer/page can leave stale rows in it. Without this,
+  // an empty customer would briefly show another customer's invoices instead
+  // of the "no invoices" message.
+  const rows = (store?.invoiceItems || []).filter(
+    (r) => String(r?.customer_id || "") === String(id)
+  );
+  // Inverted-flag convention in the invoice slice: `loading === false` means a
+  // fetch is in flight; `loading === true` means idle/done. So only show the
+  // spinner while actually fetching — otherwise (idle + no rows) fall through
+  // to the empty message.
+  const fetching = store?.loading === false;
   const total = rows.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageStart = safePage * pageSize;
   const pagedRows = rows.slice(pageStart, pageStart + pageSize);
 
-  if (loading && total === 0) {
+  if (fetching && total === 0) {
     return (
       <div className="text-center py-3">
         <Spinner />
