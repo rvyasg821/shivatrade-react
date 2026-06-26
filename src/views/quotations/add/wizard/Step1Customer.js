@@ -24,6 +24,7 @@ const Step1Customer = ({
   rateMeta,
   customerOptions,
   customerAddressOptions,
+  consigneeAddressOptions = [],
   currencyOptions,
   leadStore,
   vendorStore,
@@ -38,6 +39,7 @@ const Step1Customer = ({
   const watchedCustomer = watch("customer_id");
   const watchedLeadId = watch("lead_id");
   const watchedRate = watch("exchange_rate");
+  const sameAsBuyer = watch("consignee_same_as_buyer") !== false;
 
   // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
   // — while the form still STORES "foreign per ₹1" (system convention, e.g.
@@ -151,6 +153,79 @@ const Step1Customer = ({
         <small className="text-muted">
           {t("Used to determine intra/inter-state for tax.")}
         </small>
+      </Col>
+
+      {/* ── Consignee (Ship-to) — "Same as Buyer" mirrors the bill-to
+          customer + address and locks the dropdowns; uncheck to ship
+          elsewhere. Carried onto the Sales Order on Generate. ── */}
+      <Col md="6" className="mb-2">
+        <div className="d-flex align-items-center justify-content-between">
+          <Label className="form-label mb-0">{t("Consignee")}</Label>
+          <Controller
+            name="consignee_same_as_buyer"
+            control={control}
+            render={({ field }) => (
+              <div className="form-check mb-0">
+                <Input
+                  type="checkbox"
+                  id="consignee_same_as_buyer"
+                  disabled={isLocked}
+                  checked={field.value !== false}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+                <Label
+                  for="consignee_same_as_buyer"
+                  className="form-check-label small"
+                >
+                  {t("Same as Buyer")}
+                </Label>
+              </div>
+            )}
+          />
+        </div>
+        <Controller
+          name="consignee_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked || sameAsBuyer}
+              options={customerOptions}
+              value={
+                customerOptions.find((o) => o.value === field.value) || null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={t("Select consignee")}
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="6" className="mb-2">
+        <Label className="form-label">{t("Consignee Address")}</Label>
+        <Controller
+          name="consignee_address_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked || sameAsBuyer}
+              options={consigneeAddressOptions}
+              value={
+                consigneeAddressOptions.find((o) => o.value === field.value) ||
+                null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+              placeholder={
+                consigneeAddressOptions.length
+                  ? t("Select address")
+                  : t("Pick a consignee first")
+              }
+            />
+          )}
+        />
       </Col>
 
       <Col md="3" className="mb-2">

@@ -204,6 +204,7 @@ export const API_ENDPOINTS = {
     update: `/admin/price-list/update`,
     delete: `/admin/price-list/delete`,
     byProduct: `/admin/price-list/by-product`,
+    byProducts: `/admin/price-list/vendors-by-products`,
     currentPrices: `/admin/price-list/current-prices`,
     bestPrices: `/admin/price-list/best-prices`,
     import: `/admin/price-list/import`,

@@ -24,6 +24,7 @@ import {
 import Select from "react-select";
 import { Plus, Trash2, X } from "react-feather";
 import { useTranslation } from "react-i18next";
+import ReactPaginate from "react-paginate";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -178,9 +179,17 @@ const CostingWorksheet = ({
     defaultAmount: o.raw?.pct ?? "0",
   }));
 
-  const [vendorsByLine, setVendorsByLine] = useState({});
-  const [loadingVendors, setLoadingVendors] = useState({});
+  // Vendor lists are cached by product_id (NOT row index): the same product
+  // on two lines shares one fetch, and deleting/reordering rows never
+  // misaligns a row with another product's vendors.
+  const [vendorsByProduct, setVendorsByProduct] = useState({});
+  const [loadingByProduct, setLoadingByProduct] = useState({});
   const [openPop, setOpenPop] = useState(null);
+  // Client-side pagination over the editable rows. Rows keep their ABSOLUTE
+  // index (the cell handlers write to `lines.${idx}`), so we slice but carry
+  // the original index along.
+  const [wsPageSize, setWsPageSize] = useState(10);
+  const [wsPage, setWsPage] = useState(0);
 
   const isForeign =
     docCurrencyCode &&
@@ -190,7 +199,7 @@ const CostingWorksheet = ({
 
   const fetchVendors = (idx, productId, autoSelect = false) => {
     if (!productId) return;
-    setLoadingVendors((m) => ({ ...m, [idx]: true }));
+    setLoadingByProduct((m) => ({ ...m, [productId]: true }));
     instance
       .get(`${API_ENDPOINTS.priceList.byProduct}/${productId}`)
       .then((resp) => {
@@ -204,27 +213,96 @@ const CostingWorksheet = ({
               : `${r.vendor_name} — ₹${fmt(r.unit_price)}`,
             raw: r,
           }));
-        setVendorsByLine((m) => ({ ...m, [idx]: rows }));
+        setVendorsByProduct((m) => ({ ...m, [productId]: rows }));
         // On a fresh product pick, auto-select the cheapest vendor (rows are
         // sorted cheapest-first) + its price.
         if (autoSelect && rows.length) {
           onPickVendor(idx, rows[0]);
         }
       })
-      .catch(() => setVendorsByLine((m) => ({ ...m, [idx]: [] })))
-      .finally(() => setLoadingVendors((m) => ({ ...m, [idx]: false })));
+      .catch(() => setVendorsByProduct((m) => ({ ...m, [productId]: [] })))
+      .finally(() =>
+        setLoadingByProduct((m) => ({ ...m, [productId]: false }))
+      );
   };
 
+  // Load vendor lists for every line's product in a SINGLE batch request.
+  // (Previously this fired one by-product call per line — a 30-row import meant
+  // 30 concurrent requests, some of which could fail under load and leave a
+  // vendor dropdown permanently empty.) Keyed off the set of product_ids so it
+  // re-runs on bulk import / edit-hydrate when product_ids populate.
+  const productIdsKey = liveLines
+    .map((l) => l?.product_id || "")
+    .join("|");
   useEffect(() => {
-    liveLines.forEach((l, idx) => {
-      if (l?.product_id && vendorsByLine[idx] === undefined) {
-        fetchVendors(idx, l.product_id);
-      }
+    const missing = Array.from(
+      new Set(
+        liveLines
+          .map((l) => l?.product_id)
+          .filter(
+            (pid) =>
+              pid &&
+              vendorsByProduct[pid] === undefined &&
+              !loadingByProduct[pid]
+          )
+      )
+    );
+    if (!missing.length) return;
+    setLoadingByProduct((m) => {
+      const next = { ...m };
+      missing.forEach((pid) => (next[pid] = true));
+      return next;
     });
+    instance
+      .get(API_ENDPOINTS.priceList.byProducts, {
+        params: { product_ids: missing.join(",") },
+      })
+      .then((resp) => {
+        const map = resp?.data?.data || {};
+        setVendorsByProduct((m) => {
+          const next = { ...m };
+          missing.forEach((pid) => {
+            next[pid] = (map[pid] || [])
+              .slice()
+              .sort((a, b) => num(a.unit_price) - num(b.unit_price))
+              .map((r) => ({
+                value: r.vendor_id,
+                label: r.vendor_code
+                  ? `${r.vendor_name} [${r.vendor_code}] — ₹${fmt(r.unit_price)}`
+                  : `${r.vendor_name} — ₹${fmt(r.unit_price)}`,
+                raw: r,
+              }));
+          });
+          return next;
+        });
+      })
+      .catch(() => {
+        // Leave the failed products as `undefined` (don't cache []), so the
+        // next product change retries them instead of showing "No options".
+        setVendorsByProduct((m) => {
+          const next = { ...m };
+          missing.forEach((pid) => {
+            if (Array.isArray(next[pid]) === false) delete next[pid];
+          });
+          return next;
+        });
+      })
+      .finally(() => {
+        setLoadingByProduct((m) => {
+          const next = { ...m };
+          missing.forEach((pid) => (next[pid] = false));
+          return next;
+        });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveLines.length]);
+  }, [productIdsKey]);
 
-  const addRow = () => lineFA.append({ ...emptyLine() });
+  const addRow = () => {
+    // Jump to the page that will hold the appended row (its index = current
+    // length, before the append takes effect).
+    setWsPage(Math.floor(lineFA.fields.length / wsPageSize));
+    lineFA.append({ ...emptyLine() });
+  };
 
   const onPickProduct = (idx, opt) => {
     const raw = opt?.raw || {};
@@ -246,7 +324,6 @@ const CostingWorksheet = ({
     setValue(`lines.${idx}.vendor_id`, "");
     setValue(`lines.${idx}.vendor_name`, "");
     setValue(`lines.${idx}.unit_price`, "");
-    setVendorsByLine((m) => ({ ...m, [idx]: undefined }));
     if (opt) fetchVendors(idx, opt.value, true);
   };
 
@@ -369,6 +446,18 @@ const CostingWorksheet = ({
     act: 40,
   };
 
+  // ── Pagination (slice fields, keep absolute index) ──
+  const wsTotal = lineFA.fields.length;
+  const wsPageCount = Math.max(1, Math.ceil(wsTotal / wsPageSize));
+  const wsSafePage = Math.min(wsPage, wsPageCount - 1);
+  const wsStart = wsSafePage * wsPageSize;
+  const pagedFields = lineFA.fields
+    .map((row, idx) => ({ row, idx }))
+    .slice(wsStart, wsStart + wsPageSize);
+  useEffect(() => {
+    if (wsPage > wsPageCount - 1) setWsPage(Math.max(0, wsPageCount - 1));
+  }, [wsPageCount, wsPage]);
+
   return (
     <Fragment>
       {/* Exchange-rate banner — editable rate (INR per 1 unit of the quote
@@ -489,7 +578,7 @@ const CostingWorksheet = ({
                 </td>
               </tr>
             ) : (
-              lineFA.fields.map((row, idx) => {
+              pagedFields.map(({ row, idx }) => {
                 const l = liveLines[idx] || {};
                 const c = computeLineCosting(l, { excludeGst: true });
                 const priceAfterDisc = round2(
@@ -525,10 +614,10 @@ const CostingWorksheet = ({
                         classNamePrefix="select"
                         menuPortalTarget={document.body}
                         styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                        options={vendorsByLine[idx] || []}
-                        isLoading={!!loadingVendors[idx]}
+                        options={vendorsByProduct[l.product_id] || []}
+                        isLoading={!!loadingByProduct[l.product_id]}
                         value={
-                          (vendorsByLine[idx] || []).find(
+                          (vendorsByProduct[l.product_id] || []).find(
                             (o) => o.value === l.vendor_id
                           ) ||
                           (l.vendor_id
@@ -747,6 +836,48 @@ const CostingWorksheet = ({
           )}
         </Table>
       </div>
+
+      {wsTotal > wsPageSize && (
+        <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
+          <div className="d-flex align-items-center small text-muted">
+            <span className="me-50">{t("Show")}</span>
+            <Input
+              type="select"
+              bsSize="sm"
+              value={wsPageSize}
+              onChange={(e) => {
+                setWsPageSize(Number(e.target.value) || 10);
+                setWsPage(0);
+              }}
+              style={{ width: 80 }}
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Input>
+            <span className="ms-50">
+              {t("of")} {wsTotal} {t("rows")}
+            </span>
+          </div>
+          <ReactPaginate
+            previousLabel=""
+            nextLabel=""
+            pageCount={wsPageCount}
+            activeClassName="active"
+            forcePage={wsSafePage}
+            onPageChange={({ selected }) => setWsPage(selected)}
+            pageClassName="page-item"
+            nextLinkClassName="page-link"
+            nextClassName="page-item next"
+            previousClassName="page-item prev"
+            previousLinkClassName="page-link"
+            pageLinkClassName="page-link"
+            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+          />
+        </div>
+      )}
     </Fragment>
   );
 };
