@@ -287,7 +287,12 @@ const ImportModal = ({ isOpen, toggle, onSuccess, vendorId }) => {
                               {row.data.vendor_code || "—"}
                             </td>
                             <td className="small">
-                              {row.data.product_code || "—"}
+                              <div>{row.data.product_code || "—"}</div>
+                              {row.data.product_name ? (
+                                <div className="text-muted">
+                                  {row.data.product_name}
+                                </div>
+                              ) : null}
                             </td>
                             <td className="small">
                               {row.data.unit_price || "—"}
