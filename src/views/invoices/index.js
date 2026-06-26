@@ -30,7 +30,6 @@ import {
   deleteInvoice,
   cleanInvoiceMessage,
 } from "./store";
-import MultiSoPickerModal from "./components/MultiSoPickerModal";
 import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
@@ -207,16 +206,9 @@ const InvoicesList = () => {
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
   const canCreate = isSystemAdmin || isCompanyAdmin || perms?.can_create;
 
-  // Customer-first multi-SO picker (SHIPPING_INVOICE_MERGE_PLAN §5b).
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const handlePickerConfirm = (selectedLines, meta) => {
-    setPickerOpen(false);
-    // Hand the picked lines + locked header context to the wizard via
-    // router state; the add form pre-fills from location.state.multiSo.
-    navigate(`${appsRoot}/invoices/add`, {
-      state: { multiSo: { ...meta, lines: selectedLines } },
-    });
-  };
+  // Customer-first multi-SO line picker now lives on its own page
+  // (/invoices/select-so-lines), which navigates to /invoices/add with the
+  // picked lines in router state.
 
   // ── Columns ─────────────────────────────────────────────────────────
 
@@ -484,7 +476,12 @@ const InvoicesList = () => {
                 className="d-flex align-items-start justify-content-end"
               >
                 {canCreate && (
-                  <Button color="primary" onClick={() => setPickerOpen(true)}>
+                  <Button
+                    color="primary"
+                    onClick={() =>
+                      navigate(`${appsRoot}/invoices/select-so-lines`)
+                    }
+                  >
                     <Plus size={15} className="me-25" />
                     {t("Create Invoice")}
                   </Button>
@@ -509,12 +506,6 @@ const InvoicesList = () => {
           </CardBody>
         </Card>
       </div>
-
-      <MultiSoPickerModal
-        isOpen={pickerOpen}
-        toggle={() => setPickerOpen(false)}
-        onConfirm={handlePickerConfirm}
-      />
     </Fragment>
   );
 };

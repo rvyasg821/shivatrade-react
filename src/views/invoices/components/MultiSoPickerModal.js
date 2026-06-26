@@ -23,6 +23,7 @@ import {
   Badge,
 } from "reactstrap";
 import Select from "react-select";
+import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import PropTypes from "prop-types";
 
@@ -73,6 +74,9 @@ const MultiSoPickerModal = ({
   const [loading, setLoading] = useState(false);
   // picks: { [po_line_id]: { selected, qty } }
   const [picks, setPicks] = useState({});
+  // Client-side pagination over the flattened line items.
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
 
   const customerLocked = !!lockedCustomerId;
   const existing = useMemo(
@@ -111,6 +115,7 @@ const MultiSoPickerModal = ({
       setCustomerId(lockedCustomerId || "");
       setRawGroups([]);
       setPicks({});
+      setPage(0);
     }
   }, [isOpen, lockedCustomerId]);
 
@@ -199,6 +204,67 @@ const MultiSoPickerModal = ({
 
   const selectedCount = Object.values(picks).filter((p) => p?.selected).length;
 
+  // Flatten lines across groups (carrying group context), then paginate.
+  const flatLines = useMemo(() => {
+    const arr = [];
+    for (const g of groups) for (const l of g.lines) arr.push({ g, l });
+    return arr;
+  }, [groups]);
+  const totalLines = flatLines.length;
+  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const pageItems = flatLines.slice(pageStart, pageStart + pageSize);
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [pageCount, page]);
+
+  // Re-group the current page's lines back into SO boxes (in order) so the
+  // group headers + per-SO styling survive pagination.
+  const pageGroups = useMemo(() => {
+    const map = new Map();
+    for (const { g, l } of pageItems) {
+      if (!map.has(g.po_id)) map.set(g.po_id, { g, lines: [] });
+      map.get(g.po_id).lines.push(l);
+    }
+    return Array.from(map.values());
+  }, [pageItems]);
+
+  // "Select all" targets the combinable set: lines in groups matching the
+  // active key (locked, else the first group's). Toggling off clears them.
+  const selectAllKey =
+    activeKey || (groups[0] ? groupKey(groups[0]) : null);
+  const selectableLineIds = useMemo(() => {
+    if (!selectAllKey) return [];
+    const ids = [];
+    for (const g of groups) {
+      if (groupKey(g) !== selectAllKey) continue;
+      for (const l of g.lines) ids.push(l.purchase_order_line_id);
+    }
+    return ids;
+  }, [groups, selectAllKey]);
+  const allSelected =
+    selectableLineIds.length > 0 &&
+    selectableLineIds.every((id) => picks[id]?.selected);
+
+  const toggleSelectAll = () => {
+    const next = !allSelected;
+    setPicks((p) => {
+      const out = { ...p };
+      for (const g of groups) {
+        if (groupKey(g) !== selectAllKey) continue;
+        for (const l of g.lines) {
+          const id = l.purchase_order_line_id;
+          out[id] = {
+            selected: next,
+            qty: out[id]?.qty ?? l.available,
+          };
+        }
+      }
+      return out;
+    });
+  };
+
   const handleConfirm = () => {
     const out = [];
     let chosen = null;
@@ -284,9 +350,26 @@ const MultiSoPickerModal = ({
             {t("No invoiceable (dispatched) SO lines for this customer.")}
           </div>
         ) : (
-          groups.map((g) => {
-            const enabled = isGroupEnabled(g);
-            return (
+          <Fragment>
+            {/* Select-all + selected count bar */}
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1 mb-2">
+              <Button
+                size="sm"
+                color="outline-primary"
+                disabled={selectableLineIds.length === 0}
+                onClick={toggleSelectAll}
+              >
+                {allSelected ? t("Clear all") : t("Select all")}
+              </Button>
+              <span className="small text-muted">
+                {selectedCount} {t("selected")} · {totalLines} {t("lines")}
+              </span>
+            </div>
+
+            {pageGroups.map((pg) => {
+              const g = pg.g;
+              const enabled = isGroupEnabled(g);
+              return (
               <div
                 key={g.po_id}
                 className={`border rounded p-2 mb-2 ${
@@ -319,7 +402,7 @@ const MultiSoPickerModal = ({
                     </span>
                   )}
                 </div>
-                {g.lines.map((l) => {
+                {pg.lines.map((l) => {
                   const pk = picks[l.purchase_order_line_id] || {};
                   return (
                     <div
@@ -361,7 +444,50 @@ const MultiSoPickerModal = ({
                 })}
               </div>
             );
-          })
+          })}
+
+            {totalLines > pageSize && (
+              <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
+                <div className="d-flex align-items-center small text-muted">
+                  <span className="me-50">{t("Show")}</span>
+                  <Input
+                    type="select"
+                    bsSize="sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value) || 10);
+                      setPage(0);
+                    }}
+                    style={{ width: 80 }}
+                  >
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Input>
+                  <span className="ms-50">
+                    {t("of")} {totalLines} {t("lines")}
+                  </span>
+                </div>
+                <ReactPaginate
+                  previousLabel=""
+                  nextLabel=""
+                  pageCount={pageCount}
+                  activeClassName="active"
+                  forcePage={safePage}
+                  onPageChange={({ selected }) => setPage(selected)}
+                  pageClassName="page-item"
+                  nextLinkClassName="page-link"
+                  nextClassName="page-item next"
+                  previousClassName="page-item prev"
+                  previousLinkClassName="page-link"
+                  pageLinkClassName="page-link"
+                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
+                />
+              </div>
+            )}
+          </Fragment>
         )}
       </ModalBody>
       <ModalFooter>

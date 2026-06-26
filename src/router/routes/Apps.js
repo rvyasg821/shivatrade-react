@@ -99,6 +99,9 @@ const InvoiceList = lazy(() => import('@src/views/invoices'));
 const ViewInvoice = lazy(() => import('@src/views/invoices/view'));
 const AddInvoice = lazy(() => import('@src/views/invoices/add'));
 const EditInvoice = lazy(() => import('@src/views/invoices/add'));
+const SelectSoLines = lazy(() =>
+  import('@src/views/invoices/select-so-lines')
+);
 const TrackingFeed = lazy(() => import('@src/views/tracking'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
@@ -899,6 +902,14 @@ const AppRoutes = [
     meta: {
       permissionId: invoicesModuleSlug,
       action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/invoices/select-so-lines`,
+    element: <SelectSoLines />,
+    meta: {
+      permissionId: invoicesModuleSlug,
+      action: 'add',
     },
   },
   {
