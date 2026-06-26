@@ -146,7 +146,10 @@ const ProductForm = () => {
           )
           .nullable()
           .notRequired(),
-        unit_of_measure: yup.string().nullable().notRequired(),
+        unit_of_measure: yup
+          .string()
+          .trim()
+          .required(t("Unit of Measure is required")),
         // Pricing
         selling_price: yup
           .number()
@@ -273,6 +276,40 @@ const ProductForm = () => {
   // ── Live SKU uniqueness check (onBlur) ──
   const [codeExists, setCodeExists] = useState(false);
   const [codeChecking, setCodeChecking] = useState(false);
+
+  // ── Live name uniqueness check (onBlur) ──
+  const [nameExists, setNameExists] = useState(false);
+  const [nameChecking, setNameChecking] = useState(false);
+
+  const handleNameBlur = async (e) => {
+    const name = (e.target.value || "").trim();
+    if (!name) {
+      setNameExists(false);
+      return;
+    }
+    // In edit mode, skip if name is unchanged
+    if (
+      isEditMode &&
+      store?.productItem?.name &&
+      name.toLowerCase() === store.productItem.name.trim().toLowerCase()
+    ) {
+      setNameExists(false);
+      return;
+    }
+    setNameChecking(true);
+    setNameExists(false);
+    try {
+      const res = await instance.post(API_ENDPOINTS.products.checkName, {
+        name,
+        productId: isEditMode ? id : undefined,
+      });
+      setNameExists(!!res?.data?.data?.exists);
+    } catch (err) {
+      setNameExists(false);
+    } finally {
+      setNameChecking(false);
+    }
+  };
 
   const handleCodeBlur = async (e) => {
     const code = (e.target.value || "").trim().toUpperCase();
@@ -439,19 +476,25 @@ const ProductForm = () => {
   };
 
   const onSubmit = (data) => {
-    const numOrUndef = (v) =>
-      v === "" || v === null || v === undefined ? undefined : Number(v);
+    // On edit, a cleared optional field must be sent as null so the backend
+    // overwrites the stored value with NULL. On create, undefined lets the
+    // backend apply its defaults. (`undefined` is dropped from the JSON body,
+    // which is why clearing a field used to keep the old value on update.)
+    const emptyVal = isEditMode ? null : undefined;
+    const strOrEmpty = (v) => (v?.trim() ? v.trim() : emptyVal);
+    const numOrEmpty = (v) =>
+      v === "" || v === null || v === undefined ? emptyVal : Number(v);
     const payload = {
       // Omit on create → backend auto-generates (PRD-0001). On edit the
       // existing code is preserved (the field is read-only).
       code: data.code?.trim() ? data.code.trim().toUpperCase() : undefined,
       name: data.name.trim(),
       category_id: data.category_id || undefined,
-      description: data.description?.trim() || undefined,
-      specifications: data.specifications?.trim() || undefined,
-      packaging_details: data.packaging_details?.trim() || undefined,
-      quality_parameters: data.quality_parameters?.trim() || undefined,
-      hsn_code: data.hsn_code?.trim() || undefined,
+      description: strOrEmpty(data.description),
+      specifications: strOrEmpty(data.specifications),
+      packaging_details: strOrEmpty(data.packaging_details),
+      quality_parameters: strOrEmpty(data.quality_parameters),
+      hsn_code: strOrEmpty(data.hsn_code),
       // Blank → 0 (not undefined) so clearing the field actually removes
       // GST on save; undefined would tell the backend to keep the old value.
       tax_pct:
@@ -459,14 +502,14 @@ const ProductForm = () => {
           ? 0
           : Number(data.tax_pct),
       unit_of_measure: data.unit_of_measure || undefined,
-      selling_price: numOrUndef(data.selling_price),
-      margin_pct: numOrUndef(data.margin_pct),
-      currency_id: data.currency_id || undefined,
-      part_no: data.part_no?.trim() || undefined,
-      pack_size: numOrUndef(data.pack_size),
-      net_weight_per_unit: numOrUndef(data.net_weight_per_unit),
-      gross_weight_per_unit: numOrUndef(data.gross_weight_per_unit),
-      country_of_origin: data.country_of_origin?.trim() || undefined,
+      selling_price: numOrEmpty(data.selling_price),
+      margin_pct: numOrEmpty(data.margin_pct),
+      currency_id: data.currency_id || emptyVal,
+      part_no: strOrEmpty(data.part_no),
+      pack_size: numOrEmpty(data.pack_size),
+      net_weight_per_unit: numOrEmpty(data.net_weight_per_unit),
+      gross_weight_per_unit: numOrEmpty(data.gross_weight_per_unit),
+      country_of_origin: strOrEmpty(data.country_of_origin),
       // Rebates/expenses are no longer captured at product level — they're set
       // at quotation time. Omit them from the payload so the backend's update
       // (which only replaces links when the key is present) preserves any
@@ -528,14 +571,32 @@ const ProductForm = () => {
                       <Input
                         id="name"
                         placeholder={t("Product name")}
-                        invalid={!!errors.name}
+                        invalid={!!errors.name || nameExists}
                         {...field}
+                        onChange={(e) => {
+                          if (nameExists) setNameExists(false);
+                          field.onChange(e);
+                        }}
+                        onBlur={(e) => {
+                          field.onBlur(e);
+                          handleNameBlur(e);
+                        }}
                       />
                     )}
                   />
                   {errors.name && (
                     <FormFeedback className="d-block">
                       {errors.name.message}
+                    </FormFeedback>
+                  )}
+                  {!errors.name && nameChecking && (
+                    <small className="text-muted">
+                      {t("Checking name availability…")}
+                    </small>
+                  )}
+                  {!errors.name && nameExists && (
+                    <FormFeedback className="d-block">
+                      {t("A product with this name already exists.")}
                     </FormFeedback>
                   )}
                 </Col>
@@ -590,7 +651,7 @@ const ProductForm = () => {
 
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="unit_of_measure">
-                    {t("Unit of Measure")}
+                    {t("Unit of Measure")} <span className="text-danger">*</span>
                   </Label>
                   <Controller
                     name="unit_of_measure"
@@ -607,6 +668,11 @@ const ProductForm = () => {
                       />
                     )}
                   />
+                  {errors.unit_of_measure && (
+                    <FormFeedback className="d-block">
+                      {errors.unit_of_measure.message}
+                    </FormFeedback>
+                  )}
                 </Col>
 
                 <Col md="6" className="mb-2">
@@ -1029,7 +1095,13 @@ const ProductForm = () => {
                 onNext={next}
                 onSubmit={onSave}
                 onCancel={() => navigate(-1)}
-                submitting={isSubmitting || codeChecking || codeExists}
+                submitting={
+                  isSubmitting ||
+                  codeChecking ||
+                  codeExists ||
+                  nameChecking ||
+                  nameExists
+                }
               />
             </Form>
           </CardBody>

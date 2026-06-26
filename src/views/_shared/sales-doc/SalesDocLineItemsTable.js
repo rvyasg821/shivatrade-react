@@ -41,7 +41,8 @@ const SalesDocLineItemsTable = ({
   }, [pageCount, page]);
 
   const showMoney = !requirementMode;
-  const colCount = requirementMode ? 5 : showTotal ? 5 : 4;
+  // requirementMode (Lead) shows: #, Product, Part No, HSN, Qty, UOM.
+  const colCount = requirementMode ? 6 : showTotal ? 5 : 4;
 
   return (
     <Fragment>
@@ -53,6 +54,9 @@ const SalesDocLineItemsTable = ({
             {requirementMode && <th className="text-nowrap">{t("Part No")}</th>}
             {requirementMode && <th className="text-nowrap">{t("HSN")}</th>}
             <th className="text-end">{t("Qty")}</th>
+            {requirementMode && (
+              <th className="text-nowrap">{t("UOM")}</th>
+            )}
             {showMoney && <th className="text-end">{t("Price")}</th>}
             {showMoney && showTotal && (
               <th className="text-end">{t("Total")}</th>
@@ -117,9 +121,16 @@ const SalesDocLineItemsTable = ({
                   )}
                   <td className="text-end">
                     {l.qty
-                      ? `${num(l.qty).toFixed(2)}${l.unit ? ` ${l.unit}` : ""}`
+                      ? `${num(l.qty).toFixed(2)}${
+                          // UOM has its own column in requirementMode, so don't
+                          // also suffix it onto the quantity there.
+                          !requirementMode && l.unit ? ` ${l.unit}` : ""
+                        }`
                       : "-"}
                   </td>
+                  {requirementMode && (
+                    <td className="text-nowrap">{l.unit || "-"}</td>
+                  )}
                   {showMoney && (
                     <td className="text-end">
                       {sym}
