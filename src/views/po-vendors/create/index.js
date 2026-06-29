@@ -298,6 +298,15 @@ const CreatePoVendor = () => {
       );
       return;
     }
+    // Then the delivery destination — flow is Vendor → Deliver To → Product.
+    if (!linkedMode && !deliveryAddressId) {
+      Notification(
+        "Validation",
+        t("Select Deliver To first, then add products."),
+        "warning"
+      );
+      return;
+    }
     // Gate: the product must be in the selected vendor's price list.
     const price = await fetchVendorPrice(opt.value, vendorId);
     if (price == null) {
@@ -382,6 +391,11 @@ const CreatePoVendor = () => {
 
   // ── Vendor charges (expenses) ────────────────────────────────────────
   const goodsTotal = linkedMode ? linkedTotal : standaloneTotal;
+  // Charges apply on top of goods — gate "Add Charge" until a product line
+  // exists (linked: pending lines for the vendor; standalone: a picked product).
+  const hasProductLine = linkedMode
+    ? filteredCoverLines.length > 0
+    : lines.some((r) => r.product_id);
   const setCharge = (key, patch) =>
     setCharges((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const onPickExpense = (key, opt) => {
@@ -597,6 +611,14 @@ const CreatePoVendor = () => {
                 <Button
                   size="sm"
                   color="outline-primary"
+                  disabled={!vendorId || !deliveryAddressId}
+                  title={
+                    !vendorId
+                      ? t("Select a vendor first")
+                      : !deliveryAddressId
+                      ? t("Select Deliver To first")
+                      : undefined
+                  }
                   onClick={() => setLines((r) => [...r, newRow()])}
                 >
                   <Plus size={14} className="me-25" /> {t("Add Product")}
@@ -744,11 +766,18 @@ const CreatePoVendor = () => {
                           }
                           styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                           options={productOptions}
+                          isDisabled={!vendorId || !deliveryAddressId}
                           value={
                             productOptions.find((o) => o.value === r.product_id) || null
                           }
                           onChange={(opt) => onPickProduct(r.key, opt)}
-                          placeholder={t("Select product")}
+                          placeholder={
+                            !vendorId
+                              ? t("Select a vendor first")
+                              : !deliveryAddressId
+                              ? t("Select Deliver To first")
+                              : t("Select product")
+                          }
                         />
                         {(r.part_no || r.hsn_code) && (
                           <small className="text-muted">
@@ -766,6 +795,7 @@ const CreatePoVendor = () => {
                           step="0.0001"
                           bsSize="sm"
                           className="text-end"
+                          disabled={!r.product_id}
                           value={r.qty}
                           onChange={(e) => setRow(r.key, { qty: e.target.value })}
                         />
@@ -777,6 +807,7 @@ const CreatePoVendor = () => {
                           step="0.01"
                           bsSize="sm"
                           className="text-end"
+                          disabled={!r.product_id}
                           value={r.unit_price}
                           onChange={(e) => setRow(r.key, { unit_price: e.target.value })}
                         />
@@ -819,6 +850,10 @@ const CreatePoVendor = () => {
               <Button
                 size="sm"
                 color="outline-primary"
+                disabled={!hasProductLine}
+                title={
+                  !hasProductLine ? t("Select a product first") : undefined
+                }
                 onClick={() => setCharges((c) => [...c, newCharge()])}
               >
                 <Plus size={14} className="me-25" /> {t("Add Charge")}

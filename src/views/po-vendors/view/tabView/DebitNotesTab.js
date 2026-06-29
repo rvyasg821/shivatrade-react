@@ -161,9 +161,6 @@ const DebitNotesTab = ({ registerActions }) => {
               <th style={{ width: 90 }} className="text-end">
                 {t("Qty")}
               </th>
-              <th style={{ width: 120 }} className="text-end">
-                {t("Price")}
-              </th>
               <th style={{ width: 140 }} className="text-end">
                 {t("Amount")}
               </th>
@@ -206,13 +203,6 @@ const DebitNotesTab = ({ registerActions }) => {
                           maximumFractionDigits: 2,
                         })
                       : "-"}
-                  </td>
-                  <td className="text-end text-nowrap">
-                    {d.unit_price != null && d.unit_price !== ""
-                      ? `${getCurrencySymbol(d.currency_code) || ""}${fmtMoney(
-                          d.unit_price
-                        )}`
-                      : "—"}
                   </td>
                   <td className="text-end text-nowrap">
                     {getCurrencySymbol(d.currency_code) || ""}
