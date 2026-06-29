@@ -55,6 +55,16 @@ export const hasErpAccess = (authUserItem) => {
   );
 };
 
+// Shared grid for the stat-card blocks. auto-fill keeps a fixed track size so
+// every card is the same width across KPIs / attention / counts; the last row
+// leaves trailing tracks empty instead of stretching cards unevenly.
+const CARD_GRID = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+  gap: "1rem",
+  marginBottom: "1rem",
+};
+
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v) || 0);
 const inr = (v) =>
   `₹${num(v).toLocaleString("en-IN", {
@@ -325,14 +335,13 @@ const ErpDashboard = () => {
 
   return (
     <Fragment>
-      {/* Row 1 — KPIs. Flex so the cards grow to fill the row regardless of
-          how many the user's role allows (no half-empty grid). */}
+      {/* Row 1 — KPIs. Uniform CSS grid so every card is the same width
+          across all blocks (auto-fill keeps a fixed track size; trailing
+          tracks stay empty rather than stretching the cards unevenly). */}
       {kpis.length > 0 && (
-        <div className="d-flex flex-wrap gap-1 mb-1">
+        <div style={CARD_GRID}>
           {kpis.map((k) => (
-            <div key={k.key} style={{ flex: "1 1 220px", maxWidth: 360 }}>
-              <StatCard item={k} />
-            </div>
+            <StatCard key={k.key} item={k} />
           ))}
         </div>
       )}
@@ -341,11 +350,9 @@ const ErpDashboard = () => {
       {attention.length > 0 && (
         <Fragment>
           <h5 className="mt-1 mb-1 text-muted">{t("Needs attention")}</h5>
-          <div className="d-flex flex-wrap gap-1 mb-1">
+          <div style={CARD_GRID}>
             {attention.map((a) => (
-              <div key={a.key} style={{ flex: "1 1 220px", maxWidth: 360 }}>
-                <StatCard item={a} />
-              </div>
+              <StatCard key={a.key} item={a} />
             ))}
           </div>
         </Fragment>
@@ -353,11 +360,9 @@ const ErpDashboard = () => {
 
       {/* Quick counts */}
       {counts.length > 0 && (
-        <div className="d-flex flex-wrap gap-1 mb-1">
+        <div style={CARD_GRID}>
           {counts.map((c) => (
-            <div key={c.key} style={{ flex: "1 1 220px", maxWidth: 360 }}>
-              <StatCard item={{ ...c, tone: "secondary" }} />
-            </div>
+            <StatCard key={c.key} item={{ ...c, tone: "secondary" }} />
           ))}
         </div>
       )}
