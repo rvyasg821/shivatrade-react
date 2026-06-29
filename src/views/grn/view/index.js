@@ -25,8 +25,6 @@ import {
   ExternalLink,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 import { getGrn, updateGrn, createGrnFromPov, cleanGrnMessage } from "../store";
 import { getPoVendor } from "@src/views/po-vendors/store";
@@ -55,7 +53,6 @@ const GrnView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const mySwal = withReactContent(Swal);
 
   const store = useSelector((s) => s.grn);
   const povStore = useSelector((s) => s.poVendor);
@@ -306,46 +303,6 @@ const GrnView = () => {
     dispatch(updateGrn({ id, data: payload }));
   };
 
-  // Revert a confirmed GRN back to draft so the receipt can be edited again.
-  // This rolls the GRN's received stock movements back out (the backend
-  // reverses the stock ledger when the GRN leaves CONFIRMED), so confirm first.
-  const onRevertToDraft = () => {
-    // A Debit Note is raised off this GRN's rejected qty — reverting would
-    // leave it inconsistent. Make the user cancel the Debit Note first.
-    if (existingDn) {
-      mySwal.fire({
-        title: t("Cancel the Debit Note first"),
-        text: t(
-          "A Debit Note is raised against this GRN. Cancel it before reverting the GRN to draft."
-        ),
-        icon: "info",
-        confirmButtonText: t("OK"),
-        customClass: { confirmButton: "btn btn-primary" },
-        buttonsStyling: false,
-      });
-      return;
-    }
-    mySwal
-      .fire({
-        title: t("Revert this GRN to draft?"),
-        text: t(
-          "This rolls back the received stock movements so you can edit the receipt again. The change is logged on the Vendor PO timeline."
-        ),
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, revert to draft"),
-        cancelButtonText: t("Cancel"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-danger ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then((result) => {
-        if (result.isConfirmed) onSave("draft");
-      });
-  };
-
   // Open the GRN PDF in the in-app viewer (new tab, frontend origin) — fetched
   // via the authed API, shown there, with a correctly-named Download.
   const downloadPdf = () =>
@@ -451,7 +408,7 @@ const GrnView = () => {
           <CardTitle tag="h6" className="mb-0">
             {t("Receipt & Quality Check")}
           </CardTitle>
-          {grn.status !== "cancelled" && (
+          {!isLocked && (
             <div className="d-flex gap-1">
               {grn.status === "draft" && (
                 <Button
@@ -476,7 +433,7 @@ const GrnView = () => {
                   {isCreate ? t("Create & Confirm") : t("Save & Confirm")}
                 </Button>
               )}
-              {grn.status === "draft" && !isCreate && (
+              {!isCreate && (
                 <Button
                   color="danger"
                   size="sm"
@@ -484,17 +441,6 @@ const GrnView = () => {
                   onClick={() => onSave("cancelled")}
                 >
                   <XCircle size={14} className="me-25" /> {t("Cancel GRN")}
-                </Button>
-              )}
-              {grn.status === "confirmed" && !isCreate && (
-                <Button
-                  color="warning"
-                  size="sm"
-                  outline
-                  onClick={onRevertToDraft}
-                >
-                  <CornerUpLeft size={14} className="me-25" />{" "}
-                  {t("Revert to Draft")}
                 </Button>
               )}
             </div>

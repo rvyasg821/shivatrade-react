@@ -298,11 +298,13 @@ const PoGeneratePreviewModal = ({
     return { name, address };
   }, [locations, deliveryAddressId]);
 
-  // Advance must stay below the order's grand total.
+  // Advance may equal the order's grand total (full prepayment) but not
+  // exceed it. Compare in whole cents so float noise doesn't trip it.
   const advanceTooHigh =
     advanceAmount !== "" &&
     sourceGrandTotal > 0 &&
-    Number(advanceAmount) >= sourceGrandTotal;
+    Math.round(Number(advanceAmount) * 100) >
+      Math.round(sourceGrandTotal * 100);
 
   // ── Step gating ─────────────────────────────────────────────────────
   const vendorsStepValid =
@@ -343,15 +345,16 @@ const PoGeneratePreviewModal = ({
       );
       return;
     }
-    // Advance must be below the order's grand total.
+    // Advance may equal the order's grand total but not exceed it.
     if (
       advanceAmount !== "" &&
       sourceGrandTotal > 0 &&
-      Number(advanceAmount) >= sourceGrandTotal
+      Math.round(Number(advanceAmount) * 100) >
+        Math.round(sourceGrandTotal * 100)
     ) {
       Notification(
         "Validation",
-        t("Advance amount must be less than the order total."),
+        t("Advance amount cannot exceed the order total."),
         "warning"
       );
       return;
@@ -822,7 +825,7 @@ const PoGeneratePreviewModal = ({
                 />
                 {advanceTooHigh ? (
                   <small className="text-danger">
-                    {t("Must be less than the order total")} (
+                    {t("Cannot exceed the order total")} (
                     {sourceCurrencySym}
                     {sourceGrandTotal.toLocaleString()})
                   </small>

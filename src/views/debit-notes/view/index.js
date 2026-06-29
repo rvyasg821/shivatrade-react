@@ -14,17 +14,8 @@ import {
   Spinner,
   Table,
 } from "reactstrap";
-import {
-  ArrowLeft,
-  Save,
-  CheckCircle,
-  XCircle,
-  Download,
-  CornerUpLeft,
-} from "react-feather";
+import { ArrowLeft, Save, CheckCircle, XCircle, Download } from "react-feather";
 import { useTranslation } from "react-i18next";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 import {
   getDebitNote,
@@ -62,7 +53,6 @@ const DebitNoteView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const mySwal = withReactContent(Swal);
 
   const store = useSelector((s) => s.debitNote);
   const grnStore = useSelector((s) => s.grn);
@@ -240,30 +230,6 @@ const DebitNoteView = () => {
     dispatch(updateDebitNote({ id, data }));
   };
 
-  // Revert an issued Debit Note back to draft so its return lines can be edited
-  // again. The change is auto-logged on the Vendor PO timeline by the backend.
-  const onRevertToDraft = () => {
-    mySwal
-      .fire({
-        title: t("Revert this Debit Note to draft?"),
-        text: t(
-          "This re-opens the Debit Note for editing. The change is logged on the Vendor PO timeline."
-        ),
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, revert to draft"),
-        cancelButtonText: t("Cancel"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-danger ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then((result) => {
-        if (result.isConfirmed) onSave("draft");
-      });
-  };
-
   if (!dn) {
     return (
       <div className="d-flex justify-content-center py-5">
@@ -375,17 +341,6 @@ const DebitNoteView = () => {
                   >
                     <CheckCircle size={14} className="me-25" />{" "}
                     {t("Save & Issue")}
-                  </Button>
-                )}
-                {status === "issued" && (
-                  <Button
-                    color="warning"
-                    size="sm"
-                    outline
-                    onClick={onRevertToDraft}
-                  >
-                    <CornerUpLeft size={14} className="me-25" />{" "}
-                    {t("Revert to Draft")}
                   </Button>
                 )}
                 {status !== "cancelled" && (
