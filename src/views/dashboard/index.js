@@ -32,7 +32,7 @@ import StatsCard from './StatsCard';
 import RecentActivity from './RecentActivity';
 import DashboardCharts from './DashboardCharts';
 import CompanyQuickList from './CompanyQuickList';
-import OperationsStatsRows from './OperationsStatsRows';
+import ErpDashboard, { hasErpAccess } from './ErpDashboard';
 
 // Styles
 import './SubscriptionCard.scss';
@@ -585,7 +585,7 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    <OperationsStatsRows />
+                    <ErpDashboard />
                 </div>
             );
         }
@@ -593,12 +593,26 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    <OperationsStatsRows />
+                    <ErpDashboard />
                 </div>
             );
         }
 
-        // Employee or any other role
+        // Employee or any other role. The personal Attendance & Leave block
+        // comes first (every employee needs it), then the role-aware ERP cards
+        // underneath for staff who have ERP module permissions. Pure HR
+        // employees just get the attendance / leave view.
+        if (hasErpAccess(authStore?.authUserItem)) {
+            return (
+                <Fragment>
+                    <EmployeeDashboard />
+                    <h5 className="text-muted fw-bolder mb-1 pt-1 border-top">
+                        {t("Business Overview")}
+                    </h5>
+                    <ErpDashboard />
+                </Fragment>
+            );
+        }
         return <EmployeeDashboard />;
     };
 

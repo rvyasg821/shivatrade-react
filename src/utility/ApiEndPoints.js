@@ -289,6 +289,7 @@ export const API_ENDPOINTS = {
   invoices: {
     list: `/admin/invoice/list`,
     stats: `/admin/invoice/stats`,
+    leaderboard: `/admin/invoice/leaderboard`,
     get: `/admin/invoice/get`, // append /:id
     create: `/admin/invoice/create`,
     update: `/admin/invoice/update`, // append /:id

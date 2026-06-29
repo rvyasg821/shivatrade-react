@@ -249,61 +249,64 @@ const AttendancePage = ({ hideRecords = false }) => {
     return (
       <Fragment>
         <Card className='mb-2'>
-          <CardBody className='py-1'>
-            <div className='d-flex align-items-center justify-content-between' style={{ flexWrap: 'nowrap' }}>
-              <div className='d-flex align-items-center gap-2'>
-                <div className='text-center' style={{ minWidth: 80 }}>
-                  <div className='text-muted small'>Today</div>
-                  <div className='fw-bold'>{new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+          <CardBody style={{ paddingTop: '0.85rem', paddingBottom: '0.85rem' }}>
+            <div className='d-flex align-items-center justify-content-between flex-wrap gap-2'>
+              {/* Identity + live status */}
+              <div className='d-flex align-items-center'>
+                <div
+                  className={`me-1 d-flex align-items-center justify-content-center rounded-circle bg-light-${isClockedIn ? (hasActiveBreak ? 'warning' : 'success') : 'secondary'}`}
+                  style={{ width: 42, height: 42, flexShrink: 0 }}
+                >
+                  <Clock size={20} />
                 </div>
-                <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                <div className='text-center' style={{ minWidth: 70 }}>
-                  <div className='text-muted small'>In</div>
-                  <div className='fw-bold'>{today ? formatClockTime(today.clock_in, tz) : '—'}</div>
+                <div className='lh-1'>
+                  <div className='fw-bolder mb-25'>
+                    {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })}
+                  </div>
+                  <div className='d-flex align-items-center gap-50 flex-wrap'>
+                    {hasActiveBreak ? (
+                      <Badge color='light-warning'><Coffee size={11} className='me-25' />On Break</Badge>
+                    ) : today ? (
+                      <Badge color={STATUS_COLORS[today.status] || 'light-secondary'} className='text-capitalize'>
+                        {(today.status || '').replace('_', ' ') || 'Active'}
+                      </Badge>
+                    ) : (
+                      <span className='text-muted small'>Not clocked in yet</span>
+                    )}
+                    {today && today.is_late && <Badge color='light-warning'>Late</Badge>}
+                    {today && today.is_early_leave && <Badge color='light-info'>Early</Badge>}
+                  </div>
                 </div>
-                <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                <div className='text-center' style={{ minWidth: 70 }}>
-                  <div className='text-muted small'>Out</div>
-                  <div className='fw-bold'>{today ? formatClockTime(today.clock_out, tz) : '—'}</div>
+              </div>
+
+              {/* Metrics */}
+              <div className='d-flex align-items-center text-center'>
+                <div style={{ padding: '0 0.95rem' }}>
+                  <div className='text-muted text-uppercase fw-bold' style={{ fontSize: '0.66rem', letterSpacing: '0.03em' }}>In</div>
+                  <div className='fw-bolder'>{today ? formatClockTime(today.clock_in, tz) : '—'}</div>
                 </div>
-                <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                <div className='text-center' style={{ minWidth: 55 }}>
-                  <div className='text-muted small'>Hours</div>
-                  <div className='fw-bold'>
+                <div style={{ width: 1, height: 30, background: '#ebe9f1' }} />
+                <div style={{ padding: '0 0.95rem' }}>
+                  <div className='text-muted text-uppercase fw-bold' style={{ fontSize: '0.66rem', letterSpacing: '0.03em' }}>Out</div>
+                  <div className='fw-bolder'>{today ? formatClockTime(today.clock_out, tz) : '—'}</div>
+                </div>
+                <div style={{ width: 1, height: 30, background: '#ebe9f1' }} />
+                <div style={{ padding: '0 0.95rem' }}>
+                  <div className='text-muted text-uppercase fw-bold' style={{ fontSize: '0.66rem', letterSpacing: '0.03em' }}>Hours</div>
+                  <div className='fw-bolder' style={{ color: '#09418b' }}>
                     {today && today.clock_in && !today.clock_out
                       ? <LiveTimer clockIn={today.clock_in} breakMinutes={today.break_minutes} />
                       : today ? formatHours(today.total_hours) : '—'}
                   </div>
                 </div>
-                <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                <div className='text-center' style={{ minWidth: 45 }}>
-                  <div className='text-muted small'>Break</div>
-                  <div className='fw-bold'>{today?.break_minutes ? `${today.break_minutes}m` : '0m'}</div>
+                <div style={{ width: 1, height: 30, background: '#ebe9f1' }} />
+                <div style={{ padding: '0 0.95rem' }}>
+                  <div className='text-muted text-uppercase fw-bold' style={{ fontSize: '0.66rem', letterSpacing: '0.03em' }}>Break</div>
+                  <div className='fw-bolder'>{today?.break_minutes ? `${today.break_minutes}m` : '0m'}</div>
                 </div>
-                <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                <div className='text-center' style={{ minWidth: 60 }}>
-                  <div className='text-muted small'>Status</div>
-                  <div>{today ? <Badge color={STATUS_COLORS[today.status] || 'light-secondary'}>{today.status?.replace('_', ' ')}</Badge> : <span className='text-muted'>—</span>}</div>
-                </div>
-                {today && (today.is_late || today.is_early_leave) && (
-                  <>
-                    <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                    <div className='text-center'>
-                      <div className='text-muted small'>Flags</div>
-                      <div className='d-flex gap-25'>
-                        {today.is_late && <Badge color='light-warning'>Late</Badge>}
-                        {today.is_early_leave && <Badge color='light-info'>Early</Badge>}
-                      </div>
-                    </div>
-                  </>
-                )}
-                {hasActiveBreak && (
-                  <>
-                    <div style={{ width: 1, height: 32, background: '#e0e0e0' }} />
-                    <Badge color='light-warning' className='py-50 px-75'><Coffee size={12} className='me-25' />On Break</Badge>
-                  </>
-                )}
               </div>
+
+              {/* Actions */}
               <div className='d-flex gap-75 align-items-center' style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
                 {gpsRequired && gpsStatus === 'acquiring' && <span className='text-info small d-flex align-items-center'><Spinner size='sm' className='me-50' />Getting location...</span>}
                 {!isClockedIn && !isClockedOut && (
