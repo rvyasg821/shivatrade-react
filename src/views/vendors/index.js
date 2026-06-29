@@ -195,6 +195,11 @@ const VendorList = () => {
                 {row?.company_name || "-"}
               </span>
             </Link>
+            {row?.vendor_code ? (
+              <div className="small text-muted text-break mt-50">
+                {row.vendor_code}
+              </div>
+            ) : null}
             {cats.length > 0 && (
               <div className="d-flex flex-wrap gap-50 mt-50">
                 {cats.map((c) => (
