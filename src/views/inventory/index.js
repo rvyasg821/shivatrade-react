@@ -368,6 +368,10 @@ const InventoryView = () => {
                       classNamePrefix="select"
                       placeholder={t("All Locations")}
                       options={locationOptions}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
                       value={
                         locationOptions.find(
                           (o) => o.value === locationFilter
@@ -394,6 +398,10 @@ const InventoryView = () => {
                       classNamePrefix="select"
                       placeholder={t("Category")}
                       options={categoryOptions}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
                       value={
                         categoryOptions.find(
                           (o) => o.value === categoryFilter
@@ -410,6 +418,10 @@ const InventoryView = () => {
                       classNamePrefix="select"
                       placeholder={t("Vendor")}
                       options={vendorOptions}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
                       value={
                         vendorOptions.find((o) => o.value === vendorFilter) ||
                         null

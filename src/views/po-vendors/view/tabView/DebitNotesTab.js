@@ -4,13 +4,10 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, Trash2, CornerUpLeft } from "react-feather";
+import { ExternalLink, Download, CornerUpLeft } from "react-feather";
 import { useTranslation } from "react-i18next";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -18,12 +15,6 @@ import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { getCurrencySymbol } from "@src/utility/currency";
-import {
-  deleteDebitNote,
-  cleanDebitNoteMessage,
-} from "@src/views/debit-notes/store";
-import { getPoVendor } from "@src/views/po-vendors/store";
-import Notification from "@components/toast/notification";
 
 const num = (v) => {
   const n = Number(v);
@@ -50,12 +41,9 @@ const DebitNotesTab = ({ registerActions }) => {
   const { id } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const mySwal = withReactContent(Swal);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
   // A confirmed GRN with rejected goods but no Debit Note yet — the "Create
   // Debit Note" action is published only when one exists.
   const [pendingGrn, setPendingGrn] = useState(null);
@@ -116,59 +104,6 @@ const DebitNotesTab = ({ registerActions }) => {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Delete a Debit Note (with confirm). Reloads the list and refreshes the POV
-  // (so a re-deleted DN frees its GRN to raise a new one).
-  const handleDelete = (d) => {
-    if (!d?._id) return;
-    mySwal
-      .fire({
-        title: t("Delete this Debit Note?"),
-        text: t("This cannot be undone."),
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: t("Yes, delete it!"),
-        cancelButtonText: t("Cancel"),
-        customClass: {
-          confirmButton: "btn btn-primary",
-          cancelButton: "btn btn-outline-danger ms-1",
-        },
-        buttonsStyling: false,
-      })
-      .then(async (result) => {
-        if (!result.isConfirmed) return;
-        setDeletingId(d._id);
-        try {
-          const r = await dispatch(deleteDebitNote(d._id)).unwrap();
-          // Clear the slice message so it doesn't re-toast later when a Debit
-          // Note detail page mounts (it shows store.success).
-          dispatch(cleanDebitNoteMessage());
-          if (r?.actionFlag === "DN_DLTD") {
-            Notification(
-              "Success",
-              r?.success || t("Debit Note deleted."),
-              "success"
-            );
-            load();
-            if (id) dispatch(getPoVendor(id));
-          } else {
-            Notification(
-              "Error",
-              r?.error || t("Could not delete Debit Note."),
-              "warning"
-            );
-          }
-        } catch (err) {
-          Notification(
-            "Error",
-            err?.message || t("Could not delete Debit Note."),
-            "warning"
-          );
-        } finally {
-          setDeletingId(null);
-        }
-      });
-  };
 
   // Publish "Create Debit Note" to the tab bar's top-right only when a
   // confirmed GRN has rejected goods awaiting a Debit Note.
@@ -309,20 +244,6 @@ const DebitNotesTab = ({ registerActions }) => {
                       onClick={() => downloadPdf(d)}
                     >
                       <Download size={15} />
-                    </Button>
-                    <Button
-                      color="flat-danger"
-                      size="sm"
-                      className="p-25"
-                      title={t("Delete Debit Note")}
-                      disabled={deletingId === d._id}
-                      onClick={() => handleDelete(d)}
-                    >
-                      {deletingId === d._id ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        <Trash2 size={15} />
-                      )}
                     </Button>
                   </td>
                 </tr>
