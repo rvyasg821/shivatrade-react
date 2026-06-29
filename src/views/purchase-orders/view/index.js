@@ -190,10 +190,59 @@ const ViewPurchaseOrder = () => {
   // header "Generate POV" button can gate on pending qty and refresh the tabs
   // after creating POVs).
   const coverageData = usePoCoverage();
+  // Show whenever there's uncovered (pending) qty. Procurement needs a
+  // confirmed SO (BE rule), so from a re-edited Draft the button confirms the
+  // SO first (see onGeneratePov) before opening the Generate POV page.
   const canGeneratePov =
     canCreatePov &&
     coverageData?.coverage?.has_pending &&
-    (statusLower === "confirmed" || statusLower === "in_process");
+    (statusLower === "draft" ||
+      statusLower === "confirmed" ||
+      statusLower === "in_process");
+
+  // Open the Generate POV page. From Draft we confirm-and-start first so the
+  // backend (which requires confirmed/in_process) accepts the new Vendor PO;
+  // the page itself pre-fills each line's pending qty.
+  const onGeneratePov = () => {
+    if (statusLower !== "draft") {
+      navigate(`${appsRoot}/purchase-orders/generate-pov/${id}`);
+      return;
+    }
+    mySwal
+      .fire({
+        title: t("Confirm this Sales Order?"),
+        text: t(
+          "Generating a Vendor PO moves this Sales Order to In Process. Continue?"
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Confirm & continue"),
+        cancelButtonText: t("Cancel"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(updatePurchaseOrder({ id, data: { status: "in_process" } }))
+          .unwrap()
+          .then(() => {
+            dispatch(getPurchaseOrder(id));
+            navigate(`${appsRoot}/purchase-orders/generate-pov/${id}`);
+          })
+          .catch((err) =>
+            Notification(
+              "Error",
+              typeof err === "string"
+                ? err
+                : err?.message || t("Could not update status"),
+              "warning"
+            )
+          );
+      });
+  };
 
   // One-click status transitions. The allowed next-statuses mirror the
   // server-side transition matrix; we only render buttons that are legal.
@@ -454,11 +503,7 @@ const ViewPurchaseOrder = () => {
                     size="sm"
                     color="primary"
                     className="d-flex align-items-center"
-                    onClick={() =>
-                      navigate(
-                        `${appsRoot}/purchase-orders/generate-pov/${id}`
-                      )
-                    }
+                    onClick={onGeneratePov}
                   >
                     <Truck size={14} className="me-50" />
                     {t("Generate POV")}
