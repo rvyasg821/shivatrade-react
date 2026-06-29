@@ -93,10 +93,19 @@ const GenerateSalesOrder = () => {
   );
   const grandTotal = Number(q?.grand_total) || 0;
 
+  // Advance may equal the order total (full prepayment) but not exceed it.
+  // Compare in whole cents so float noise (e.g. 55723.2) doesn't trip it.
   const advanceTooHigh =
     advanceAmount !== "" &&
     grandTotal > 0 &&
-    Number(advanceAmount) >= grandTotal;
+    Math.round(Number(advanceAmount) * 100) > Math.round(grandTotal * 100);
+
+  // "Full payment" = advance equals the order total (to the cent). Derived,
+  // so typing the exact total also ticks the box and editing it unticks.
+  const isFullPayment =
+    advanceAmount !== "" &&
+    grandTotal > 0 &&
+    Math.round(Number(advanceAmount) * 100) === Math.round(grandTotal * 100);
 
   const canCreate =
     !creating && !!deliveryAddressId && !advanceTooHigh && !hasExistingSo;
@@ -125,7 +134,7 @@ const GenerateSalesOrder = () => {
     if (advanceTooHigh) {
       Notification(
         "Validation",
-        t("Advance amount must be less than the order total."),
+        t("Advance amount cannot exceed the order total."),
         "warning"
       );
       return;
@@ -297,7 +306,7 @@ const GenerateSalesOrder = () => {
                 />
                 {advanceTooHigh ? (
                   <small className="text-danger">
-                    {t("Must be less than the order total")} ({sym}
+                    {t("Cannot exceed the order total")} ({sym}
                     {grandTotal.toLocaleString()})
                   </small>
                 ) : (
@@ -307,6 +316,29 @@ const GenerateSalesOrder = () => {
                       {grandTotal.toLocaleString()}
                     </small>
                   )
+                )}
+                {grandTotal > 0 && (
+                  <div className="form-check mt-50">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="so-full-payment"
+                      checked={isFullPayment}
+                      onChange={(e) =>
+                        setAdvanceAmount(
+                          e.target.checked
+                            ? String(Math.round(grandTotal * 100) / 100)
+                            : ""
+                        )
+                      }
+                    />
+                    <label
+                      className="form-check-label text-body"
+                      htmlFor="so-full-payment"
+                    >
+                      {t("Full payment (100%)")}
+                    </label>
+                  </div>
                 )}
               </div>
               <div className="col-md-3">
