@@ -523,12 +523,12 @@ const CompanySettingsPage = () => {
                     running sequence; sales &amp; purchase documents use a
                     financial-year voucher number. Edit a row and click Save.
                   </small>
-                  <Table bordered responsive className='mb-0 align-middle'>
+                  <Table bordered responsive className='mb-0 align-middle' style={{ minWidth: 770 }}>
                     <thead className='table-light'>
                       <tr>
                         <th style={{ minWidth: 150 }}>Module</th>
                         <th style={{ width: 170 }}>Mode</th>
-                        <th style={{ width: 160 }}>Prefix</th>
+                        <th style={{ width: 210 }}>Prefix</th>
                         <th style={{ width: 130 }}>Next #</th>
                         <th>Preview</th>
                       </tr>

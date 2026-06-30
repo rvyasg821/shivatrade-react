@@ -168,7 +168,7 @@ const LeadRequirementItems = ({
 
   return (
     <Fragment>
-      <div className="d-flex justify-content-end align-items-center flex-wrap gap-1 mb-1">
+      <div className="d-flex justify-content-end align-items-center flex-wrap gap-1 mb-1 listing-toolbar-actions">
         {/* Bulk entry via Excel — reuses the shared sales-doc import/export
             (backend supports docType "lead"). Shares this component's lineFA so
             imported rows show without a remount. */}
@@ -191,14 +191,14 @@ const LeadRequirementItems = ({
           <thead className="table-light">
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ width: 110 }}>{t("HS Code")}</th>
-              <th style={{ width: 110 }}>{t("Part No")}</th>
+              <th style={{ minWidth: 130 }}>{t("HS Code")}</th>
+              <th style={{ minWidth: 130 }}>{t("Part No")}</th>
               <th style={{ minWidth: 240 }}>{t("Product")}</th>
               <th style={{ width: 90 }}>{t("Unit")}</th>
-              <th className="text-end" style={{ width: 110 }}>
+              <th className="text-end" style={{ minWidth: 120 }}>
                 {t("Qty")}
               </th>
-              <th className="text-end" style={{ width: 120 }}>
+              <th className="text-end" style={{ minWidth: 140 }}>
                 {t("Rate")} (₹)
               </th>
               <th className="text-end" style={{ width: 130 }}>

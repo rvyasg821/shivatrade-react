@@ -373,7 +373,7 @@ const ProfileForm = ({ toggle }) => {
 
               </Row>
 
-              <div className="d-flex justify-content-end mt-5 profile-btn gap-2 pt-1 pb-1">
+              <div className="d-flex justify-content-end mt-2 profile-btn gap-2">
                 <Button type="submit" color="primary" disabled={!store.loading}>
                   {store?.loading ? t("Save") : <Spinner size="sm" />}
                 </Button>
