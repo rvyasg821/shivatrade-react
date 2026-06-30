@@ -400,7 +400,7 @@ const LocationList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="4" md="3" className="text-end">
+              <Col sm="4" md="3" className="text-end listing-toolbar-actions">
                 {canAddLocation && (
                   <span id="add-location-btn-wrapper">
                     <Button

@@ -1190,14 +1190,15 @@ const LocationForm = () => {
           </Card>
           )}
 
-          {/* ── Action Buttons ── */}
-          <div className="main-form-btn">
-            <div className="form-btn mt-2">
+          {/* ── Action Buttons ── pinned as a sticky bar so they stay with the
+              form instead of stranded on the page background at the bottom. */}
+          <div className="main-form-btn location-form-actions">
+            <div className="form-btn">
               <Button type="submit" color="primary">
                 {t("Save")}
               </Button>
             </div>
-            <div className="form-btn mt-2">
+            <div className="form-btn">
               <Button
                 type="button"
                 color="secondary"

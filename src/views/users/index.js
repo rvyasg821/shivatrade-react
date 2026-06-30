@@ -429,7 +429,7 @@ const UserList = (props) => {
 
                 </Row>
               </Col>
-              <Col sm="4" md="3" className="text-end">
+              <Col sm="4" md="3" className="text-end listing-toolbar-actions">
                 {canAddUser && (
                   <Button
                     color="primary"

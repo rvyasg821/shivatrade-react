@@ -9637,6 +9637,20 @@ span.doc-badge-gray,
   }
 }
 
+// Location add/edit form — pin Save/Cancel to the bottom of the viewport as a
+// sticky action bar, so they stay reachable and don't look stranded on the page
+// background at the end of the long, multi-card form. Scoped to `.locations`
+// so other forms (which share `.main-form-btn`) are unaffected.
+.locations .main-form-btn.location-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background-color: #fff;
+  border-top: 1px solid #ebe9f1;
+  padding: 0.75rem 0;
+  margin-top: 0.5rem;
+}
+
 
 
 
