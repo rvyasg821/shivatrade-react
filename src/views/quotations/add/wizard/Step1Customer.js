@@ -464,7 +464,7 @@ const Step1Customer = ({
               .filter(Boolean);
             return (
               <>
-                <div className="form-control bg-light d-flex justify-content-between align-items-center">
+                <div className="border rounded bg-light p-2 d-flex justify-content-between align-items-start gap-2">
                   {linked ? (
                     <>
                       <span>
@@ -486,7 +486,7 @@ const Step1Customer = ({
                         target="_blank"
                         rel="noopener noreferrer"
                         title={t("Open Lead in new tab")}
-                        className="text-decoration-none ms-2"
+                        className="text-decoration-none ms-2 flex-shrink-0"
                       >
                         <ExternalLink size={16} />
                       </a>

@@ -218,9 +218,11 @@ const SalesDocCostingCard = ({
           <>
             {/* INR is the internal base (un-rounded); round-off is applied to
                 the customer-currency total below. */}
-            <div className="d-flex justify-content-between mb-1">
+            <div className="d-flex justify-content-between align-items-baseline mb-1 gap-2">
               <span className="fw-bold">{t("Grand Total (INR)")}</span>
-              <strong>₹ {fmt(totals.grand_inr)}</strong>
+              <strong className="text-nowrap text-end">
+                ₹ {fmt(totals.grand_inr)}
+              </strong>
             </div>
             {isForeign && (
               <>

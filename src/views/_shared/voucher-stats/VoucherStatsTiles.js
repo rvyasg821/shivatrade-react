@@ -124,9 +124,9 @@ const VoucherStatsTiles = ({
           COLOR_PALETTE[tile.color] || COLOR_PALETTE.secondary;
         const Icon = (tile.icon && Icons[tile.icon]) || Icons.Activity;
         return (
-          <Col sm={6} key={tile.key} style={{ flex: "1 1 0" }}>
+          <Col xs={6} sm={6} key={tile.key} className="voucher-stat-col">
             <div
-              className="d-flex align-items-center"
+              className="d-flex align-items-center voucher-stat-tile"
               style={{
                 background: "#fff",
                 border: active
@@ -145,7 +145,7 @@ const VoucherStatsTiles = ({
               }
             >
               <div
-                className="d-flex align-items-center justify-content-center"
+                className="d-flex align-items-center justify-content-center voucher-stat-icon"
                 style={{
                   background: palette.iconBg,
                   color: palette.iconFg,
@@ -171,7 +171,7 @@ const VoucherStatsTiles = ({
                   {t(tile.label)}
                 </div>
                 <div
-                  className="fw-bold"
+                  className="fw-bold voucher-stat-value text-break"
                   style={{
                     fontSize: "1.5rem",
                     lineHeight: 1.1,

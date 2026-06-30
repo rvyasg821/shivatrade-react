@@ -494,7 +494,7 @@ const CostingWorksheet = ({
           </span>
         </div>
         {!readOnly && (
-          <div className="d-flex align-items-center flex-wrap gap-1">
+          <div className="d-flex align-items-center flex-wrap gap-1 listing-toolbar-actions">
             {/* Bulk entry via Excel — shared sales-doc import/export. docType
                 drives the filename + backend layout (quotation vs po). Shares
                 this worksheet's lineFA so imported rows appear without a

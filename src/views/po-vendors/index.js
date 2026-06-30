@@ -368,7 +368,7 @@ const PoVendorView = () => {
             </div>
           )}
           {row?.vendor_contact_email && (
-            <div className="d-flex align-items-center small text-muted text-break mb-25">
+            <div className="d-none d-md-flex align-items-center small text-muted text-break mb-25">
               <Mail size={13} className="me-50 flex-shrink-0" />
               <span style={{ overflowWrap: "anywhere" }}>
                 {row.vendor_contact_email}
@@ -384,7 +384,7 @@ const PoVendorView = () => {
                 : row?.vendor_contact_phone) ||
               "";
             return phone ? (
-              <div className="d-flex align-items-center small text-muted text-break">
+              <div className="d-none d-md-flex align-items-center small text-muted text-break">
                 <Phone size={13} className="me-50 flex-shrink-0" />
                 <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
               </div>

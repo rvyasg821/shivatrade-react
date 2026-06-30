@@ -295,11 +295,13 @@ const InvoicesList = () => {
                 </div>
               )}
               {row?.customer_contact_email && (
-                <div className="small text-muted">
+                <div className="d-none d-md-block small text-muted">
                   {row.customer_contact_email}
                 </div>
               )}
-              {phone && <div className="small text-muted">{phone}</div>}
+              {phone && (
+                <div className="d-none d-md-block small text-muted">{phone}</div>
+              )}
             </div>
           );
         },
