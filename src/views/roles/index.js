@@ -203,6 +203,7 @@ const RoleList = () => {
       name: t("Role Name"),
       sortField: "name",
       sortable: true,
+      minWidth: "120px", // keep the header on one line (don't wrap "Role Name")
       selector: (row) => (
         <div className="d-flex align-items-center gap-50 flex-wrap">
           {!row?.isDefault && canEditRole ? (
@@ -239,6 +240,7 @@ const RoleList = () => {
       name: t("Description"),
       sortField: "description",
       sortable: true,
+      minWidth: "130px", // keep the header on one line (don't wrap "Description")
       selector: (row) => (
         <span className="text-wrap">{row?.description || "-"}</span>
       ),
@@ -334,7 +336,7 @@ const RoleList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="4" md="3" className="text-end">
+              <Col sm="4" md="3" className="text-end listing-toolbar-actions">
                 {(isAdmin || canCreateRole) && (
                   <Button color="primary" onClick={() => openModal()}>
                     {t("Add New Role")} <PlusCircle size={16} />
