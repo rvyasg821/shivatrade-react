@@ -9607,10 +9607,32 @@ span.doc-badge-gray,
     flex-direction: column !important;
     flex-wrap: nowrap !important;
     align-items: stretch !important;
+    // Fill the row even when the container is a flex item (e.g. a button
+    // group inside a justify-content-between header), not just a full-width
+    // grid Col — otherwise the buttons would only fill the content-width box.
+    width: 100% !important;
 
     .btn {
       width: 100%;
       justify-content: center;
+    }
+  }
+}
+
+// Phase 6 — reusable listing-page filter group (Search + Status/other filters).
+// Mobile-only + additive. ADD this class to the container holding the search
+// box and filter dropdowns. Below 576px it stacks them vertically and forces
+// each to full width — `width:100% !important` on the children beats the fixed
+// inline widths (e.g. style={{ width: 200 }}) those inputs often carry.
+.listing-toolbar-filters {
+  @media (max-width: 575.98px) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+
+    > * {
+      width: 100% !important;
     }
   }
 }

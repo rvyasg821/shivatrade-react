@@ -442,7 +442,7 @@ const RequestsTab = ({ leaveTypeMap, employeeMap, canWrite }) => {
     <>
       <CardHeader className='border-bottom py-1 d-flex align-items-center justify-content-between flex-wrap gap-1'>
         <CardTitle tag='h5' className='mb-0'>{t('Leave Requests')}</CardTitle>
-        <div className='d-flex align-items-center gap-1'>
+        <div className='d-flex align-items-center gap-1 listing-toolbar-filters listing-toolbar-actions'>
           <div style={{ minWidth: 180 }}>
             <Select
               isClearable
@@ -1082,7 +1082,7 @@ const EntitlementsTab = ({ leaveTypeMap, employeeOptions, canWrite }) => {
     <>
       <CardHeader className='border-bottom py-1 d-flex align-items-center justify-content-between flex-wrap gap-1'>
         <CardTitle tag='h5' className='mb-0'>{t('Entitlements')}</CardTitle>
-        <div className='d-flex align-items-center gap-1'>
+        <div className='d-flex align-items-center gap-1 listing-toolbar-filters'>
           <div style={{ minWidth: 220 }}>
             <Select
               options={employeeOptions}

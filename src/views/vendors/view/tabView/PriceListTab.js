@@ -250,7 +250,7 @@ const PriceListTab = () => {
           />
         </Col>
         <Col md="8" sm="6">
-          <div className="d-flex gap-1 flex-nowrap justify-content-end align-items-center">
+          <div className="d-flex gap-1 flex-nowrap justify-content-end align-items-center listing-toolbar-actions">
             {canRead && (
               <Button
                 color="outline-secondary"

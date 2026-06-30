@@ -434,7 +434,7 @@ const EmployeeList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <div className="d-flex align-items-center justify-content-between flex-wrap gap-1 mb-1">
-              <div className="d-flex align-items-center gap-1 flex-wrap">
+              <div className="d-flex align-items-center gap-1 flex-wrap listing-toolbar-filters">
                 <Input
                   type="text"
                   id="search-employee"
@@ -499,7 +499,7 @@ const EmployeeList = () => {
                 )}
                 */}
               </div>
-              <div className="d-flex align-items-center gap-1 flex-wrap">
+              <div className="d-flex align-items-center gap-1 flex-wrap listing-toolbar-actions">
                 <Button color="outline-secondary" size="sm" onClick={handleExport}>
                   <Download size={14} className="me-50" />{t("Export")}
                 </Button>

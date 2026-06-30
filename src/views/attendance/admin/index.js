@@ -585,13 +585,13 @@ const AttendanceAdminPage = () => {
             const earlyLeave = dr.filter(r => r.is_early_leave).length
             const onLeave = dr.filter(r => r.status === 'on_leave').length
             return (
-              <Row className='mb-1'>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-muted'>Total</div><h4 className='mb-0'>{totalEmp}</h4></Card></Col>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-success'>Present</div><h4 className='mb-0 text-success'>{present}</h4></Card></Col>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-danger'>Absent</div><h4 className='mb-0 text-danger'>{absent}</h4></Card></Col>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-warning'>Late</div><h4 className='mb-0 text-warning'>{late}</h4></Card></Col>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-info'>Early Leave</div><h4 className='mb-0 text-info'>{earlyLeave}</h4></Card></Col>
-                <Col><Card className='mb-0 py-75 px-1 text-center'><div className='small text-primary'>On Leave</div><h4 className='mb-0 text-primary'>{onLeave}</h4></Card></Col>
+              <Row className='mb-1 g-1'>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-muted'>Total</div><h4 className='mb-0'>{totalEmp}</h4></Card></Col>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-success'>Present</div><h4 className='mb-0 text-success'>{present}</h4></Card></Col>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-danger'>Absent</div><h4 className='mb-0 text-danger'>{absent}</h4></Card></Col>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-warning'>Late</div><h4 className='mb-0 text-warning'>{late}</h4></Card></Col>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-info'>Early Leave</div><h4 className='mb-0 text-info'>{earlyLeave}</h4></Card></Col>
+                <Col xs='4' md='2'><Card className='mb-0 py-75 px-1 text-center h-100'><div className='small text-primary'>On Leave</div><h4 className='mb-0 text-primary'>{onLeave}</h4></Card></Col>
               </Row>
             )
           })()}
@@ -664,7 +664,7 @@ const AttendanceAdminPage = () => {
           <Card>
             <CardHeader className='border-bottom py-1 d-flex align-items-center justify-content-between flex-wrap gap-1'>
               <CardTitle tag='h5' className='mb-0'>Attendance Records</CardTitle>
-              <div className='d-flex gap-1'>
+              <div className='d-flex gap-1 listing-toolbar-actions'>
                 <Button color='outline-secondary' size='sm' onClick={handleExport}>
                   <Download size={14} className='me-50' />Export
                 </Button>

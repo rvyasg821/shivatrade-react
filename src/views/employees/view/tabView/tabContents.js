@@ -534,9 +534,9 @@ const DocumentsTab = ({ userId }) => {
 
   return (
     <Fragment>
-      <div className="d-flex align-items-center justify-content-between border-bottom pb-1 mb-1">
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-1 border-bottom pb-1 mb-1">
         <CardTitle tag="h5" className="mb-0">{t("Documents")}</CardTitle>
-        <Button color="primary" size="sm" onClick={openUploadModal}>
+        <Button color="primary" size="sm" className="text-nowrap" onClick={openUploadModal}>
           <Upload size={14} className="me-50" />{t("Upload Documents")}
         </Button>
       </div>
@@ -806,9 +806,9 @@ const ContractsTab = ({ userId }) => {
 
   return (
     <Fragment>
-      <div className="d-flex align-items-center justify-content-between border-bottom pb-1 mb-1">
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-1 border-bottom pb-1 mb-1">
         <CardTitle tag="h5" className="mb-0">{t("Contracts")}</CardTitle>
-        <Button color="primary" size="sm" onClick={() => setIssueModal(true)}>
+        <Button color="primary" size="sm" className="text-nowrap" onClick={() => setIssueModal(true)}>
           <Send size={14} className="me-50" />{t("Assign Contract")}
         </Button>
       </div>

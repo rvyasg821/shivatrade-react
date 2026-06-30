@@ -235,7 +235,7 @@ const LeaveHome = () => {
       <Card>
         <CardHeader className='border-bottom py-1 d-flex align-items-center justify-content-between'>
           <CardTitle tag='h5' className='mb-0'>{t('My Leave Requests')} — {selectedYear}</CardTitle>
-          <div className='d-flex align-items-center gap-75'>
+          <div className='d-flex align-items-center gap-75 listing-toolbar-actions'>
             <Input type='select' bsSize='sm' style={{ width: '90px' }} value={selectedYear} onChange={(e) => setSelectedYear(+e.target.value)}>
               {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
             </Input>
