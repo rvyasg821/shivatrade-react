@@ -837,7 +837,7 @@ const ViewInvoice = () => {
                 />
               </div>
               {pdfActions.length ? (
-                <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end flex-shrink-0">
+                <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end flex-shrink-0 dp-header-actions dp-header-actions-row">
                   {pdfActions.map((a, idx) => (
                     <Button
                       key={`inv-pdf-${idx}`}

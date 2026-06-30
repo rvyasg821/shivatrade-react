@@ -541,7 +541,7 @@ const PriceListView = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap align-items-center">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap align-items-center listing-toolbar-actions">
                   {canRead && (
                   <Button
                     color="outline-secondary"

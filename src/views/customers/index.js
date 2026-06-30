@@ -351,7 +351,7 @@ const CustomerList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
+              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
                 {canAdd && (
                   <Button
                     color="primary"

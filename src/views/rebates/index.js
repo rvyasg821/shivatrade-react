@@ -179,7 +179,7 @@ const RebateList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
+              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
                 {canAdd && (
                   <Button color="primary" onClick={() => navigate(`${appsRoot}/rebates/add`)}>
                     <PlusCircle size={14} className="me-50" />{t("Add")}

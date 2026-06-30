@@ -890,7 +890,7 @@ const RfqView = () => {
             </div>
           </div>
           <div className="d-flex align-items-center flex-wrap gap-50">
-            <div style={{ minWidth: 200 }}>
+            <div className="mb-50 mb-md-0" style={{ minWidth: 200 }}>
               <Select
                 classNamePrefix="select"
                 options={vendorOptions}
@@ -982,16 +982,18 @@ const RfqView = () => {
                   <Badge
                     key={v.vendor_id}
                     color={isActive ? "light-primary" : "light-secondary"}
-                    className={`d-inline-flex align-items-center cursor-pointer${
+                    className={`d-inline-flex align-items-center cursor-pointer text-wrap mw-100${
                       isActive ? " border border-primary" : ""
                     }`}
                     role="button"
                     onClick={() => setAddVendorId(v.vendor_id)}
                     title={t("Show this vendor's prices")}
                   >
-                    <span className="fw-semibold">{label}</span>
+                    <span className="fw-semibold text-break text-start">
+                      {label}
+                    </span>
                     <span
-                      className="ms-50 lh-1 d-inline-flex"
+                      className="ms-50 lh-1 d-inline-flex flex-shrink-0"
                       title={t("Remove vendor")}
                       onClick={(e) => {
                         e.stopPropagation();
