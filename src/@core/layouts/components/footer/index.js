@@ -19,7 +19,7 @@ const Footer = () => {
           </p>
       </div>
         <div className="col-lg-6 d-flex justify-content-center justify-content-md-end">
-          
+
           <ul className="list-unstyled mb-0">
             <li>
               <a href="" target="_blank">Privacy & Policy</a>
@@ -29,7 +29,7 @@ const Footer = () => {
             </li>
           </ul>
         </div>
-          
+
       </div>
       
     // </div>

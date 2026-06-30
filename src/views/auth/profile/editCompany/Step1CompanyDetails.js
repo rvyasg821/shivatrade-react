@@ -594,6 +594,9 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                 <small className="text-muted d-block mt-25">{t("PNG, JPG, SVG or WebP. Max 5MB.")}</small>
               </div>
 
+              {/* Footer Address field hidden per request. Data plumbing kept
+                  (defaultValues + submit still carry footer_address) so any
+                  existing value persists and still prints in PDF footers.
               <div className="mb-2 col-12">
                 <Label>{t("Footer Address")}</Label>
                 <Controller name="footer_address" control={control}
@@ -605,6 +608,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                   {t("Printed as one line at the bottom of Quotation / Invoice PDFs.")}
                 </small>
               </div>
+              */}
             </Row>
 
             {/* Timezone & Currency hidden (2026-05-22) — kept in form
@@ -804,7 +808,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                 { value: "other", label: t("Other") },
               ];
               return (
-                <Row key={row._key} className="p-2 mb-2 mx-0">
+                <Row key={row._key} className="mb-2">
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Type")}</Label>
                     <Controller name={`addresses.${idx}.type`} control={control}
@@ -965,7 +969,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                 value: c._id, label: `${c.code} - ${c.name}`,
               }));
               return (
-                <Row key={row._key} className="p-2 mb-2 mx-0">
+                <Row key={row._key} className="mb-2">
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Bank Name")} <span className="text-danger">*</span></Label>
                     <Controller name={`bank_accounts.${idx}.bank_name`} control={control}
@@ -1100,7 +1104,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
 
             </>)}
 
-            <div className="d-flex justify-content-end mt-3 gap-2 pt-2 pb-2">
+            <div className="d-flex justify-content-end mt-2 gap-2">
               <Button type="submit" color="primary" disabled={isReadOnly || submitting}>
                 {submitting ? <Spinner size="sm" /> : t("Save")}
               </Button>

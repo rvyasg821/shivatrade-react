@@ -889,7 +889,7 @@ const RfqView = () => {
               )}
             </div>
           </div>
-          <div className="d-flex align-items-center flex-wrap gap-50">
+          <div className="d-flex align-items-center flex-wrap gap-50 listing-toolbar-actions listing-toolbar-filters">
             <div className="mb-50 mb-md-0" style={{ minWidth: 200 }}>
               <Select
                 classNamePrefix="select"
