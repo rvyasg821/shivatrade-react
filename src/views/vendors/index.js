@@ -413,7 +413,7 @@ const VendorList = () => {
               <Col
                 sm="3"
                 md="3"
-                className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap"
+                className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap listing-toolbar-actions"
               >
                 {canAdd && (
                   <Button

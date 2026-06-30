@@ -9568,6 +9568,53 @@ span.doc-badge-gray,
   }
 }
 
+// Phase 6 — detail-page tab bars (Nav pills) on phones.
+// Every record detail page (Invoice, SO, Quotation, Lead, Customer, Vendor,
+// Employee, POV…) renders its tabs as horizontal `Nav pills`. With several
+// tabs they overflowed the card edge / wrapped raggedly on a narrow screen.
+// Below 768px: keep them on one line, full card width, and let the row scroll
+// sideways (swipe) with the scrollbar hidden. Vertical pill menus
+// (`.flex-column`, e.g. the components demo) are excluded and untouched.
+@media (max-width: 767.98px) {
+  .nav-pills:not(.flex-column) {
+    // !important beats Bootstrap's `.flex-wrap` utility, which several tab
+    // bars (LeadDocsTabs, vendors, related-docs) set explicitly on the Nav.
+    flex-wrap: nowrap !important;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; // Firefox
+  }
+  .nav-pills:not(.flex-column)::-webkit-scrollbar {
+    display: none; // Chrome/Safari
+  }
+  .nav-pills:not(.flex-column) .nav-item {
+    flex: 0 0 auto;
+  }
+  .nav-pills:not(.flex-column) .nav-link {
+    white-space: nowrap;
+  }
+}
+
+// Phase 6 — reusable listing-page toolbar action buttons (Export / Import / Add).
+// Mobile-only + additive: ADD this class alongside a toolbar button container's
+// existing desktop utilities (it leaves desktop untouched). Below 576px it
+// stacks the buttons vertically, full-width, for easy tapping. `!important`
+// beats any `flex-wrap` / `align-items-*` utility the element already carries.
+.listing-toolbar-actions {
+  @media (max-width: 575.98px) {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
 
 
 

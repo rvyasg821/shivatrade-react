@@ -457,7 +457,7 @@ const ViewPoVendor = () => {
                   terminalSteps={TERMINAL_STEPS}
                 />
               </div>
-              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end dp-header-actions dp-header-actions-row">
                 <Button
                   size="sm"
                   color="secondary"

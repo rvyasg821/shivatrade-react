@@ -498,7 +498,7 @@ const ProductList = () => {
                 </Row>
               </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   {canRead && (
                   <Button
                     color="outline-secondary"

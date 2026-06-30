@@ -328,45 +328,48 @@ const CategoryList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <div className="d-flex align-items-center justify-content-between flex-wrap gap-1 mb-1">
-              <div className="d-flex align-items-center gap-1 flex-wrap">
-                <Input
-                  type="text"
-                  id="search-category"
-                  value={searchInput}
-                  placeholder={t("Search Categories")}
-                  onChange={(e) => handleSearch(e?.target?.value)}
-                  style={{ width: 200 }}
-                />
-
-                <div style={{ width: 160 }}>
-                  <Select
-                    value={
-                      statusFilter
-                        ? {
-                            value: statusFilter,
-                            label:
-                              statusFilter === "ACTIVE"
-                                ? t("Active")
-                                : t("Inactive"),
-                          }
-                        : null
-                    }
-                    onChange={(selected) =>
-                      handleStatusFilter(selected ? selected.value : "")
-                    }
-                    options={[
-                      { value: "ACTIVE", label: t("Active") },
-                      { value: "INACTIVE", label: t("Inactive") },
-                    ]}
-                    isClearable
-                    placeholder={t("Select Status")}
-                    classNamePrefix="select"
-                  />
-                </div>
-              </div>
+            <Row className="mb-1">
+              <Col sm="7" md="7">
+                <Row>
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
+                    <Input
+                      type="text"
+                      id="search-category"
+                      value={searchInput}
+                      className="w-100 select"
+                      placeholder={t("Search Categories")}
+                      onChange={(e) => handleSearch(e?.target?.value)}
+                    />
+                  </Col>
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
+                    <Select
+                      value={
+                        statusFilter
+                          ? {
+                              value: statusFilter,
+                              label:
+                                statusFilter === "ACTIVE"
+                                  ? t("Active")
+                                  : t("Inactive"),
+                            }
+                          : null
+                      }
+                      onChange={(selected) =>
+                        handleStatusFilter(selected ? selected.value : "")
+                      }
+                      options={[
+                        { value: "ACTIVE", label: t("Active") },
+                        { value: "INACTIVE", label: t("Inactive") },
+                      ]}
+                      isClearable
+                      placeholder={t("Select Status")}
+                      classNamePrefix="select"
+                    />
+                  </Col>
+                </Row>
+              </Col>
               <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   {canRead && (
                     <Button
                       color="outline-secondary"
@@ -398,7 +401,7 @@ const CategoryList = () => {
                   )}
                 </div>
               </Col>
-            </div>
+            </Row>
 
             <Row className="mt-2">
               <Col md="12" className="category-tables">
