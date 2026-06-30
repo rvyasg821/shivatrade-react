@@ -601,7 +601,7 @@ const SalesDocLineItems = ({
           <Table
             responsive
             bordered
-            className="mb-0 align-top table-dense"
+            className="mb-0 align-top table-dense line-items-grid"
           >
             <thead>
               <tr>
@@ -948,6 +948,7 @@ const SalesDocLineItems = ({
         isOpen={modal.open}
         toggle={closeModal}
         size="lg"
+        fullscreen="md"
         backdrop="static"
         style={{ maxWidth: 960 }}
       >

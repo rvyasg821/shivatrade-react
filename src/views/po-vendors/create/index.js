@@ -633,7 +633,7 @@ const CreatePoVendor = () => {
                   <span className="ms-1">{t("Loading SO lines…")}</span>
                 </div>
               ) : (
-                <Table bordered size="sm" className="align-middle mb-0">
+                <Table responsive bordered size="sm" className="align-middle mb-0">
                   <thead className="table-light">
                     <tr>
                       <th style={{ width: 30 }}>#</th>
@@ -734,7 +734,7 @@ const CreatePoVendor = () => {
                 </Table>
               )
             ) : (
-              <Table bordered size="sm" className="align-middle mb-0">
+              <Table responsive bordered size="sm" className="align-middle mb-0">
                 <thead className="table-light">
                   <tr>
                     <th style={{ width: 30 }}>#</th>
@@ -863,7 +863,7 @@ const CreatePoVendor = () => {
             {charges.length === 0 ? (
               <div className="text-muted small">{t("No charges added.")}</div>
             ) : (
-              <Table bordered size="sm" className="align-middle mb-0">
+              <Table responsive bordered size="sm" className="align-middle mb-0">
                 <thead className="table-light">
                   <tr>
                     <th>{t("Charge")}</th>

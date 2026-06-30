@@ -234,6 +234,7 @@ const LocationList = () => {
     },
     {
       name: t("Contact Person"),
+      hide: "md",
       sortField: "contact_name",
       sortable: true,
       selector: (row) => (
@@ -244,6 +245,7 @@ const LocationList = () => {
     },
     {
       name: t("Email"),
+      hide: "md",
       sortField: "email",
       sortable: true,
       selector: (row) => <span className="text-wrap">{row?.email || ""}</span>,

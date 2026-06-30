@@ -224,6 +224,7 @@ const VendorList = () => {
     },
     {
       name: t("Contact"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       grow: 1.6,
       wrap: true,

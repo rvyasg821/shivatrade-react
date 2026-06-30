@@ -246,7 +246,7 @@ const Payment = () => {
             <>
               {/* General Info */}
               <h6 className="fw-bold mb-1">{t("General Info")}</h6>
-              <Table bordered size="sm" className="mb-2">
+              <Table responsive bordered size="sm" className="mb-2">
                 <tbody>
                   <tr>
                     <td className="fw-bold" width="40%">{t("Date")}</td>
@@ -303,7 +303,7 @@ const Payment = () => {
 
               {/* Pricing Breakdown */}
               <h6 className="fw-bold mb-1">{t("Pricing Breakdown")}</h6>
-              <Table bordered size="sm" className="mb-2">
+              <Table responsive bordered size="sm" className="mb-2">
                 <tbody>
                   <tr>
                     <td className="fw-bold" width="40%">{t("Plan Price")}</td>
@@ -340,7 +340,7 @@ const Payment = () => {
               {selectedPayment?.response?.charge_id && (
                 <>
                   <h6 className="fw-bold mb-1">{t("Transaction Info")}</h6>
-                  <Table bordered size="sm" className="mb-2">
+                  <Table responsive bordered size="sm" className="mb-2">
                     <tbody>
                       <tr>
                         <td className="fw-bold" width="40%">{t("Payment Intent ID")}</td>

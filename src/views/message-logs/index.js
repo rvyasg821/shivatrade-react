@@ -195,6 +195,7 @@ const MessageLogList = () => {
   const columns = [
     {
       name: t("Sent At"),
+      hide: "md",
       width: "150px",
       cell: (row) => (
         <span className="small">{formatDateTime(row.sent_at || row.createdAt)}</span>

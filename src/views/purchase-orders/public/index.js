@@ -398,7 +398,7 @@ const PurchaseOrderPublicView = () => {
               </div>
 
               {/* Line items */}
-              <Table className="items">
+              <Table responsive className="items">
                 <thead>
                   <tr>
                     <th style={{ width: 40 }}>#</th>

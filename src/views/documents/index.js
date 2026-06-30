@@ -267,6 +267,7 @@ const DocumentList = () => {
   const columns = [
     {
       name: t("Date"),
+      hide: "md",
       sortable: true,
       sortField: "createdAt",
       width: "120px",
@@ -314,6 +315,7 @@ const DocumentList = () => {
     },
     {
       name: t("File / Expiry"),
+      hide: "md",
       minWidth: "170px",
       wrap: true,
       cell: (row) => {

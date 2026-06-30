@@ -113,11 +113,13 @@ const LeaveRequestList = () => {
     },
     {
       name: t("Start"),
+      hide: "md",
       selector: (row) => row.start_date,
       cell: (row) => formatDate(row.start_date),
     },
     {
       name: t("End"),
+      hide: "md",
       selector: (row) => row.end_date,
       cell: (row) => formatDate(row.end_date),
     },
@@ -136,6 +138,7 @@ const LeaveRequestList = () => {
     },
     {
       name: t("Submitted"),
+      hide: "md",
       cell: (row) => formatDateTime(row.createdAt),
     },
     {

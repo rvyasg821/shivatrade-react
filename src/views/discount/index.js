@@ -289,6 +289,7 @@ const DiscountList = () => {
 
     {
       name: t("Code"),
+      hide: "md",
       sortField: "discount_code",
       sortable: true,
       width: "150px",
@@ -297,6 +298,7 @@ const DiscountList = () => {
     },
     {
       name: t("Rules"),
+      hide: "md",
       sortField: "discount_value",
       sortable: true,
       minWidth: "300px",

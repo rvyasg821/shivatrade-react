@@ -282,7 +282,7 @@ const InvoiceLineImportModal = ({
             )}
 
             {noisyRows.length > 0 && (
-              <Table size="sm" bordered className="align-top mb-2">
+              <Table responsive size="sm" bordered className="align-top mb-2">
                 <thead className="table-light">
                   <tr>
                     <th style={{ width: 60 }}>{t("Row")}</th>

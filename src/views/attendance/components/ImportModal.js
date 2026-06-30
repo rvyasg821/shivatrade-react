@@ -191,7 +191,7 @@ const AttendanceImportModal = ({ isOpen, toggle, onSuccess }) => {
               </div>
             </Alert>
             {result.errors?.length > 0 && (
-              <Table size="sm" bordered>
+              <Table responsive size="sm" bordered>
                 <thead><tr><th>{t("Row")}</th><th>{t("Error")}</th></tr></thead>
                 <tbody>
                   {result.errors.map((e, i) => (

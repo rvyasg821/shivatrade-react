@@ -939,7 +939,8 @@ const PoGeneratePreviewModal = ({
                   </div>
                 )}
                 {rows.length > 0 && (
-                  <Table size="sm" bordered className="mb-0 small align-middle">
+                  <div className="table-responsive">
+                  <Table size="sm" bordered className="mb-0 small align-middle line-items-grid">
                     <thead className="table-light">
                       <tr>
                         <th style={{ minWidth: 200 }}>{t("Expense")}</th>
@@ -1051,6 +1052,7 @@ const PoGeneratePreviewModal = ({
                       })}
                     </tbody>
                   </Table>
+                  </div>
                 )}
               </div>
             </div>
@@ -1314,7 +1316,7 @@ const PoGeneratePreviewModal = ({
   }
 
   return (
-    <Modal isOpen={isOpen} toggle={toggle} size="xl" backdrop="static">
+    <Modal isOpen={isOpen} toggle={toggle} size="xl" fullscreen="md" backdrop="static">
       <ModalHeader toggle={toggle}>{headerTitle}</ModalHeader>
       <ModalBody>{bodyNode}</ModalBody>
       <ModalFooter>{footerNode}</ModalFooter>

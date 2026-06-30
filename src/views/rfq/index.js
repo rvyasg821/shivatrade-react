@@ -223,6 +223,7 @@ const RfqList = () => {
     },
     {
       name: t("Date"),
+      hide: "md",
       sortField: "rfq_date",
       sortable: true,
       selector: (row) => {
@@ -232,6 +233,7 @@ const RfqList = () => {
     },
     {
       name: t("Items"),
+      hide: "md",
       center: true,
       selector: (row) => row?.line_count ?? 0,
     },

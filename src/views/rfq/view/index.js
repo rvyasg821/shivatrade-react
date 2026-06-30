@@ -1049,7 +1049,7 @@ const RfqView = () => {
                   )}
                 </div>
               )}
-              <Table bordered size="sm" className="mb-0 align-top">
+              <Table responsive bordered size="sm" className="mb-0 align-top">
                 <thead className="table-light">
                   <tr>
                     <th className="text-center" style={{ width: 36 }}>

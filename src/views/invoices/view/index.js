@@ -429,6 +429,7 @@ const ViewInvoice = () => {
                   borderRadius: 6,
                 }}
               >
+                <div className="table-responsive">
                 <table
                   className="table table-sm mb-0 align-middle"
                   style={{ fontSize: "0.85rem" }}
@@ -471,6 +472,7 @@ const ViewInvoice = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               {moreCount > 0 && (
                 <div className="text-muted small mt-50">
@@ -1093,7 +1095,7 @@ const ViewInvoice = () => {
                       {t("IGST Refund (per HSN rate)")}
                     </h5>
                     <div>
-                      <Table bordered size="sm" className="align-middle mb-0">
+                      <Table responsive bordered size="sm" className="align-middle mb-0">
                         <thead className="table-light">
                           <tr>
                             <th className="text-end">{t("Assessable (INR)")}</th>

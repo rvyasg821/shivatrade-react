@@ -272,6 +272,7 @@ useEffect(() => {
   const columns = [
     {
       name: t("Date"),
+      hide: "md",
       selector: (row) => <span>{moment(row.createdAt).format("YYYY-MM-DD")}</span>,
       sortable: true,
       sortField: "createdAt",
@@ -284,6 +285,7 @@ useEffect(() => {
     },
     {
       name: t("Plan"),
+      hide: "md",
       selector: (row) => <span>{row?.plan?.name || "NA"}</span>,
       sortable: false,
     },
@@ -417,7 +419,7 @@ useEffect(() => {
             <>
               {/* General Info */}
               <h6 className="fw-bold mb-1">{t("General Info")}</h6>
-              <Table bordered size="sm" className="mb-2">
+              <Table responsive bordered size="sm" className="mb-2">
                 <tbody>
                   <tr>
                     <td className="fw-bold" width="40%">{t("Date")}</td>
@@ -474,7 +476,7 @@ useEffect(() => {
 
               {/* Pricing Breakdown */}
               <h6 className="fw-bold mb-1">{t("Pricing Breakdown")}</h6>
-              <Table bordered size="sm" className="mb-2">
+              <Table responsive bordered size="sm" className="mb-2">
                 <tbody>
                   <tr>
                     <td className="fw-bold" width="40%">{t("Plan Price")}</td>
@@ -511,7 +513,7 @@ useEffect(() => {
               {selectedPayment?.response?.charge_id && (
                 <>
                   <h6 className="fw-bold mb-1">{t("Transaction Info")}</h6>
-                  <Table bordered size="sm" className="mb-2">
+                  <Table responsive bordered size="sm" className="mb-2">
                     <tbody>
                       <tr>
                         <td className="fw-bold" width="40%">{t("Payment Intent ID")}</td>

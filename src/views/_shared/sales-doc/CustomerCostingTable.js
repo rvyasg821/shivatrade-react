@@ -74,8 +74,8 @@ const CustomerCostingTable = ({
 
   return (
     <Fragment>
-      <div className="border rounded">
-        <Table size="sm" bordered className="mb-0 ws-customer-table">
+      <div className="border rounded table-responsive">
+        <Table size="sm" bordered className="mb-0 ws-customer-table line-items-grid">
           <colgroup>
             <col style={{ width: "5%" }} />
             <col style={{ width: showHsn ? "13%" : "15%" }} />

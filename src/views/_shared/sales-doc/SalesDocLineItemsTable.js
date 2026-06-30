@@ -46,7 +46,7 @@ const SalesDocLineItemsTable = ({
 
   return (
     <Fragment>
-      <Table responsive bordered size="sm" className="mb-0 align-top">
+      <Table responsive bordered size="sm" className="mb-0 align-top line-items-grid">
         <thead className="table-light">
           <tr>
             <th style={{ width: 36 }}>#</th>

@@ -118,14 +118,17 @@ const PayScheduleList = () => {
     },
     {
       name: t("Frequency"),
+      hide: "md",
       cell: (row) => <span className="text-capitalize">{(row.frequency || "").replace("_", "-")}</span>,
     },
     {
       name: t("Pay Offset"),
+      hide: "md",
       cell: (row) => <span>{row.pay_date_offset_days} {t("days after period end")}</span>,
     },
     {
       name: t("Currency"),
+      hide: "md",
       cell: (row) => <span>{row.currency}</span>,
     },
     {

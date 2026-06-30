@@ -336,6 +336,7 @@ const QuotationView = () => {
     },
     {
       name: t("Date"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "quotation_date",
       sortable: true,
       selector: (row) => (row?.quotation_date ? formatDate(row.quotation_date) : "-"),

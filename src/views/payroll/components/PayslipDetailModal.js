@@ -156,6 +156,7 @@ const PayslipDetailModal = ({ payslipId, onClose, readOnly = false }) => {
             </Row>
 
             <h6 className="fw-bold text-uppercase text-success mt-2 mb-1">{t("Earnings")}</h6>
+            <div className="table-responsive">
             <table className="table table-sm">
               <tbody>
                 {earnings.length === 0 ? (
@@ -182,8 +183,10 @@ const PayslipDetailModal = ({ payslipId, onClose, readOnly = false }) => {
                 </tr>
               </tbody>
             </table>
+            </div>
 
             <h6 className="fw-bold text-uppercase text-danger mt-2 mb-1">{t("Deductions")}</h6>
+            <div className="table-responsive">
             <table className="table table-sm">
               <tbody>
                 {deductions.length === 0 ? (
@@ -210,6 +213,7 @@ const PayslipDetailModal = ({ payslipId, onClose, readOnly = false }) => {
                 </tr>
               </tbody>
             </table>
+            </div>
 
             <Alert color="info" className="mb-2">
               <div className="d-flex justify-content-between align-items-center">

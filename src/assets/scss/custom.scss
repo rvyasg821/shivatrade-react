@@ -9365,3 +9365,187 @@ span.doc-badge-gray,
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — Phase 0 foundations (global, additive)
+   Pure presentation. No selector here changes desktop (≥768px) rendering.
+   See Docs/MOBILE_RESPONSIVENESS_PLAN.md §4.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+  /* ── Modals ──────────────────────────────────────────────────────────────
+     reactstrap sets a fixed max-width on .modal-dialog per size (lg=800px,
+     xl=1140px) which overflows a phone. Relax every dialog (except the small
+     confirm dialog) to near-full-bleed so wide modals stop scrolling sideways.
+     Affects all size="lg"/"xl" modals at once — no per-modal JSX change. */
+  /* Exclude truly-fullscreen dialogs (modal-fullscreen-*-down) so they keep
+     their edge-to-edge size instead of this near-full-bleed override. */
+  .modal-dialog:not(.modal-sm):not([class*="modal-fullscreen"]) {
+    max-width: calc(100% - 1rem);
+    margin: 0.5rem auto;
+  }
+
+  /* ── Inputs ──────────────────────────────────────────────────────────────
+     iOS Safari auto-zooms when a focused input's font is < 16px. Force 16px on
+     phones to stop the zoom-jump; visual size is unchanged on desktop. */
+  .form-control,
+  .form-select,
+  .react-select__input input {
+    font-size: 16px;
+  }
+
+  /* ── Touch targets ───────────────────────────────────────────────────────
+     Keep icon buttons / dropdown toggles tappable (≥38px) on touch screens. */
+  .btn-icon,
+  .dropdown-toggle {
+    min-height: 38px;
+  }
+
+  /* Slightly roomier dense-table cells so they're tappable on mobile. */
+  .table-dense td,
+  .table-dense th {
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+@media (max-width: 991.98px) {
+  /* Momentum scroll for any horizontally-scrolling table container on
+     touch devices (listings + line-item grids already wrap in these). */
+  .table-responsive {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — Phase 1 safety nets (global, additive)
+   The audit found the app already carries extensive mobile media queries and
+   most fixed widths sit on scroll-safe table cells. These two guards only stop
+   *whole-page* horizontal overflow; neither shrinks anything already within
+   the viewport (max-width:100% is a no-op for small elements like avatars).
+   See Docs/MOBILE_RESPONSIVENESS_PLAN.md §6.6.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+  /* Oversized media can never force the page wider than the screen. A 40px
+     avatar/logo is < 100% of the viewport, so it is left untouched — only
+     elements that would actually overflow get capped. */
+  img,
+  video,
+  canvas,
+  iframe,
+  embed {
+    max-width: 100%;
+  }
+
+  /* Card-header toolbars (title + add/search/filter) wrap onto a new line on
+     phones instead of spilling past the card edge. */
+  .card-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — Phase 3: voucher line-item grids (Tier A)
+   The editable/display line-item tables (Quotation/SO/POV lines, GRN & Debit
+   Note tabs) already scroll horizontally via .table-responsive. On phones their
+   many columns get crushed to unreadable widths. Give them a sensible minimum
+   width so columns keep their size and the grid scrolls as one unit instead of
+   squashing inputs. Desktop (≥768px) is unaffected. See PLAN §6.2.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+  .line-items-grid {
+    min-width: 680px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — Phase 4: wizard footer (Cancel / Back / Save / Next)
+   On phones the four-button row gets cramped. Stack the footer into two full
+   width rows — primary actions (Save / Next) on top, secondary (Cancel / Back)
+   below — each button equal-width and easy to tap. Applies to every wizard that
+   uses the shared WizardFooter. Desktop (≥576px) keeps the original row.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 575.98px) {
+  .wizard-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    /* Pin the action bar to the bottom on phones so Save / Next stays reachable
+       on long forms. Theme-aware background (dark-mode safe). If an ancestor
+       clips overflow, sticky simply no-ops — no breakage. */
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background-color: var(--bs-body-bg, #fff);
+    border-top: 1px solid #ebe9f1;
+    margin-top: 1rem;
+    padding-bottom: 0.6rem;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+
+    .footer-left,
+    .footer-right {
+      display: flex;
+      flex: 1 1 100%;
+      gap: 0.5rem;
+    }
+
+    /* Primary actions (Save / Next) sit on the top row. */
+    .footer-right {
+      order: -1;
+    }
+
+    .btn {
+      flex: 1 1 0;
+      justify-content: center;
+    }
+  }
+
+  /* Breathing room so the last field isn't hidden behind the pinned footer. */
+  .wizard-step-body {
+    padding-bottom: 0.5rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — Phase 5: costing worksheet legibility
+   The worksheet already scrolls horizontally with a sticky Product column and
+   sticky totals footer (see .worksheet-table above). Its only mobile weakness
+   is the small font (0.8rem body / 0.68rem header). Bump it on phones so the
+   figures stay readable while scrolling. Desktop sizing is unchanged.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+  .worksheet-table {
+    font-size: 0.9rem;
+
+    thead .ws-head th {
+      font-size: 0.74rem;
+    }
+  }
+}
+
+// Phase 6 — POV generate/recover card header ("PO to: … + Add Expense").
+// On phones the long summary text squeezes the Add Expense button; let the
+// header wrap so the summary takes a full row and the button drops below it
+// at comfortable full width. Desktop (>=576px) keeps the single-row layout.
+@media (max-width: 575.98px) {
+  .po-gen-head {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+  .po-gen-head > div:first-child {
+    flex: 1 1 100%;
+  }
+  .po-gen-head .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+
+
+
