@@ -75,6 +75,10 @@ const HolidayCalendarForm = () => {
   const modulePerms = authStore?.authUserItem?.role?.permissions?.["holiday_calendar"] || {};
   const roleName = authStore?.authUserItem?.role?.name;
   const isLocationAdmin = roleName === "Location Admin";
+  // Admins always have write access even without explicit module perms — keeps
+  // the Add Holiday button + row Actions visible for them (matches the listing).
+  const isSystemAdmin = roleName === "Super Admin" || roleName === "Admin";
+  const isCompanyAdmin = roleName === "Company Admin";
   const authUserLocationId = authStore?.authUserItem?.location_id;
 
   const isEditMode = !!id;
@@ -85,7 +89,11 @@ const HolidayCalendarForm = () => {
     && !!store?.holidayCalendarItem?.location_id
     && !!authUserLocationId
     && store?.holidayCalendarItem?.location_id !== authUserLocationId;
-  const canWrite = !!(modulePerms.can_update || modulePerms.can_add)
+  const canWrite =
+    (isSystemAdmin ||
+      isCompanyAdmin ||
+      modulePerms.can_update ||
+      modulePerms.can_add)
     && !(isLocationAdmin && (calendarIsCompanyWide || calendarIsOtherLocation));
 
   const [submitting, setSubmitting] = useState(false);
@@ -379,7 +387,11 @@ const HolidayCalendarForm = () => {
       <div className="main-content holiday-calendar">
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">
-            {isEditMode ? t("Edit Holiday Calendar") : t("Add Holiday Calendar")}
+            {isEditMode
+              ? canWrite
+                ? t("Edit Holiday Calendar")
+                : t("View Holiday Calendar")
+              : t("Add Holiday Calendar")}
           </h3>
           <Button type="button" className="ms-2 btn-primary" onClick={() => navigate(-1)}>
             <ArrowLeft size={17} />
