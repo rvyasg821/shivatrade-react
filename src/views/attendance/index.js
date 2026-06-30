@@ -423,7 +423,7 @@ const AttendancePage = ({ hideRecords = false }) => {
                     </Input>
                   </Col>
                 )}
-                <Col md={2}>
+                <Col md={2} className="listing-toolbar-actions">
                   <Button color='primary' size='sm' onClick={() => {
                     if (reportView === 'annual') dispatch(getMyAnnualReport({ year: reportYear }))
                     else dispatch(getMyMonthlyReport({ year: reportYear, month: reportMonth }))

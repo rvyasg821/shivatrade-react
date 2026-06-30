@@ -226,10 +226,10 @@ const HolidayCalendarList = () => {
       <Card>
         <CardBody>
           <Row className="mb-2 align-items-center">
-            <Col md={4}>
+            <Col md={4} className="mb-2 mb-md-0">
               <h4 className="mb-0">{t("Holiday Calendars")}</h4>
             </Col>
-            <Col md={8} className="d-flex justify-content-end gap-1 flex-wrap">
+            <Col md={8} className="d-flex justify-content-end gap-1 flex-wrap listing-toolbar-actions listing-toolbar-filters">
               <Input
                 type="number"
                 placeholder={t("Filter by year...")}
