@@ -289,6 +289,7 @@ const InventoryView = () => {
     },
     {
       name: t("Category"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       selector: (row) => (
         <span className="text-nowrap">{row?.category_name || "—"}</span>
       ),
@@ -314,6 +315,7 @@ const InventoryView = () => {
     },
     {
       name: t("Receipt Date"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       center: true,
       minWidth: "150px",
       selector: (row) => (

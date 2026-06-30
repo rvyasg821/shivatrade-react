@@ -356,6 +356,7 @@ const PurchaseOrderView = () => {
     },
     {
       name: t("Date"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "po_date",
       sortable: false,
       minWidth: "120px",
@@ -408,6 +409,7 @@ const PurchaseOrderView = () => {
   columns.push({
     name: t("Action"),
     center: true,
+    minWidth: "170px", // reserve room for the action icons so the last (Delete) isn't clipped on mobile
     cell: (row) => (
       <div className="d-flex column-action align-items-center table-icon">
         <Link

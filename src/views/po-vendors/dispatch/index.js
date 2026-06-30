@@ -323,7 +323,7 @@ const DispatchPoVendor = () => {
           </div>
 
           <div className="border rounded">
-            <Table bordered size="sm" className="align-middle mb-0">
+            <Table responsive bordered size="sm" className="align-middle mb-0">
               <thead className="table-light">
                 <tr>
                   <th style={{ width: 36 }}>#</th>

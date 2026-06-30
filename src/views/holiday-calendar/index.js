@@ -156,6 +156,7 @@ const HolidayCalendarList = () => {
     },
     {
       name: t("Year"),
+      hide: "md",
       sortable: true,
       sortField: "year",
       selector: (row) => row.year,
@@ -163,6 +164,7 @@ const HolidayCalendarList = () => {
     },
     {
       name: t("Scope"),
+      hide: "md",
       cell: (row) => {
         if (row.location_id) {
           const loc = (companyLocations || []).find((l) => l._id === row.location_id);

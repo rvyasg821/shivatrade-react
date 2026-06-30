@@ -108,8 +108,8 @@ const RebateList = () => {
         </Link>
       ) : <span className="text-wrap text-capitalize">{row?.name || ""}</span>,
     },
-    { name: t("Code"), selector: (row) => row?.code || "-" },
-    { name: t("Type"), selector: (row) => TYPE_LABEL[row?.type] || row?.type || "-" },
+    { name: t("Code"), hide: "md", selector: (row) => row?.code || "-" },
+    { name: t("Type"), hide: "md", selector: (row) => TYPE_LABEL[row?.type] || row?.type || "-" },
     {
       name: t("Value"),
       selector: (row) => {

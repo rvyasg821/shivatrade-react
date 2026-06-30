@@ -270,6 +270,7 @@ const ProductList = () => {
     },
     {
       name: t("HSN (GST)"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "hsn_code",
       sortable: false,
       minWidth: "140px",
@@ -286,6 +287,7 @@ const ProductList = () => {
     },
     {
       name: t("UOM"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "unit_of_measure",
       sortable: false,
       center: true,

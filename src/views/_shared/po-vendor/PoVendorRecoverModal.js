@@ -803,10 +803,11 @@ const PoVendorRecoverModal = ({
                           </div>
                         )}
                         {rows.length > 0 && (
+                          <div className="table-responsive">
                           <Table
                             size="sm"
                             bordered
-                            className="mb-0 small align-middle"
+                            className="mb-0 small align-middle line-items-grid"
                           >
                             <thead className="table-light">
                               <tr>
@@ -933,6 +934,7 @@ const PoVendorRecoverModal = ({
                               })}
                             </tbody>
                           </Table>
+                          </div>
                         )}
                       </div>
                       {/* Optional advance paid to this vendor */}

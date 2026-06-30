@@ -395,6 +395,7 @@ const PoVendorView = () => {
     },
     {
       name: t("Date"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "dispatch_date",
       sortable: true,
       minWidth: "200px",
@@ -417,6 +418,7 @@ const PoVendorView = () => {
     },
     {
       name: t("Qty (recv / ord)"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       selector: renderQtyProgress,
     },

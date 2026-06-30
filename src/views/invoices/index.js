@@ -309,6 +309,8 @@ const InvoicesList = () => {
         sortField: "invoice_date",
         sortable: true,
         minWidth: "130px",
+        // Hidden on small screens (≤ md ≈ 959px); shown on desktop.
+        hide: "md",
         selector: (row) =>
           row?.invoice_date ? formatDate(row.invoice_date) : "-",
       },
@@ -320,6 +322,8 @@ const InvoicesList = () => {
       {
         name: t("Balance"),
         sortable: false,
+        // Hidden on small screens (≤ md ≈ 959px); shown on desktop.
+        hide: "md",
         selector: (row) => {
           const bal = Number(row?.balance_receivable || 0);
           return (

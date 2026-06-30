@@ -107,6 +107,7 @@ const LeaveHome = () => {
     },
     {
       name: t("From"),
+      hide: "md",
       minWidth: '180px',
       center: true,
       selector: (row) => row.start_date,
@@ -123,6 +124,7 @@ const LeaveHome = () => {
     },
     {
       name: t("To"),
+      hide: "md",
       minWidth: '180px',
       center: true,
       selector: (row) => row.end_date,
@@ -150,6 +152,7 @@ const LeaveHome = () => {
     },
     {
       name: t("Submitted"),
+      hide: "md",
       minWidth: '150px',
       center: true,
       cell: (row) => row.createdAt ? formatDate(row.createdAt.split('T')[0]) : '—',

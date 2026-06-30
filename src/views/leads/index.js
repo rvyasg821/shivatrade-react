@@ -238,6 +238,7 @@ const LeadList = () => {
       name: t("Company"),
       sortField: "company_name",
       sortable: true,
+      grow: 2, // primary identifier — absorb spare width so its text isn't squeezed
       selector: (row) => {
         const nameNode = (
           <span
@@ -283,6 +284,7 @@ const LeadList = () => {
     },
     {
       name: t("Contact"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       selector: (row) => {
         const phone =
@@ -325,6 +327,7 @@ const LeadList = () => {
     {
       name: t("Items & Value"),
       sortable: false,
+      grow: 0, // short content — hug it instead of expanding (no wasted right gap)
       selector: (row) => {
         const count = Number(row?.line_items_count || 0);
         const val = Number(row?.estimated_sales_value || 0);
@@ -352,6 +355,7 @@ const LeadList = () => {
     {
       name: t("Status"),
       sortable: false,
+      grow: 0, // pill badge — hug content, don't expand
       selector: (row) => {
         const colorMap = {
           new: "#6c757d",
@@ -381,6 +385,7 @@ const LeadList = () => {
     },
     {
       name: t("Follow-up"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "follow_up_date",
       sortable: true,
       selector: (row) => {
@@ -411,6 +416,7 @@ const LeadList = () => {
     columns.push({
       name: t("Action"),
       center: true,
+      minWidth: "190px", // reserve room for up to 5 icons so the last (Delete) isn't clipped on mobile
       cell: (row) => (
         <div className="d-flex column-action align-items-center table-icon">
           <Link

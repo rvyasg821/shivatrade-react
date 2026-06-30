@@ -152,7 +152,7 @@ const DebitNotesTab = ({ registerActions }) => {
   return (
     <Fragment>
       <div className="border rounded">
-        <Table responsive bordered size="sm" className="align-middle mb-0">
+        <Table responsive bordered size="sm" className="align-middle mb-0 line-items-grid">
           <thead className="table-light">
             <tr>
               <th style={{ width: 36 }}>#</th>

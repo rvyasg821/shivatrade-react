@@ -2407,7 +2407,7 @@ const InvoiceAddEdit = () => {
               )}
             </div>
           ) : (
-            <Table bordered size="sm" className="align-top mb-0">
+            <Table responsive bordered size="sm" className="align-top mb-0">
               <thead className="table-light">
                 <tr>
                   <th style={{ width: 30 }}>#</th>
@@ -3332,7 +3332,7 @@ const InvoiceAddEdit = () => {
                   "Lines with dispatched-but-not-yet-invoiced qty. Tick to add to this draft."
                 )}
               </div>
-              <Table bordered size="sm" className="align-middle mb-0">
+              <Table responsive bordered size="sm" className="align-middle mb-0">
                 <thead className="table-light">
                   <tr>
                     <th style={{ width: 36 }} className="text-center">

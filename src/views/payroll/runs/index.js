@@ -139,16 +139,19 @@ const PayRunList = () => {
     },
     {
       name: t("Period"),
+      hide: "md",
       cell: (row) => (
         <span className="small">{formatDate(row.period_start)} → {formatDate(row.period_end)}</span>
       ),
     },
     {
       name: t("Pay Date"),
+      hide: "md",
       cell: (row) => <span className="small">{formatDate(row.pay_date)}</span>,
     },
     {
       name: t("Employees"),
+      hide: "md",
       width: "100px",
       center: true,
       cell: (row) => <span>{row.employee_count || 0}</span>,

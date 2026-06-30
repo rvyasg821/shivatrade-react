@@ -334,7 +334,7 @@ const QuotationPublicView = () => {
               </div>
 
               {/* Line items */}
-              <Table className="items">
+              <Table responsive className="items">
                 <thead>
                   <tr>
                     <th style={{ width: 32 }}>#</th>

@@ -160,6 +160,7 @@ const TrackingFeedView = () => {
   const columns = [
     {
       name: t("When"),
+      hide: "md",
       sortable: false,
       minWidth: "170px",
       selector: (row) => {
@@ -279,6 +280,7 @@ const TrackingFeedView = () => {
     },
     {
       name: t("Location"),
+      hide: "md",
       sortable: false,
       selector: (row) => (
         <span
@@ -294,6 +296,7 @@ const TrackingFeedView = () => {
     },
     {
       name: t("Notes"),
+      hide: "md",
       sortable: false,
       grow: 2,
       selector: (row) => {
@@ -321,6 +324,7 @@ const TrackingFeedView = () => {
     },
     {
       name: t("Added by"),
+      hide: "md",
       sortable: false,
       selector: (row) => row?.created_by_name || "-",
     },

@@ -227,6 +227,7 @@ const CustomerList = () => {
     },
     {
       name: t("Country"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       selector: (row) => (
         <span className="text-wrap text-capitalize">{row?.country || "-"}</span>

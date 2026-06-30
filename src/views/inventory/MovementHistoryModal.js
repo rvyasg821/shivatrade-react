@@ -57,7 +57,7 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
       direction="end"
       isOpen={isOpen}
       toggle={toggle}
-      style={{ width: 620 }}
+      style={{ width: "min(620px, 100vw)" }}
     >
       <OffcanvasHeader toggle={toggle}>
         <div className="fw-bold">{t("Stock Movements")}</div>

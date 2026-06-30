@@ -265,6 +265,7 @@ const EmployeeList = () => {
     },
     {
       name: t("Contact"),
+      hide: "md",
       sortField: "email",
       sortable: true,
       minWidth: "250px",
@@ -306,6 +307,7 @@ const EmployeeList = () => {
     },
     {
       name: t("Location"),
+      hide: "md",
       sortField: "location",
       sortable: false,
       selector: (row) => (

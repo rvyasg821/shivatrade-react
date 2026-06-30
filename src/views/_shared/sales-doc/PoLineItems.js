@@ -380,7 +380,7 @@ const PoLineItems = ({
           </div>
         ) : (
           <div className="table-responsive">
-            <Table bordered size="sm" className="align-middle mb-0">
+            <Table bordered size="sm" className="align-middle mb-0 line-items-grid">
               <thead className="table-light">
                 <tr>
                   <th style={{ width: 30 }}>#</th>
@@ -508,6 +508,7 @@ const PoLineItems = ({
           isOpen={modal.open}
           toggle={closeModal}
           size="lg"
+          fullscreen="md"
           backdrop="static"
           style={{ maxWidth: 960 }}
         >

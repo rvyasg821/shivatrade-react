@@ -131,6 +131,7 @@ const PayElementList = () => {
     },
     {
       name: t("Category"),
+      hide: "md",
       cell: (row) => <span className="text-capitalize">{(row.category || "").replace(/_/g, " ")}</span>,
     },
     {
@@ -139,6 +140,7 @@ const PayElementList = () => {
     },
     {
       name: t("Taxable"),
+      hide: "md",
       cell: (row) => (
         <span className={`doc-badge ${row.is_taxable ? "doc-badge-green" : "doc-badge-gray"}`}>
           {row.is_taxable ? t("Yes") : t("No")}

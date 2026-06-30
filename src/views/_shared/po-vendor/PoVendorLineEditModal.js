@@ -138,7 +138,7 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
             {t("Could not load coverage.")}
           </div>
         ) : (
-          <Table bordered size="sm" className="align-middle mb-0">
+          <Table responsive bordered size="sm" className="align-middle mb-0">
             <thead className="table-light">
               <tr>
                 <th style={{ width: 30 }}>#</th>

@@ -273,6 +273,7 @@ const UserList = (props) => {
     },
     {
       name: t("Email"),
+      hide: "md",
       sortField: "email",
       sortable: true,
       selector: (row) => <span className="text-wrap">{row?.email || ""}</span>,

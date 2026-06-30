@@ -555,6 +555,7 @@ const ContractList = () => {
     }] : []),
     {
       name: t("Template / Dates"),
+      hide: "md",
       minWidth: "200px",
       wrap: true,
       cell: (row) => (
@@ -573,6 +574,7 @@ const ContractList = () => {
     },
     {
       name: t("Issued / Signed"),
+      hide: "md",
       minWidth: "160px",
       wrap: true,
       cell: (row) => (

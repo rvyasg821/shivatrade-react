@@ -263,7 +263,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
   const hasPending = coverage?.has_pending;
 
   return (
-    <Modal isOpen={isOpen} toggle={toggle} size="lg" backdrop="static">
+    <Modal isOpen={isOpen} toggle={toggle} size="lg" fullscreen="md" backdrop="static">
       <ModalHeader toggle={toggle}>
         {t("Create PO Vendor against PO")} <code>{po?.voucher_no || ""}</code>
       </ModalHeader>
@@ -408,7 +408,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
             {t("No PO lines are assigned to the selected vendor.")}
           </div>
         ) : (
-          <Table bordered size="sm" className="align-middle mb-2">
+          <Table responsive bordered size="sm" className="align-middle mb-2">
             <thead className="table-light">
               <tr>
                 <th style={{ width: 30 }}>#</th>

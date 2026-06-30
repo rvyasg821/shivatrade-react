@@ -325,6 +325,7 @@ const PriceListView = () => {
     },
     {
       name: t("Validity"),
+      hide: "md",
       sortable: false,
       minWidth: "180px",
       wrap: true,
