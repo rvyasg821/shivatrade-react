@@ -16,7 +16,10 @@ const DetailPipeline = ({
     <div
       className={`d-flex align-items-center flex-wrap gap-1 ${className}`}
     >
-      <div className="d-flex align-items-center flex-grow-1 flex-wrap">
+      <div
+        className="d-flex align-items-center flex-grow-1 flex-wrap"
+        style={{ rowGap: "0.6rem" }}
+      >
         {steps.map((step, idx) => {
           const isDone = !isTerminalCurrent && idx < currentIndex;
           const isActive = !isTerminalCurrent && idx === currentIndex;

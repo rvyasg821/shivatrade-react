@@ -147,8 +147,8 @@ const DetailHeader = ({
             ) : null}
           </div>
 
-          <div className="d-flex flex-column align-items-end gap-1">
-            <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+          <div className="d-flex flex-column align-items-end gap-1 dp-header-actions">
+            <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end dp-header-actions-row">
               {actionsPrefix || null}
               {actions.map(renderAction)}
               {visibleMore.length > 0 && (

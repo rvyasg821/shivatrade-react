@@ -9545,6 +9545,29 @@ span.doc-badge-gray,
   }
 }
 
+// Phase 6 — shared DetailHeader action buttons on phones.
+// On desktop the Change Status / Edit / Back buttons sit right-aligned next to
+// the title. On a narrow screen they wrapped raggedly (two cramped on one row,
+// one alone below). Below 576px, give the action block the full width and let
+// the buttons stretch evenly so they form a tidy, tappable row that wraps
+// cleanly. Desktop (>=576px) is unchanged.
+@media (max-width: 575.98px) {
+  .dp-header-actions {
+    width: 100%;
+    align-items: stretch !important;
+  }
+  .dp-header-actions-row {
+    justify-content: flex-start !important;
+  }
+  .dp-header-actions-row > * {
+    flex: 1 1 auto;
+  }
+  .dp-header-actions-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 
 
 
