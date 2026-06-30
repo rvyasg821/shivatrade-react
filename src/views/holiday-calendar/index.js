@@ -30,7 +30,7 @@ import DatatablePagination from "@components/datatable/DatatablePagination";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import { Edit, Trash2, PlusCircle, Download } from "react-feather";
+import { Edit, Trash2, PlusCircle, Download, Eye } from "react-feather";
 
 // ** Constant
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
@@ -46,7 +46,16 @@ const HolidayCalendarList = () => {
   const { selectedLocationId, companyLocations } = locationCtx || {};
   const authStore = useSelector((state) => state.auth);
   const roleName = authStore?.authUserItem?.role?.name;
-  const isEmployee = roleName === "Employee";
+
+  // Permission checks — gate Add/Edit/Delete by the holiday_calendar module
+  // permissions (Super Admin / Admin always allowed). A view-only role must
+  // not see the Add Calendar button or the row Edit/Delete actions.
+  const isSystemAdmin = roleName === "Super Admin" || roleName === "Admin";
+  const holidayPerms =
+    authStore?.authUserItem?.role?.permissions?.holiday_calendar;
+  const canAddCalendar = isSystemAdmin || !!holidayPerms?.can_add;
+  const canEditCalendar = isSystemAdmin || !!holidayPerms?.can_update;
+  const canDeleteCalendar = isSystemAdmin || !!holidayPerms?.can_delete;
 
   const [sort, setSort] = useState("desc");
   const [sortColumn, setSortColumn] = useState("_id");
@@ -150,8 +159,12 @@ const HolidayCalendarList = () => {
       sortable: true,
       sortField: "name",
       selector: (row) => row.name,
+      // Opens the calendar page for everyone. Editors get the editable form;
+      // view-only roles (e.g. Employee) get it read-only (see canWrite there).
       cell: (row) => (
-        <Link to={`${appsRoot}/holiday-calendar/edit/${row._id}`}>{row.name}</Link>
+        <Link to={`${appsRoot}/holiday-calendar/edit/${row._id}`}>
+          {row.name}
+        </Link>
       ),
     },
     {
@@ -169,12 +182,26 @@ const HolidayCalendarList = () => {
         if (row.location_id) {
           const loc = (companyLocations || []).find((l) => l._id === row.location_id);
           return (
-            <Badge color="light-info">
+            <Badge
+              color="light-info"
+              innerRef={(el) => {
+                if (el) el.style.setProperty("color", "#fff", "important");
+              }}
+            >
               {loc ? loc.location_name : t("Location")}
             </Badge>
           );
         }
-        return <Badge color="light-primary">{t("Company-wide")}</Badge>;
+        return (
+          <Badge
+            color="light-primary"
+            innerRef={(el) => {
+              if (el) el.style.setProperty("color", "#fff", "important");
+            }}
+          >
+            {t("Company-wide")}
+          </Badge>
+        );
       },
     },
     {
@@ -193,32 +220,51 @@ const HolidayCalendarList = () => {
         </span>
       ),
     },
-    ...(!isEmployee ? [{
+    {
       name: t("Actions"),
       cell: (row) => (
         <div className="d-flex gap-1">
+          {/* View — available to everyone (opens the calendar; read-only for
+              view-only roles). */}
           <Link
             to={`${appsRoot}/holiday-calendar/edit/${row._id}`}
-            id={`edit-${row._id}`}
+            id={`view-${row._id}`}
           >
-            <Edit size={16} className="text-primary" />
+            <Eye size={16} className="text-secondary" />
           </Link>
-          <UncontrolledTooltip target={`edit-${row._id}`}>
-            {t("Edit")}
+          <UncontrolledTooltip target={`view-${row._id}`}>
+            {t("View")}
           </UncontrolledTooltip>
-          <span
-            id={`del-${row._id}`}
-            className="cursor-pointer"
-            onClick={() => handleDelete(row._id, row.name)}
-          >
-            <Trash2 size={16} className="text-danger" />
-          </span>
-          <UncontrolledTooltip target={`del-${row._id}`}>
-            {t("Delete")}
-          </UncontrolledTooltip>
+          {canEditCalendar && (
+            <>
+              <Link
+                to={`${appsRoot}/holiday-calendar/edit/${row._id}`}
+                id={`edit-${row._id}`}
+              >
+                <Edit size={16} className="text-primary" />
+              </Link>
+              <UncontrolledTooltip target={`edit-${row._id}`}>
+                {t("Edit")}
+              </UncontrolledTooltip>
+            </>
+          )}
+          {canDeleteCalendar && (
+            <>
+              <span
+                id={`del-${row._id}`}
+                className="cursor-pointer"
+                onClick={() => handleDelete(row._id, row.name)}
+              >
+                <Trash2 size={16} className="text-danger" />
+              </span>
+              <UncontrolledTooltip target={`del-${row._id}`}>
+                {t("Delete")}
+              </UncontrolledTooltip>
+            </>
+          )}
         </div>
       ),
-    }] : []),
+    },
   ];
 
   return (
@@ -250,7 +296,7 @@ const HolidayCalendarList = () => {
                 }}
                 style={{ width: 200 }}
               />
-              {!isEmployee && (
+              {canAddCalendar && (
                 <Button
                   color="primary"
                   tag={Link}
