@@ -497,7 +497,7 @@ const ViewPurchaseOrder = () => {
                   terminalSteps={TERMINAL_STEPS}
                 />
               </div>
-              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end dp-header-actions dp-header-actions-row">
                 {canGeneratePov && (
                   <Button
                     size="sm"

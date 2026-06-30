@@ -26,7 +26,10 @@ import {
   Hash,
 } from "react-feather";
 
-import { StatusChangeDropdown } from "@src/views/_shared/detail-page";
+import {
+  DetailHeader,
+  StatusChangeDropdown,
+} from "@src/views/_shared/detail-page";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -44,7 +47,6 @@ import { getLead } from "@src/views/leads/store";
 import { getVendorDropdown } from "@src/views/vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
-import Avatar from "@components/avatar";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -788,122 +790,91 @@ const RfqView = () => {
       : activeVendor.vendor_name || ""
     : "";
 
+  // Compact lead line shown under the title in the shared detail header.
+  const headerMeta =
+    leadCompany || leadVoucher ? (
+      <span className="d-inline-flex flex-wrap align-items-center gap-1">
+        {leadCompany && (
+          <span className="d-inline-flex align-items-center text-capitalize fw-semibold text-body">
+            <Briefcase size={13} className="me-25" />
+            {leadCompany}
+          </span>
+        )}
+        {leadVoucher &&
+          (exportLeadId ? (
+            <a
+              href={`${appsRoot}/leads/view/${exportLeadId}`}
+              className="text-reset text-decoration-none d-inline-flex align-items-center"
+            >
+              <Hash size={13} className="me-25" />
+              {t("Lead")} {leadVoucher}
+            </a>
+          ) : (
+            <span className="d-inline-flex align-items-center">
+              <Hash size={13} className="me-25" />
+              {t("Lead")} {leadVoucher}
+            </span>
+          ))}
+      </span>
+    ) : null;
+
+  // "Change Status" dropdown — saved RFQ only (any → any; ops may correct).
+  const headerStatusPrefix = !isDraft ? (
+    <StatusChangeDropdown
+      label={t("Change Status")}
+      toggleColor="outline-secondary"
+      menuEnd
+      items={STATUS_OPTIONS.map((s) => ({
+        key: s,
+        label: t(s),
+        dotColor: STATUS_COLOR[s] || "secondary",
+        current: s === rfq?.status,
+        disabled: store?.loading || s === rfq?.status,
+        onClick: () => onChangeStatus(s),
+      }))}
+    />
+  ) : null;
+
+  const headerActions = [
+    {
+      // Create Quotation — seeds the wizard from this RFQ's lead and
+      // auto-picks the cheapest current price-list row per line.
+      icon: FileText,
+      label: t("Create Quotation"),
+      color: "primary",
+      outline: false,
+      hidden:
+        isDraft ||
+        !(rfq?.prices || []).some((p) => Number(p.unit_price) > 0),
+      onClick: () =>
+        navigate(
+          `${appsRoot}/quotations/add?rfq_id=${id}` +
+            (rfq.lead_id ? `&lead_id=${rfq.lead_id}` : "")
+        ),
+    },
+    {
+      icon: ArrowLeft,
+      label: t("Back"),
+      color: "secondary",
+      outline: true,
+      onClick: () => navigate(`${appsRoot}/rfq`),
+    },
+  ];
+
   return (
     <Fragment>
-      <Card className="mb-1">
-        <CardBody className="d-flex flex-wrap justify-content-between align-items-center gap-1 py-1">
-          <div className="d-flex align-items-center gap-1">
-            <Avatar
-              initials
-              color="light-primary"
-              className="rounded"
-              content="R"
-              contentStyles={{
-                borderRadius: 0,
-                fontSize: "calc(18px)",
-                width: "100%",
-                height: "100%",
-              }}
-              style={{ height: "56px", width: "56px" }}
-            />
-            <div>
-            <div className="d-flex flex-wrap align-items-center gap-1">
-              <h4 className="mb-0">{headerVoucher}</h4>
-              <Badge
-                color={`light-${STATUS_COLOR[headerStatus] || "secondary"}`}
-                className="text-capitalize"
-                pill
-              >
-                {headerStatus}
-              </Badge>
-            </div>
-            {/* Vendors are shown + managed in the "Collect Vendor Prices"
-                card below. Lead info kept to one compact muted line so the
-                pricing grid surfaces higher. */}
-            {(leadCompany || leadVoucher) && (
-              <div className="text-muted small mt-25 d-inline-flex flex-wrap align-items-center gap-1">
-                {leadCompany && (
-                  <span className="d-inline-flex align-items-center text-capitalize fw-semibold text-body">
-                    <Briefcase size={13} className="me-25" />
-                    {leadCompany}
-                  </span>
-                )}
-                {leadVoucher &&
-                  (exportLeadId ? (
-                    <a
-                      href={`${appsRoot}/leads/view/${exportLeadId}`}
-                      className="text-reset text-decoration-none d-inline-flex align-items-center"
-                    >
-                      <Hash size={13} className="me-25" />
-                      {t("Lead")} {leadVoucher}
-                    </a>
-                  ) : (
-                    <span className="d-inline-flex align-items-center">
-                      <Hash size={13} className="me-25" />
-                      {t("Lead")} {leadVoucher}
-                    </span>
-                  ))}
-              </div>
-            )}
-            </div>
-          </div>
-          <div className="d-flex gap-1 align-items-center">
-            {/* Editable status — only on a saved RFQ (any → any; ops may need
-                to correct mistakes). Placed beside Create Quotation. */}
-            {!isDraft && (
-              <StatusChangeDropdown
-                label={t("Change Status")}
-                toggleColor="outline-secondary"
-                menuEnd
-                items={STATUS_OPTIONS.map((s) => ({
-                  key: s,
-                  label: t(s),
-                  dotColor: STATUS_COLOR[s] || "secondary",
-                  current: s === rfq?.status,
-                  disabled: store?.loading || s === rfq?.status,
-                  onClick: () => onChangeStatus(s),
-                }))}
-              />
-            )}
-            {/* Create Quotation — seeds the wizard from this RFQ's lead and
-                auto-picks the cheapest current price-list row per line. */}
-            {!isDraft &&
-              (rfq?.prices || []).some((p) => Number(p.unit_price) > 0) && (
-              <Button
-                color="primary"
-                size="sm"
-                onClick={() =>
-                  navigate(
-                    `${appsRoot}/quotations/add?rfq_id=${id}` +
-                      (rfq.lead_id ? `&lead_id=${rfq.lead_id}` : "")
-                  )
-                }
-              >
-                <FileText size={14} className="me-25" /> {t("Create Quotation")}
-              </Button>
-            )}
-            {/* Quote Request PDF — hidden (prices come via the Excel round-trip). */}
-            {false && !isDraft && vendors.length > 0 && (
-              <Button
-                color="secondary"
-                outline
-                size="sm"
-                onClick={() => downloadPdf()}
-              >
-                <Download size={14} className="me-25" /> {t("Quote Request PDF")}
-              </Button>
-            )}
-            <Button
-              color="secondary"
-              outline
-              size="sm"
-              onClick={() => navigate(`${appsRoot}/rfq`)}
-            >
-              <ArrowLeft size={14} /> {t("Back")}
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
+      <DetailHeader
+        avatarText="R"
+        avatarColor="light-primary"
+        title={headerVoucher}
+        badge={{
+          color: STATUS_COLOR[headerStatus] || "secondary",
+          label: headerStatus,
+        }}
+        meta={headerMeta}
+        actionsPrefix={headerStatusPrefix}
+        actions={headerActions}
+      />
 
       {/* Comparison grid */}
       <Card>
@@ -1049,7 +1020,13 @@ const RfqView = () => {
                   )}
                 </div>
               )}
-              <Table responsive bordered size="sm" className="mb-0 align-top">
+              <Table
+                responsive
+                bordered
+                size="sm"
+                className="mb-0 align-top line-items-grid"
+                style={{ minWidth: 860 }}
+              >
                 <thead className="table-light">
                   <tr>
                     <th className="text-center" style={{ width: 36 }}>
