@@ -407,24 +407,26 @@ const MultiSoPickerModal = ({
                   return (
                     <div
                       key={l.purchase_order_line_id}
-                      className="d-flex align-items-center gap-1 py-25"
+                      className="d-flex align-items-center gap-1 py-25 flex-wrap"
                     >
                       <Input
                         type="checkbox"
-                        className="me-1"
+                        className="me-1 flex-shrink-0"
                         disabled={!enabled}
                         checked={!!pk.selected}
                         onChange={() =>
                           togglePick(l.purchase_order_line_id)
                         }
                       />
-                      <span className="flex-grow-1">
+                      <span className="flex-grow-1" style={{ minWidth: 0 }}>
                         {l.product_code ? (
-                          <code className="me-1">{l.product_code}</code>
+                          <code className="me-1 text-nowrap">
+                            {l.product_code}
+                          </code>
                         ) : null}
                         {l.product_name}
                       </span>
-                      <span className="text-muted small me-1">
+                      <span className="text-muted small me-1 flex-shrink-0">
                         {t("avail")} {l.available}
                       </span>
                       <Input
@@ -432,6 +434,7 @@ const MultiSoPickerModal = ({
                         bsSize="sm"
                         min="0"
                         step="0.01"
+                        className="flex-shrink-0"
                         style={{ width: 90 }}
                         disabled={!enabled || !pk.selected}
                         value={pk.qty ?? ""}

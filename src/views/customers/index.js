@@ -194,6 +194,7 @@ const CustomerList = () => {
       name: t("Contact"),
       sortable: false,
       grow: 2,
+      hide: "md", // email/phone hidden on mobile (≤ md); shown on desktop
       selector: (row) => {
         const phone =
           row?.primary_contact_country_code?.formatted ||

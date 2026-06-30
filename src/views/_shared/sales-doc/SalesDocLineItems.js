@@ -553,7 +553,7 @@ const SalesDocLineItems = ({
             {t("Line Items")} <span className="text-danger">*</span>
           </h5>
           {!readOnly && (
-            <div className="d-flex flex-wrap gap-1 align-items-center">
+            <div className="d-flex flex-wrap gap-1 align-items-center listing-toolbar-actions">
               {docType ? (
                 <LineItemImportExportBar
                   docType={docType}

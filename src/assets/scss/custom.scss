@@ -9524,6 +9524,15 @@ span.doc-badge-gray,
     thead .ws-head th {
       font-size: 0.74rem;
     }
+
+    // On phones, let the Product column scroll horizontally with the rest of
+    // the worksheet instead of staying pinned (it ate too much of the narrow
+    // viewport). Drop the sticky positioning + its separator shadow.
+    .ws-sticky-col {
+      position: static;
+      left: auto;
+      box-shadow: none;
+    }
   }
 }
 
@@ -9649,6 +9658,33 @@ span.doc-badge-gray,
   border-top: 1px solid #ebe9f1;
   padding: 0.75rem 0;
   margin-top: 0.5rem;
+}
+
+// Voucher stat tiles — on phones show a clean 2-per-row grid (Col xs=6). From
+// 576px up, let the tiles grow equally to share one row (previous behaviour),
+// regardless of how wide each tile's number/label is.
+@media (min-width: 576px) {
+  .voucher-stat-col {
+    flex: 1 1 0 !important;
+  }
+}
+
+// On phones the 2-per-row tiles are narrow, so trim the inner padding/gap, the
+// icon, and the big number so the label + value fit without spilling out of the
+// tile/card. Desktop keeps the roomier sizing. (!important overrides the inline
+// styles on the tile.)
+@media (max-width: 575.98px) {
+  .voucher-stat-tile {
+    padding: 0.6rem 0.7rem !important;
+    gap: 0.6rem !important;
+  }
+  .voucher-stat-tile .voucher-stat-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .voucher-stat-tile .voucher-stat-value {
+    font-size: 1.2rem !important;
+  }
 }
 
 
