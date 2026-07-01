@@ -297,10 +297,16 @@ const UserForm = (props) => {
       let roleOpts = [];
       if (roleStore?.roleItems?.length) {
         let items = roleStore.roleItems;
-        // Company Admin / Location Admin: exclude Employee role (managed separately)
+        // Users screen manages ADMINS only — staff (Employee + any custom
+        // company role) are created on the Employees screen. Built-in admin
+        // roles (e.g. Location Admin) have companyId = null; custom company
+        // roles carry a companyId. So drop the Employee role and anything
+        // company-scoped.
         const currentRoleName = authUserItem?.role?.name;
         if (currentRoleName === 'Company Admin' || currentRoleName === 'Location Admin') {
-          items = items.filter((item) => item?.name !== 'Employee');
+          items = items.filter(
+            (item) => item?.name !== 'Employee' && !item?.companyId
+          );
         }
         roleOpts = items.map((item) => {
           return {
