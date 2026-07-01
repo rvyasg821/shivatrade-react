@@ -52,7 +52,10 @@ import {
   Mail,
   Phone,
   Plus,
+  Download,
 } from "react-feather";
+
+import { openPdfViewer } from "@src/utility/pdf";
 
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 import {
@@ -485,6 +488,25 @@ const PoVendorView = () => {
               </UncontrolledTooltip>
               <Eye size={20} />
             </Link>
+            <span
+              className="cursor-pointer me-50"
+              id={`pov-pdf-${row?._id || ""}`}
+              onClick={() =>
+                openPdfViewer({
+                  kind: "po_vendor",
+                  id: row?._id,
+                  name: row?.voucher_no,
+                })
+              }
+            >
+              <Download size={18} />
+            </span>
+            <UncontrolledTooltip
+              placement="top"
+              target={`pov-pdf-${row?._id || ""}`}
+            >
+              {t("Download PDF")}
+            </UncontrolledTooltip>
             {canRowCancel && (
               <>
                 <X

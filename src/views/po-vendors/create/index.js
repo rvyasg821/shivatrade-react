@@ -38,6 +38,7 @@ import { getVendorDropdown } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { appsRoot } from "@constant/defaultValues";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
@@ -70,6 +71,7 @@ const CreatePoVendor = () => {
   const productStore = useSelector((s) => s.product);
   const expenseStore = useSelector((s) => s.expense);
   const poFromStore = useSelector((s) => s.purchaseOrder?.purchaseOrderItem);
+  const companyStore = useSelector((s) => s.company);
 
   const [creating, setCreating] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -104,7 +106,21 @@ const CreatePoVendor = () => {
     dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
+    dispatch(getCompanyDetails());
   }, [dispatch]);
+
+  // Pre-fill Remarks from the company's default POV remarks (new POV only).
+  // Only seeds when the field is still empty so it never clobbers typing.
+  useEffect(() => {
+    const def =
+      companyStore?.companyItem?.pov_default_remarks ||
+      companyStore?.companyItem?.default_remarks;
+    if (def && !notes) setNotes(def);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    companyStore?.companyItem?.pov_default_remarks,
+    companyStore?.companyItem?.default_remarks,
+  ]);
 
   const expenseOptions = useMemo(
     () =>
@@ -958,12 +974,15 @@ const CreatePoVendor = () => {
             )}
 
             <div className="mt-2" style={{ maxWidth: 640 }}>
-              <Label className="form-label">{t("Notes (optional)")}</Label>
+              <Label className="form-label">{t("Remarks (optional)")}</Label>
               <Input
                 type="textarea"
-                rows="2"
+                rows="3"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                placeholder={t(
+                  "Printed on the Vendor PO PDF. Leave blank to use the company's default POV remarks."
+                )}
               />
             </div>
 

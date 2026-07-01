@@ -221,6 +221,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       default_port_of_loading_snapshot: null,
       default_declaration_text: "",
       default_remarks: "",
+      pov_default_remarks: "",
       // ── PO defaults ──
       default_terms: "",
       authorised_signatory_name: "",
@@ -318,6 +319,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
         default_declaration_text: company.default_declaration_text || "",
         default_terms: company.default_terms || "",
         default_remarks: company.default_remarks || "",
+        pov_default_remarks: company.pov_default_remarks || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
         footer_address: company.footer_address || "",
         addresses: (company.addresses || []).map((a) => ({
@@ -414,6 +416,10 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       default_remarks:
         values.default_remarks != null
           ? values.default_remarks.trim()
+          : undefined,
+      pov_default_remarks:
+        values.pov_default_remarks != null
+          ? values.pov_default_remarks.trim()
           : undefined,
       authorised_signatory_name:
         values.authorised_signatory_name != null
@@ -774,6 +780,24 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                       rows="4"
                       maxLength={4000}
                       placeholder="e.g. 1. 100% Advance along with Purchase order. 2. Partial shipment allowed..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+              <Col md="12" className="mb-2">
+                <Label className="form-label" for="pov_default_remarks">
+                  {t("Default Remarks (Vendor Purchase Order)")}
+                </Label>
+                <Controller name="pov_default_remarks" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="pov_default_remarks"
+                      type="textarea"
+                      rows="4"
+                      maxLength={4000}
+                      placeholder="e.g. 1. WE NEED PROPER PACKING LIST WITH GROSS AND NET WEIGHT. 2. PROPER DIMENSION & DETAIL OF PRODUCT BEFORE DISPATCH..."
                       disabled={isReadOnly}
                       {...field}
                       value={field.value || ""}
