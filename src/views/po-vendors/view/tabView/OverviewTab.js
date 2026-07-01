@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Edit, Truck } from "react-feather";
 
 import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
+import PoVendorEditRemarksModal from "@src/views/_shared/po-vendor/PoVendorEditRemarksModal";
 import { DetailPanel } from "@src/views/_shared/detail-page";
 import { isAdminUser, appsRoot } from "@constant/defaultValues";
 
@@ -89,6 +90,13 @@ const OverviewTab = ({ registerActions }) => {
   }, [registerActions, canReceive, id, navigate, t]);
 
   const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
+
+  // Remarks (`notes`) — printed on the Vendor PO PDF; editable while draft
+  // or dispatched. Blank falls back to the company's default POV remarks.
+  const canEditRemarks =
+    (isDraft || (p?.status || "").toLowerCase() === "dispatched") &&
+    (isAdmin || perms?.can_all || perms?.can_update);
+  const [editRemarksOpen, setEditRemarksOpen] = useState(false);
 
   const deliverPanel = (p?.delivery_address || canEditDelivery) && (() => {
     const addr = (p?.delivery_address || "").trim();
@@ -317,17 +325,33 @@ const OverviewTab = ({ registerActions }) => {
             </div>
           )}
 
-          {p?.notes && (
-            <Fragment>
-              <h6 className="mt-2 mb-1">{t("Notes")}</h6>
-              <div
-                className="small text-muted"
-                style={{ whiteSpace: "pre-wrap" }}
-              >
-                {p.notes}
+          <Fragment>
+            <div className="d-flex align-items-center justify-content-between mt-2 mb-1">
+              <h6 className="mb-0">{t("Remarks")}</h6>
+              {canEditRemarks && (
+                <Button
+                  color="link"
+                  size="sm"
+                  className="p-0"
+                  onClick={() => setEditRemarksOpen(true)}
+                >
+                  <Edit size={14} className="me-50" /> {t("Edit")}
+                </Button>
+              )}
+            </div>
+            <div
+              className="small text-muted"
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {p?.effective_remarks ||
+                t("No remarks. Set a company default in Company Profile.")}
+            </div>
+            {!p?.notes && p?.effective_remarks && (
+              <div className="text-muted fst-italic" style={{ fontSize: "0.7rem" }}>
+                {t("(company default — set a POV-specific note above to override)")}
               </div>
-            </Fragment>
-          )}
+            )}
+          </Fragment>
           {p?.internal_notes && (
             <Fragment>
               <h6 className="mt-2 mb-1">{t("Internal Notes")}</h6>
@@ -345,6 +369,10 @@ const OverviewTab = ({ registerActions }) => {
       <PoVendorEditDeliveryModal
         isOpen={editDeliveryOpen}
         toggle={() => setEditDeliveryOpen((s) => !s)}
+      />
+      <PoVendorEditRemarksModal
+        isOpen={editRemarksOpen}
+        toggle={() => setEditRemarksOpen((s) => !s)}
       />
     </Fragment>
   );
