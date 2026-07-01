@@ -1051,16 +1051,16 @@ const InvoiceAddEdit = () => {
     for (const l of lines) {
       // MUST mirror the backend recompute() + Quotation engine. SEQUENTIAL:
       //   taxable = qty × price × (1 − disc/100)
-      //   − rebates (on taxable) → + expenses (on after-rebate)
-      //   → + margin (on after-expense)
+      //   + expenses (on taxable) → − rebates (on after-expense / FOB value)
+      //   → + margin (on after-rebate)
       const taxable =
         num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
-      const rebatesTotal = sumRebates(l.product_rebates_snapshot, taxable);
-      const afterRebate = taxable - rebatesTotal;
-      const expensesTotal = sumExpenses(l.product_expenses_snapshot, afterRebate);
-      const afterExpense = afterRebate + expensesTotal;
-      const marginAmt = (afterExpense * num(l.margin_pct)) / 100;
-      const lineNet = round2(afterExpense + marginAmt);
+      const expensesTotal = sumExpenses(l.product_expenses_snapshot, taxable);
+      const afterExpense = taxable + expensesTotal;
+      const rebatesTotal = sumRebates(l.product_rebates_snapshot, afterExpense);
+      const afterRebate = afterExpense - rebatesTotal;
+      const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
+      const lineNet = round2(afterRebate + marginAmt);
       subtotalInr = round2(subtotalInr + lineNet);
     }
     const rate = num(form.exchange_rate) || 1;
@@ -2448,23 +2448,23 @@ const InvoiceAddEdit = () => {
                     const i = start + pi;
                   // Mirror the backend recompute() + Quotation/PO engine:
                   //   taxable = qty × price × (1 − disc/100)
-                  //   rebates/expenses computed on `taxable`
+                  //   + expenses (on taxable) → − rebates (on after-expense / FOB)
                   //   margin  = (taxable + expenses − rebates) × margin/100
                   //   lineTotal = taxable + expenses − rebates + margin
                   const taxable =
                     num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
-                  const rebatesTotal = sumRebates(
-                    l.product_rebates_snapshot,
-                    taxable,
-                  );
-                  const afterRebate = taxable - rebatesTotal;
                   const expensesTotal = sumExpenses(
                     l.product_expenses_snapshot,
-                    afterRebate,
+                    taxable,
                   );
-                  const afterExpense = afterRebate + expensesTotal;
-                  const marginAmt = (afterExpense * num(l.margin_pct)) / 100;
-                  const lineTotal = round2(afterExpense + marginAmt);
+                  const afterExpense = taxable + expensesTotal;
+                  const rebatesTotal = sumRebates(
+                    l.product_rebates_snapshot,
+                    afterExpense,
+                  );
+                  const afterRebate = afterExpense - rebatesTotal;
+                  const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
+                  const lineTotal = round2(afterRebate + marginAmt);
                   const rebateCount = (l.product_rebates_snapshot || []).length;
                   const expenseCount = (l.product_expenses_snapshot || []).length;
                   return (
