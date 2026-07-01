@@ -32,7 +32,7 @@ export const HIDDEN_NAV_IDS = [
               'subscription', // subscriptionModuleSlug
               'module', // paymentModuleSlug
               'agents', // agentModuleSlug
-              'companyModuleSlug', // Company switcher nav item (keyed by literal)
+              // 'companyModuleSlug' — Company switcher nav re-enabled (SaaS super user)
               // ── Tools + HRM extras ──
               'tools', // toolsModuleSlug
               'assessment-forms',
@@ -60,7 +60,7 @@ export const HIDDEN_ROUTE_PATHS = [
               '/apps/discounts', // add / bulk-generate / edit
               '/apps/payment',
               '/apps/agents',
-              '/apps/company', // switcher CRUD (NOT company-settings — segment-safe)
+              // '/apps/company' — switcher CRUD re-enabled (SaaS super user)
               // ── Tools + HRM extras ──
               '/apps/tools',
               '/apps/assessment-forms',
@@ -84,7 +84,7 @@ export const HIDDEN_PERMISSION_SLUGS = [
     ...(IS_SINGLE_TENANT
         ? [
               // ── SaaS ──
-              'company', // companyModuleSlug
+              // 'company' — permission catalog row re-enabled (SaaS super user)
               'plan', // plansModuleSlug
               'subscription', // subscriptionModuleSlug
               'discounts', // discountModuleSlug

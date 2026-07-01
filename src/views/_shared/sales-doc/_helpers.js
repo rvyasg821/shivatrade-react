@@ -38,11 +38,13 @@ export const fmt = (n) =>
  * Flow (sequential — each step feeds the next):
  *   Gross (qty × price)
  *   → − Discount      = Taxable
- *   → − Rebates       (% on Taxable, fixed amounts as-is)
- *   → + Expenses      (% on the post-rebate balance, fixed amounts as-is)
- *   → + Margin        (% on the post-expense balance)
+ *   → + Expenses      (% on Taxable, fixed amounts as-is)
+ *   → − Rebates       (% on the post-expense total / FOB value, fixed as-is)
+ *   → + Margin        (% on the post-rebate balance)
  *   → + GST           (% on the post-margin balance)
  *   → Line Total
+ * Rebates (DBK/RODTEP export incentives) are calculated on the FOB value —
+ * i.e. Taxable + Expenses — so % rebates match the client's export costing.
  * Every component is round2()'d; lineTotal sums the rounded parts.
  */
 export const computeLineCosting = (line, opts = {}) => {
@@ -55,7 +57,23 @@ export const computeLineCosting = (line, opts = {}) => {
   const discountAmt = round2((gross * disc) / 100);
   const taxable = round2(gross - discountAmt);
 
-  // Rebates apply directly to Taxable (% of Taxable).
+  // Expenses apply first — % on Taxable, fixed amounts as-is.
+  let expensesPctAmt = 0;
+  let expensesFixedAmt = 0;
+  let expensesPctRate = 0;
+  for (const e of l.product_expenses_snapshot || []) {
+    if (e.type === "percent") {
+      expensesPctRate += num(e.value);
+      expensesPctAmt += (taxable * num(e.value)) / 100;
+    } else expensesFixedAmt += num(e.value);
+  }
+  expensesPctAmt = round2(expensesPctAmt);
+  expensesFixedAmt = round2(expensesFixedAmt);
+  const expenses = round2(expensesPctAmt + expensesFixedAmt);
+  const afterExpenses = round2(taxable + expenses);
+
+  // Rebates apply on the post-expense total (FOB value) — % on Taxable +
+  // Expenses, fixed amounts as-is.
   let rebatesPctAmt = 0;
   let rebatesFixedAmt = 0;
   let rebatesPctRate = 0;
@@ -63,33 +81,18 @@ export const computeLineCosting = (line, opts = {}) => {
     if (r.type === "fixed") rebatesFixedAmt += num(r.pct);
     else {
       rebatesPctRate += num(r.pct);
-      rebatesPctAmt += (taxable * num(r.pct)) / 100;
+      rebatesPctAmt += (afterExpenses * num(r.pct)) / 100;
     }
   }
   rebatesPctAmt = round2(rebatesPctAmt);
   rebatesFixedAmt = round2(rebatesFixedAmt);
   const rebates = round2(rebatesPctAmt + rebatesFixedAmt);
-  const afterRebates = round2(taxable - rebates);
+  const afterRebates = round2(afterExpenses - rebates);
 
-  // Expenses % apply on the post-rebate balance — not on Taxable.
-  let expensesPctAmt = 0;
-  let expensesFixedAmt = 0;
-  let expensesPctRate = 0;
-  for (const e of l.product_expenses_snapshot || []) {
-    if (e.type === "percent") {
-      expensesPctRate += num(e.value);
-      expensesPctAmt += (afterRebates * num(e.value)) / 100;
-    } else expensesFixedAmt += num(e.value);
-  }
-  expensesPctAmt = round2(expensesPctAmt);
-  expensesFixedAmt = round2(expensesFixedAmt);
-  const expenses = round2(expensesPctAmt + expensesFixedAmt);
-  const afterExpenses = round2(afterRebates + expenses);
-
-  // Margin % applies on the post-expense balance.
+  // Margin % applies on the post-rebate balance.
   const marginPct = num(l.margin_pct);
-  const margin = round2((afterExpenses * marginPct) / 100);
-  const netTotal = round2(afterExpenses + margin);
+  const margin = round2((afterRebates * marginPct) / 100);
+  const netTotal = round2(afterRebates + margin);
   // GST applies on the post-margin balance — skipped for Quotation,
   // where per-line GST is captured for reference but not added to totals.
   const gst = excludeGst ? 0 : round2((netTotal * num(l.tax_pct)) / 100);
@@ -150,24 +153,12 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     discount_total += lineGross - lineNet;
     subtotal += lineNet;
 
-    // Rebates: % on Taxable, fixed as-is.
+    // Expenses first: % on Taxable, fixed as-is.
     let lineProdReb = 0;
     let lineProdExp = 0;
-    for (const r of l?.product_rebates_snapshot || []) {
-      if (r.type === "fixed") {
-        rebates_fixed_total += num(r.pct);
-        lineProdReb += num(r.pct);
-      } else {
-        const amt = (lineNet * num(r.pct)) / 100;
-        rebates_pct_total += amt;
-        lineProdReb += amt;
-      }
-    }
-    const lineAfterRebates = lineNet - lineProdReb;
-    // Expenses: % on post-rebate balance, fixed as-is.
     for (const e of l?.product_expenses_snapshot || []) {
       if (e.type === "percent") {
-        const amt = (lineAfterRebates * num(e.value)) / 100;
+        const amt = (lineNet * num(e.value)) / 100;
         expenses_pct_total += amt;
         lineProdExp += amt;
       } else {
@@ -175,13 +166,25 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
         lineProdExp += num(e.value);
       }
     }
+    const lineAfterExpenses = lineNet + lineProdExp;
+    // Rebates: % on post-expense total (FOB = Taxable + Expenses), fixed as-is.
+    for (const r of l?.product_rebates_snapshot || []) {
+      if (r.type === "fixed") {
+        rebates_fixed_total += num(r.pct);
+        lineProdReb += num(r.pct);
+      } else {
+        const amt = (lineAfterExpenses * num(r.pct)) / 100;
+        rebates_pct_total += amt;
+        lineProdReb += amt;
+      }
+    }
     product_rebates_total += lineProdReb;
     product_expenses_total += lineProdExp;
 
-    // Margin: % on post-expense balance.
-    const lineAfterExpenses = lineAfterRebates + lineProdExp;
+    // Margin: % on post-rebate balance.
+    const lineAfterRebates = lineAfterExpenses - lineProdReb;
     const lineMarginPct = num(l?.margin_pct);
-    const lineMargin = lineAfterExpenses * (lineMarginPct / 100);
+    const lineMargin = lineAfterRebates * (lineMarginPct / 100);
     line_margin_total += lineMargin;
     if (lineNet > 0) {
       marginByRate[lineMarginPct] =
@@ -189,7 +192,7 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     }
 
     // GST on post-margin balance — skipped when excluded (Quotation).
-    const lineNetTotal = lineAfterExpenses + lineMargin;
+    const lineNetTotal = lineAfterRebates + lineMargin;
     const lineTax = excludeGst ? 0 : lineNetTotal * (taxPct / 100);
     tax_total += lineTax;
     if (lineNet > 0) {
