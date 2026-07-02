@@ -8,7 +8,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { getUser, createUser, updateUser, cleanUserMessage, getUserList } from "../store";
 import { cleanRoleMessage, getRoleList } from "@src/views/roles/store";
 import { getLocationList } from "@src/views/locations/store";
-import { getLookups, createLookup } from "@src/views/company-lookups/store";
 import { getCodeSettings } from "@src/views/company-settings/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { startLoading, stopLoading } from "../../loadingstore";
@@ -36,7 +35,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 // ** React Dropdown Import
 import Select from "react-select";
-import CreatableSelect from "react-select/creatable";
 import DateInput from "@components/date-input";
 
 // ** Custom Components
@@ -83,7 +81,6 @@ const UserForm = (props) => {
   const locationStore = useSelector((state) => state.location);
   const authStore = useSelector((state) => state.auth);
   const companyItem = useSelector((state) => state.company?.companyItem);
-  const lookupStore = useSelector((state) => state.companyLookup);
   const selectedLocationId = useSelector((state) => state.locationContext?.selectedLocationId);
   const selectedLocationName = useSelector((state) => state.locationContext?.selectedLocationName);
   const authUserItem = authStore?.authUserItem || null;
@@ -184,23 +181,12 @@ const UserForm = (props) => {
       otherwise: (schema) => schema.nullable()
     }),
 
-    designation: yup.string().when('role', {
-      is: (val) => {
-        if (!val) return false;
-        const role = roleStore?.roleItems?.find(r => r._id === val.value);
-        return role?.name === 'Employee';
-      },
-      then: (schema) => schema.required(`${t("Designation is required")}.`),
-      otherwise: (schema) => schema.nullable()
-    }),
-
     location_id: yup.string().nullable().when([], {
       is: () => !isSystemAdmin,
       then: (schema) => schema.required(`${t("Location is required")}.`),
       otherwise: (schema) => schema.nullable(),
     }),
 
-    department: yup.string().nullable(),
     employment_type: yup.string().nullable(),
     date_of_joining: yup.string().nullable(),
     date_of_birth: yup.string().nullable(),
@@ -271,14 +257,6 @@ const UserForm = (props) => {
       }
     }
   }, [codeSettingsStore]);
-
-  // Load designation/department lookups when employee fields are shown
-  useEffect(() => {
-    if (showEmployeeFields) {
-      dispatch(getLookups("designation"));
-      dispatch(getLookups("department"));
-    }
-  }, [showEmployeeFields]);
 
   useEffect(() => {
     /* For blank message api called inside */
@@ -376,7 +354,7 @@ const UserForm = (props) => {
       const textFields = new Set([
         'first_name', 'last_name', 'name', 'email', 'password', 'mobile',
         'gender', 'dob', 'timezone', 'photo', 'profile_picture', 'status',
-        'employee_code', 'designation', 'department', 'employment_type',
+        'employee_code', 'employment_type',
         'date_of_joining', 'date_of_birth', 'reporting_to', 'location_id',
         'address_line1', 'address_line2', 'city', 'state', 'postcode', 'country',
       ]);
@@ -790,8 +768,6 @@ const UserForm = (props) => {
         usrData.employee_code = (employeeCodeAuto && !isEditMode)
           ? ""
           : `${employeeCodePrefix}${values?.employee_code?.toUpperCase() || ""}`;
-        usrData.designation = values?.designation || "";
-        usrData.department = values?.department || "";
         usrData.employment_type = values?.employment_type || "";
         usrData.date_of_joining = values?.date_of_joining || "";
         usrData.date_of_birth = values?.date_of_birth || "";
@@ -1366,66 +1342,9 @@ const UserForm = (props) => {
                         )}
                       </div>
 
-                      <div className="mb-2 col-lg-6 col-md-6 col-sm-6">
-                        <Label className="form-label" for="designation">
-                          {t("Designation")} <span className="text-danger">*</span>
-                        </Label>
-                        <Controller
-                          name="designation"
-                          control={control}
-                          render={({ field }) => (
-                            <CreatableSelect
-                              isClearable
-                              className="react-select"
-                              classNamePrefix="select"
-                              placeholder={t("Select or type designation...")}
-                              options={(lookupStore?.designations || []).map(d => ({ value: d.name, label: d.name }))}
-                              value={field.value ? { value: field.value, label: field.value } : null}
-                              onChange={(opt) => field.onChange(opt?.value || "")}
-                              onCreateOption={(inputValue) => {
-                                dispatch(createLookup({ type: "designation", name: inputValue })).unwrap().then(() => {
-                                  field.onChange(inputValue);
-                                }).catch(() => {});
-                              }}
-                              formatCreateLabel={(inputValue) => `${t("Create")} "${inputValue}"`}
-                              styles={errors.designation ? { control: (base) => ({ ...base, borderColor: '#ea5455' }) } : {}}
-                            />
-                          )}
-                        />
-                        {errors.designation && (
-                          <FormFeedback className="d-block">{errors.designation.message}</FormFeedback>
-                        )}
-                      </div>
                     </Row>
 
                     <Row>
-                      <div className="mb-2 col-lg-6 col-md-6 col-sm-6">
-                        <Label className="form-label" for="department">
-                          {t("Department")}
-                        </Label>
-                        <Controller
-                          name="department"
-                          control={control}
-                          render={({ field }) => (
-                            <CreatableSelect
-                              isClearable
-                              className="react-select"
-                              classNamePrefix="select"
-                              placeholder={t("Select or type department...")}
-                              options={(lookupStore?.departments || []).map(d => ({ value: d.name, label: d.name }))}
-                              value={field.value ? { value: field.value, label: field.value } : null}
-                              onChange={(opt) => field.onChange(opt?.value || "")}
-                              onCreateOption={(inputValue) => {
-                                dispatch(createLookup({ type: "department", name: inputValue })).unwrap().then(() => {
-                                  field.onChange(inputValue);
-                                }).catch(() => {});
-                              }}
-                              formatCreateLabel={(inputValue) => `${t("Create")} "${inputValue}"`}
-                            />
-                          )}
-                        />
-                      </div>
-
                       <div className="mb-2 col-lg-6 col-md-6 col-sm-6">
                         <Label className="form-label" for="employment_type">
                           {t("Employment Type")}
