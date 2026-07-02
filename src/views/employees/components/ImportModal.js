@@ -10,11 +10,10 @@ import Notification from "@components/toast/notification";
 
 const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
   const { t } = useTranslation();
-  const [step, setStep] = useState(1); // 1=upload, 2=preview, 3=result
+  const [step, setStep] = useState(1); // 1=upload, 2=preview
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
-  const [result, setResult] = useState(null);
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
 
   const reset = () => {
@@ -22,7 +21,6 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
     setFile(null);
     setLoading(false);
     setPreview(null);
-    setResult(null);
     setSendWelcomeEmail(true);
   };
 
@@ -78,9 +76,17 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       if (res?.data?.statusCode === 200) {
-        setResult(res.data.data);
-        setStep(3);
+        const data = res.data.data || {};
+        const created = data.created || 0;
+        const updated = data.updated || 0;
+        const failed = data.errors?.length || 0;
+        Notification(
+          failed ? "Warning" : "Success",
+          t(`Import complete: ${created} created, ${updated} updated`) + (failed ? t(`, ${failed} failed`) : ""),
+          failed ? "warning" : "success"
+        );
         if (onSuccess) onSuccess();
+        handleClose();
       } else {
         Notification("Error", res?.data?.message || "Import failed", "warning");
       }
@@ -111,7 +117,6 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
       <ModalHeader toggle={handleClose}>
         {step === 1 && t("Import Employees")}
         {step === 2 && t("Review Import Data")}
-        {step === 3 && t("Import Results")}
       </ModalHeader>
       <ModalBody>
         {/* Step 1: Upload */}
@@ -121,10 +126,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
               <strong>{t("Instructions")}:</strong>
               <ol className="mb-0 mt-1">
                 <li>{t("Download the sample Excel to see the required format")}</li>
-                <li>{t("Fill in your employee data (email and first_name are required)")}</li>
+                <li>{t("Required: first_name, last_name, email, gender, role, location, designation, department, date_of_joining")}</li>
+                <li>{t("Dates must use YYYY-MM-DD format (e.g. 2026-07-01) — avoids Excel's DD/MM vs MM/DD confusion")}</li>
                 <li>{t("If employee_code or email matches an existing employee, the record will be updated")}</li>
-                <li>{t("Employees will be imported into the currently selected location")}</li>
-                <li>{t("Designation and department values will be auto-created if they don't exist")}</li>
+                <li>{t("role, location, designation and department must match a value from the 'Reference' sheet — unknown values are rejected")}</li>
               </ol>
             </Alert>
             <Button color="outline-primary" size="sm" className="mb-2" onClick={handleDownloadSample}>
@@ -134,11 +139,14 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
               <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="form-control" />
               {file && <small className="text-muted mt-50 d-block">{file.name} ({(file.size / 1024).toFixed(1)} KB)</small>}
             </div>
-            <FormGroup check className="mt-2">
+            {/* Hidden: "Send welcome email with login credentials" toggle.
+                Kept in code (reversible) — sendWelcomeEmail state still drives
+                the send_email flag on confirm. */}
+            {/* <FormGroup check className="mt-2">
               <Input type="checkbox" id="send-welcome-email" checked={sendWelcomeEmail} onChange={(e) => setSendWelcomeEmail(e.target.checked)} />
               <Label check for="send-welcome-email">{t("Send welcome email with login credentials to new employees")}</Label>
               <small className="text-muted d-block">{t("Default password: Welcome@123. Only sent for newly created employees, not updates.")}</small>
-            </FormGroup>
+            </FormGroup> */}
           </div>
         )}
 
@@ -151,61 +159,45 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
               <Badge className="doc-badge doc-badge-red">{preview.summary.errors} {t("Errors")}</Badge>
               <Badge className="doc-badge doc-badge-gray">{preview.summary.total} {t("Total")}</Badge>
             </div>
-            <div style={{ maxHeight: "400px", overflow: "auto" }}>
-              <Table size="sm" striped bordered responsive>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>{t("Status")}</th>
-                    <th>{t("Email")}</th>
-                    <th>{t("Name")}</th>
-                    <th>{t("Code")}</th>
-                    <th>{t("Designation")}</th>
-                    <th>{t("Details")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.rows.map((row) => (
-                    <tr key={row.rowNum} className={row.status === "error" ? "table-danger" : row.status === "valid_update" ? "table-warning" : ""}>
-                      <td>{row.rowNum}</td>
-                      <td>
-                        {row.status === "valid_new" && <Badge className="doc-badge doc-badge-green">{t("New")}</Badge>}
-                        {row.status === "valid_update" && <Badge className="doc-badge doc-badge-orange">{t("Update")}</Badge>}
-                        {row.status === "error" && <Badge className="doc-badge doc-badge-red">{t("Error")}</Badge>}
-                      </td>
-                      <td className="small">{row.data.email}</td>
-                      <td className="small">{row.data.first_name} {row.data.last_name}</td>
-                      <td className="small">{row.data.employee_code || "—"}</td>
-                      <td className="small">{row.data.designation || "—"}</td>
-                      <td className="small text-danger">{row.errors?.join(", ") || ""}</td>
+            {/* Only surface the row-level table when there are errors to review.
+                When everything is valid, the summary badges are enough. */}
+            {preview.summary.errors > 0 ? (
+              <div style={{ maxHeight: "400px", overflow: "auto" }}>
+                <Table size="sm" striped bordered responsive>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{t("Status")}</th>
+                      <th>{t("Email")}</th>
+                      <th>{t("Name")}</th>
+                      <th>{t("Code")}</th>
+                      <th>{t("Designation")}</th>
+                      <th>{t("Details")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Results */}
-        {step === 3 && result && (
-          <div>
-            <Alert color="success">
-              <strong>{t("Import Complete")}!</strong>
-              <div className="mt-1">
-                <div>{t("Created")}: <strong>{result.created}</strong></div>
-                <div>{t("Updated")}: <strong>{result.updated}</strong></div>
-                {result.errors?.length > 0 && <div className="text-danger">{t("Errors")}: <strong>{result.errors.length}</strong></div>}
+                  </thead>
+                  <tbody>
+                    {preview.rows.map((row) => (
+                      <tr key={row.rowNum} className={row.status === "error" ? "table-danger" : row.status === "valid_update" ? "table-warning" : ""}>
+                        <td>{row.rowNum}</td>
+                        <td>
+                          {row.status === "valid_new" && <Badge className="doc-badge doc-badge-green">{t("New")}</Badge>}
+                          {row.status === "valid_update" && <Badge className="doc-badge doc-badge-orange">{t("Update")}</Badge>}
+                          {row.status === "error" && <Badge className="doc-badge doc-badge-red">{t("Error")}</Badge>}
+                        </td>
+                        <td className="small">{row.data.email}</td>
+                        <td className="small">{row.data.first_name} {row.data.last_name}</td>
+                        <td className="small">{row.data.employee_code || "—"}</td>
+                        <td className="small">{row.data.designation || "—"}</td>
+                        <td className="small text-danger">{row.errors?.join(", ") || ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
               </div>
-            </Alert>
-            {result.errors?.length > 0 && (
-              <Table responsive size="sm" bordered>
-                <thead><tr><th>{t("Row")}</th><th>{t("Error")}</th></tr></thead>
-                <tbody>
-                  {result.errors.map((e, i) => (
-                    <tr key={i}><td>{e.row}</td><td className="text-danger small">{e.message}</td></tr>
-                  ))}
-                </tbody>
-              </Table>
+            ) : (
+              <Alert color="success" className="mb-0 p-2">
+                {t("All rows are valid and ready to import.")}
+              </Alert>
             )}
           </div>
         )}
@@ -226,9 +218,6 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
               {loading ? <Spinner size="sm" /> : t(`Confirm Import (${(preview?.summary?.valid_new || 0) + (preview?.summary?.valid_update || 0)} rows)`)}
             </Button>
           </>
-        )}
-        {step === 3 && (
-          <Button color="primary" onClick={handleClose}>{t("Close")}</Button>
         )}
       </ModalFooter>
     </Modal>
