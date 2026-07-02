@@ -152,18 +152,18 @@ const AssessmentReportDetail = lazy(() => import('@src/views/assessmentforms/Ass
 
 const Payment = lazy(() => import('@src/views/payment/'));
 
-// HRM - Holiday Calendar
-const HolidayCalendarList = lazy(() => import('@src/views/holiday-calendar'));
-const AddHolidayCalendar = lazy(() => import('@src/views/holiday-calendar/add'));
+// HRM - Holiday Calendar (hidden — routes disabled)
+// const HolidayCalendarList = lazy(() => import('@src/views/holiday-calendar'));
+// const AddHolidayCalendar = lazy(() => import('@src/views/holiday-calendar/add'));
 
 // HRM - Documents
 const DocumentList = lazy(() => import('@src/views/documents'));
 const DocumentForm = lazy(() => import('@src/views/documents/add'));
 
-// HRM - Leave Management
-const LeaveHome = lazy(() => import('@src/views/leave'));
-const LeaveAdminView = lazy(() => import('@src/views/leave/admin'));
-const LeaveRequestForm = lazy(() => import('@src/views/leave/request-form'));
+// HRM - Leave Management (hidden — routes disabled)
+// const LeaveHome = lazy(() => import('@src/views/leave'));
+// const LeaveAdminView = lazy(() => import('@src/views/leave/admin'));
+// const LeaveRequestForm = lazy(() => import('@src/views/leave/request-form'));
 
 // HRM - Contracts
 const ContractList = lazy(() => import('@src/views/contracts'));
@@ -173,9 +173,9 @@ const IssueContract = lazy(() => import('@src/views/contracts/issue'));
 const ContractView = lazy(() => import('@src/views/contracts/view'));
 const ContractSign = lazy(() => import('@src/views/contracts/sign'));
 
-// HRM - Attendance
-const AttendancePage = lazy(() => import('@src/views/attendance'));
-const AttendanceAdminPage = lazy(() => import('@src/views/attendance/admin'));
+// HRM - Attendance (hidden — routes disabled)
+// const AttendancePage = lazy(() => import('@src/views/attendance'));
+// const AttendanceAdminPage = lazy(() => import('@src/views/attendance/admin'));
 
 // HRM - Shift / Rota
 const ShiftPage = lazy(() => import('@src/views/shift'));
@@ -1120,6 +1120,8 @@ const AppRoutes = [
     // },
   },
 
+  // Hidden HR tools — Holiday Calendar & Leave routes disabled
+  /*
   // HRM - Holiday Calendar
   {
     path: `${appsRoot}/holiday-calendar`,
@@ -1165,6 +1167,7 @@ const AppRoutes = [
     element: <LeaveAdminView />,
     meta: { permissionId: 'leave', action: 'list', toolSlug: 'hrm-leave' },
   },
+  */
 
   // HRM - Contracts
   {
@@ -1225,6 +1228,8 @@ const AppRoutes = [
     meta: { permissionId: 'document', action: 'view', toolSlug: 'hrm-documents' },
   },
 
+  // Hidden HR tools — Attendance routes disabled
+  /*
   // Attendance - Employee
   {
     path: `${appsRoot}/attendance`,
@@ -1237,6 +1242,7 @@ const AppRoutes = [
     element: <AttendanceAdminPage />,
     meta: { permissionId: 'attendance', action: 'admin', toolSlug: 'hrm-attendance' },
   },
+  */
 
   // Shift - Employee
   {

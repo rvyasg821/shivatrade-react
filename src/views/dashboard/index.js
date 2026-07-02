@@ -377,11 +377,13 @@ const EmployeeDashboard = () => {
     const authStore = useSelector((s) => s.auth);
     const user = authStore?.authUserItem;
 
-    useEffect(() => {
-        dispatch(getLeaveTypeList());
-        dispatch(getMyLeaveBalance(new Date().getFullYear()));
-        dispatch(getMyLeaveRequests(new Date().getFullYear()));
-    }, [dispatch]);
+    // HR tools (Attendance/Leave) disabled — dashboard widgets hidden, so skip
+    // fetching leave data (those endpoints are disabled).
+    // useEffect(() => {
+    //     dispatch(getLeaveTypeList());
+    //     dispatch(getMyLeaveBalance(new Date().getFullYear()));
+    //     dispatch(getMyLeaveRequests(new Date().getFullYear()));
+    // }, [dispatch]);
 
     const leaveBalance = leaveStore?.myBalance || [];
     const leaveRequests = leaveStore?.myRequests || [];
@@ -393,12 +395,12 @@ const EmployeeDashboard = () => {
 
     return (
         <Fragment>
-            {/* Attendance — clock in/out, today status */}
-            <AttendancePage hideRecords />
+            {/* HR tools disabled — Attendance clock-in + Leave sections hidden */}
+            {false && (
+              <Fragment>
+                <AttendancePage hideRecords />
 
-            {/* Leave section */}
-            <Row className="mt-2">
-                {/* Leave Balance */}
+                <Row className="mt-2">
                 <Col lg={6}>
                     <Card className="mb-2">
                         <CardHeader className="border-bottom py-1 d-flex justify-content-between align-items-center">
@@ -476,7 +478,9 @@ const EmployeeDashboard = () => {
                         </CardBody>
                     </Card>
                 </Col>
-            </Row>
+                </Row>
+              </Fragment>
+            )}
         </Fragment>
     );
 };
