@@ -374,6 +374,17 @@ const navigationItems = [
         navLink: `${appsRoot}/holiday-calendar`,
         companyOnly: true,
       },
+      {
+        id: 'employeeLookups',
+        permissionId: 'employee',
+        action: 'read',
+        resource: 'employee',
+        companyOnly: true,
+        adminLevel: true,
+        title: 'Designations & Departments',
+        icon: <Sliders size={20} />,
+        navLink: `${appsRoot}/employees/lookups`,
+      },
     ],
   },
 

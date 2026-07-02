@@ -26,6 +26,30 @@ export const createLookup = createAsyncThunk("appCompanyLookup/createLookup", as
   }
 });
 
+export const updateLookup = createAsyncThunk("appCompanyLookup/updateLookup", async ({ type, id, name }, { rejectWithValue }) => {
+  try {
+    const response = await instance.put(`${API_ENDPOINTS.companyLookup.update}/${id}`, { name }).then((r) => r.data);
+    if (response?.statusCode && response?.data) {
+      return { type, item: response.data, actionFlag: "CL_UPD_SCS", success: response.message || "", error: "" };
+    }
+    return rejectWithValue(response?.message || "Failed");
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || error.message);
+  }
+});
+
+export const deleteLookup = createAsyncThunk("appCompanyLookup/deleteLookup", async ({ type, id }, { rejectWithValue }) => {
+  try {
+    const response = await instance.delete(`${API_ENDPOINTS.companyLookup.delete}/${id}`).then((r) => r.data);
+    if (response?.statusCode) {
+      return { type, id, actionFlag: "CL_DEL_SCS", success: response.message || "", error: "" };
+    }
+    return rejectWithValue(response?.message || "Failed");
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || error.message);
+  }
+});
+
 export const appCompanyLookupSlice = createSlice({
   name: "appCompanyLookup",
   initialState: {
@@ -59,6 +83,26 @@ export const appCompanyLookupSlice = createSlice({
       .addCase(createLookup.rejected, (state, action) => {
         state.error = action.payload || "An error occurred";
         state.actionFlag = "CL_CRT_ERR";
+      })
+      .addCase(updateLookup.fulfilled, (state, action) => {
+        const { type, item } = action.payload;
+        const key = type === "designation" ? "designations" : "departments";
+        state[key] = state[key].map((d) => (d._id === item._id ? item : d));
+        Object.assign(state, { actionFlag: action.payload.actionFlag, success: action.payload.success, error: action.payload.error });
+      })
+      .addCase(updateLookup.rejected, (state, action) => {
+        state.error = action.payload || "An error occurred";
+        state.actionFlag = "CL_UPD_ERR";
+      })
+      .addCase(deleteLookup.fulfilled, (state, action) => {
+        const { type, id } = action.payload;
+        const key = type === "designation" ? "designations" : "departments";
+        state[key] = state[key].filter((d) => d._id !== id);
+        Object.assign(state, { actionFlag: action.payload.actionFlag, success: action.payload.success, error: action.payload.error });
+      })
+      .addCase(deleteLookup.rejected, (state, action) => {
+        state.error = action.payload || "An error occurred";
+        state.actionFlag = "CL_DEL_ERR";
       });
   },
 });

@@ -106,6 +106,7 @@ const TrackingFeed = lazy(() => import('@src/views/tracking'));
 const EmployeeList = lazy(() => import('@src/views/employees'));
 const EditEmployee = lazy(() => import('@src/views/employees/edit'));
 const ViewEmployee = lazy(() => import('@src/views/employees/view'));
+const EmployeeLookups = lazy(() => import('@src/views/employees/lookups'));
 const EditUser = lazy(() => import('@src/views/users/edit'));
 const UpgradeSubscription = lazy(() => import('@src/views/auth/profile/editCompany/UpgradeSubscription'));
 const UpgradePayment = lazy(() => import('@src/views/auth/profile/editCompany/UpgradePayment'));
@@ -963,6 +964,14 @@ const AppRoutes = [
   {
     path: `${appsRoot}/employees/view/:id`,
     element: <ViewEmployee />,
+    meta: {
+      permissionId: 'employee',
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/employees/lookups`,
+    element: <EmployeeLookups />,
     meta: {
       permissionId: 'employee',
       action: 'list',

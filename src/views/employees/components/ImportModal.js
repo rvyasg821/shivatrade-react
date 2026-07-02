@@ -98,7 +98,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "employee-import-sample.csv";
+      a.download = "employee-import-sample.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -120,7 +120,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
             <Alert color="info" className="mb-2">
               <strong>{t("Instructions")}:</strong>
               <ol className="mb-0 mt-1">
-                <li>{t("Download the sample CSV to see the required format")}</li>
+                <li>{t("Download the sample Excel to see the required format")}</li>
                 <li>{t("Fill in your employee data (email and first_name are required)")}</li>
                 <li>{t("If employee_code or email matches an existing employee, the record will be updated")}</li>
                 <li>{t("Employees will be imported into the currently selected location")}</li>
@@ -128,7 +128,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess, locationId }) => {
               </ol>
             </Alert>
             <Button color="outline-primary" size="sm" className="mb-2" onClick={handleDownloadSample}>
-              {t("Download Sample CSV")}
+              {t("Download Sample Excel")}
             </Button>
             <div>
               <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="form-control" />
