@@ -16,7 +16,6 @@ import { appsRoot } from '@constant/defaultValues';
 import { APP_MODE } from '@src/configs/appMode';
 import instance from '@src/utility/AxiosConfig';
 import { API_ENDPOINTS } from '@src/utility/ApiEndPoints';
-import FaceClockModal from './FaceClockModal';
 import { getCompanyData, setSubscriptionTools } from '@src/redux/authentication';
 
 // Returns true if the company subscription includes the given tool slug.
@@ -91,9 +90,6 @@ const CompanyDashboard = ({ stats, loading, showSetupChecklist = false, onRefres
     const [manualSubmitting, setManualSubmitting] = useState(false);
     const [employeeOptions, setEmployeeOptions] = useState([]);
     useFormLoading(manualSubmitting);
-
-    // ── Face Clock Kiosk Modal ──
-    const [faceClockOpen, setFaceClockOpen] = useState(false);
 
     const openManualEntry = () => {
         setManualData({ user_id: '', date: todayStr(), clock_in: '', clock_out: '', status: '', notes: '' });
@@ -200,9 +196,6 @@ const CompanyDashboard = ({ stats, loading, showSetupChecklist = false, onRefres
                                     <Clock size={15} className="me-75" />{t("Today Clock-ins")} — {new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                                 </CardTitle>
                                 <div className="d-flex gap-50">
-                                    <Button color="success" size="sm" onClick={() => setFaceClockOpen(true)}>
-                                        <Camera size={14} className="me-50" />{t("Face Clock")}
-                                    </Button>
                                     <Button color="primary" size="sm" onClick={openManualEntry}>
                                         <Plus size={14} className="me-50" />{t("Manual Entry")}
                                     </Button>
@@ -354,16 +347,6 @@ const CompanyDashboard = ({ stats, loading, showSetupChecklist = false, onRefres
                     </Button>
                 </ModalFooter>
             </Modal>
-
-            {/* ── Face Clock Kiosk Modal ── */}
-            <FaceClockModal
-                isOpen={faceClockOpen}
-                toggle={() => {
-                    setFaceClockOpen(false);
-                    if (onRefresh) onRefresh();
-                }}
-                currentUser={currentUser}
-            />
         </>
     );
 };

@@ -7,7 +7,6 @@ import {
   Nav, NavItem, NavLink, TabContent, TabPane,
 } from 'reactstrap'
 import { Clock, Coffee, LogIn, LogOut, Calendar, MapPin, BarChart2, List } from 'react-feather'
-import FaceCaptureModal from './components/FaceCaptureModal'
 import {
   getToday, getMyRecords, clockIn, clockOut,
   startBreak, endBreak, clearAttendanceActionFlag,
@@ -85,8 +84,6 @@ const AttendancePage = ({ hideRecords = false }) => {
   const [actionLoading, setActionLoading] = useState(false)
   const [recordYear, setRecordYear] = useState(new Date().getFullYear())
   const [recordMonth, setRecordMonth] = useState(new Date().getMonth() + 1)
-  const [faceCaptureModal, setFaceCaptureModal] = useState(false)
-  const [faceCaptureAction, setFaceCaptureAction] = useState(null)
 
   // Tabs for full page view
   const [activeTab, setActiveTab] = useState('records')
@@ -97,7 +94,6 @@ const AttendancePage = ({ hideRecords = false }) => {
   const today = store.todayRecord
   const tz = store.timezone
   const employeeSettings = store.employeeSettings
-  const faceRequired = employeeSettings?.face_capture_enabled === true
   const gpsRequired = employeeSettings?.gps_enabled === true
   const breakTrackingEnabled = employeeSettings?.break_tracking_enabled !== false
   const [gpsStatus, setGpsStatus] = useState(null)
@@ -181,21 +177,8 @@ const AttendancePage = ({ hideRecords = false }) => {
     if (store.actionFlag) dispatch(clearAttendanceActionFlag())
   }, [store.actionFlag, store.error, dispatch])
 
-  const handleClockIn = () => {
-    if (faceRequired) { setFaceCaptureAction('clock_in'); setFaceCaptureModal(true) }
-    else dispatchClockAction(clockIn, {})
-  }
-  const handleClockOut = () => {
-    if (faceRequired) { setFaceCaptureAction('clock_out'); setFaceCaptureModal(true) }
-    else dispatchClockAction(clockOut, {})
-  }
-  const handleFaceCapture = (base64) => {
-    setFaceCaptureModal(false)
-    const faceDescriptor = { image: base64, capturedAt: new Date().toISOString() }
-    if (faceCaptureAction === 'clock_in') dispatchClockAction(clockIn, { faceDescriptor })
-    else dispatchClockAction(clockOut, { faceDescriptor })
-    setFaceCaptureAction(null)
-  }
+  const handleClockIn = () => dispatchClockAction(clockIn, {})
+  const handleClockOut = () => dispatchClockAction(clockOut, {})
   const handleStartBreak = () => { setActionLoading(true); dispatch(startBreak({ type: breakType })) }
   const handleEndBreak = () => { setActionLoading(true); dispatch(endBreak()) }
 
@@ -348,8 +331,6 @@ const AttendancePage = ({ hideRecords = false }) => {
             <Button color='warning' onClick={handleStartBreak} disabled={actionLoading}>{actionLoading ? <Spinner size='sm' /> : 'Start Break'}</Button>
           </ModalFooter>
         </Modal>
-        <FaceCaptureModal isOpen={faceCaptureModal} toggle={() => { setFaceCaptureModal(false); setFaceCaptureAction(null) }}
-          onCapture={handleFaceCapture} actionLabel={faceCaptureAction === 'clock_in' ? 'Clock In' : 'Clock Out'} />
       </Fragment>
     )
   }

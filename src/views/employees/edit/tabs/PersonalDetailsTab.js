@@ -10,8 +10,6 @@ import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
 import DateInput from "@components/date-input";
 import { useSelector } from "react-redux";
 import InputPasswordToggle from "@components/input-password-toggle";
-import { Camera, CheckCircle } from "react-feather";
-import FaceCaptureModal from "@src/views/attendance/components/FaceCaptureModal";
 
 import instance from "@src/utility/AxiosConfig";
 import useFormLoading from "@src/hooks/useFormLoading";
@@ -69,19 +67,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
       setEmailExists(!!res.data?.data?.exists);
     } catch { setEmailExists(false); }
   };
-
-  // Face ID state
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [capturedFaceImage, setCapturedFaceImage] = useState(null);
-
-  const hasFaceDescriptor =
-    employeeData?.face_descriptor &&
-    Array.isArray(employeeData.face_descriptor) &&
-    employeeData.face_descriptor.length > 0;
-
-  const existingFaceImage = employeeData?.face_reference_photo && getBackendImageUrl
-    ? getBackendImageUrl(employeeData.face_reference_photo)
-    : null;
 
   // Build schema: hardcoded required fields
   const schemaShape = {
@@ -220,7 +205,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
     };
     if (mobileValue) data.country_code = values.country_code;
     if (values.password) data.password = values.password;
-    if (capturedFaceImage) data.face_image = capturedFaceImage;
     return data;
   };
 
@@ -236,11 +220,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }));
-
-  const handleFaceCapture = (base64) => {
-    setCapturedFaceImage(base64);
-    setFaceModalOpen(false);
-  };
 
   return (
     <Fragment>
@@ -361,13 +340,6 @@ const PersonalDetailsTab = forwardRef(({ employeeData, getBackendImageUrl, isCre
           </Col> */}
         </Row>
       </form>
-
-      <FaceCaptureModal
-        isOpen={faceModalOpen}
-        toggle={() => setFaceModalOpen(false)}
-        actionLabel={t("Register")}
-        onCapture={handleFaceCapture}
-      />
     </Fragment>
   );
 });
