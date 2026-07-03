@@ -50,9 +50,6 @@ import { useTranslation } from "react-i18next";
 // ** Icons Import
 import { ArrowLeft, Camera, CheckCircle } from "react-feather";
 
-// ** Face Capture
-import FaceCaptureModal from "@src/views/attendance/components/FaceCaptureModal";
-
 // ** Constant
 import {
   appsRoot,
@@ -111,11 +108,6 @@ const UserForm = (props) => {
   const [employeeCodePreview, setEmployeeCodePreview] = useState('');
   const codeSettingsStore = useSelector((state) => state.companySettings?.codeSettings);
 
-  // Face registration states
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [capturedFaceImage, setCapturedFaceImage] = useState(null);
-  const [existingFaceImage, setExistingFaceImage] = useState(null);
-  const [hasRegisteredFace, setHasRegisteredFace] = useState(false);
   const [filteredRoles, setFilteredRoles] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
   const [reportingToOptions, setReportingToOptions] = useState([]);
@@ -376,12 +368,6 @@ const UserForm = (props) => {
       // This prevents controlled/uncontrolled input warnings
       reset({ ...initUserItem, ...cleanedUsrItem });
       setResetValue(() => false);
-
-      // Detect existing face registration and show saved reference image if available
-      const hasFaceDescriptor = usrItem?.face_descriptor && Array.isArray(usrItem.face_descriptor) && usrItem.face_descriptor.length > 0;
-      setHasRegisteredFace(!!hasFaceDescriptor);
-      setCapturedFaceImage(null);
-      setExistingFaceImage(usrItem?.face_reference_photo ? getBackendImageUrl(usrItem.face_reference_photo) : null);
 
       // Location Admin: force their location even in edit mode
       if (isLocationAdmin && selectedLocationId) {
@@ -779,11 +765,6 @@ const UserForm = (props) => {
         usrData.state = values?.state || "";
         usrData.postcode = values?.postcode || "";
         usrData.country = values?.country || "";
-      }
-
-      // Add face image only for newly captured base64 image
-      if (capturedFaceImage) {
-        usrData.face_image = capturedFaceImage;
       }
 
       // Location is only applicable for company-level users, not Super Admin context
@@ -1515,71 +1496,8 @@ const UserForm = (props) => {
                       </div>
                     </Row>
 
-                    {/* Face Registration Section */}
-                    <h4 className="mt-3 mb-2 col-12">{t("Face Registration")}</h4>
-                    <Row>
-                      <div className="mb-2 col-lg-6 col-md-6 col-sm-6">
-                        <div className="d-flex align-items-center gap-1">
-                          <Button
-                            type="button"
-                            color={(capturedFaceImage || hasRegisteredFace) ? "success" : "primary"}
-                            outline
-                            size="sm"
-                            onClick={() => setFaceModalOpen(true)}
-                          >
-                            <Camera size={14} className="me-50" />
-                            {(capturedFaceImage || hasRegisteredFace) ? t("Re-capture Face") : t("Capture Face")}
-                          </Button>
-                          {!capturedFaceImage && hasRegisteredFace && (
-                            <span className="text-success d-flex align-items-center">
-                              <CheckCircle size={14} className="me-50" />
-                              {t("Face already registered")}
-                            </span>
-                          )}
-                          {capturedFaceImage && (
-                            <span className="text-success d-flex align-items-center">
-                              <CheckCircle size={14} className="me-50" />
-                              {t("Face captured")}
-                            </span>
-                          )}
-                        </div>
-                        {capturedFaceImage && (
-                          <div className="mt-1">
-                            <img
-                              src={capturedFaceImage}
-                              alt="Captured face"
-                              style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, border: '2px solid #28c76f' }}
-                            />
-                          </div>
-                        )}
-                        {!capturedFaceImage && existingFaceImage && (
-                          <div className="mt-1">
-                            <img
-                              src={existingFaceImage}
-                              alt="Registered face"
-                              style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, border: '2px solid #28c76f' }}
-                            />
-                          </div>
-                        )}
-                        <small className="text-muted d-block mt-50">
-                          {t("Capture a clear face photo for attendance face verification.")}
-                        </small>
-                      </div>
-                    </Row>
                   </Fragment>
                 )}
-
-                <FaceCaptureModal
-                  isOpen={faceModalOpen}
-                  toggle={() => setFaceModalOpen(false)}
-                  actionLabel={t("Register")}
-                  onCapture={(base64) => {
-                    setCapturedFaceImage(base64);
-                    setExistingFaceImage(null);
-                    setHasRegisteredFace(true);
-                    setFaceModalOpen(false);
-                  }}
-                />
 
                 <div className="main-form-btn">
                   <div className="form-btn mt-2">

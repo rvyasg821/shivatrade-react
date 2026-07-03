@@ -40,7 +40,6 @@ import AddressDetailsTab from "./tabs/AddressDetailsTab";
 import JobDetailsTab from "./tabs/JobDetailsTab";
 import FinancialDetailsTab from "./tabs/FinancialDetailsTab";
 import EmergencyContactTab from "./tabs/EmergencyContactTab";
-import FaceRegistrationTab from "./tabs/FaceRegistrationTab";
 
 // ** Styles
 import "@styles/react/apps/app-users.scss";
@@ -73,18 +72,6 @@ const EmployeeEdit = () => {
   const addressRef = useRef(null);
   const financialRef = useRef(null);
   const emergencyRef = useRef(null);
-  const faceRef = useRef(null);
-
-  const [faceCaptureEnabled, setFaceCaptureEnabled] = useState(false);
-  useEffect(() => {
-    // Face capture is gated on the attendance setting.
-    instance
-      .get(API_ENDPOINTS.attendance.settings)
-      .then((res) => {
-        if (res.data?.data?.face_capture_enabled) setFaceCaptureEnabled(true);
-      })
-      .catch(() => {});
-  }, []);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -156,9 +143,6 @@ const EmployeeEdit = () => {
     { key: "address", label: t("Address"), icon: MapPin },
     { key: "financial", label: t("Financial"), icon: DollarSign },
     { key: "emergency", label: t("Emergency"), icon: Users },
-    ...(faceCaptureEnabled && isEdit
-      ? [{ key: "faceid", label: t("Face ID"), icon: Camera }]
-      : []),
   ];
 
   const isFirst = activeStep === 0;
@@ -186,7 +170,6 @@ const EmployeeEdit = () => {
       address: addressRef,
       financial: financialRef,
       emergency: emergencyRef,
-      faceid: faceRef,
     };
     const r = refByStep[key];
     const d = r?.current ? await r.current.getData() : null;
@@ -326,19 +309,6 @@ const EmployeeEdit = () => {
               >
                 <EmergencyContactTab ref={emergencyRef} {...tabProps} />
               </div>
-
-              {faceCaptureEnabled && isEdit && (
-                <div
-                  style={{ display: stepKey === "faceid" ? "block" : "none" }}
-                >
-                  <FaceRegistrationTab
-                    ref={faceRef}
-                    {...tabProps}
-                    employeeId={employeeId}
-                    getBackendImageUrl={getBackendImageUrl}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Footer — single Save per step (drives the active step's form),
