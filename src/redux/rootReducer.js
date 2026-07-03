@@ -51,12 +51,6 @@ import payment from "@src/views/payment/store/";
 import locationContext from "./locationContext"
 import DashboardWidgets from '../views/dashboard/store/index'
 
-import AssessmentForms from "../views/assessmentforms/store/index";
-import SectionAssessment from "../views/assessmentforms/add/questionStore/index"
-import questionAssessment from "../views/assessmentforms/questions/store/index"
-import assessmentReport from "../views/assessmentforms/userAssest/store/index"
-import questionAnswer from "../views/assessmentforms/userAssest/step3/store/index"
-import answerSlice from "../views/assessmentforms/userAssest/reportAnswerStore/index"
 import holidayCalendar from "../views/holiday-calendar/store"
 import document from "../views/documents/store"
 import contract from "../views/contracts/store"
@@ -129,12 +123,6 @@ const rootReducer = {
   // tenantTools, // Multi-tenant removed
   toolSchedules,
   DashboardWidgets,
-  AssessmentForms,
-  SectionAssessment,
-  questionAssessment,
-  assessmentReport,
-  questionAnswer,
-  answerSlice,
   holidayCalendar,
   document,
   contract,

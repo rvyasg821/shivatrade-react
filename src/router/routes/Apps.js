@@ -142,14 +142,6 @@ const Subscription = lazy(() => import('@src/views/subscription/'));
 const EditSubscription = lazy(() => import('@src/views/subscription/add/'));
 const EditCompanyProfile = lazy(() => import('@src/views/auth/profile/tabView/'))
 
-const AssessmentForms = lazy(() => import('@src/views/assessmentforms'))
-const AddAssessmentForm = lazy(() => import('@src/views/assessmentforms/add'))
-const AddAssessmentFormDetail = lazy(() => import('@src/views/assessmentforms/detail'))
-const EditAssessmentForm = lazy(() => import('@src/views/assessmentforms/edit'))
-const AddQuestion = lazy(() => import('@src/views/assessmentforms/questions/AddQuestion'))
-const AssessmentReport = lazy(() => import('@src/views/assessmentforms/AssessmentReport'))
-const AssessmentReportDetail = lazy(() => import('@src/views/assessmentforms/AssessmentReport/detail'))
-
 const Payment = lazy(() => import('@src/views/payment/'));
 
 // HRM - Holiday Calendar (hidden — routes disabled)
@@ -1063,60 +1055,6 @@ const AppRoutes = [
       action: 'edit',
     },
   },
-  {
-    path: `${appsRoot}/assessment-forms`,
-    element: <AssessmentForms />,
-    // meta: {
-    //   permissionId: 'role',
-    //   action: 'list',
-    // },
-  },
-  {
-    path: `${appsRoot}/assessment-forms/add`,
-    element: <AddAssessmentForm />,
-    // meta: {
-    //   permissionId: 'role',
-    //   action: 'list',
-    // },
-  },
-  {
-    path: `${appsRoot}/assessment-forms/edit/:id`,
-    element: <EditAssessmentForm />,
-  },
-  {
-    path: `${appsRoot}/assessment-forms/detail/:id`,
-    element: <AddAssessmentFormDetail />,
-    // meta: {
-    //   permissionId: 'role',
-    //   action: 'list',
-    // },
-  },
-  // AddQuestion
-  {
-    path: `${appsRoot}/assessment-forms/questions/add`,
-    element: <AddQuestion />,
-  },
-  {
-    path: `${appsRoot}/assessment-forms/questions/edit/:questionId`,
-    element: <AddQuestion />,
-  },
-  {
-    path: `${appsRoot}/assessment-forms/assessment-reports/:id`,
-    element: <AssessmentReport />,
-    // meta: {
-    //   permissionId: 'role',
-    //   action: 'list',
-    // },
-  },
-  {
-    path: `${appsRoot}/assessment-forms/assessment-reports/detail/:id`,
-    element: <AssessmentReportDetail />,
-    // meta: {
-    //   permissionId: 'role',
-    //   action: 'list',
-    // },
-  },
-
   // Hidden HR tools — Holiday Calendar & Leave routes disabled
   /*
   // HRM - Holiday Calendar

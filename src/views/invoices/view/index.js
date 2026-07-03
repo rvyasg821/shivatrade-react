@@ -57,7 +57,7 @@ import { openPdfViewer } from "@src/utility/pdf";
 import Notification from "@components/toast/notification";
 import {
   appsRoot,
-  assessmentReportPdfUrl,
+  backendFilesBaseUrl,
   isAdminUser,
 } from "@constant/defaultValues";
 import {
@@ -218,7 +218,7 @@ const ViewInvoice = () => {
   const resolveAttachmentHref = (rel) => {
     if (!rel) return "";
     if (/^https?:\/\//i.test(rel)) return rel;
-    const base = (assessmentReportPdfUrl || "").replace(/\/$/, "");
+    const base = (backendFilesBaseUrl || "").replace(/\/$/, "");
     const path = rel.replace(/^\//, "").replace(/^assets\//, "");
     return `${base}/${path}`;
   };
