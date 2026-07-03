@@ -48,7 +48,6 @@ const EmployeeTabView = () => {
     leave: false,      // was: isSuperAdmin || hasTool("hrm-leave")
     documents: isSuperAdmin || hasTool("hrm-documents"),
     contracts: isSuperAdmin || hasTool("hrm-contracts"),
-    compliance: isSuperAdmin || hasTool("hrm-compliance"),
   };
 
   // Set default active tab to first visible tab
