@@ -42,6 +42,7 @@ import { appsRoot, appBaseName } from "@constant/defaultValues";
 // ** Styles
 import "@styles/react/pages/page-authentication.scss";
 import mainImage from "@src/assets/images/front/loginimg.png";
+import mainImageWebp from "@src/assets/images/front/loginimg.webp";
 import logoImage from "@src/assets/images/logo/login-logo.png";
 
 const Login = () => {
@@ -134,7 +135,18 @@ const Login = () => {
       <Row className="auth-inner main-left-right m-0">
         <div className="d-none d-lg-flex login-left">
           <div className="w-100 d-lg-flex justify-content-center">
-            <img className="img-fluid" src={mainImage} alt="Login Cover" width={780} height={900} />
+            <picture style={{ display: "contents" }}>
+              <source srcSet={mainImageWebp} type="image/webp" />
+              <img
+                className="img-fluid"
+                src={mainImage}
+                alt="Login Cover"
+                width={780}
+                height={900}
+                decoding="async"
+                fetchpriority="high"
+              />
+            </picture>
           </div>
         </div>
 
@@ -148,10 +160,11 @@ const Login = () => {
               className="w-100 d-lg-flex align-items-center mb-3 justify-content-center" 
               style={{ textAlign: "center" }}
             >
-              <img 
-                className="logo-login" 
-                src={logoImage} 
+              <img
+                className="logo-login"
+                src={logoImage}
                 alt="Logo Cover"
+                decoding="async"
                 style={{
                   width: "100%",
                   maxWidth: "300px",
@@ -213,9 +226,15 @@ const Login = () => {
                   )}
                 />
                 <FormFeedback>{errors.password?.message}</FormFeedback>
-                <Link to="/forgot-password" className="form-password">
-                  <small>{t("Forgot Password")}?</small>
-                </Link>
+                <div className="d-flex justify-content-end mt-1">
+                  <Link
+                    to="/forgot-password"
+                    className="form-password"
+                    style={{ display: "inline-block" }}
+                  >
+                    <small>{t("Forgot Password")}?</small>
+                  </Link>
+                </div>
               </div>
 
               <Button type="submit" block className="btn-custom">
