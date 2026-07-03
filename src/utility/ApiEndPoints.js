@@ -900,36 +900,4 @@ export const API_ENDPOINTS = {
     myPayslips: '/user/employee/payroll/my-payslips',
     myPayslipPdf: '/user/employee/payroll/my-payslips', // /:id/pdf
   },
-  compliance: {
-    // Dashboard
-    dashboard: '/admin/compliance/dashboard',
-    // Immigration
-    immigrationList: '/admin/compliance/immigration/list',
-    immigrationGet: '/admin/compliance/immigration/get',
-    immigrationUser: '/admin/compliance/immigration/user',
-    immigrationCreate: '/admin/compliance/immigration/create',
-    immigrationUpdate: '/admin/compliance/immigration/update',
-    immigrationDelete: '/admin/compliance/immigration/delete',
-    immigrationExpiring: '/admin/compliance/immigration/expiring',
-    // RTW Checks
-    rtwList: '/admin/compliance/rtw/list',
-    rtwGet: '/admin/compliance/rtw/get',
-    rtwCreate: '/admin/compliance/rtw/create',
-    rtwUpdate: '/admin/compliance/rtw/update',
-    rtwDelete: '/admin/compliance/rtw/delete',
-    // Compliance Events
-    eventList: '/admin/compliance/event/list',
-    eventGet: '/admin/compliance/event/get',
-    eventCreate: '/admin/compliance/event/create',
-    eventUpdate: '/admin/compliance/event/update',
-    eventReport: '/admin/compliance/event/report',
-    eventNotApplicable: '/admin/compliance/event/not-applicable',
-    eventDelete: '/admin/compliance/event/delete',
-    // Audit
-    auditList: '/admin/compliance/audit/list',
-    auditUser: '/admin/compliance/audit/user',
-    // Settings
-    settingsGet: '/admin/compliance/settings',
-    settingsUpdate: '/admin/compliance/settings',
-  },
 }

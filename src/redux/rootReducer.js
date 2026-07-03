@@ -63,7 +63,6 @@ import contract from "../views/contracts/store"
 import leave from "../views/leave/store"
 import attendance from "../views/attendance/store"
 import shift from "../views/shift/store"
-import compliance from "../views/compliance/store"
 import companyLookup from "../views/company-lookups/store"
 import companySettings from "../views/company-settings/store"
 import notificationSettings from "../views/company-settings/notificationStore"
@@ -142,7 +141,6 @@ const rootReducer = {
   leave,
   attendance,
   shift,
-  compliance,
   companyLookup,
   companySettings,
   notificationSettings,

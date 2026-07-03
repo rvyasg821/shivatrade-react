@@ -63,18 +63,6 @@ const Tabs = ({ active, toggleTab, toolFlags = {} }) => {
             </NavLink>
           </NavItem>
         )}
-
-        {toolFlags.compliance && (
-          <NavItem>
-            <NavLink
-              active={active === "compliance"}
-              onClick={() => toggleTab("compliance")}
-            >
-              <Shield className="font-medium-3 me-50" />
-              <span className="fw-bold">{t("Compliance")}</span>
-            </NavLink>
-          </NavItem>
-        )}
       </Nav>
     </Fragment>
   );

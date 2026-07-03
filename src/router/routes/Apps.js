@@ -185,9 +185,6 @@ const ShiftAdminPage = lazy(() => import('@src/views/shift/admin'));
 const CompanySettingsPage = lazy(() => import('@src/views/company-settings'));
 const CompanySetupPage = lazy(() => import('@src/views/company-setup'));
 
-// Home Office Compliance
-const CompliancePage = lazy(() => import('@src/views/compliance'));
-
 // Message Logs (Email / SMS / WhatsApp)
 const MessageLogList = lazy(() => import('@src/views/message-logs'));
 
@@ -1265,13 +1262,6 @@ const AppRoutes = [
   {
     path: `${appsRoot}/setup`,
     element: <CompanySetupPage />,
-  },
-
-  // Home Office Compliance
-  {
-    path: `${appsRoot}/compliance`,
-    element: <CompliancePage />,
-    meta: { permissionId: 'compliance', action: 'list', toolSlug: 'hrm-compliance' },
   },
 
   // Message Logs (single component, three routes - channel inferred from URL path)
