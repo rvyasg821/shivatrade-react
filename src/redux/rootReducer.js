@@ -16,9 +16,6 @@ import company from "@src/views/auth/profile/editCompany/store"
 import user from "@src/views/users/store";
 import role from "@src/views/roles/store";
 
-import country from "@src/views/countries/store";
-import states from "@src/views/states/store";
-import city from "@src/views/cities/store";
 import location from "@src/views/locations/store";
 import category from "@src/views/categories/store";
 import product from "@src/views/products/store";
@@ -102,9 +99,6 @@ const rootReducer = {
   calendar,
   dataTables,
   permissions,
-  country,
-  states,
-  city,
   location,
   category,
   product,
