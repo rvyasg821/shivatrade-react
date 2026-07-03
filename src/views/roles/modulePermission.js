@@ -32,7 +32,7 @@ const ALWAYS_VISIBLE_SLUGS = [
   "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
   "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
   "po-vendors", "inventory", "tracking",
-  "employee", // Hidden HR tools: "attendance", "leave", "holiday_calendar",
+  "employee", "attendance", "leave", "holiday_calendar",
 ];
 
 const ModulePermission = () => {
@@ -249,10 +249,9 @@ const ModulePermission = () => {
       title: t("People"),
       children: [
         { title: "Employee", slug: "employee" },
-        // Hidden: Attendance / Leave / Holiday Calendar (HR tools disabled)
-        // { title: "Attendance", slug: "attendance" },
-        // { title: "Leave Request", slug: "leave" },
-        // { title: "Holiday Calendar", slug: "holiday_calendar" },
+        { title: "Attendance", slug: "attendance" },
+        { title: "Leave Request", slug: "leave" },
+        { title: "Holiday Calendar", slug: "holiday_calendar" },
       ]
     },
     // Subscription group is Super Admin only (Company Admin manages subscription from profile)

@@ -43,9 +43,8 @@ const EmployeeTabView = () => {
     authUserItem?.isSystemUser === true;
 
   const toolFlags = {
-    // HR tools disabled — Attendance & Leave tabs hidden on the employee detail page.
-    attendance: false, // was: isSuperAdmin || hasTool("hrm-attendance")
-    leave: false,      // was: isSuperAdmin || hasTool("hrm-leave")
+    attendance: isSuperAdmin || hasTool("hrm-attendance"),
+    leave: isSuperAdmin || hasTool("hrm-leave"),
     documents: isSuperAdmin || hasTool("hrm-documents"),
     contracts: isSuperAdmin || hasTool("hrm-contracts"),
   };

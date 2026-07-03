@@ -86,6 +86,7 @@ const PoVendorView = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   const handleList = useCallback(
     (
@@ -194,6 +195,9 @@ const PoVendorView = () => {
       store?.actionFlag === "POV_CANCELLED"
     ) {
       handleList();
+      // KPI tiles fetch separately — force a re-fetch so counts reflect the
+      // deleted / cancelled POV.
+      setStatsRefreshKey((k) => k + 1);
     }
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
@@ -571,6 +575,7 @@ const PoVendorView = () => {
             setStatusFilter((prev) => (prev === csv ? "" : csv));
             setCurrentPage(1);
           }}
+          refreshKey={statsRefreshKey}
         />
 
         <Card className="overflow-hidden">
