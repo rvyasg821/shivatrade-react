@@ -10,7 +10,7 @@ const storageRefreshTokenKeyName = "refreshToken";
 const appBaseName = process.env?.REACT_APP_BASENAME || "";
 const hostRestApiPrefix = process.env?.REACT_APP_REST_API_URL_PREFIX || "";
 const hostRestApiUrl = process.env?.REACT_APP_REST_API_URL_ENDPOINT || "";
-const assessmentReportPdfUrl = process.env?.REACT_APP_BACKEND_REST_API_URL_PDF || ""
+const backendFilesBaseUrl = process.env?.REACT_APP_BACKEND_REST_API_URL_PDF || ""
 
 // Tax Configuration
 const taxLabel = process.env?.REACT_APP_TAX_LABEL || "VAT";
@@ -495,7 +495,7 @@ export {
   appBaseName,
   hostRestApiUrl,
   hostRestApiPrefix,
-  assessmentReportPdfUrl,
+  backendFilesBaseUrl,
   taxLabel,
   taxValue,
 

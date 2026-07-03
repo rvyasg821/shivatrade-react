@@ -13,7 +13,7 @@ import { Badge, UncontrolledTooltip } from "reactstrap";
 import { Paperclip, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
-import { assessmentReportPdfUrl } from "@constant/defaultValues";
+import { backendFilesBaseUrl } from "@constant/defaultValues";
 import { formatDateTime } from "@src/utility/dateFormat";
 
 // Backend stores `attachment_url` as a relative path (new rows:
@@ -23,7 +23,7 @@ import { formatDateTime } from "@src/utility/dateFormat";
 const resolveAttachmentHref = (rel) => {
   if (!rel) return "";
   if (/^https?:\/\//i.test(rel)) return rel;
-  const base = (assessmentReportPdfUrl || "").replace(/\/$/, "");
+  const base = (backendFilesBaseUrl || "").replace(/\/$/, "");
   const path = rel
     .replace(/^\//, "")
     .replace(/^assets\//, "");

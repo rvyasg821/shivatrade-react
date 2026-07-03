@@ -649,50 +649,6 @@ export const API_ENDPOINTS = {
     companyStats: '/admin/dashboard/company-stats',
     operationsStats: '/admin/dashboard/operations-stats',
   },
-  assessmentForms: {
-    list: '/admin/assessment/list',
-    delete: '/admin/assessment/delete',
-    create: '/admin/assessment/create',
-    get: "/admin/assessment/get",
-    update: "/admin/assessment/update"
-  },
-  sectionAssessment: {
-    byAssessment: "/admin/sections/by-assessment",
-    byQuestions: "/admin/questions/grouped-by-assessment",
-    deleteQuestion: "/admin/questions/delete",
-    sectionDelete: "/admin/sections/delete",
-    sectionCreate: "/admin/sections/create",
-    sectionUpdate: "/admin/sections/update",
-    bulkOrderUpdate: "/admin/questions/bulk-update-order",
-    updateSectionsOrder: "/admin/assessment/update-sections-order"
-  },
-  questionAssessment: {
-    sectionDropdown: "/admin/sections/dropdown",
-    createQuestion: "/admin/questions/create",
-    getQuestion: "/admin/questions/get",
-    updateQuestion: "/admin/questions/update",
-  },
-  assessmentReport: {
-    createReport: "/admin/assessment_reports/create",
-    verify: "/admin/assessment_reports/verify",
-    generatePdf: "/admin/assessment_reports/generate-pdf",
-    generatePdfEmail: "/admin/assessment_reports/generate-pdf-email",
-    reportlist: "/admin/assessment_reports/list",
-    deleteReport: "/admin/assessment_reports/delete",
-    getReportByID: "/admin/assessment_reports/get",
-    getQuestionsByReport: "/admin/assessment_reports/assessment-reports-questions",
-    getReportByID: "/admin/assessment_reports/get",
-    updateEmail: "/admin/assessment_reports/update",
-    getSingleReport: "/admin/assessment_reports/get/report"
-  },
-  questionAnswer: {
-    getQuestion: "/admin/assessment_reports/assessment-reports-questions"
-  },
-  questionCrud: {
-    createQuestion: "/admin/question-answers/create",
-    updateQuestion: "/admin/question-answers/update"
-  },
-
   // HRM: Holiday Calendar
   holidayCalendar: {
     list: '/admin/holiday-calendar/list',
