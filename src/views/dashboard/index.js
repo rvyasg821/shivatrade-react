@@ -360,13 +360,11 @@ const EmployeeDashboard = () => {
     const authStore = useSelector((s) => s.auth);
     const user = authStore?.authUserItem;
 
-    // HR tools (Attendance/Leave) disabled — dashboard widgets hidden, so skip
-    // fetching leave data (those endpoints are disabled).
-    // useEffect(() => {
-    //     dispatch(getLeaveTypeList());
-    //     dispatch(getMyLeaveBalance(new Date().getFullYear()));
-    //     dispatch(getMyLeaveRequests(new Date().getFullYear()));
-    // }, [dispatch]);
+    useEffect(() => {
+        dispatch(getLeaveTypeList());
+        dispatch(getMyLeaveBalance(new Date().getFullYear()));
+        dispatch(getMyLeaveRequests(new Date().getFullYear()));
+    }, [dispatch]);
 
     const leaveBalance = leaveStore?.myBalance || [];
     const leaveRequests = leaveStore?.myRequests || [];
@@ -378,9 +376,6 @@ const EmployeeDashboard = () => {
 
     return (
         <Fragment>
-            {/* HR tools disabled — Attendance clock-in + Leave sections hidden */}
-            {false && (
-              <Fragment>
                 <AttendancePage hideRecords />
 
                 <Row className="mt-2">
@@ -462,8 +457,6 @@ const EmployeeDashboard = () => {
                     </Card>
                 </Col>
                 </Row>
-              </Fragment>
-            )}
         </Fragment>
     );
 };

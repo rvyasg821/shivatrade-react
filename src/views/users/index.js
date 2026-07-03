@@ -167,7 +167,11 @@ const UserList = (props) => {
   useEffect(() => {
     if (roleStore?.roleItems?.length) {
       const options = roleStore.roleItems
-        .filter((role) => role.name !== 'Employee')
+        // Users screen manages ADMINS only — staff (Employee + any custom
+        // company role) live on the Employees screen. Built-in admin roles
+        // (e.g. Location Admin) have companyId = null; custom company roles
+        // carry a companyId. Same rule as the Add-User role dropdown.
+        .filter((role) => role.name !== 'Employee' && !role.companyId)
         .map((role) => ({
           value: role._id,
           label: role.name,
