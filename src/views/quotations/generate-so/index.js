@@ -91,21 +91,24 @@ const GenerateSalesOrder = () => {
     () => getCurrencySymbol(q?.currency_code) || q?.currency_symbol || "",
     [q?.currency_code, q?.currency_symbol]
   );
-  const grandTotal = Number(q?.grand_total) || 0;
+  // The backend rounds the Sales Order grand_total to a whole number on
+  // create, so the order total we preview + pay against is the rounded value.
+  // (New quotations are already whole; older ones may still store e.g. 80.44,
+  // but the SO they generate becomes 80 — so preview/full-payment must use 80.)
+  const grandTotal = Math.round(Number(q?.grand_total) || 0);
 
   // Advance may equal the order total (full prepayment) but not exceed it.
-  // Compare in whole cents so float noise (e.g. 55723.2) doesn't trip it.
   const advanceTooHigh =
     advanceAmount !== "" &&
     grandTotal > 0 &&
-    Math.round(Number(advanceAmount) * 100) > Math.round(grandTotal * 100);
+    Number(advanceAmount) > grandTotal;
 
-  // "Full payment" = advance equals the order total (to the cent). Derived,
+  // "Full payment" = advance equals the (whole-number) order total. Derived,
   // so typing the exact total also ticks the box and editing it unticks.
   const isFullPayment =
     advanceAmount !== "" &&
     grandTotal > 0 &&
-    Math.round(Number(advanceAmount) * 100) === Math.round(grandTotal * 100);
+    Number(advanceAmount) === grandTotal;
 
   const canCreate =
     !creating && !!deliveryAddressId && !advanceTooHigh && !hasExistingSo;
@@ -306,6 +309,10 @@ const GenerateSalesOrder = () => {
                 />
                 {advanceTooHigh ? (
                   <small className="text-danger">
+                    {/* Show the true stored total. The backend now rounds the
+                        grand_total to a whole number at quotation/SO/invoice,
+                        so new docs are already whole; older docs show their
+                        real (pre-rounding) value until recomputed. */}
                     {t("Cannot exceed the order total")} ({sym}
                     {grandTotal.toLocaleString()})
                   </small>
@@ -326,9 +333,7 @@ const GenerateSalesOrder = () => {
                       checked={isFullPayment}
                       onChange={(e) =>
                         setAdvanceAmount(
-                          e.target.checked
-                            ? String(Math.round(grandTotal * 100) / 100)
-                            : ""
+                          e.target.checked ? String(grandTotal) : ""
                         )
                       }
                     />

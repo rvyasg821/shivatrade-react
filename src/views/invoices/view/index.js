@@ -294,11 +294,17 @@ const ViewInvoice = () => {
   // proper doc-currency values instead of the legacy INR-mixed numbers
   // that the BE stores on the header row.
   const fobDoc = subtotalDoc - num(inv?.discount_total);
-  const grandDoc =
+  // Un-rounded doc-currency total (sum of FOB + charges) …
+  const rawGrandDoc =
     fobDoc +
     num(inv?.freight_charges) +
     num(inv?.insurance_charges) +
     num(inv?.other_charges);
+  // … then round the grand total to a whole number to mirror the backend
+  // (invoice recompute uses Math.round). The difference is shown as a
+  // transparent "Round Off" line so Subtotal/FOB still reconcile with the lines.
+  const grandDoc = Math.round(rawGrandDoc);
+  const roundOffDoc = grandDoc - rawGrandDoc;
   const balanceDoc = grandDoc - num(inv?.advance_received);
   const grandInr = exchangeRate > 0 ? grandDoc / exchangeRate : grandDoc;
 
@@ -1056,6 +1062,16 @@ const ViewInvoice = () => {
                           <div className="d-flex justify-content-between small text-muted">
                             <span>{t("INR equivalent")}</span>
                             <span>₹{fmt(grandInr)}</span>
+                          </div>
+                        )}
+                        {Math.abs(roundOffDoc) >= 0.005 && (
+                          <div className="d-flex justify-content-between py-25 text-muted">
+                            <span>{t("Round Off")}</span>
+                            <span>
+                              {roundOffDoc < 0 ? "− " : "+ "}
+                              {sym}
+                              {fmt(Math.abs(roundOffDoc))}
+                            </span>
                           </div>
                         )}
                         <div className="d-flex justify-content-between py-25">
