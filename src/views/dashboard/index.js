@@ -376,6 +376,11 @@ const EmployeeDashboard = () => {
 
     return (
         <Fragment>
+                {/* Whole HR block (Clock-In + Leave Balance + My Leave Requests)
+                    hidden on the employee dashboard per request 2026-07-06.
+                    Flip `false` to true to restore. */}
+                {false && (
+                <Fragment>
                 <AttendancePage hideRecords />
 
                 <Row className="mt-2">
@@ -457,6 +462,8 @@ const EmployeeDashboard = () => {
                     </Card>
                 </Col>
                 </Row>
+                </Fragment>
+                )}
         </Fragment>
     );
 };

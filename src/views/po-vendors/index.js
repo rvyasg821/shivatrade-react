@@ -73,6 +73,8 @@ const PoVendorView = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((s) => s.poVendor);
+  const creatorCtx = useSelector((s) => s.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const vendorStore = useSelector((s) => s.vendor);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
@@ -111,6 +113,7 @@ const PoVendorView = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
+      params.created_by = selectedCreator;
       dispatch(getPoVendorList(params));
     },
     [
@@ -123,6 +126,7 @@ const PoVendorView = () => {
       statusFilter,
       dateFrom,
       dateTo,
+      selectedCreator,
       dispatch,
     ]
   );
@@ -184,7 +188,7 @@ const PoVendorView = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, vendorFilter, statusFilter, dateFrom, dateTo]);
+  }, [searchInput, vendorFilter, statusFilter, dateFrom, dateTo, selectedCreator]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -569,6 +573,7 @@ const PoVendorView = () => {
             date_from: dateFrom || undefined,
             date_to: dateTo || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {

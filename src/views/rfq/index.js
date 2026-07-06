@@ -63,6 +63,8 @@ const RfqList = () => {
   const dispatch = useDispatch();
   const store = useSelector((state) => state.rfq);
   const authStore = useSelector((state) => state.auth);
+  const creatorCtx = useSelector((state) => state.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authUserItem = authStore?.authUserItem || null;
 
   const [sort, setSort] = useState("desc");
@@ -90,10 +92,11 @@ const RfqList = () => {
           perPage,
           search,
           status,
+          created_by: selectedCreator,
         })
       );
     },
-    [sort, sortColumn, currentPage, rowsPerPage, searchInput, statusFilter, dispatch]
+    [sort, sortColumn, currentPage, rowsPerPage, searchInput, statusFilter, selectedCreator, dispatch]
   );
 
   const handleSort = (column, sortDirection) => {
@@ -128,7 +131,7 @@ const RfqList = () => {
       handleRfqLists(sort, sortColumn, 1, rowsPerPage, searchInput, statusFilter);
     }
     return () => clearTimeout(handler);
-  }, [searchInput, statusFilter]);
+  }, [searchInput, statusFilter, selectedCreator]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -318,6 +321,7 @@ const RfqList = () => {
           filters={{
             status: statusFilter || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {

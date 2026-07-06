@@ -59,6 +59,8 @@ const LeadList = () => {
     (state) => state.currency?.exchangeOptions || []
   );
   const authStore = useSelector((state) => state.auth);
+  const creatorCtx = useSelector((state) => state.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authUserItem = authStore?.authUserItem || null;
 
   const [sort, setSort] = useState("desc");
@@ -89,6 +91,7 @@ const LeadList = () => {
           search,
           status,
           source,
+          created_by: selectedCreator,
         })
       );
     },
@@ -100,6 +103,7 @@ const LeadList = () => {
       searchInput,
       statusFilter,
       sourceFilter,
+      selectedCreator,
       dispatch,
     ]
   );
@@ -152,7 +156,7 @@ const LeadList = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, statusFilter, sourceFilter]);
+  }, [searchInput, statusFilter, sourceFilter, selectedCreator]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -559,6 +563,7 @@ const LeadList = () => {
             status: statusFilter || undefined,
             source: sourceFilter || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {

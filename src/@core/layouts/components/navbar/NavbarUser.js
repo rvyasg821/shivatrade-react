@@ -1,5 +1,6 @@
 // import IntlDropdown from './IntlDropdown';
 import LocationSelector from './LocationSelector';
+import CreatorSelector from './CreatorSelector';
 import UserDropdown from './UserDropdown';
 
 // ** Third Party Components
@@ -27,6 +28,7 @@ const NavbarUser = props => {
   return (
     <ul className='nav navbar-nav align-items-center ms-auto'>
       <LocationSelector className='me-1' />
+      <CreatorSelector className='me-1' />
       {/* <IntlDropdown /> */}
       <NavItem className='d-none d-lg-block'>
         <NavLink className='nav-link-style'>

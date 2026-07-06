@@ -50,6 +50,8 @@ const InvoicesList = () => {
   const dispatch = useDispatch();
 
   const store = useSelector((s) => s.invoice);
+  const creatorCtx = useSelector((s) => s.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -89,6 +91,7 @@ const InvoicesList = () => {
       if (from) params.date_from = from;
       if (to) params.date_to = to;
       if (poFilter) params.purchase_order_id = poFilter;
+      params.created_by = selectedCreator;
       dispatch(getInvoiceList(params));
     },
     [
@@ -101,6 +104,7 @@ const InvoicesList = () => {
       dateFrom,
       dateTo,
       poFilter,
+      selectedCreator,
       dispatch,
     ]
   );
@@ -158,7 +162,7 @@ const InvoicesList = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, statusFilter, dateFrom, dateTo, poFilter]);
+  }, [searchInput, statusFilter, dateFrom, dateTo, poFilter, selectedCreator]);
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
@@ -412,6 +416,7 @@ const InvoicesList = () => {
             date_from: dateFrom || undefined,
             date_to: dateTo || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {

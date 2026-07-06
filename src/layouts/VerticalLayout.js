@@ -6,6 +6,7 @@ import { Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { getAuthMe } from '@src/views/auth/store';
 import { initLocationContext } from '@src/redux/locationContext';
+import { initCreatorContext } from '@src/redux/creatorContext';
 
 // ** Core Layout Import
 // !Do not remove the Layout import
@@ -168,6 +169,7 @@ const VerticalLayout = (props) => {
   useEffect(() => {
     if (store?.actionFlag === "AUTH_ME_SCS" && store?.authUserItem?._id) {
       dispatch(initLocationContext(store.authUserItem));
+      dispatch(initCreatorContext(store.authUserItem));
     }
   }, [store?.actionFlag, dispatch]);
 

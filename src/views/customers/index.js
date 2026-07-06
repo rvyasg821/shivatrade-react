@@ -43,6 +43,8 @@ const CustomerList = () => {
   const dispatch = useDispatch();
   const store = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
+  const creatorCtx = useSelector((state) => state.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authUserItem = authStore?.authUserItem || null;
 
   const [sort, setSort] = useState("desc");
@@ -69,10 +71,11 @@ const CustomerList = () => {
           perPage,
           search,
           status,
+          created_by: selectedCreator,
         })
       );
     },
-    [sort, sortColumn, currentPage, rowsPerPage, searchInput, statusFilter, dispatch]
+    [sort, sortColumn, currentPage, rowsPerPage, searchInput, statusFilter, selectedCreator, dispatch]
   );
 
   const handleSort = (column, sortDirection) => {
@@ -107,7 +110,7 @@ const CustomerList = () => {
       handleCustomerLists(sort, sortColumn, 1, rowsPerPage, searchInput, statusFilter);
     }
     return () => clearTimeout(handler);
-  }, [searchInput, statusFilter]);
+  }, [searchInput, statusFilter, selectedCreator]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
