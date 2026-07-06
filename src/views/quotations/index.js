@@ -66,6 +66,8 @@ const QuotationView = () => {
   const store = useSelector((state) => state.quotation);
   const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
+  const creatorCtx = useSelector((state) => state.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authUserItem = authStore?.authUserItem || null;
 
   const [sort, setSort] = useState("desc");
@@ -116,6 +118,7 @@ const QuotationView = () => {
       if (from) params.date_from = from;
       if (to) params.date_to = to;
       if (leadFilter) params.lead_id = leadFilter;
+      params.created_by = selectedCreator;
       dispatch(getQuotationList(params));
     },
     [
@@ -129,6 +132,7 @@ const QuotationView = () => {
       dateFrom,
       dateTo,
       leadFilter,
+      selectedCreator,
       dispatch,
     ]
   );
@@ -190,7 +194,7 @@ const QuotationView = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo, leadFilter]);
+  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo, leadFilter, selectedCreator]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -506,6 +510,7 @@ const QuotationView = () => {
             date_from: dateFrom || undefined,
             date_to: dateTo || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {

@@ -133,6 +133,9 @@ export const API_ENDPOINTS = {
     delete: `/modules/master/cities`,
     drpdwn: `/modules/master/cities/dropdown`,
   },
+  creator: {
+    roster: `/admin/creator/roster`,
+  },
   locations: {
     list: `/admin/location/list`,
     get: `/admin/location/get`,

@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout, getAuthMe, cleanAuthMessage } from "@src/views/auth/store";
 import { clearLocationContext } from "@src/redux/locationContext";
+import { clearCreatorContext } from "@src/redux/creatorContext";
 
 // ** Reactstrap Imports
 import {
@@ -43,6 +44,7 @@ const UserDropdown = () => {
 
   const handleLogout = () => {
     dispatch(clearLocationContext()); // Reset so next user gets a fresh location context
+    dispatch(clearCreatorContext()); // Reset the Created-By selection for the next user
     dispatch(logout());
   }
 

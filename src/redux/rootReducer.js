@@ -49,6 +49,7 @@ import toolSchedules from "@src/views/tool-schedule/store";
 import subscription from "@src/views/subscription/store/";
 import payment from "@src/views/payment/store/";
 import locationContext from "./locationContext"
+import creatorContext from "./creatorContext"
 import DashboardWidgets from '../views/dashboard/store/index'
 
 import holidayCalendar from "../views/holiday-calendar/store"
@@ -114,6 +115,7 @@ const rootReducer = {
   invoice,
   trackingEvent,
   locationContext,
+  creatorContext,
   employee,
   setting,
   deleteImage,

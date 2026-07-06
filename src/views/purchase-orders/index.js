@@ -74,6 +74,8 @@ const PurchaseOrderView = () => {
   const store = useSelector((state) => state.purchaseOrder);
   const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
+  const creatorCtx = useSelector((state) => state.creatorContext);
+  const selectedCreator = creatorCtx?.selectedCreator || "all";
   const authUserItem = authStore?.authUserItem || null;
 
   const [sort, setSort] = useState("desc");
@@ -110,6 +112,7 @@ const PurchaseOrderView = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
+      params.created_by = selectedCreator;
       dispatch(getPurchaseOrderList(params));
     },
     [
@@ -122,6 +125,7 @@ const PurchaseOrderView = () => {
       statusFilter,
       dateFrom,
       dateTo,
+      selectedCreator,
       dispatch,
     ]
   );
@@ -183,7 +187,7 @@ const PurchaseOrderView = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo]);
+  }, [searchInput, customerFilter, statusFilter, dateFrom, dateTo, selectedCreator]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -493,6 +497,7 @@ const PurchaseOrderView = () => {
             date_from: dateFrom || undefined,
             date_to: dateTo || undefined,
             search: searchInput || undefined,
+            created_by: selectedCreator,
           }}
           activeStatuses={statusFilter || ""}
           onStatusClick={(csv) => {
