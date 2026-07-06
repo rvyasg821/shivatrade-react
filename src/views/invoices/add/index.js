@@ -1066,7 +1066,9 @@ const InvoiceAddEdit = () => {
     const rate = num(form.exchange_rate) || 1;
     const subtotal = round2(subtotalInr * rate); // in doc currency
     const fob = round2(subtotal - num(form.discount_total));
-    const grand = round2(
+    // Whole-number customer-currency grand total, mirroring the backend
+    // invoice recompute (Math.round) so the preview matches what's saved.
+    const grand = Math.round(
       fob +
         num(form.freight_charges) +
         num(form.insurance_charges) +
