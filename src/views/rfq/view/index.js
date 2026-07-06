@@ -154,6 +154,11 @@ const RfqView = () => {
 
   // Seed the editable grid from the RFQ's stored prices whenever it loads.
   // Skipped in draft mode (no RFQ yet — the operator types fresh prices).
+  // NOTE: `isDraft` MUST be a dependency. On a draft's first save, the store's
+  // rfqItem is already the final RFQ (id + prices set) BEFORE we navigate, so
+  // rfq._id / rfq.prices.length don't change across the draft→saved flip — only
+  // isDraft does. Without it here, the grid keeps the stale draft (lead-line)
+  // keys and every price reads blank after saving.
   useEffect(() => {
     if (isDraft || !rfq) return;
     const m = {};
@@ -161,7 +166,7 @@ const RfqView = () => {
       m[key(p.rfq_line_id, p.vendor_id)] = limit2(p.unit_price ?? "");
     }
     setPriceMap(m);
-  }, [rfq?._id, rfq?.prices?.length]);
+  }, [rfq?._id, rfq?.prices?.length, isDraft]);
 
   // Authoritative per-vendor checkbox seed. Rebuilds each vendor's ticks from
   // its persisted checked_line_ids whenever the server data changes — keyed on
@@ -513,16 +518,40 @@ const RfqView = () => {
         );
         return null;
       }
-      // Map each draft price's lead-line ref to the freshly-created
-      // rfq_line_id (the new lines carry lead_line_id back).
-      const lineByLead = {};
-      for (const rl of newRfq.lines || []) {
-        if (rl.lead_line_id) lineByLead[rl.lead_line_id] = rl._id;
-      }
+      // Resolve each draft (lead) line to the freshly-created rfq_line_id.
+      // Primary key is lead_line_id (the new lines carry it back); fall back to
+      // product_id, then row order, so a typed price is NEVER silently dropped
+      // if the lead→rfq line link is missing — that was wiping prices on the
+      // first save.
+      const rfqLines = newRfq.lines || [];
+      const rfqLineByLead = {};
+      const rfqLineByProduct = {};
+      rfqLines.forEach((rl) => {
+        if (rl.lead_line_id) rfqLineByLead[rl.lead_line_id] = rl._id;
+        if (rl.product_id && !(rl.product_id in rfqLineByProduct)) {
+          rfqLineByProduct[rl.product_id] = rl._id;
+        }
+      });
+      // Draft lead line _id → { product_id, index } (same order the backend
+      // created the RFQ lines in).
+      const leadMeta = {};
+      lines.forEach((l, idx) => {
+        leadMeta[l._id] = { product_id: l.product_id, idx };
+      });
+      const resolveRfqLineId = (leadLineId) => {
+        if (rfqLineByLead[leadLineId]) return rfqLineByLead[leadLineId];
+        const meta = leadMeta[leadLineId];
+        if (!meta) return null;
+        if (meta.product_id && rfqLineByProduct[meta.product_id]) {
+          return rfqLineByProduct[meta.product_id];
+        }
+        return rfqLines[meta.idx]?._id || null;
+      };
+
       const collected = collectPrices();
       const mapped = collected
         .map((p) => ({
-          rfq_line_id: lineByLead[p.lineRef],
+          rfq_line_id: resolveRfqLineId(p.lineRef),
           vendor_id: p.vendor_id,
           unit_price: p.unit_price,
         }))
@@ -530,7 +559,7 @@ const RfqView = () => {
       const checks = checkedByVendor[activeVendorId] || {};
       const checkedLineIds = lines
         .filter((l) => checks[l._id])
-        .map((l) => lineByLead[l._id])
+        .map((l) => resolveRfqLineId(l._id))
         .filter(Boolean);
       if (mapped.length || checkedLineIds.length) {
         // setRfqPrices (RFQ_PRC) fires its own success toast — that's the one
