@@ -80,7 +80,7 @@ const STEPS = [
     key: "company",
     label: "Company & Contacts",
     icon: Briefcase,
-    fields: ["company_name", "vendor_code", "category_ids", "status", "contacts"],
+    fields: ["company_name", "vendor_code", "gstin", "category_ids", "status", "contacts"],
   },
   {
     key: "addresses",
@@ -161,6 +161,11 @@ const VendorForm = () => {
           .trim()
           .max(50, t("Vendor code must be at most 50 characters")),
         website: yup.string().trim().nullable().notRequired(),
+        gstin: yup
+          .string()
+          .trim()
+          .required(t("GST number is required"))
+          .max(15, t("GSTIN must be at most 15 characters")),
         category_ids: yup.array().of(yup.string()).nullable().notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
         incoterms: yup.string().nullable().notRequired(),
@@ -609,6 +614,32 @@ const VendorForm = () => {
                           />
                         )}
                       />
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label" for="gstin">
+                        {t("GST Number (GSTIN)")}{" "}
+                        <span className="text-danger">*</span>
+                      </Label>
+                      <Controller
+                        name="gstin"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            id="gstin"
+                            maxLength={15}
+                            placeholder="22AAAAA0000A1Z5"
+                            invalid={!!errors.gstin}
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        )}
+                      />
+                      {errors.gstin && (
+                        <FormFeedback className="d-block">
+                          {errors.gstin.message}
+                        </FormFeedback>
+                      )}
                     </Col>
 
                     <Col md="6" className="mb-2">
@@ -1406,24 +1437,6 @@ const VendorForm = () => {
                 <Fragment>
                   <h4 className="mt-1 mb-2">{t("Tax & Compliance")}</h4>
                   <Row>
-                    <Col md="6" className="mb-2">
-                      <Label className="form-label" for="gstin">
-                        {t("GSTIN")}
-                      </Label>
-                      <Controller
-                        name="gstin"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            id="gstin"
-                            maxLength={15}
-                            placeholder="22AAAAA0000A1Z5"
-                            {...field}
-                            value={field.value || ""}
-                          />
-                        )}
-                      />
-                    </Col>
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="pan">
                         {t("PAN")}
