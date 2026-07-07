@@ -4,7 +4,7 @@
 // they reflect the listing's active filters (the parent re-fetches stats
 // whenever a filter changes).
 //
-//   • Stock Value (₹)   — Σ(received_qty × unit_price), goods-inward valuation
+//   • Stock Value (₹)   — current on-hand valuation (net qty × wavg received price)
 //   • Stock Lines       — receipt lines in the filtered set
 //   • Distinct Products — SKUs in stock
 //   • Vendors           — vendors supplying the current stock
@@ -96,9 +96,9 @@ const InventoryStatsCards = ({ stats }) => {
       <Tile
         icon={DollarSign}
         color="success"
-        label="Stock Value"
+        label="Current Stock Value"
         value={formatIndianMoney(num(stats?.stock_value))}
-        subtitle="Received & accepted (INR)"
+        subtitle="On-hand stock (INR)"
       />
       <Tile
         icon={Layers}
