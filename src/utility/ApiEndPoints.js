@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
   },
   customers: {
     list: `/admin/customer/list`,
+    stats: `/admin/customer/stats`,
     get: `/admin/customer/get`, // append /:id
     create: `/admin/customer/create`,
     update: `/admin/customer/update`, // append /:id
@@ -335,6 +336,7 @@ export const API_ENDPOINTS = {
   },
   customers: {
     list: `/admin/customer/list`,
+    stats: `/admin/customer/stats`,
     get: `/admin/customer/get`,
     create: `/admin/customer/create`,
     update: `/admin/customer/update`,
