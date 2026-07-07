@@ -52,7 +52,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatDate } from "@src/utility/dateFormat";
 import ImportModal from "./components/ImportModal";
-import PriceHistoryModal from "./components/PriceHistoryModal";
+import PriceHistoryDrawer from "./components/PriceHistoryDrawer";
 
 const PriceListView = () => {
   const { t } = useTranslation();
@@ -75,7 +75,7 @@ const PriceListView = () => {
   const [productFilter, setProductFilter] = useState("");
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  // Per-row price history modal target: { vendorId, productId, title } | null.
+  // Per-row price history drawer target: { vendorId, productId, title } | null.
   const [historyTarget, setHistoryTarget] = useState(null);
 
   const handleList = useCallback(
@@ -600,7 +600,7 @@ const PriceListView = () => {
         onSuccess={() => handleList()}
       />
 
-      <PriceHistoryModal
+      <PriceHistoryDrawer
         open={!!historyTarget}
         toggle={() => setHistoryTarget(null)}
         vendorId={historyTarget?.vendorId}

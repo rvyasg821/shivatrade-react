@@ -486,9 +486,16 @@ export const appPoVendorSlice = createSlice({
         // Doesn't replace poVendorItem — the user is on the PO detail page
         // and stays there. Listeners watch actionFlag = 'POV_RECOVERED' to
         // know to refresh coverage / POV list.
+        //
+        // Deliberately does NOT set `success`: no page consumes the recover
+        // success message (the generate-pov page has no watcher; the SO detail
+        // it returns to watches the purchaseOrder slice, not this one), so a
+        // lingering success string would leak out as a stray toast the next
+        // time the POV listing (which watches this slice) mounts. The user
+        // feedback for a successful recover is the redirect + refreshed
+        // coverage, not a toast.
         state.loading = true;
         state.actionFlag = action.payload.actionFlag;
-        state.success = action.payload.success;
         state.error = action.payload.error;
       })
       .addCase(recoverPoVendors.rejected, (state, action) => {
