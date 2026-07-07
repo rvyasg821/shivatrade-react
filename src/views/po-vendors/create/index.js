@@ -524,6 +524,7 @@ const CreatePoVendor = () => {
             ordered_qty: String(num(r.qty)),
             unit_price: String(num(r.unit_price)),
             description: r.product_name || undefined,
+            part_no: r.part_no || undefined,
             hsn_code: r.hsn_code || undefined,
             unit: r.unit || undefined,
             tax_pct: r.tax_pct != null ? String(r.tax_pct) : undefined,
@@ -757,14 +758,19 @@ const CreatePoVendor = () => {
                     <th>
                       {t("Product")} <span className="text-danger">*</span>
                     </th>
-                    <th style={{ width: 80 }}>{t("UOM")}</th>
-                    <th style={{ width: 120 }} className="text-end">
+                    <th style={{ width: 120 }}>{t("Part No")}</th>
+                    <th style={{ width: 100 }}>{t("HSN")}</th>
+                    <th style={{ width: 70 }}>{t("UOM")}</th>
+                    <th style={{ width: 100 }} className="text-end">
                       {t("Qty")} <span className="text-danger">*</span>
                     </th>
-                    <th style={{ width: 130 }} className="text-end">
+                    <th style={{ width: 110 }} className="text-end">
                       {t("Rate")} (₹) <span className="text-danger">*</span>
                     </th>
-                    <th style={{ width: 120 }} className="text-end">
+                    <th style={{ width: 80 }} className="text-end">
+                      {t("GST")} %
+                    </th>
+                    <th style={{ width: 110 }} className="text-end">
                       {t("Amount")} (₹)
                     </th>
                     <th style={{ width: 40 }} />
@@ -795,13 +801,28 @@ const CreatePoVendor = () => {
                               : t("Select product")
                           }
                         />
-                        {(r.part_no || r.hsn_code) && (
-                          <small className="text-muted">
-                            {r.part_no ? `${t("Part")}: ${r.part_no}` : ""}
-                            {r.part_no && r.hsn_code ? " · " : ""}
-                            {r.hsn_code ? `HSN: ${r.hsn_code}` : ""}
-                          </small>
-                        )}
+                      </td>
+                      <td>
+                        <Input
+                          type="text"
+                          bsSize="sm"
+                          disabled={!r.product_id}
+                          value={r.part_no}
+                          onChange={(e) =>
+                            setRow(r.key, { part_no: e.target.value })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <Input
+                          type="text"
+                          bsSize="sm"
+                          disabled={!r.product_id}
+                          value={r.hsn_code}
+                          onChange={(e) =>
+                            setRow(r.key, { hsn_code: e.target.value })
+                          }
+                        />
                       </td>
                       <td className="text-muted">{r.unit || "-"}</td>
                       <td>
@@ -828,6 +849,20 @@ const CreatePoVendor = () => {
                           onChange={(e) => setRow(r.key, { unit_price: e.target.value })}
                         />
                       </td>
+                      <td>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          bsSize="sm"
+                          className="text-end"
+                          disabled={!r.product_id}
+                          value={r.tax_pct}
+                          onChange={(e) =>
+                            setRow(r.key, { tax_pct: e.target.value })
+                          }
+                        />
+                      </td>
                       <td className="text-end fw-bold">
                         {(num(r.qty) * num(r.unit_price)).toLocaleString()}
                       </td>
@@ -847,7 +882,7 @@ const CreatePoVendor = () => {
                 </tbody>
                 <tfoot>
                   <tr className="table-light fw-bold">
-                    <td colSpan={5} className="text-end">
+                    <td colSpan={8} className="text-end">
                       {t("Total")}
                     </td>
                     <td className="text-end">{standaloneTotal.toLocaleString()}</td>

@@ -480,7 +480,9 @@ const PoVendorRecoverModal = ({
                   <tr>
                     <th style={{ width: 30 }}>#</th>
                     <th>{t("Product")}</th>
-                    <th style={{ width: 80 }}>{t("Unit")}</th>
+                    <th style={{ width: 100 }}>{t("Part No")}</th>
+                    <th style={{ width: 80 }}>{t("HSN")}</th>
+                    <th style={{ width: 70 }}>{t("Unit")}</th>
                     <th style={{ width: 90 }} className="text-end">
                       {t("Required")}
                     </th>
@@ -490,9 +492,12 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 90 }} className="text-end">
                       {t("To Procure")}
                     </th>
-                    <th style={{ minWidth: 280 }}>{t("Vendor")} (₹)</th>
-                    <th style={{ width: 110 }} className="text-end">
+                    <th style={{ minWidth: 240 }}>{t("Vendor")} (₹)</th>
+                    <th style={{ width: 100 }} className="text-end">
                       {t("Rate")}
+                    </th>
+                    <th style={{ width: 60 }} className="text-end">
+                      {t("GST")} %
                     </th>
                     <th style={{ width: 70 }} className="text-center">
                       {t("Action")}
@@ -531,12 +536,9 @@ const PoVendorRecoverModal = ({
                               {l.product_code}
                             </small>
                           )}
-                          {l?.hsn_code && (
-                            <div className="small text-muted">
-                              HSN: {l.hsn_code}
-                            </div>
-                          )}
                         </td>
+                        <td className="text-muted">{l?.part_no || "-"}</td>
+                        <td className="text-muted">{l?.hsn_code || "-"}</td>
                         <td>{l?.unit || "-"}</td>
                         <td className="text-end fw-semibold">
                           {num(l.pending_qty).toLocaleString()}
@@ -615,6 +617,9 @@ const PoVendorRecoverModal = ({
                         </td>
                         <td className="text-end">
                           {rate > 0 ? `₹${fmt(rate)}` : "-"}
+                        </td>
+                        <td className="text-end text-muted">
+                          {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
                         </td>
                         <td className="text-center">
                           {isDropped ? (
