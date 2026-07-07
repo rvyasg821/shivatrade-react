@@ -437,6 +437,7 @@ const CostingWorksheet = ({
     totexp: 110,
     reb: 96,
     margin: 70,
+    marginAmt: 96,
     grand: 120,
     rateDoc: 92,
     amt: 110,
@@ -531,6 +532,7 @@ const CostingWorksheet = ({
             <col style={{ width: W.totexp }} />
             <col style={{ width: W.reb }} />
             <col style={{ width: W.margin }} />
+            <col style={{ width: W.marginAmt }} />
             <col style={{ width: W.grand }} />
             {isForeign && <col style={{ width: W.rateDoc }} />}
             <col style={{ width: W.amt }} />
@@ -555,6 +557,7 @@ const CostingWorksheet = ({
               <th className="text-end">{t("Total+Exp")}</th>
               <th className="text-end">{t("Rebate")}</th>
               <th className="text-end">{t("Margin%")}</th>
+              <th className="text-end">{t("Margin")} ₹</th>
               <th className="text-end">{t("Grand Total")}</th>
               {isForeign && (
                 <th className="text-end">
@@ -748,6 +751,7 @@ const CostingWorksheet = ({
                         onCommit={(v) => setField(idx, "margin_pct", v)}
                       />
                     </td>
+                    <td className="text-end ws-calc">{money(c.margin)}</td>
                     <td className="text-end ws-calc fw-bold">
                       {money(grandInr)}
                     </td>
@@ -822,6 +826,7 @@ const CostingWorksheet = ({
                 <td className="text-end">{money(totals.totalAfterExp)}</td>
                 <td className="text-end">{money(totals.rebate)}</td>
                 <td />
+                <td className="text-end">{money(totals.margin)}</td>
                 <td className="text-end ws-foot-grand">{money(totals.grand)}</td>
                 {isForeign && <td />}
                 <td className="text-end ws-foot-grand">
