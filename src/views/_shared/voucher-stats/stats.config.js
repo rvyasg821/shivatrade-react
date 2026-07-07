@@ -26,6 +26,39 @@
 // + the endpoint key in API_ENDPOINTS. No new FE component needed.
 
 export const STATS_CONFIG = {
+  customer: {
+    endpointKey: "customers", // → API_ENDPOINTS.customers.stats
+    tiles: [
+      {
+        key: "total",
+        label: "Total Customers",
+        icon: "Users",
+        color: "info",
+      },
+      {
+        key: "active",
+        label: "Active",
+        statuses: ["ACTIVE"],
+        icon: "CheckCircle",
+        color: "success",
+      },
+      {
+        key: "inactive",
+        label: "Inactive",
+        statuses: ["INACTIVE"],
+        icon: "XCircle",
+        color: "secondary",
+      },
+      {
+        key: "new_30d",
+        label: "New (30 days)",
+        metric: "new_30d",
+        icon: "UserPlus",
+        color: "warning",
+      },
+    ],
+  },
+
   lead: {
     endpointKey: "leads", // → API_ENDPOINTS.leads.stats
     tiles: [

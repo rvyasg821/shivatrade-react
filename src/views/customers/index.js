@@ -23,6 +23,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 
 // ** Third Party
 import { useTranslation } from "react-i18next";
@@ -53,6 +54,9 @@ const CustomerList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  // Bumped after a delete so the KPI tiles re-fetch even though the
+  // filters haven't changed.
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   const handleCustomerLists = useCallback(
     (
@@ -122,6 +126,7 @@ const CustomerList = () => {
     }
     if (store?.actionFlag === "CUST_DLT") {
       handleCustomerLists();
+      setStatsRefreshKey((k) => k + 1);
     }
     if (store?.success) Notification("Success", store.success, "success");
     if (store?.error) Notification("Error", store.error, "warning");
@@ -314,6 +319,19 @@ const CustomerList = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Customers")}</h3>
         </div>
+
+        <VoucherStatsTiles
+          module="customer"
+          refreshKey={statsRefreshKey}
+          activeStatuses={statusFilter || ""}
+          onStatusClick={(csv) =>
+            setStatusFilter((prev) => (prev === csv ? "" : csv))
+          }
+          filters={{
+            search: searchInput,
+            created_by: selectedCreator,
+          }}
+        />
 
         <Card className="overflow-hidden">
           <CardBody>
