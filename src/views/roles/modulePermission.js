@@ -48,6 +48,37 @@ const ModulePermission = () => {
 
   const permissionKeys = ["can_all", "can_read", "can_add", "can_update", "can_delete"]
 
+  // ── Permission cap ───────────────────────────────────────────────────
+  // A limited (non-admin) user can only see + grant permissions they hold
+  // themselves. Super Admin / Company Admin are exempt (full grid). The
+  // capping is a display + interaction concern only — checkbox values are
+  // still seeded from the TARGET role's saved data (below), so locked cells
+  // keep their existing value and are preserved on save.
+  const authUser = authStore?.authUserItem
+  const currentUserPermi = authUser?.role?.permissions || {}
+  const isExemptFromCap =
+    authUser?.role?.name === "Admin" ||          // Super Admin (DB name)
+    authUser?.role?.name === "Super Admin" ||
+    authUser?.role?.name === "Company Admin" ||
+    authUser?.isSystemUser === true ||
+    authUser?.userType === "admin"
+
+  const REAL_KEYS = ["can_read", "can_add", "can_update", "can_delete"]
+
+  // Can the current user grant <key> on <slug>?
+  const canGrant = (slug, key) => {
+    if (isExemptFromCap) return true
+    const mine = currentUserPermi[slug]
+    if (!mine) return false
+    if (mine.can_all === true) return true                 // full module → grant anything
+    if (key === "can_all") return REAL_KEYS.every((k) => mine[k] === true)
+    return mine[key] === true
+  }
+  // Show a module row only if the user can grant at least one action on it.
+  const canSeeModule = (slug) =>
+    isExemptFromCap || ["can_all", ...REAL_KEYS].some((k) => canGrant(slug, k))
+  // ─────────────────────────────────────────────────────────────────────
+
   const handleSetInitialPermission = useCallback((items = {}) => {
     const currentUserPermi = authStore?.authUserItem?.role?.permissions || {};
 
@@ -126,7 +157,10 @@ const ModulePermission = () => {
     module.permissions = { ...module.permissions };
 
     Object.keys(module.permissions).forEach(key => {
-      module.permissions[key] = checked;
+      // Never flip a locked cell — only actions the current user may grant.
+      if (key === "can_all" || canGrant(module.module_slug, key)) {
+        module.permissions[key] = checked;
+      }
     });
 
     permissionsCopy[index] = module;
@@ -139,9 +173,16 @@ const ModulePermission = () => {
     module.permissions = { ...module.permissions };
 
     module.permissions[key] = checked;
-    module.permissions.can_all = Object.keys(module.permissions)
+    // Auto-derive can_all exactly as before (all non-can_all keys checked),
+    // but only let it turn ON when the current user is actually allowed to
+    // grant can_all — otherwise a pre-existing locked action (e.g. delete)
+    // completing the set would silently escalate it. For exempt users
+    // canGrant() is always true, so this is identical to the original.
+    const allChecked = Object.keys(module.permissions)
       .filter(k => k !== "can_all")
       .every(k => module.permissions[k]);
+    module.permissions.can_all =
+      allChecked && canGrant(module.module_slug, "can_all");
 
     permissionsCopy[index] = module;
     setRolePermissions(permissionsCopy);
@@ -305,6 +346,8 @@ const ModulePermission = () => {
                   child.slug || child.title.toLowerCase().replace(/\s+/g, "_");
                 // Single-tenant: hide rows for SaaS / dropped-HRM modules.
                 if (isPermissionSlugHidden(slug)) return null;
+                // Permission cap: hide modules the current user cannot grant.
+                if (!canSeeModule(slug)) return null;
                 const mod = indexedRolePerms[slug];
                 if (!mod) return null;
                 return { ...mod, displayTitle: child.title };
@@ -347,19 +390,26 @@ const ModulePermission = () => {
                             <td className="fw-bolder">
                               {t(module.displayTitle || module.module_slug)}
                             </td>
-                            {permissionKeys.map((key) => (
-                              <td key={key} className="text-center">
-                                <Input
-                                  type="checkbox"
-                                  checked={module.permissions[key]}
-                                  onChange={(e) =>
-                                    key === "can_all"
-                                      ? handleChangeOneAllPermission(module.originalIndex, e.target.checked)
-                                      : handleChangePermission(module.originalIndex, e.target.checked, key)
-                                  }
-                                />
-                              </td>
-                            ))}
+                            {permissionKeys.map((key) => {
+                              const locked = !canGrant(module.module_slug, key);
+                              return (
+                                <td key={key} className="text-center">
+                                  <Input
+                                    type="checkbox"
+                                    checked={module.permissions[key]}
+                                    disabled={locked}
+                                    style={locked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                                    title={locked ? t("You don't have this permission to grant") : undefined}
+                                    onChange={(e) => {
+                                      if (locked) return; // belt-and-suspenders
+                                      key === "can_all"
+                                        ? handleChangeOneAllPermission(module.originalIndex, e.target.checked)
+                                        : handleChangePermission(module.originalIndex, e.target.checked, key)
+                                    }}
+                                  />
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
