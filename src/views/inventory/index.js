@@ -62,6 +62,16 @@ const fmtQty = (v) => {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
 
+// Weighted-average rate → ₹ with 2 decimals.
+const fmtRate = (v) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n === 0) return "-";
+  return `₹${n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
 const InventoryView = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -294,6 +304,46 @@ const InventoryView = () => {
         <span className="text-nowrap">{row?.category_name || "—"}</span>
       ),
     },
+    // Stock summary over the Received From/To period (from the ledger).
+    {
+      name: t("Opening"),
+      center: true,
+      hide: "md",
+      minWidth: "110px",
+      selector: (row) => (
+        <span className="text-nowrap">{fmtQty(row?.opening_qty)}</span>
+      ),
+    },
+    {
+      name: t("Inward"),
+      center: true,
+      minWidth: "110px",
+      selector: (row) => (
+        <span className="text-nowrap fw-semibold" style={{ color: "#28c76f" }}>
+          {fmtQty(row?.inward_qty)}
+        </span>
+      ),
+    },
+    {
+      name: t("Outward"),
+      center: true,
+      minWidth: "110px",
+      selector: (row) => (
+        <span className="text-nowrap fw-semibold" style={{ color: "#ea5455" }}>
+          {fmtQty(row?.outward_qty)}
+        </span>
+      ),
+    },
+    {
+      name: t("Closing"),
+      center: true,
+      minWidth: "110px",
+      selector: (row) => (
+        <span className="text-nowrap fw-semibold">
+          {fmtQty(row?.closing_qty)}
+        </span>
+      ),
+    },
     {
       name: t("Qty in Stock"),
       center: true,
@@ -312,6 +362,16 @@ const InventoryView = () => {
           </span>
         );
       },
+    },
+    {
+      name: t("Avg Rate"),
+      center: true,
+      hide: "md",
+      minWidth: "120px",
+      // Weighted-average received unit price (₹/unit).
+      selector: (row) => (
+        <span className="text-nowrap">{fmtRate(row?.avg_rate)}</span>
+      ),
     },
     {
       name: t("Receipt Date"),
