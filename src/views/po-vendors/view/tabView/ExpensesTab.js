@@ -5,29 +5,18 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  Button,
-  Input,
-  Label,
-  Table,
-} from "reactstrap";
-import Select from "react-select";
-import { Plus, Trash2, Save } from "react-feather";
+import { Button } from "reactstrap";
+import { Plus, Save } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { updatePoVendor, getPoVendor } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 import Notification from "@components/toast/notification";
+import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
-
-const fmt = (n) =>
-  n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 
 const TYPE_OPTIONS = REBATE_EXPENSE_TYPE_OPTIONS;
 
@@ -71,6 +60,7 @@ const ExpensesTab = ({ registerActions }) => {
         name: e.name || "",
         type: e.type || "percent",
         value: e.value != null ? String(e.value) : "",
+        gst_pct: e.gst_pct != null ? String(e.gst_pct) : "0",
       })),
     );
   }, [p?._id, p?.expenses_snapshot]);
@@ -81,21 +71,17 @@ const ExpensesTab = ({ registerActions }) => {
     [p?.lines],
   );
 
-  const computeAmount = (r) =>
-    r.type === "percent"
-      ? (subtotal * num(r.value)) / 100
-      : num(r.value);
-
-  // ── Used IDs (to filter the picker — block duplicates per rule #3) ──
-  const usedIds = useMemo(
-    () => new Set(rows.map((r) => r.expense_id).filter(Boolean)),
-    [rows],
-  );
-
   const addRow = () =>
     setRows((curr) => [
       ...curr,
-      { expense_id: "", code: "", name: "", type: "percent", value: "0" },
+      {
+        expense_id: "",
+        code: "",
+        name: "",
+        type: "percent",
+        value: "0",
+        gst_pct: "0",
+      },
     ]);
 
   const updateRow = (idx, patch) =>
@@ -126,6 +112,7 @@ const ExpensesTab = ({ registerActions }) => {
               expense_id: r.expense_id,
               type: r.type,
               value: r.value || "0",
+              gst_pct: r.gst_pct || "0",
             })),
           },
         }),
@@ -176,101 +163,6 @@ const ExpensesTab = ({ registerActions }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDraft, saving, rows]);
 
-  const renderRow = (r, idx) => {
-    const pickOptions = expenseOptions.filter(
-      (o) => o.value === r.expense_id || !usedIds.has(o.value),
-    );
-    return (
-      <tr key={idx}>
-        <td className="text-muted">{idx + 1}</td>
-        <td>
-          {isDraft ? (
-            <Select
-              classNamePrefix="select"
-              options={pickOptions}
-              value={
-                expenseOptions.find((o) => o.value === r.expense_id) || null
-              }
-              onChange={(opt) => {
-                if (!opt) {
-                  updateRow(idx, {
-                    expense_id: "",
-                    code: "",
-                    name: "",
-                  });
-                  return;
-                }
-                updateRow(idx, {
-                  expense_id: opt.value,
-                  code: opt.raw?.code || "",
-                  name: opt.raw?.name || "",
-                  type: opt.raw?.type || r.type,
-                  value: opt.raw?.value != null ? String(opt.raw.value) : r.value,
-                });
-              }}
-              placeholder={t("Pick expense…")}
-              menuPortalTarget={document.body}
-              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-            />
-          ) : (
-            <span>
-              {r.code ? `${r.code} - ` : ""}
-              {r.name}
-            </span>
-          )}
-        </td>
-        <td style={{ width: 180 }}>
-          {isDraft ? (
-            <Select
-              classNamePrefix="select"
-              options={TYPE_OPTIONS}
-              value={
-                TYPE_OPTIONS.find((o) => o.value === r.type) || TYPE_OPTIONS[0]
-              }
-              onChange={(opt) => updateRow(idx, { type: opt.value })}
-              menuPortalTarget={document.body}
-              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-            />
-          ) : (
-            <span>
-              {(TYPE_OPTIONS.find((o) => o.value === r.type) || {}).label ||
-                r.type}
-            </span>
-          )}
-        </td>
-        <td style={{ width: 140 }}>
-          {isDraft ? (
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={r.value}
-              onChange={(e) => updateRow(idx, { value: e.target.value })}
-            />
-          ) : (
-            <span>{num(r.value)}</span>
-          )}
-        </td>
-        <td className="text-end" style={{ width: 150 }}>
-          {sym} {fmt(computeAmount(r))}
-        </td>
-        {isDraft && (
-          <td className="text-end" style={{ width: 60 }}>
-            <Button
-              type="button"
-              color="danger"
-              size="sm"
-              outline
-              onClick={() => removeRow(idx)}
-            >
-              <Trash2 size={14} />
-            </Button>
-          </td>
-        )}
-      </tr>
-    );
-  };
-
   return (
     <Fragment>
       {!isDraft && (
@@ -286,19 +178,16 @@ const ExpensesTab = ({ registerActions }) => {
           {t("No vendor charges captured for this POV.")}
         </div>
       ) : (
-        <Table responsive bordered size="sm" className="mb-0">
-          <thead className="table-light">
-            <tr>
-              <th style={{ width: 30 }}>#</th>
-              <th>{t("Expense")}</th>
-              <th>{t("Type")}</th>
-              <th>{t("Value")}</th>
-              <th className="text-end">{t("Amount")}</th>
-              {isDraft && <th></th>}
-            </tr>
-          </thead>
-          <tbody>{rows.map(renderRow)}</tbody>
-        </Table>
+        <ExpenseGrid
+          rows={rows}
+          expenseOptions={expenseOptions}
+          typeOptions={TYPE_OPTIONS}
+          percentBase={subtotal}
+          sym={sym}
+          readOnly={!isDraft}
+          onUpdateRow={updateRow}
+          onRemoveRow={removeRow}
+        />
       )}
 
       <div className="text-muted small mt-2">

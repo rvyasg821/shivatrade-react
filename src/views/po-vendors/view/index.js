@@ -31,6 +31,7 @@ import {
   Mail,
   Phone,
   Download,
+  Inbox,
 } from "react-feather";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -243,10 +244,12 @@ const ViewPoVendor = () => {
 
   // Vendor expenses (charges) snapshotted on the POV header — each row carries
   // a pre-computed `amount`. The POV total = goods + these charges.
+  // Charges shown GROSS = taxable + each charge's own GST (gst_pct), so the
+  // "Charges" figure matches the POV total / PDF (which tax charges per-charge).
   const expensesTotal = useMemo(
     () =>
       (p?.expenses_snapshot || []).reduce(
-        (s, e) => s + num(e?.amount),
+        (s, e) => s + num(e?.amount) * (1 + num(e?.gst_pct) / 100),
         0
       ),
     [p?.expenses_snapshot]
@@ -255,13 +258,24 @@ const ViewPoVendor = () => {
     () => lines.reduce((s, l) => s + num(l?.line_total), 0),
     [lines]
   );
+  // GST on the goods lines (Σ line_total × tax_pct%) — same basis as the POV
+  // PDF's Input IGST / CGST+SGST. Charges carry no GST (per-charge GST was
+  // dropped), so line GST is the whole tax.
+  const computedGst = useMemo(
+    () =>
+      lines.reduce(
+        (s, l) => s + (num(l?.line_total) * num(l?.tax_pct)) / 100,
+        0
+      ),
+    [lines]
+  );
   // True amount payable to the vendor = goods + charges + GST. Use the
   // backend's `order_value` (GST-inclusive — the exact figure the Payments
   // tab shows) so this card can never drift from the payable; fall back to
-  // the pre-tax goods+charges sum only if order_value isn't present yet.
+  // goods + charges + computed GST when order_value isn't present yet.
   const preTaxTotal = goodsTotal + expensesTotal;
   const orderValue = num(p?.order_value);
-  const grandTotal = orderValue > 0 ? orderValue : preTaxTotal;
+  const grandTotal = orderValue > 0 ? orderValue : preTaxTotal + computedGst;
   const gstTotal = Math.max(0, grandTotal - preTaxTotal);
 
   const etaDays = useMemo(
@@ -354,8 +368,16 @@ const ViewPoVendor = () => {
       onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
     });
   }
-  // "Create GRN" now lives in the GRNs tab's top-right action bar (shown
-  // while the POV is dispatched). Edit Dispatch lives in the Line Items tab.
+  // Create GRN — shown in the header only once the POV is dispatched. Opens
+  // the draft GRN form for this POV (same target as the GRNs tab action).
+  if (canUpdate && statusLower === "dispatched") {
+    headerActions.push({
+      icon: Inbox,
+      label: t("Create GRN"),
+      color: "primary",
+      onClick: () => navigate(`${appsRoot}/grn/create/${id}`),
+    });
+  }
   if (canCancel) {
     headerActions.push({
       icon: XIcon,
