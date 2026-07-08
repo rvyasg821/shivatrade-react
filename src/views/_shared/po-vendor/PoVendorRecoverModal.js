@@ -193,6 +193,16 @@ const PoVendorRecoverModal = ({
     setAssignment((s) => ({ ...s, [lineId]: vendorId }));
   };
 
+  // GST% is editable — defaults from the product/HSN master, override when a
+  // master rate is wrong or blank. The edited value flows into the POV line.
+  const handleTaxChange = (lineId, val) => {
+    setPreviewLines((rows) =>
+      rows.map((r) =>
+        r.purchase_order_line_id === lineId ? { ...r, tax_pct: val } : r
+      )
+    );
+  };
+
   const handleDrop = (lineId) => {
     setDropped((d) => ({ ...d, [lineId]: true }));
   };
@@ -341,6 +351,10 @@ const PoVendorRecoverModal = ({
       .map((l) => ({
         purchase_order_line_id: l.purchase_order_line_id,
         vendor_id: assignment[l.purchase_order_line_id],
+        tax_pct:
+          l.tax_pct != null && l.tax_pct !== ""
+            ? String(num(l.tax_pct))
+            : undefined,
       }));
     if (assignments.length === 0) {
       // Nothing left to buy — either everything is in stock, or no rows kept.
@@ -618,8 +632,31 @@ const PoVendorRecoverModal = ({
                         <td className="text-end">
                           {rate > 0 ? `₹${fmt(rate)}` : "-"}
                         </td>
-                        <td className="text-end text-muted">
-                          {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
+                        <td className="text-end" style={{ minWidth: 90 }}>
+                          {fromStock || noVendor || isDropped ? (
+                            <span className="text-muted">
+                              {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
+                            </span>
+                          ) : (
+                            <div className="d-flex align-items-center justify-content-end">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                style={{ width: 66 }}
+                                value={l.tax_pct ?? ""}
+                                onChange={(e) =>
+                                  handleTaxChange(
+                                    l.purchase_order_line_id,
+                                    e.target.value
+                                  )
+                                }
+                              />
+                              <span className="ms-1 text-muted">%</span>
+                            </div>
+                          )}
                         </td>
                         <td className="text-center">
                           {isDropped ? (
