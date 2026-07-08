@@ -33,7 +33,7 @@ import {
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, RotateCcw, X, Plus, Trash2 } from "react-feather";
+import { AlertTriangle, RotateCcw, X, Plus } from "react-feather";
 import ReactPaginate from "react-paginate";
 
 import instance from "@src/utility/AxiosConfig";
@@ -42,6 +42,7 @@ import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import { recoverPoVendors } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
 const num = (v) =>
@@ -399,6 +400,7 @@ const PoVendorRecoverModal = ({
           expense_id: r.expense_id,
           type: r.type || "percent",
           value: r.value || "0",
+          gst_pct: r.gst_pct || "0",
         }));
       }
     }
@@ -743,9 +745,6 @@ const PoVendorRecoverModal = ({
                 </div>
                 {vendorSummary.map((v) => {
                   const rows = vendorExpenses[v.vendor_id] || [];
-                  const usedIds = new Set(
-                    rows.map((r) => r.expense_id).filter(Boolean)
-                  );
                   const updateRow = (idx, patch) =>
                     setVendorExpenses((curr) => {
                       const list = (curr[v.vendor_id] || []).map((r, i) =>
@@ -772,6 +771,7 @@ const PoVendorRecoverModal = ({
                           expense_id: "",
                           type: "percent",
                           value: "0",
+                          gst_pct: "0",
                           code: "",
                           name: "",
                         },
@@ -844,140 +844,14 @@ const PoVendorRecoverModal = ({
                             )}
                           </div>
                         )}
-                        {rows.length > 0 && (
-                          <div className="table-responsive">
-                          <Table
-                            size="sm"
-                            bordered
-                            className="mb-0 small align-middle line-items-grid"
-                          >
-                            <thead className="table-light">
-                              <tr>
-                                <th style={{ minWidth: 200 }}>
-                                  {t("Expense")}
-                                </th>
-                                <th style={{ width: 150 }}>{t("Type")}</th>
-                                <th style={{ width: 100 }}>{t("Value")}</th>
-                                <th
-                                  style={{ width: 100 }}
-                                  className="text-end"
-                                >
-                                  {t("Amount")}
-                                </th>
-                                <th style={{ width: 40 }} />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((r, idx) => {
-                                const pickOptions = expenseOptions.filter(
-                                  (o) =>
-                                    o.value === r.expense_id ||
-                                    !usedIds.has(o.value)
-                                );
-                                const amt =
-                                  r.type === "percent"
-                                    ? (v.total * Number(r.value || 0)) / 100
-                                    : Number(r.value || 0);
-                                return (
-                                  <tr key={idx}>
-                                    <td>
-                                      <Select
-                                        classNamePrefix="select"
-                                        options={pickOptions}
-                                        value={
-                                          expenseOptions.find(
-                                            (o) => o.value === r.expense_id
-                                          ) || null
-                                        }
-                                        onChange={(opt) => {
-                                          if (!opt) {
-                                            updateRow(idx, {
-                                              expense_id: "",
-                                              code: "",
-                                              name: "",
-                                            });
-                                            return;
-                                          }
-                                          updateRow(idx, {
-                                            expense_id: opt.value,
-                                            code: opt.raw?.code || "",
-                                            name: opt.raw?.name || "",
-                                            type: opt.raw?.type || r.type,
-                                            value:
-                                              opt.raw?.value != null
-                                                ? String(opt.raw.value)
-                                                : r.value,
-                                          });
-                                        }}
-                                        placeholder={t("Pick expense…")}
-                                        menuPortalTarget={document.body}
-                                        menuPlacement="auto"
-                                        menuPosition="fixed"
-                                        maxMenuHeight={200}
-                                        styles={{
-                                          menuPortal: (b) => ({
-                                            ...b,
-                                            zIndex: 9999,
-                                          }),
-                                        }}
-                                      />
-                                    </td>
-                                    <td>
-                                      <Select
-                                        classNamePrefix="select"
-                                        options={expenseTypeOptions}
-                                        value={
-                                          expenseTypeOptions.find(
-                                            (o) => o.value === r.type
-                                          ) || expenseTypeOptions[0]
-                                        }
-                                        onChange={(opt) =>
-                                          updateRow(idx, { type: opt.value })
-                                        }
-                                        menuPortalTarget={document.body}
-                                        menuPlacement="auto"
-                                        menuPosition="fixed"
-                                        maxMenuHeight={200}
-                                        styles={{
-                                          menuPortal: (b) => ({
-                                            ...b,
-                                            zIndex: 9999,
-                                          }),
-                                        }}
-                                      />
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        bsSize="sm"
-                                        value={r.value}
-                                        onChange={(e) =>
-                                          updateRow(idx, {
-                                            value: e.target.value,
-                                          })
-                                        }
-                                      />
-                                    </td>
-                                    <td className="text-end">₹{fmt(amt)}</td>
-                                    <td className="text-center">
-                                      <Button
-                                        size="sm"
-                                        color="danger"
-                                        outline
-                                        onClick={() => removeRow(idx)}
-                                      >
-                                        <Trash2 size={12} />
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </Table>
-                          </div>
-                        )}
+                        <ExpenseGrid
+                          rows={rows}
+                          expenseOptions={expenseOptions}
+                          typeOptions={expenseTypeOptions}
+                          percentBase={v.total}
+                          onUpdateRow={updateRow}
+                          onRemoveRow={removeRow}
+                        />
                       </div>
                       {/* Optional advance paid to this vendor */}
                       <div className="px-1 pb-1">

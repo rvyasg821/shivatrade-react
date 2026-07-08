@@ -464,7 +464,11 @@ const PoVendorView = () => {
       selector: (row) => {
         const lines = row?.lines || [];
         if (!lines.length) return "-";
-        const amount = lines.reduce((s, l) => s + num(l?.line_total), 0);
+        const goods = lines.reduce((s, l) => s + num(l?.line_total), 0);
+        // Prefer the GST + charges inclusive order_value (same figure as the
+        // detail "POV Total" card); fall back to goods-only if not present.
+        const orderValue = num(row?.order_value);
+        const amount = orderValue > 0 ? orderValue : goods;
         // POV is always INR — render with ₹ + thousands, no decimals.
         return (
           <span className="fw-bold text-nowrap">
