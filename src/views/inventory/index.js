@@ -35,6 +35,7 @@ import {
   CardBody,
   UncontrolledTooltip,
   Label,
+  Badge,
 } from "reactstrap";
 import Select from "react-select";
 
@@ -66,6 +67,16 @@ const fmtQty = (v) => {
 const fmtRate = (v) => {
   const n = Number(v);
   if (!Number.isFinite(n) || n === 0) return "-";
+  return `₹${n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+// Money → ₹ with 2 decimals. Unlike fmtRate, always renders (incl. ₹0.00 and
+// negatives) so a value column reads/sums cleanly.
+const fmtMoney = (v) => {
+  const n = Number(v) || 0;
   return `₹${n.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -294,14 +305,15 @@ const InventoryView = () => {
               {row.product_code}
             </div>
           ) : null}
+          {row?.category_name ? (
+            <Badge
+              className="mt-25"
+              style={{ backgroundColor: "#0d6efd", color: "#fff" }}
+            >
+              {row.category_name}
+            </Badge>
+          ) : null}
         </div>
-      ),
-    },
-    {
-      name: t("Category"),
-      hide: "md", // hidden on small screens (≤ md ≈ 959px)
-      selector: (row) => (
-        <span className="text-nowrap">{row?.category_name || "—"}</span>
       ),
     },
     // Stock summary over the Received From/To period (from the ledger).
@@ -372,6 +384,26 @@ const InventoryView = () => {
       selector: (row) => (
         <span className="text-nowrap">{fmtRate(row?.avg_rate)}</span>
       ),
+    },
+    {
+      name: t("Stock Value"),
+      center: true,
+      minWidth: "140px",
+      // Per-product on-hand valuation = Qty in Stock × Avg Rate (₹). Summing
+      // this column across ALL products equals the "Current Stock Value" card
+      // (the footer Total below shows that grand total straight from the KPI).
+      selector: (row) => {
+        const val =
+          (Number(row?.on_hand) || 0) * (Number(row?.avg_rate) || 0);
+        return (
+          <span
+            className="text-nowrap fw-semibold"
+            style={{ color: val < 0 ? "#ea5455" : undefined }}
+          >
+            {fmtMoney(val)}
+          </span>
+        );
+      },
     },
     {
       name: t("Receipt Date"),
@@ -542,6 +574,19 @@ const InventoryView = () => {
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
                 />
+
+                {/* Grand total across ALL filtered products (not just this
+                    page) — the exact figure the KPI "Current Stock Value" card
+                    abbreviates (e.g. "₹8.1 K"). Lets the client verify by
+                    summing the Stock Value column. */}
+                <div className="d-flex justify-content-end align-items-center flex-wrap border-top pt-1 mt-1">
+                  <span className="text-muted me-1">
+                    {t("Total Stock Value")} ({t("all products")}):
+                  </span>
+                  <span className="fw-bold fs-5">
+                    {fmtMoney(store?.stats?.stock_value)}
+                  </span>
+                </div>
               </Col>
             </Row>
           </CardBody>

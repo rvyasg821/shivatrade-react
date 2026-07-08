@@ -165,7 +165,7 @@ const CustomerCostingTable = ({
         </Table>
       </div>
 
-      {totalRows > pageSize && (
+      {totalRows > 0 && (
         <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
           <div className="d-flex align-items-center small text-muted">
             <span className="me-50">{t("Show")}</span>

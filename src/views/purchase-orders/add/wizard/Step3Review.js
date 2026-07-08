@@ -11,8 +11,7 @@ import { useTranslation } from "react-i18next";
 import { PURCHASE_ORDER_STATUS_OPTIONS } from "@constant/options";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
-import SalesDocLineItems from "@src/views/_shared/sales-doc/SalesDocLineItems";
-import { initPurchaseOrderLineItem } from "@constant/reduxConstant";
+import CustomerCostingTable from "@src/views/_shared/sales-doc/CustomerCostingTable";
 
 // Allowed next statuses per the server-side transition matrix. The current
 // status is always kept selectable so an unchanged save is valid; only legal
@@ -27,7 +26,7 @@ const STATUS_TRANSITIONS = {
 
 const Step3Review = ({ isLocked, productOptions = [] }) => {
   const { t } = useTranslation();
-  const { control, setValue } = useFormContext();
+  const { control } = useFormContext();
   const lines = useWatch({ control, name: "lines" }) || [];
   const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
   const exchangeRate = useWatch({ control, name: "exchange_rate" });
@@ -47,25 +46,19 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
   return (
     <Row>
       <Col md="8">
-        {/* Compact read-only line items — same component PFI's review
-            uses, so the table design and figures match exactly. */}
-        <SalesDocLineItems
-          control={control}
-          setValue={setValue}
+        {/* Read-only customer-facing line items — the SAME shared table the
+            Quotation review uses (Part No / HSN / Rate / Amount + Grand Total
+            + pagination), so the two documents match exactly. */}
+        <CustomerCostingTable
+          lines={lines}
           productOptions={productOptions}
-          allProductOptions={productOptions}
-          initLineItem={initPurchaseOrderLineItem}
-          rebateOptions={[]}
-          expenseOptions={[]}
-          currencyCode={currencyCode}
-          baseCurrencyCode="INR"
           exchangeRate={rate}
-          readOnly
-          tableLayout="compact"
-          hideGst
+          docCurrencyCode={currencyCode}
+          baseCurrencyCode="INR"
+          showHsn
         />
 
-        <Row>
+        <Row className="mt-3">
           <Col md="12" className="mb-2">
             <Label className="form-label">{t("Internal Notes")}</Label>
             <Controller
