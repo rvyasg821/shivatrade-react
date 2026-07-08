@@ -208,113 +208,6 @@ export const deleteQuotation = createAsyncThunk(
   }
 );
 
-// ─── Public share link ────────────────────────────────────────────────
-
-// View-only fetch by public token - no auth. Powers the /q/:token page.
-export const getPublicQuotation = createAsyncThunk(
-  "appQuotation/getPublicQuotation",
-  async (token) => {
-    try {
-      const response = await instance
-        .get(`${API_ENDPOINTS.quotations.public}/${token}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return { publicItem: response.data, error: "" };
-      }
-      return {
-        publicItem: null,
-        error:
-          response?.response?.data?.message ||
-          response?.message ||
-          "Quotation not found",
-      };
-    } catch (error) {
-      return { publicItem: null, error: error.message || error };
-    }
-  }
-);
-
-// Admin "preview as client" - same sanitized shape as the public route,
-// works in any status. Feeds the same renderer as /q/:token.
-export const getQuotationPreview = createAsyncThunk(
-  "appQuotation/getQuotationPreview",
-  async (id) => {
-    try {
-      const response = await instance
-        .get(`${API_ENDPOINTS.quotations.publicPreview}/${id}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return { publicItem: response.data, error: "" };
-      }
-      return {
-        publicItem: null,
-        error:
-          response?.response?.data?.message ||
-          response?.message ||
-          "Quotation not found",
-      };
-    } catch (error) {
-      return { publicItem: null, error: error.message || error };
-    }
-  }
-);
-
-// Admin: publish / rotate / unpublish - all return the updated quotation.
-const PUBLISH_SUCCESS = {
-  QT_PUBLISHED: "Quotation published successfully",
-  QT_TOKEN_ROTATED: "Public link rotated successfully",
-  QT_UNPUBLISHED: "Quotation unpublished successfully",
-};
-
-const publishLikeThunk = (name, endpointKey, flag) =>
-  createAsyncThunk(`appQuotation/${name}`, async (id) => {
-    try {
-      const response = await instance
-        .post(`${API_ENDPOINTS.quotations[endpointKey]}/${id}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return {
-          quotationItem: response.data,
-          actionFlag: flag,
-          success: PUBLISH_SUCCESS[flag] || "Action completed successfully",
-          error: "",
-        };
-      }
-      return {
-        quotationItem: null,
-        actionFlag: "",
-        success: "",
-        error: response?.response?.data?.message || response?.message,
-      };
-    } catch (error) {
-      return {
-        quotationItem: null,
-        actionFlag: "",
-        success: "",
-        error: error.message || error,
-      };
-    }
-  });
-
-export const publishQuotation = publishLikeThunk(
-  "publishQuotation",
-  "publish",
-  "QT_PUBLISHED"
-);
-export const rotateQuotationToken = publishLikeThunk(
-  "rotateQuotationToken",
-  "rotateToken",
-  "QT_TOKEN_ROTATED"
-);
-export const unpublishQuotation = publishLikeThunk(
-  "unpublishQuotation",
-  "unpublish",
-  "QT_UNPUBLISHED"
-);
-
 // ─── Slice ────────────────────────────────────────────────────────────
 
 export const appQuotationSlice = createSlice({
@@ -323,7 +216,6 @@ export const appQuotationSlice = createSlice({
     quotationItems: [],
     pagination: null,
     quotationItem: initQuotationItem,
-    publicItem: null,
     actionFlag: "",
     loading: true,
     success: "",
@@ -423,59 +315,7 @@ export const appQuotationSlice = createSlice({
       })
       .addCase(deleteQuotation.rejected, (state) => {
         state.loading = true;
-      })
-      .addCase(getPublicQuotation.pending, (state) => {
-        state.loading = false;
-        state.publicItem = null;
-        state.error = "";
-      })
-      .addCase(getPublicQuotation.fulfilled, (state, action) => {
-        state.loading = true;
-        state.publicItem = action.payload?.publicItem || null;
-        state.error = action.payload?.error || "";
-      })
-      .addCase(getPublicQuotation.rejected, (state) => {
-        state.loading = true;
-        state.publicItem = null;
-      })
-      .addCase(getQuotationPreview.pending, (state) => {
-        state.loading = false;
-        state.publicItem = null;
-        state.error = "";
-      })
-      .addCase(getQuotationPreview.fulfilled, (state, action) => {
-        state.loading = true;
-        state.publicItem = action.payload?.publicItem || null;
-        state.error = action.payload?.error || "";
-      })
-      .addCase(getQuotationPreview.rejected, (state) => {
-        state.loading = true;
-        state.publicItem = null;
       });
-    // publish / rotate / unpublish share one fulfilled handler.
-    [publishQuotation, rotateQuotationToken, unpublishQuotation].forEach(
-      (thunk) => {
-        builder
-          .addCase(thunk.pending, (state) => {
-            state.loading = false;
-            state.actionFlag = "";
-            state.success = "";
-            state.error = "";
-          })
-          .addCase(thunk.fulfilled, (state, action) => {
-            state.loading = true;
-            if (action.payload?.quotationItem) {
-              state.quotationItem = action.payload.quotationItem;
-            }
-            state.actionFlag = action.payload?.actionFlag || "";
-            state.success = action.payload?.success || "";
-            state.error = action.payload?.error || "";
-          })
-          .addCase(thunk.rejected, (state) => {
-            state.loading = true;
-          });
-      }
-    );
   },
 });
 

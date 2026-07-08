@@ -585,6 +585,7 @@ const initPurchaseOrderItem = {
   pfi_voucher_no: "",
   po_date: new Date().toISOString().slice(0, 10),
   expected_delivery_date: "",
+  customer_po_number: "",
   delivery_address: "",
   delivery_address_id: "",
   payment_terms: "",

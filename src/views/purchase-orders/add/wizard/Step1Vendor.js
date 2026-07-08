@@ -242,6 +242,23 @@ const Step1Vendor = ({
       </Col>
 
       <Col md="3" className="mb-2">
+        <Label className="form-label">{t("Customer PO #")}</Label>
+        <Controller
+          name="customer_po_number"
+          control={control}
+          render={({ field }) => (
+            <Input
+              id="customer_po_number"
+              placeholder={t("Customer's PO number")}
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="3" className="mb-2">
         <Label className="form-label">{t("Currency")} {required}</Label>
         <Controller
           name="currency_code"

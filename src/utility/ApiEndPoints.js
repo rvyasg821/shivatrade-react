@@ -222,12 +222,7 @@ export const API_ENDPOINTS = {
     create: `/admin/quotation/create`,
     update: `/admin/quotation/update`,
     delete: `/admin/quotation/delete`,
-    publish: `/admin/quotation/publish`,
-    rotateToken: `/admin/quotation/rotate-token`,
-    unpublish: `/admin/quotation/unpublish`,
-    publicPreview: `/admin/quotation/public-preview`,
     pdf: `/admin/quotation`, // append /:id/pdf (authed; opened as a blob in a new tab)
-    public: `/public/quotation`,
   },
   pfis: {
     list: `/admin/pfi/list`,
@@ -256,12 +251,6 @@ export const API_ENDPOINTS = {
     fromQuotation: `/admin/purchase-order/from-quotation`, // append /:quotationId
     previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
     previewFromQuotation: `/admin/purchase-order/preview-from-quotation`, // append /:quotationId
-    publicPreview: `/admin/purchase-order/public-preview`, // append /:id
-    publish: `/admin/purchase-order/publish`, // append /:id
-    rotateToken: `/admin/purchase-order/rotate-token`, // append /:id
-    unpublish: `/admin/purchase-order/unpublish`, // append /:id
-    public: `/public/purchase-order`, // append /:token
-    publicPdf: `/public/purchase-order`, // append /:token/pdf
     pdf: `/admin/purchase-order`, // append /:id/pdf (authed; opened as a blob in the in-app viewer)
     coverage: `/admin/purchase-order`, // append /:id/coverage
     pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId

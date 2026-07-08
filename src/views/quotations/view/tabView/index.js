@@ -6,7 +6,6 @@ import { ArrowLeft } from "react-feather";
 import { appsRoot } from "@constant/defaultValues";
 import Tabs from "./tabs";
 import OverviewTab from "./OverviewTab";
-import PublicLinkTab from "./PublicLinkTab";
 
 const QuotationTabView = () => {
   const navigate = useNavigate();
@@ -32,9 +31,6 @@ const QuotationTabView = () => {
           <TabContent activeTab={active}>
             <TabPane tabId="overview">
               <OverviewTab />
-            </TabPane>
-            <TabPane tabId="public-link">
-              <PublicLinkTab />
             </TabPane>
           </TabContent>
         </CardBody>

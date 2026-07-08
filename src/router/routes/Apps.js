@@ -75,7 +75,6 @@ const AddQuotation = lazy(() => import('@src/views/quotations/add'));
 const EditQuotation = lazy(() => import('@src/views/quotations/add'));
 const GenerateSalesOrder = lazy(() => import('@src/views/quotations/generate-so'));
 const ViewQuotation = lazy(() => import('@src/views/quotations/view'));
-const QuotationPublicView = lazy(() => import('@src/views/quotations/public'));
 const PdfViewer = lazy(() => import('@src/views/_shared/pdf-viewer'));
 const PfiList = lazy(() => import('@src/views/pfi'));
 const AddPfi = lazy(() => import('@src/views/pfi/add'));
@@ -87,7 +86,6 @@ const AddPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
 const EditPurchaseOrder = lazy(() => import('@src/views/purchase-orders/add'));
 const ViewPurchaseOrder = lazy(() => import('@src/views/purchase-orders/view'));
 const GeneratePov = lazy(() => import('@src/views/purchase-orders/generate-pov'));
-const PurchaseOrderPublicView = lazy(() => import('@src/views/purchase-orders/public'));
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const CreatePoVendor = lazy(() => import('@src/views/po-vendors/create'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
@@ -671,23 +669,6 @@ const AppRoutes = [
     },
   },
   {
-    path: `${appsRoot}/quotations/preview/:id`,
-    element: <QuotationPublicView />,
-    meta: {
-      permissionId: quotationsModuleSlug,
-      action: 'list',
-      layout: 'blank',
-    },
-  },
-  {
-    path: '/q/:token',
-    element: <QuotationPublicView />,
-    meta: {
-      publicRoute: true,
-      layout: 'blank',
-    },
-  },
-  {
     // In-app PDF viewer (authed, full-screen). Opened in a new tab by
     // openPdfViewer({ kind, id }); keeps the URL on the frontend origin and
     // offers a correctly-named Download. No permissionId — the API enforces
@@ -748,14 +729,6 @@ const AppRoutes = [
     },
   },
   {
-    path: '/po/:token',
-    element: <PurchaseOrderPublicView />,
-    meta: {
-      publicRoute: true,
-      layout: 'blank',
-    },
-  },
-  {
     path: `${appsRoot}/purchase-orders`,
     element: <PurchaseOrderList />,
     meta: {
@@ -793,15 +766,6 @@ const AppRoutes = [
     meta: {
       permissionId: purchaseOrdersModuleSlug,
       action: 'list',
-    },
-  },
-  {
-    path: `${appsRoot}/purchase-orders/preview/:id`,
-    element: <PurchaseOrderPublicView />,
-    meta: {
-      permissionId: purchaseOrdersModuleSlug,
-      action: 'list',
-      layout: 'blank',
     },
   },
   {
