@@ -208,108 +208,6 @@ export const deletePurchaseOrder = createAsyncThunk(
   }
 );
 
-// ─── Admin "preview as client" — sanitized projection (works in any
-//    status). Powers /apps/purchase-orders/preview/:id. ─────────────────
-
-export const getPurchaseOrderPreview = createAsyncThunk(
-  "appPurchaseOrder/getPurchaseOrderPreview",
-  async (id) => {
-    try {
-      const response = await instance
-        .get(`${API_ENDPOINTS.purchaseOrders.publicPreview}/${id}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return { publicItem: response.data, error: "" };
-      }
-      return {
-        publicItem: null,
-        error:
-          response?.response?.data?.message ||
-          response?.message ||
-          "Purchase Order not found",
-      };
-    } catch (error) {
-      return { publicItem: null, error: error.message || error };
-    }
-  }
-);
-
-// ─── Public token by /po/:token (no auth) — used by the public viewer.
-
-export const getPublicPurchaseOrder = createAsyncThunk(
-  "appPurchaseOrder/getPublicPurchaseOrder",
-  async (token) => {
-    try {
-      const response = await instance
-        .get(`${API_ENDPOINTS.purchaseOrders.public}/${token}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return { publicItem: response.data, error: "" };
-      }
-      return {
-        publicItem: null,
-        error:
-          response?.response?.data?.message ||
-          response?.message ||
-          "Purchase Order not found",
-      };
-    } catch (error) {
-      return { publicItem: null, error: error.message || error };
-    }
-  }
-);
-
-// ─── Publish / rotate / unpublish — admin actions on the share token.
-
-const publishLikePoThunk = (name, endpointKey, flag) =>
-  createAsyncThunk(`appPurchaseOrder/${name}`, async (id) => {
-    try {
-      const response = await instance
-        .post(`${API_ENDPOINTS.purchaseOrders[endpointKey]}/${id}`)
-        .then((r) => r.data)
-        .catch((e) => e);
-      if (response?.statusCode && response.data) {
-        return {
-          purchaseOrderItem: response.data,
-          actionFlag: flag,
-          success: response?.message || "",
-          error: "",
-        };
-      }
-      return {
-        purchaseOrderItem: null,
-        actionFlag: "",
-        success: "",
-        error: response?.response?.data?.message || response?.message,
-      };
-    } catch (error) {
-      return {
-        purchaseOrderItem: null,
-        actionFlag: "",
-        success: "",
-        error: error.message || error,
-      };
-    }
-  });
-
-export const publishPurchaseOrder = publishLikePoThunk(
-  "publishPurchaseOrder",
-  "publish",
-  "PO_PUBLISHED"
-);
-export const rotatePurchaseOrderToken = publishLikePoThunk(
-  "rotatePurchaseOrderToken",
-  "rotateToken",
-  "PO_TOKEN_ROTATED"
-);
-export const unpublishPurchaseOrder = publishLikePoThunk(
-  "unpublishPurchaseOrder",
-  "unpublish",
-  "PO_UNPUBLISHED"
-);
-
 // ─── Slice ────────────────────────────────────────────────────────────
 
 export const appPurchaseOrderSlice = createSlice({
@@ -318,7 +216,6 @@ export const appPurchaseOrderSlice = createSlice({
     purchaseOrderItems: [],
     pagination: null,
     purchaseOrderItem: initPurchaseOrderItem,
-    publicItem: null,
     actionFlag: "",
     loading: true,
     success: "",
@@ -364,58 +261,6 @@ export const appPurchaseOrderSlice = createSlice({
       })
       .addCase(getPurchaseOrder.rejected, (state) => {
         state.loading = true;
-      })
-      .addCase(getPurchaseOrderPreview.pending, (state) => {
-        state.loading = false;
-        state.publicItem = null;
-        state.error = "";
-      })
-      .addCase(getPurchaseOrderPreview.fulfilled, (state, action) => {
-        state.loading = true;
-        state.publicItem = action.payload?.publicItem || null;
-        state.error = action.payload?.error || "";
-      })
-      .addCase(getPurchaseOrderPreview.rejected, (state) => {
-        state.loading = true;
-        state.publicItem = null;
-      })
-      .addCase(getPublicPurchaseOrder.pending, (state) => {
-        state.loading = false;
-        state.publicItem = null;
-        state.error = "";
-      })
-      .addCase(getPublicPurchaseOrder.fulfilled, (state, action) => {
-        state.loading = true;
-        state.publicItem = action.payload?.publicItem || null;
-        state.error = action.payload?.error || "";
-      })
-      .addCase(getPublicPurchaseOrder.rejected, (state) => {
-        state.loading = true;
-        state.publicItem = null;
-      })
-      .addCase(publishPurchaseOrder.fulfilled, (state, action) => {
-        if (action.payload?.purchaseOrderItem) {
-          state.purchaseOrderItem = action.payload.purchaseOrderItem;
-        }
-        state.actionFlag = action.payload?.actionFlag || "";
-        state.success = action.payload?.success || "";
-        state.error = action.payload?.error || "";
-      })
-      .addCase(rotatePurchaseOrderToken.fulfilled, (state, action) => {
-        if (action.payload?.purchaseOrderItem) {
-          state.purchaseOrderItem = action.payload.purchaseOrderItem;
-        }
-        state.actionFlag = action.payload?.actionFlag || "";
-        state.success = action.payload?.success || "";
-        state.error = action.payload?.error || "";
-      })
-      .addCase(unpublishPurchaseOrder.fulfilled, (state, action) => {
-        if (action.payload?.purchaseOrderItem) {
-          state.purchaseOrderItem = action.payload.purchaseOrderItem;
-        }
-        state.actionFlag = action.payload?.actionFlag || "";
-        state.success = action.payload?.success || "";
-        state.error = action.payload?.error || "";
       })
       .addCase(createPurchaseOrder.pending, (state) => {
         state.loading = false;

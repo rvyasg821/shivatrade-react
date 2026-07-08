@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Layers,
   Hash,
-  Eye,
   Download,
   Mail,
   Briefcase,
@@ -629,21 +628,6 @@ const ViewQuotation = () => {
                 />
               </div>
               <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end dp-header-actions dp-header-actions-row">
-                <Button
-                  size="sm"
-                  color="secondary"
-                  outline
-                  className="d-flex align-items-center"
-                  onClick={() =>
-                    window.open(
-                      `${appsRoot}/quotations/preview/${id}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  <Eye size={14} className="me-50" />
-                  {t("Preview")}
-                </Button>
                 <Button
                   size="sm"
                   color="secondary"
