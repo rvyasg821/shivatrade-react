@@ -847,7 +847,9 @@ const QuotationWizard = () => {
         ),
         // ── Export / Shipping (mirrors PFI line shape) ──
         part_no: l.part_no || undefined,
-        hs_code: l.hs_code || undefined,
+        // The costing worksheet stores HSN under `hsn_code`; the backend line
+        // field is `hs_code`. Fall back so the picked/typed HSN is persisted.
+        hs_code: l.hs_code || l.hsn_code || undefined,
         net_weight_kg: String(l.net_weight_kg ?? "0"),
         gross_weight_kg: String(l.gross_weight_kg ?? "0"),
         package_count: Number(l.package_count || 0),
