@@ -310,10 +310,10 @@ const ViewPoVendor = () => {
         lines.length > 0 && (expensesTotal > 0 || gstTotal > 0)
           ? [
               `${t("Goods")} ${sym}${fmtMoney(goodsTotal)}`,
+              gstTotal > 0 ? `${t("GST")} ${sym}${fmtMoney(gstTotal)}` : null,
               expensesTotal > 0
                 ? `${t("Charges")} ${sym}${fmtMoney(expensesTotal)}`
                 : null,
-              gstTotal > 0 ? `${t("GST")} ${sym}${fmtMoney(gstTotal)}` : null,
             ]
               .filter(Boolean)
               .join(" + ")
