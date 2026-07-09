@@ -52,9 +52,6 @@ const ExpenseGrid = ({
             <th style={{ minWidth: 180 }}>{t("Expense")}</th>
             <th style={{ width: 140 }}>{t("Type")}</th>
             <th style={{ width: 90 }}>{t("Value")}</th>
-            <th style={{ width: 110 }} className="text-end">
-              {t("Taxable")}
-            </th>
             <th style={{ width: 90 }}>{t("GST (%)")}</th>
             <th style={{ width: 120 }} className="text-end">
               {t("Amount")}
@@ -154,9 +151,6 @@ const ExpenseGrid = ({
                       }
                     />
                   )}
-                </td>
-                <td className="text-end">
-                  {sym} {fmt2(taxable)}
                 </td>
                 <td>
                   {readOnly ? (
