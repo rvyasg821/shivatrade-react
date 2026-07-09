@@ -274,7 +274,9 @@ const LineItemImportModal = ({
               disabled={sampleLoading}
             >
               {sampleLoading ? (
-                <Spinner size="sm" />
+                <>
+                  <Spinner size="sm" className="me-50" /> {t("Downloading…")}
+                </>
               ) : (
                 <>
                   <Download size={14} className="me-50" />
