@@ -328,6 +328,16 @@ const CostingWorksheet = ({
       setValue(`lines.${idx}.gross_weight_per_unit`, gwpu);
       setValue(`lines.${idx}.pack_size`, packSize);
       setValue(`lines.${idx}._wt_seeded`, true);
+
+      // Backfill HSN / Part No from the master for seeded lines that never
+      // went through the product picker — only when the line's own value is
+      // blank, so a user override is never clobbered.
+      if (!l.hsn_code && !l.hs_code && raw.hsn_code) {
+        setValue(`lines.${idx}.hsn_code`, String(raw.hsn_code));
+      }
+      if (!l.part_no && raw.part_no) {
+        setValue(`lines.${idx}.part_no`, String(raw.part_no));
+      }
       if (l._wt_manual) return;
       const qty = num(l.qty);
       if (num(nwpu) > 0 && !num(l.net_weight_kg)) {
@@ -396,6 +406,11 @@ const CostingWorksheet = ({
       `lines.${idx}.tax_pct`,
       raw.tax_pct != null ? String(raw.tax_pct) : "0"
     );
+    // Pre-fill the line's margin from the product master (overridable per line).
+    setValue(
+      `lines.${idx}.margin_pct`,
+      raw.margin_pct != null ? String(raw.margin_pct) : "0"
+    );
     if (raw.unit_of_measure) setValue(`lines.${idx}.unit`, raw.unit_of_measure);
     // Seed per-unit master values then auto-fill weights/packages from the
     // current qty. Picking a (new) product clears any prior manual override.
@@ -416,11 +431,30 @@ const CostingWorksheet = ({
     setValue(`lines.${idx}._wt_manual`, false);
     setValue(`lines.${idx}._wt_seeded`, true);
     recomputeWeights(idx);
-    // Don't pre-fill expense/rebate amounts from the product/master defaults —
-    // they start empty (grid shows 0) and the user opts heads in + overrides
-    // per quotation via the popover.
-    setValue(`lines.${idx}.product_rebates_snapshot`, []);
-    setValue(`lines.${idx}.product_expenses_snapshot`, []);
+    // Pre-fill the product's default expense & rebate heads (with their master
+    // values) onto the line — still editable/removable per quotation via the
+    // popover. Snapshot shape matches the master exactly (expense_id/value,
+    // rebate_id/pct).
+    setValue(
+      `lines.${idx}.product_expenses_snapshot`,
+      (raw.product_expenses || []).map((e) => ({
+        expense_id: e.expense_id,
+        code: e.code || "",
+        name: e.name || "",
+        type: e.type || "fixed",
+        value: String(e.value ?? "0"),
+      }))
+    );
+    setValue(
+      `lines.${idx}.product_rebates_snapshot`,
+      (raw.product_rebates || []).map((r) => ({
+        rebate_id: r.rebate_id,
+        code: r.code || "",
+        name: r.name || "",
+        type: r.type || "percent",
+        pct: String(r.pct ?? "0"),
+      }))
+    );
     setValue(`lines.${idx}.vendor_id`, "");
     setValue(`lines.${idx}.vendor_name`, "");
     setValue(`lines.${idx}.unit_price`, "");
