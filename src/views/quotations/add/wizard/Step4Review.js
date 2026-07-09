@@ -37,7 +37,9 @@ const Step4Review = ({
         />
 
         <Row className="mt-2">
-          <Col md="6" className="mb-2">
+          {/* Hidden (reversible): "Notes to Client" field — un-comment this Col
+              and restore the Internal Notes Col to md="6" to bring it back. */}
+          {/* <Col md="6" className="mb-2">
             <Label className="form-label">{t("Notes to Client")}</Label>
             <Controller
               name="notes_to_client"
@@ -51,8 +53,8 @@ const Step4Review = ({
                 />
               )}
             />
-          </Col>
-          <Col md="6" className="mb-2">
+          </Col> */}
+          <Col md="12" className="mb-2">
             <Label className="form-label">{t("Internal Notes")}</Label>
             <Controller
               name="internal_notes"
