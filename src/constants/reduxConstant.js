@@ -590,6 +590,7 @@ const initPurchaseOrderItem = {
   delivery_address_id: "",
   payment_terms: "",
   delivery_terms: "",
+  dispatched_through: "",
   internal_notes: "",
   remarks: "",
   currency_code: "INR",

@@ -11,7 +11,7 @@ import { ExternalLink } from "react-feather";
 import { useEffect, useRef, useState } from "react";
 import { appsRoot } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
-import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS } from "@constant/options";
+import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS, DISPATCH_MODE_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
 import { getCurrencySymbol } from "@src/utility/currency";
 
@@ -399,6 +399,27 @@ const Step1Vendor = ({
               options={VENDOR_INCOTERMS_OPTIONS}
               value={
                 VENDOR_INCOTERMS_OPTIONS.find((o) => o.value === field.value) ||
+                null
+              }
+              onChange={(opt) => field.onChange(opt ? opt.value : "")}
+            />
+          )}
+        />
+      </Col>
+
+      <Col md="3" className="mb-2">
+        <Label className="form-label">{t("Dispatched Through")}</Label>
+        <Controller
+          name="dispatched_through"
+          control={control}
+          render={({ field }) => (
+            <Select
+              classNamePrefix="select"
+              isClearable
+              isDisabled={isLocked}
+              options={DISPATCH_MODE_OPTIONS}
+              value={
+                DISPATCH_MODE_OPTIONS.find((o) => o.value === field.value) ||
                 null
               }
               onChange={(opt) => field.onChange(opt ? opt.value : "")}
