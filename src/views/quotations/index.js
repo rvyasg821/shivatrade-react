@@ -42,9 +42,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, FileText, User, Mail, Phone } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, FileText, User, Mail, Phone, Download } from "react-feather";
 import { formatMoney } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
+import { openPdfViewer } from "@src/utility/pdf";
 
 // ** PFI conversion
 import { createPfiFromQuotation } from "../pfi/store";
@@ -436,6 +437,25 @@ const QuotationView = () => {
               </UncontrolledTooltip>
               <Eye size={20} />
             </Link>
+            <span
+              className="me-50 cursor-pointer"
+              id={`qt-download-${row?._id || ""}`}
+              onClick={() =>
+                openPdfViewer({
+                  kind: "quotation",
+                  id: row?._id,
+                  name: row?.voucher_no,
+                })
+              }
+            >
+              <UncontrolledTooltip
+                placement="top"
+                target={`qt-download-${row?._id || ""}`}
+              >
+                {t("Download PDF")}
+              </UncontrolledTooltip>
+              <Download size={20} />
+            </span>
             {canEdit && (
               <Link
                 className="me-50"
