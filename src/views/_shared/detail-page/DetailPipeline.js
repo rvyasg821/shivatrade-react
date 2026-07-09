@@ -76,7 +76,7 @@ const DetailPipeline = ({
         .map((step) => (
           <span
             key={step.value}
-            className={`badge bg-${step.color || "danger"} text-capitalize`}
+            className={`badge bg-${step.color || "danger"} text-white text-capitalize`}
           >
             {step.label}
           </span>

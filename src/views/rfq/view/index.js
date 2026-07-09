@@ -28,6 +28,7 @@ import {
 
 import {
   DetailHeader,
+  DetailPipeline,
   StatusChangeDropdown,
 } from "@src/views/_shared/detail-page";
 import { useTranslation } from "react-i18next";
@@ -62,6 +63,19 @@ const STATUS_COLOR = {
 };
 
 const STATUS_OPTIONS = ["draft", "sent", "quoting", "completed", "cancelled"];
+
+// Visual status stepper (mirrors the quotation/SO detail pages). The linear
+// flow is Draft → Sent → Quoting → Completed; "cancelled" is a terminal chip.
+const PIPELINE_STEPS = [
+  { value: "draft", label: "Draft" },
+  { value: "sent", label: "Sent" },
+  { value: "quoting", label: "Quoting" },
+  { value: "completed", label: "Completed" },
+];
+
+const TERMINAL_STEPS = [
+  { value: "cancelled", label: "Cancelled", color: "danger" },
+];
 
 const mySwal = withReactContent(Swal);
 
@@ -806,6 +820,10 @@ const RfqView = () => {
   // persisted RFQ otherwise.
   const headerVoucher = isDraft ? t("New RFQ") : rfq.voucher_no || t("RFQ");
   const headerStatus = isDraft ? "draft" : rfq.status;
+  // A completed/cancelled RFQ is closed: no more price edits and the
+  // quotation-creation entry point is hidden.
+  const isClosed =
+    !isDraft && (rfq?.status === "completed" || rfq?.status === "cancelled");
   const leadCompany = isDraft ? draftLead?.company_name : rfq.lead_company_name;
   const leadVoucher = isDraft ? draftLead?.voucher_no : rfq.lead_voucher_no;
   const exportLeadId = isDraft ? leadIdParam : rfq?.lead_id;
@@ -822,7 +840,7 @@ const RfqView = () => {
   // Compact lead line shown under the title in the shared detail header.
   const headerMeta =
     leadCompany || leadVoucher ? (
-      <span className="d-inline-flex flex-wrap align-items-center gap-1">
+      <span className="d-inline-flex flex-wrap align-items-center gap-1 mt-50">
         {leadCompany && (
           <span className="d-inline-flex align-items-center text-capitalize fw-semibold text-body">
             <Briefcase size={13} className="me-25" />
@@ -872,9 +890,8 @@ const RfqView = () => {
       label: t("Create Quotation"),
       color: "primary",
       outline: false,
-      hidden:
-        isDraft ||
-        !(rfq?.prices || []).some((p) => Number(p.unit_price) > 0),
+      // Only surfaced once the RFQ is completed.
+      hidden: isDraft || rfq?.status !== "completed",
       onClick: () =>
         navigate(
           `${appsRoot}/quotations/add?rfq_id=${id}` +
@@ -903,6 +920,13 @@ const RfqView = () => {
         meta={headerMeta}
         actionsPrefix={headerStatusPrefix}
         actions={headerActions}
+        belowSlot={
+          <DetailPipeline
+            steps={PIPELINE_STEPS}
+            current={headerStatus}
+            terminalSteps={TERMINAL_STEPS}
+          />
+        }
       />
 
       {/* Comparison grid */}
@@ -929,8 +953,9 @@ const RfqView = () => {
                 onChange={(opt) => onSelectVendor(opt?.value || "")}
                 placeholder={t("+ Add vendor")}
                 // Only lock while a mutation is in flight — both draft and saved
-                // RFQs now hold multiple vendors.
-                isDisabled={store?.loading}
+                // RFQs now hold multiple vendors. Also locked once the RFQ is
+                // completed/cancelled (no more sourcing edits).
+                isDisabled={store?.loading || isClosed}
                 // Shrink the control to match the adjacent btn-sm height so the
                 // add-vendor box and the 3 buttons line up on one row.
                 styles={{
@@ -956,7 +981,7 @@ const RfqView = () => {
               size="sm"
               outline
               onClick={exportVendorSheet}
-              disabled={exporting || !addVendorId}
+              disabled={exporting || !addVendorId || isClosed}
               title={t("Export the selected vendor's sheet")}
             >
               {exporting ? (
@@ -975,7 +1000,7 @@ const RfqView = () => {
               size="sm"
               outline
               onClick={exportAllSheets}
-              disabled={exporting || vendors.length === 0}
+              disabled={exporting || vendors.length === 0 || isClosed}
               title={t("Export a sheet for every vendor (zip)")}
             >
               <Download size={14} className="me-25" />{" "}
@@ -987,6 +1012,7 @@ const RfqView = () => {
                 color="primary"
                 size="sm"
                 onClick={() => setImportModalOpen(true)}
+                disabled={isClosed}
                 title={t("Import a vendor's filled price sheet")}
               >
                 <Upload size={14} className="me-25" /> {t("Import Prices")}
@@ -1210,7 +1236,7 @@ const RfqView = () => {
                   <Button
                     color="primary"
                     onClick={onSavePrices}
-                    disabled={saving}
+                    disabled={saving || isClosed}
                     className="py-75 px-2"
                   >
                     {saving ? (
