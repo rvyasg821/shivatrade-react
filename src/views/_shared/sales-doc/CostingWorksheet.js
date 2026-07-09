@@ -38,6 +38,11 @@ import {
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import Notification from "@components/toast/notification";
 
+// Weights are stored at 3-decimal precision (matches the line entity's
+// numeric(14,3)); used when auto-filling qty × per-unit weight.
+const round3 = (n) =>
+  Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 1000) / 1000 : 0;
+
 // ── Click-to-edit numeric cell ──────────────────────────────────────────────
 // Shows `display` as a label; click → autofocused input bound to `value`.
 const EditableCell = ({
@@ -297,11 +302,87 @@ const CostingWorksheet = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productIdsKey]);
 
+  // Backfill per-unit master weights onto lines that already carry a product
+  // (seeded from an RFQ/lead, bulk-imported, or hydrated for edit) but never
+  // captured them through the picker — then auto-fill each empty weight /
+  // package cell from qty. Runs once per line (guarded by `_wt_seeded`) and
+  // never overwrites an existing value or a manual override, so saved figures
+  // and edits are preserved.
+  useEffect(() => {
+    if (readOnly || !productOptions.length) return;
+    const byId = new Map(
+      productOptions.map((o) => [String(o.value), o.raw || {}])
+    );
+    liveLines.forEach((l, idx) => {
+      if (!l || !l.product_id || l._wt_seeded) return;
+      const raw = byId.get(String(l.product_id));
+      if (!raw) return; // options not loaded yet — retry when they are
+      const nwpu =
+        raw.net_weight_per_unit != null ? String(raw.net_weight_per_unit) : "0";
+      const gwpu =
+        raw.gross_weight_per_unit != null
+          ? String(raw.gross_weight_per_unit)
+          : "0";
+      const packSize = raw.pack_size != null ? Number(raw.pack_size) : 0;
+      setValue(`lines.${idx}.net_weight_per_unit`, nwpu);
+      setValue(`lines.${idx}.gross_weight_per_unit`, gwpu);
+      setValue(`lines.${idx}.pack_size`, packSize);
+      setValue(`lines.${idx}._wt_seeded`, true);
+      if (l._wt_manual) return;
+      const qty = num(l.qty);
+      if (num(nwpu) > 0 && !num(l.net_weight_kg)) {
+        setValue(`lines.${idx}.net_weight_kg`, String(round3(qty * num(nwpu))));
+      }
+      if (num(gwpu) > 0 && !num(l.gross_weight_kg)) {
+        setValue(
+          `lines.${idx}.gross_weight_kg`,
+          String(round3(qty * num(gwpu)))
+        );
+      }
+      if (packSize > 0 && !num(l.package_count)) {
+        setValue(
+          `lines.${idx}.package_count`,
+          qty > 0 ? Math.ceil(qty / packSize) : 0
+        );
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productIdsKey, productOptions.length, readOnly]);
+
   const addRow = () => {
     // Jump to the page that will hold the appended row (its index = current
     // length, before the append takes effect).
     setWsPage(Math.floor(lineFA.fields.length / wsPageSize));
     lineFA.append({ ...emptyLine() });
+  };
+
+  // Auto-fill the weight/package cells from the line's per-unit master values:
+  //   net/gross weight = qty × per-unit,  packages = ceil(qty ÷ pack_size).
+  // Skips any dimension the product doesn't define (per-unit / pack_size = 0)
+  // so an existing (hydrated) value is never wiped, and yields to a manual
+  // override on the line (`_wt_manual`).
+  const recomputeWeights = (idx, qtyRaw) => {
+    const line =
+      (typeof getValues === "function" && getValues(`lines.${idx}`)) ||
+      liveLines[idx] ||
+      {};
+    if (line._wt_manual) return;
+    const qty = num(qtyRaw != null ? qtyRaw : line.qty);
+    const nwpu = num(line.net_weight_per_unit);
+    const gwpu = num(line.gross_weight_per_unit);
+    const packSize = num(line.pack_size);
+    if (nwpu > 0) {
+      setValue(`lines.${idx}.net_weight_kg`, String(round3(qty * nwpu)));
+    }
+    if (gwpu > 0) {
+      setValue(`lines.${idx}.gross_weight_kg`, String(round3(qty * gwpu)));
+    }
+    if (packSize > 0) {
+      setValue(
+        `lines.${idx}.package_count`,
+        qty > 0 ? Math.ceil(qty / packSize) : 0
+      );
+    }
   };
 
   const onPickProduct = (idx, opt) => {
@@ -316,6 +397,25 @@ const CostingWorksheet = ({
       raw.tax_pct != null ? String(raw.tax_pct) : "0"
     );
     if (raw.unit_of_measure) setValue(`lines.${idx}.unit`, raw.unit_of_measure);
+    // Seed per-unit master values then auto-fill weights/packages from the
+    // current qty. Picking a (new) product clears any prior manual override.
+    setValue(
+      `lines.${idx}.net_weight_per_unit`,
+      raw.net_weight_per_unit != null ? String(raw.net_weight_per_unit) : "0"
+    );
+    setValue(
+      `lines.${idx}.gross_weight_per_unit`,
+      raw.gross_weight_per_unit != null
+        ? String(raw.gross_weight_per_unit)
+        : "0"
+    );
+    setValue(
+      `lines.${idx}.pack_size`,
+      raw.pack_size != null ? Number(raw.pack_size) : 0
+    );
+    setValue(`lines.${idx}._wt_manual`, false);
+    setValue(`lines.${idx}._wt_seeded`, true);
+    recomputeWeights(idx);
     // Don't pre-fill expense/rebate amounts from the product/master defaults —
     // they start empty (grid shows 0) and the user opts heads in + overrides
     // per quotation via the popover.
@@ -644,7 +744,12 @@ const CostingWorksheet = ({
                         display={l.qty ? fmt(num(l.qty)) : null}
                         readOnly={readOnly}
                         invalid={!!errors?.lines?.[idx]?.qty}
-                        onCommit={(v) => setField(idx, "qty", v)}
+                        onCommit={(v) => {
+                          setField(idx, "qty", v);
+                          // Re-derive weights/packages from the new qty
+                          // (unless the user manually overrode them).
+                          recomputeWeights(idx, v);
+                        }}
                       />
                     </td>
                     <td className="text-center text-muted">
@@ -770,7 +875,10 @@ const CostingWorksheet = ({
                             : null
                         }
                         readOnly={readOnly}
-                        onCommit={(v) => setField(idx, "net_weight_kg", v)}
+                        onCommit={(v) => {
+                          setField(idx, "net_weight_kg", v);
+                          setValue(`lines.${idx}._wt_manual`, true);
+                        }}
                       />
                     </td>
                     <td className="p-0">
@@ -782,7 +890,10 @@ const CostingWorksheet = ({
                             : null
                         }
                         readOnly={readOnly}
-                        onCommit={(v) => setField(idx, "gross_weight_kg", v)}
+                        onCommit={(v) => {
+                          setField(idx, "gross_weight_kg", v);
+                          setValue(`lines.${idx}._wt_manual`, true);
+                        }}
                       />
                     </td>
                     <td className="p-0">
@@ -792,7 +903,10 @@ const CostingWorksheet = ({
                           num(l.package_count) ? num(l.package_count) : null
                         }
                         readOnly={readOnly}
-                        onCommit={(v) => setField(idx, "package_count", v)}
+                        onCommit={(v) => {
+                          setField(idx, "package_count", v);
+                          setValue(`lines.${idx}._wt_manual`, true);
+                        }}
                       />
                     </td>
                     {!readOnly && (
@@ -906,6 +1020,13 @@ function emptyLine() {
     net_weight_kg: "0",
     gross_weight_kg: "0",
     package_count: 0,
+    // Per-unit master values (helper fields only — dropped by the submit
+    // mapping). Drive qty × per-unit auto-fill of the weight/package cells.
+    net_weight_per_unit: "0",
+    gross_weight_per_unit: "0",
+    pack_size: 0,
+    _wt_manual: false,
+    _wt_seeded: false,
   };
 }
 
