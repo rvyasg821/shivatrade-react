@@ -566,7 +566,7 @@ const ManageVendorPricing = () => {
                           </tr>
 
                           {open
-                            ? hist.map((h) => (
+                            ? hist.slice(0, 5).map((h) => (
                                 <tr key={h._id} className="bg-light">
                                   <td />
                                   <td className="small text-muted">

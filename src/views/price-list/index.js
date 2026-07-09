@@ -430,7 +430,8 @@ const PriceListView = () => {
               productId: row?.product_id,
               title: `${row?.product_code ? `${row.product_code} · ` : ""}${
                 row?.product_name || ""
-              }  —  ${row?.vendor_name || ""}`,
+              }`,
+              vendorName: row?.vendor_name || "",
             })
           }
         >
@@ -606,6 +607,7 @@ const PriceListView = () => {
         vendorId={historyTarget?.vendorId}
         productId={historyTarget?.productId}
         title={historyTarget?.title}
+        vendorName={historyTarget?.vendorName}
       />
     </Fragment>
   );

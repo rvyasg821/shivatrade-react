@@ -200,28 +200,35 @@ const VendorPricesOffcanvas = ({ open, toggle, product }) => {
                       </td>
                     </tr>
                     {isOpen
-                      ? hist.map((h) => (
+                      ? hist.slice(0, 5).map((h) => (
                           <tr key={h._id} className="bg-light">
-                            <td />
-                            <td
-                              colSpan={3}
-                              className="small d-flex justify-content-between flex-wrap gap-1"
-                            >
-                              <span className="fw-semibold">
-                                {money(
-                                  h?.unit_price,
-                                  h?.currency_symbol || h?.currency_code || ""
-                                )}
-                              </span>
-                              <span className="text-muted">
-                                {formatDate(h?.effective_date)} →{" "}
-                                {h?.effective_until
-                                  ? formatDate(h.effective_until)
-                                  : t("No expiry")}
-                              </span>
-                              <span className="text-muted text-capitalize">
-                                {sourceLabel(h, t)}
-                              </span>
+                            <td colSpan={4} className="small">
+                              <div className="d-flex flex-wrap gap-1">
+                                <span
+                                  className="fw-semibold"
+                                  style={{ flex: 1, minWidth: 0 }}
+                                >
+                                  {money(
+                                    h?.unit_price,
+                                    h?.currency_symbol || h?.currency_code || ""
+                                  )}
+                                </span>
+                                <span
+                                  className="text-muted text-capitalize text-start"
+                                  style={{ flex: 1, minWidth: 0 }}
+                                >
+                                  {sourceLabel(h, t)}
+                                </span>
+                                <span
+                                  className="text-muted text-end"
+                                  style={{ flex: 1, minWidth: 0 }}
+                                >
+                                  {formatDate(h?.effective_date)} →{" "}
+                                  {h?.effective_until
+                                    ? formatDate(h.effective_until)
+                                    : t("No expiry")}
+                                </span>
+                              </div>
                             </td>
                           </tr>
                         ))
