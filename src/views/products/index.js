@@ -269,11 +269,11 @@ const ProductList = () => {
       },
     },
     {
-      name: t("HSN (GST)"),
+      name: t("HSN Code"),
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "hsn_code",
       sortable: false,
-      minWidth: "140px",
+      minWidth: "130px",
       selector: (row) => (
         <div className="py-50">
           <div className="fw-bold">{row?.hsn_code || "-"}</div>
@@ -283,6 +283,16 @@ const ProductList = () => {
             </div>
           ) : null}
         </div>
+      ),
+    },
+    {
+      name: t("Part No"),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
+      sortField: "part_no",
+      sortable: false,
+      minWidth: "120px",
+      selector: (row) => (
+        <span className="text-wrap">{row?.part_no || "-"}</span>
       ),
     },
     {
