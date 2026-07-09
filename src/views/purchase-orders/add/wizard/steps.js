@@ -18,6 +18,7 @@ export const STEPS = [
       "delivery_address_id",
       "payment_terms",
       "delivery_terms",
+      "dispatched_through",
     ],
     Component: Step1Vendor,
     canEnter: () => true,
