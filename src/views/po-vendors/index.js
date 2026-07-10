@@ -306,7 +306,16 @@ const PoVendorView = () => {
           >
             SO - {row.purchase_order_voucher_no}
             {row?.purchase_order_id ? (
-              <ExternalLink size={11} className="ms-50" />
+              // `color` sets the SVG stroke — the badge's inherited `color`
+              // alone loses to the theme's feather-icon stroke rule.
+              <ExternalLink
+                size={11}
+                className="ms-50"
+                color="#fff"
+                ref={(el) => {
+                  if (el) el.style.setProperty("stroke", "#fff", "important");
+                }}
+              />
             ) : null}
           </span>
         ) : null;

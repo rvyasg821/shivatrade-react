@@ -289,6 +289,8 @@ const MultiSoPickerModal = ({
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
+          // BE already resolves this as SO line → product master.
+          part_no: l.part_no || "",
           description: l.product_name || "",
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
