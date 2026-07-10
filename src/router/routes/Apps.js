@@ -89,6 +89,7 @@ const GeneratePov = lazy(() => import('@src/views/purchase-orders/generate-pov')
 const PoVendorList = lazy(() => import('@src/views/po-vendors'));
 const CreatePoVendor = lazy(() => import('@src/views/po-vendors/create'));
 const ViewPoVendor = lazy(() => import('@src/views/po-vendors/view'));
+const EditPoVendor = lazy(() => import('@src/views/po-vendors/edit'));
 const DispatchPoVendor = lazy(() => import('@src/views/po-vendors/dispatch'));
 const GrnView = lazy(() => import('@src/views/grn/view'));
 const DebitNoteView = lazy(() => import('@src/views/debit-notes/view'));
@@ -790,6 +791,14 @@ const AppRoutes = [
     meta: {
       permissionId: poVendorsModuleSlug,
       action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/po-vendors/edit/:id`,
+    element: <EditPoVendor />,
+    meta: {
+      permissionId: poVendorsModuleSlug,
+      action: 'update',
     },
   },
   {

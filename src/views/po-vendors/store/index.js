@@ -147,6 +147,7 @@ export const recoverPoVendors = createAsyncThunk(
       vendor_expenses,
       vendor_advances,
       vendor_delivery_locations,
+      vendor_terms,
     },
     { rejectWithValue }
   ) => {
@@ -158,6 +159,7 @@ export const recoverPoVendors = createAsyncThunk(
           vendor_expenses,
           vendor_advances,
           vendor_delivery_locations,
+          vendor_terms,
         }
       );
       const body = resp?.data;

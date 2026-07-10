@@ -96,6 +96,16 @@ const PoVendorRecoverModal = ({
   // stamps it on the stock ledger so on-hand is location-scoped.
   // Shape: { [vendor_id]: location_id }.
   const [vendorLocations, setVendorLocations] = useState({});
+  // Per-vendor terms printed on that vendor's POV PDF. Free text — these are
+  // the VENDOR's terms, never the parent Sales Order's (those are the
+  // customer's). Shape: { [vendor_id]: { dispatched_through, payment_terms,
+  // delivery_terms } }.
+  const [vendorTerms, setVendorTerms] = useState({});
+  const setVendorTerm = (vendorId, field, value) =>
+    setVendorTerms((curr) => ({
+      ...curr,
+      [vendorId]: { ...(curr[vendorId] || {}), [field]: value },
+    }));
   const [companyLocations, setCompanyLocations] = useState([]);
   const defaultLocationId = useMemo(() => {
     const def =
@@ -161,6 +171,7 @@ const PoVendorRecoverModal = ({
     setVendorExpenses({});
     setVendorAdvances({});
     setVendorLocations({});
+    setVendorTerms({});
     instance
       .get(previewEndpoint)
       .then((resp) => {
@@ -419,6 +430,17 @@ const PoVendorRecoverModal = ({
       }
     }
 
+    // Per-vendor terms — only vendors with at least one non-empty field.
+    const trimmedTerms = {};
+    for (const [vid, tv] of Object.entries(vendorTerms)) {
+      const cleaned = {
+        dispatched_through: tv?.dispatched_through?.trim() || undefined,
+        payment_terms: tv?.payment_terms?.trim() || undefined,
+        delivery_terms: tv?.delivery_terms?.trim() || undefined,
+      };
+      if (Object.values(cleaned).some(Boolean)) trimmedTerms[vid] = cleaned;
+    }
+
     setCreating(true);
     try {
       const result = await dispatch(
@@ -430,6 +452,9 @@ const PoVendorRecoverModal = ({
             ? trimmedAdvances
             : undefined,
           vendor_delivery_locations: trimmedLocations,
+          vendor_terms: Object.keys(trimmedTerms).length
+            ? trimmedTerms
+            : undefined,
         })
       ).unwrap();
       const created = result?.created || [];
@@ -837,6 +862,76 @@ const PoVendorRecoverModal = ({
                                 }))
                               }
                               noOptionsMessage={() => t("No locations found")}
+                            />
+                          </Col>
+                          <Col md="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Dispatched Through")}
+                            </Label>
+                            <Input
+                              bsSize="sm"
+                              maxLength={150}
+                              placeholder={t("e.g. By Sea")}
+                              value={
+                                vendorTerms[v.vendor_id]?.dispatched_through ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                setVendorTerm(
+                                  v.vendor_id,
+                                  "dispatched_through",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </Col>
+                        </Row>
+                        {/* Vendor-side terms printed on this POV's PDF. Free
+                            text — typed per vendor, never inherited from the
+                            Sales Order (whose terms are the customer's). */}
+                        <Row className="mb-1">
+                          <Col md="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Mode/Terms of Payment")}
+                            </Label>
+                            <Input
+                              bsSize="sm"
+                              maxLength={500}
+                              placeholder={t(
+                                "e.g. 50% ADVANCE & 50% AT DISPATCH TIME"
+                              )}
+                              value={
+                                vendorTerms[v.vendor_id]?.payment_terms || ""
+                              }
+                              onChange={(e) =>
+                                setVendorTerm(
+                                  v.vendor_id,
+                                  "payment_terms",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </Col>
+                          <Col md="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Terms of Delivery")}
+                            </Label>
+                            <Input
+                              bsSize="sm"
+                              maxLength={1000}
+                              placeholder={t(
+                                "e.g. OUR PFI NO:…, DELIVERY TERM: 4 TO 5 WEEKS"
+                              )}
+                              value={
+                                vendorTerms[v.vendor_id]?.delivery_terms || ""
+                              }
+                              onChange={(e) =>
+                                setVendorTerm(
+                                  v.vendor_id,
+                                  "delivery_terms",
+                                  e.target.value
+                                )
+                              }
                             />
                           </Col>
                         </Row>

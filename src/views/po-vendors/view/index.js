@@ -33,6 +33,7 @@ import {
   Download,
   Inbox,
   Repeat,
+  Edit2,
 } from "react-feather";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -405,6 +406,15 @@ const ViewPoVendor = () => {
 
   // ── Header actions (contextual to status) ──
   const headerActions = [];
+  // Edit the POV header (Deliver To, terms, remarks) — draft only, mirroring
+  // the backend's `draftEditable` allowlist.
+  if (canUpdate && statusLower === "draft") {
+    headerActions.push({
+      icon: Edit2,
+      label: t("Edit"),
+      onClick: () => navigate(`${appsRoot}/po-vendors/edit/${id}`),
+    });
+  }
   if (canDispatch) {
     headerActions.push({
       icon: Send,

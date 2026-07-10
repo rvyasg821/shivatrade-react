@@ -20,6 +20,8 @@ import {
   Label,
   Table,
   Spinner,
+  Row,
+  Col,
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
@@ -77,6 +79,11 @@ const CreatePoVendor = () => {
   const [vendorId, setVendorId] = useState("");
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [notes, setNotes] = useState("");
+  // Vendor-side terms printed on the POV PDF. Free text, typed per POV — the
+  // Sales Order's terms belong to the customer and are never inherited here.
+  const [dispatchedThrough, setDispatchedThrough] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [deliveryTerms, setDeliveryTerms] = useState("");
 
   // Standalone manual lines.
   const [lines, setLines] = useState([newRow()]);
@@ -494,6 +501,9 @@ const CreatePoVendor = () => {
               lines: poLines,
               delivery_address_id: deliveryAddressId || undefined,
               notes: notes?.trim() || undefined,
+              dispatched_through: dispatchedThrough?.trim() || undefined,
+              payment_terms: paymentTerms?.trim() || undefined,
+              delivery_terms: deliveryTerms?.trim() || undefined,
               expenses: expensesPayload.length ? expensesPayload : undefined,
             },
           })
@@ -545,6 +555,9 @@ const CreatePoVendor = () => {
             lines: payloadLines,
             delivery_address_id: deliveryAddressId || undefined,
             notes: notes?.trim() || undefined,
+            dispatched_through: dispatchedThrough?.trim() || undefined,
+            payment_terms: paymentTerms?.trim() || undefined,
+            delivery_terms: deliveryTerms?.trim() || undefined,
             expenses: expensesPayload.length ? expensesPayload : undefined,
             advance:
               advanceAmt > 0
@@ -1007,6 +1020,41 @@ const CreatePoVendor = () => {
                 </tfoot>
               </Table>
             )}
+
+            {/* Vendor-side terms printed on the POV PDF. */}
+            <Row className="mt-2">
+              <Col md="4" className="mb-1">
+                <Label className="form-label">{t("Dispatched Through")}</Label>
+                <Input
+                  maxLength={150}
+                  value={dispatchedThrough}
+                  onChange={(e) => setDispatchedThrough(e.target.value)}
+                  placeholder={t("e.g. By Sea")}
+                />
+              </Col>
+              <Col md="4" className="mb-1">
+                <Label className="form-label">
+                  {t("Mode/Terms of Payment")}
+                </Label>
+                <Input
+                  maxLength={500}
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  placeholder={t("e.g. 50% ADVANCE & 50% AT DISPATCH TIME")}
+                />
+              </Col>
+              <Col md="4" className="mb-1">
+                <Label className="form-label">{t("Terms of Delivery")}</Label>
+                <Input
+                  maxLength={1000}
+                  value={deliveryTerms}
+                  onChange={(e) => setDeliveryTerms(e.target.value)}
+                  placeholder={t(
+                    "e.g. OUR PFI NO:…, DELIVERY TERM: 4 TO 5 WEEKS"
+                  )}
+                />
+              </Col>
+            </Row>
 
             <div className="mt-2" style={{ maxWidth: 640 }}>
               <Label className="form-label">{t("Remarks (optional)")}</Label>
