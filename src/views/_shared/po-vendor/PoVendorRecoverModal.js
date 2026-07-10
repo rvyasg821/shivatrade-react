@@ -499,8 +499,11 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 100 }}>{t("Part No")}</th>
                     <th style={{ width: 80 }}>{t("HSN")}</th>
                     <th style={{ width: 70 }}>{t("Unit")}</th>
-                    <th style={{ width: 90 }} className="text-end">
-                      {t("Required")}
+                    {/* `pending_qty` = ordered − qty already held by existing
+                        non-cancelled POVs. Not the SO's ordered qty, and not
+                        the coverage card's `pending` (which is net of stock). */}
+                    <th style={{ width: 100 }} className="text-end">
+                      {t("Not Yet Covered")}
                     </th>
                     <th style={{ width: 80 }} className="text-end">
                       {t("In Stock")}

@@ -59,8 +59,16 @@ const GrnsTab = ({ registerActions }) => {
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
+  // A POV line's `received_qty` already counts every non-cancelled GRN (drafts
+  // included), so once the dispatch is fully receipted there is nothing left to
+  // put on a second GRN — the backend rejects it, so hide the action.
+  const hasPendingReceipt = (poVendorItem?.lines || []).some(
+    (l) => Number(l?.dispatched_qty || 0) - Number(l?.received_qty || 0) > 1e-6
+  );
   const canReceive =
-    canUpdate && (poVendorItem?.status || "").toLowerCase() === "dispatched";
+    canUpdate &&
+    (poVendorItem?.status || "").toLowerCase() === "dispatched" &&
+    hasPendingReceipt;
 
   useEffect(() => {
     if (!registerActions) return undefined;

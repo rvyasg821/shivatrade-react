@@ -32,6 +32,7 @@ import {
   Phone,
   Download,
   Inbox,
+  Repeat,
 } from "react-feather";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,7 @@ import {
   revertPoVendorToDraft,
   cleanPoVendorMessage,
   cancelPoVendor,
+  createBalancePoVendor,
 } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -173,6 +175,41 @@ const ViewPoVendor = () => {
   // A cancelled POV (no dispatch/receipt activity) can be put back to draft so
   // its quantities are re-reserved against the PO.
   const canRevert = canUpdate && statusLower === "cancelled";
+  // Re-order what this POV never delivered. `has_balance` is computed on the
+  // detail response — it nets off any balance POV already raised from this one,
+  // and caps a PO-backed line at the parent PO line's pending.
+  const canCreateBalance = canUpdate && !!p?.has_balance;
+
+  const handleCreateBalance = () => {
+    mySwal
+      .fire({
+        title: t("Raise a balance Vendor PO?"),
+        text: t(
+          "A new draft Vendor PO will be created on the same vendor for the quantity this one never delivered. Charges are not carried over."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, create it"),
+        cancelButtonText: t("Cancel"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(createBalancePoVendor(id))
+          .unwrap()
+          .then((res) => {
+            if (res?.balancePovId) {
+              navigate(`${appsRoot}/po-vendors/view/${res.balancePovId}`);
+            }
+          })
+          // The rejected case already surfaces via the store's error toast.
+          .catch(() => {});
+      });
+  };
 
   const handleRevert = () => {
     mySwal
@@ -226,6 +263,13 @@ const ViewPoVendor = () => {
   // ── KPI calculations ──
   const lines = p?.lines || [];
   const linesCount = lines.length;
+
+  // Anything left to receipt? A POV line's `received_qty` already counts every
+  // non-cancelled GRN (drafts included), so a full draft receipt leaves nothing
+  // for a second GRN — the backend rejects it, so don't offer the action.
+  const hasPendingReceipt = lines.some(
+    (l) => num(l?.dispatched_qty) - num(l?.received_qty) > 1e-6
+  );
 
   const orderedSum = useMemo(
     () => lines.reduce((s, l) => s + num(l?.ordered_qty), 0),
@@ -368,14 +412,22 @@ const ViewPoVendor = () => {
       onClick: () => navigate(`${appsRoot}/po-vendors/dispatch/${id}`),
     });
   }
-  // Create GRN — shown in the header only once the POV is dispatched. Opens
-  // the draft GRN form for this POV (same target as the GRNs tab action).
-  if (canUpdate && statusLower === "dispatched") {
+  // Create GRN — shown in the header only once the POV is dispatched and some
+  // dispatched qty is still un-receipted. Opens the draft GRN form for this POV
+  // (same target as the GRNs tab action).
+  if (canUpdate && statusLower === "dispatched" && hasPendingReceipt) {
     headerActions.push({
       icon: Inbox,
       label: t("Create GRN"),
       color: "primary",
       onClick: () => navigate(`${appsRoot}/grn/create/${id}`),
+    });
+  }
+  if (canCreateBalance) {
+    headerActions.push({
+      icon: Repeat,
+      label: t("Create Balance POV"),
+      onClick: handleCreateBalance,
     });
   }
   if (canCancel) {
