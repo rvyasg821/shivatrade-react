@@ -322,6 +322,36 @@ export const revertPoVendorToDraft = createAsyncThunk(
   }
 );
 
+// ─── Create balance POV (re-order the un-delivered qty) ────────────────
+//
+// Returns the NEW draft POV. It is kept out of `poVendorItem` so the source
+// POV stays on screen until the caller navigates to `balancePovId`.
+
+export const createBalancePoVendor = createAsyncThunk(
+  "appPoVendor/createBalancePoVendor",
+  async (id, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.balance}/${id}/balance`
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          balancePovId: body.data?._id || "",
+          actionFlag: "POV_BALANCE_CREATED",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to create balance POV");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Vendor payments ───────────────────────────────────────────────────
 
 export const recordPoVendorPayment = createAsyncThunk(
@@ -419,6 +449,8 @@ export const appPoVendorSlice = createSlice({
     poVendorItems: [],
     pagination: null,
     poVendorItem: initPoVendorItem,
+    // Id of the draft POV just raised for a source POV's un-delivered balance.
+    balancePovId: "",
     actionFlag: "",
     loading: true,
     success: "",
@@ -574,6 +606,20 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(revertPoVendorToDraft.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(createBalancePoVendor.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(createBalancePoVendor.fulfilled, (state, action) => {
+        state.loading = true;
+        state.balancePovId = action.payload?.balancePovId || "";
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(createBalancePoVendor.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

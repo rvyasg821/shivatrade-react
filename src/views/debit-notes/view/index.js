@@ -319,7 +319,7 @@ const DebitNoteView = () => {
                 onClick={() => onSave()}
               >
                 <Save size={14} className="me-25" />{" "}
-                {saving ? t("Saving…") : t("Create Debit Note")}
+                {saving ? t("Saving…") : t("Save As Draft")}
               </Button>
             ) : (
               <>

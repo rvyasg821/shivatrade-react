@@ -269,6 +269,7 @@ export const API_ENDPOINTS = {
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     cancel: `/admin/po-vendor`, // append /:id/cancel
     revertDraft: `/admin/po-vendor`, // append /:id/revert-draft
+    balance: `/admin/po-vendor`, // append /:id/balance (re-order un-delivered qty)
     pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
   },

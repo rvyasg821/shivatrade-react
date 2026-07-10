@@ -419,7 +419,11 @@ const GrnView = () => {
                   onClick={() => onSave()}
                 >
                   <Save size={14} className="me-25" />{" "}
-                  {saving ? t("Saving…") : isCreate ? t("Create GRN") : t("Save")}
+                  {saving
+                    ? t("Saving…")
+                    : isCreate
+                    ? t("Save As Draft")
+                    : t("Save")}
                 </Button>
               )}
               {grn.status === "draft" && (
