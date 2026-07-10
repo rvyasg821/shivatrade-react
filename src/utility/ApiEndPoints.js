@@ -273,6 +273,15 @@ export const API_ENDPOINTS = {
     pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
   },
+  // SaaS platform-owner tracking (super admin only; backend 403s otherwise).
+  trackingLogs: {
+    activity: `/admin/tracking/activity`,
+    apiCalls: `/admin/tracking/api-calls`,
+    apiCallStats: `/admin/tracking/api-calls/stats`,
+    usage: `/admin/tracking/usage`,
+    usageRollup: `/admin/tracking/usage/rollup`, // POST ?day=YYYY-MM-DD
+    history: `/admin/tracking/history`, // append /:entityName/:entityId
+  },
   inventory: {
     list: `/admin/inventory/list`,
     stats: `/admin/inventory/stats`,
