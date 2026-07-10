@@ -9,11 +9,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Table, Button, Input } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import { Edit, Truck } from "react-feather";
+import { Edit } from "react-feather";
 
-import PoVendorEditDeliveryModal from "@src/views/_shared/po-vendor/PoVendorEditDeliveryModal";
-import PoVendorEditRemarksModal from "@src/views/_shared/po-vendor/PoVendorEditRemarksModal";
-import { DetailPanel } from "@src/views/_shared/detail-page";
 import { isAdminUser, appsRoot } from "@constant/defaultValues";
 
 const num = (v) =>
@@ -42,7 +39,6 @@ const OverviewTab = ({ registerActions }) => {
   }, [pageCount, page]);
   const pageLines = lines.slice(pageStart, pageEnd);
   const sym = p?.currency_symbol || "₹";
-  const isDraft = (p?.status || "").toLowerCase() === "draft";
 
   // Column totals (whole list, not just current page).
   const totals = lines.reduce(
@@ -61,11 +57,9 @@ const OverviewTab = ({ registerActions }) => {
       maximumFractionDigits: 2,
     })}`;
 
-  // Edit Delivery permission gate — po-vendors.can_update.
+  // po-vendors.can_update — gates the Edit Dispatch / Create GRN actions.
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
-  const canEditDelivery =
-    isDraft && (isAdmin || perms?.can_all || perms?.can_update);
 
   // Edit Dispatch — available once dispatched. Published to the tab bar
   // top-right (no extra row) instead of the page header.
@@ -89,77 +83,9 @@ const OverviewTab = ({ registerActions }) => {
     return () => registerActions(null);
   }, [registerActions, canReceive, id, navigate, t]);
 
-  const [editDeliveryOpen, setEditDeliveryOpen] = useState(false);
-
-  // Remarks (`notes`) — printed on the Vendor PO PDF; editable while draft
-  // or dispatched. Blank falls back to the company's default POV remarks.
-  const canEditRemarks =
-    (isDraft || (p?.status || "").toLowerCase() === "dispatched") &&
-    (isAdmin || perms?.can_all || perms?.can_update);
-  const [editRemarksOpen, setEditRemarksOpen] = useState(false);
-
-  const deliverPanel = (p?.delivery_address || canEditDelivery) && (() => {
-    const addr = (p?.delivery_address || "").trim();
-    const addrLines = addr
-      ? addr.split("\n").map((l) => l.trim()).filter(Boolean)
-      : [];
-    const heading = addrLines[0] || "";
-    const rest = addrLines.slice(1);
-    return (
-      <div className="mt-3">
-        <DetailPanel
-          title={
-            <span className="d-inline-flex align-items-center">
-              <Truck size={16} className="me-50 text-primary" />
-              {t("Deliver To")}
-            </span>
-          }
-          action={
-            canEditDelivery && (
-              <Button
-                color="primary"
-                outline
-                size="sm"
-                onClick={() => setEditDeliveryOpen(true)}
-              >
-                <Edit size={14} className="me-50" /> {t("Edit")}
-              </Button>
-            )
-          }
-        >
-          {addr ? (
-            <div
-              className="rounded-3 border"
-              style={{
-                padding: "1rem 1.25rem",
-                backgroundColor: "#f8f9fa",
-              }}
-            >
-              {heading && (
-                <div
-                  className="fw-bolder mb-25"
-                  style={{ color: "#212529", fontSize: "1rem" }}
-                >
-                  {heading}
-                </div>
-              )}
-              <div className="small text-muted lh-base">
-                {rest.length ? (
-                  rest.map((ln, idx) => <div key={idx}>{ln}</div>)
-                ) : !heading ? (
-                  <span>—</span>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="text-muted small fst-italic">
-              {t("No delivery address set yet.")}
-            </div>
-          )}
-        </DetailPanel>
-      </div>
-    );
-  })();
+  // The Remarks block and the Deliver To panel used to live here. Both moved to
+  // the POV edit page (/po-vendors/edit/:id) — remarks and the delivery address
+  // are set there, and remarks still print on the Vendor PO PDF.
 
   return (
     <Fragment>
@@ -325,33 +251,6 @@ const OverviewTab = ({ registerActions }) => {
             </div>
           )}
 
-          <Fragment>
-            <div className="d-flex align-items-center justify-content-between mt-2 mb-1">
-              <h6 className="mb-0">{t("Remarks")}</h6>
-              {canEditRemarks && (
-                <Button
-                  color="link"
-                  size="sm"
-                  className="p-0"
-                  onClick={() => setEditRemarksOpen(true)}
-                >
-                  <Edit size={14} className="me-50" /> {t("Edit")}
-                </Button>
-              )}
-            </div>
-            <div
-              className="small text-muted"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {p?.effective_remarks ||
-                t("No remarks. Set a company default in Company Profile.")}
-            </div>
-            {!p?.notes && p?.effective_remarks && (
-              <div className="text-muted fst-italic" style={{ fontSize: "0.7rem" }}>
-                {t("(company default — set a POV-specific note above to override)")}
-              </div>
-            )}
-          </Fragment>
           {p?.internal_notes && (
             <Fragment>
               <h6 className="mt-2 mb-1">{t("Internal Notes")}</h6>
@@ -364,16 +263,6 @@ const OverviewTab = ({ registerActions }) => {
             </Fragment>
           )}
 
-      {deliverPanel}
-
-      <PoVendorEditDeliveryModal
-        isOpen={editDeliveryOpen}
-        toggle={() => setEditDeliveryOpen((s) => !s)}
-      />
-      <PoVendorEditRemarksModal
-        isOpen={editRemarksOpen}
-        toggle={() => setEditRemarksOpen((s) => !s)}
-      />
     </Fragment>
   );
 };

@@ -45,6 +45,7 @@ import withReactContent from "sweetalert2-react-content";
 
 import {
   Eye,
+  Edit2,
   Trash2,
   X,
   ExternalLink,
@@ -482,6 +483,9 @@ const PoVendorView = () => {
       center: true,
       cell: (row) => {
         const status = (row?.status || "").toLowerCase();
+        // Header edit (Deliver To / terms / remarks) — draft only, matching
+        // the backend's `draftEditable` allowlist.
+        const canRowEdit = status === "draft" && canEdit;
         // Cancel only before dispatch — hidden once dispatched.
         const canRowCancel = status === "draft" && canEdit;
         const canRowDelete = status === "draft" && canDelete;
@@ -500,6 +504,21 @@ const PoVendorView = () => {
               </UncontrolledTooltip>
               <Eye size={20} />
             </Link>
+            {canRowEdit && (
+              <Link
+                className="me-50"
+                id={`pov-edit-${row?._id || ""}`}
+                to={`${appsRoot}/po-vendors/edit/${row?._id || ""}`}
+              >
+                <UncontrolledTooltip
+                  placement="top"
+                  target={`pov-edit-${row?._id || ""}`}
+                >
+                  {t("Edit")}
+                </UncontrolledTooltip>
+                <Edit2 size={18} />
+              </Link>
+            )}
             <span
               className="cursor-pointer me-50"
               id={`pov-pdf-${row?._id || ""}`}
