@@ -779,8 +779,22 @@ const InvoiceAddEdit = () => {
           po?.country_of_final_destination ||
           po?.country_of_destination ||
           s.country_of_destination,
+        // Buyer's PO # — carried from the primary source Sales Order, same as
+        // the single-SO path. Blank-only, so it never clobbers a typed value.
+        customer_po_no: po?.customer_po_number || s.customer_po_no || "",
+        advance_received:
+          po?.advance_amount != null && po?.advance_amount !== ""
+            ? String(po.advance_amount)
+            : s.advance_received,
       }));
-      setLines(seed.lines.map((l, i) => ({ ...l, seq: i + 1 })));
+      // Round to 2dp like every other seed path — SO lines can carry more.
+      setLines(
+        seed.lines.map((l, i) => ({
+          ...l,
+          seq: i + 1,
+          unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+        }))
+      );
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, queryPoId]);
@@ -2552,11 +2566,12 @@ const InvoiceAddEdit = () => {
                         />
                       </td>
                       <td>
+                        {/* Read-only — derived from the line's UOM via
+                            mapUomToUqc(); change the product's unit, not this. */}
                         <Input
                           value={l.uqc_code || ""}
-                          onChange={(e) =>
-                            updateLine(i, { uqc_code: e.target.value.toUpperCase() })
-                          }
+                          readOnly
+                          className="bg-light"
                           maxLength={10}
                         />
                       </td>
