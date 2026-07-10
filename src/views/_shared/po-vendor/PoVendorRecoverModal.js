@@ -918,6 +918,8 @@ const PoVendorRecoverModal = ({
                             </Label>
                             <Input
                               bsSize="sm"
+                              type="textarea"
+                              rows="3"
                               maxLength={1000}
                               placeholder={t(
                                 "e.g. OUR PFI NO:…, DELIVERY TERM: 4 TO 5 WEEKS"
