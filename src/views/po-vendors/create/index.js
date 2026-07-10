@@ -129,6 +129,26 @@ const CreatePoVendor = () => {
     companyStore?.companyItem?.default_remarks,
   ]);
 
+  // Same for the three vendor terms — seeded from the company defaults, blank-only.
+  useEffect(() => {
+    const c = companyStore?.companyItem;
+    if (!c) return;
+    if (c.pov_default_dispatched_through && !dispatchedThrough) {
+      setDispatchedThrough(c.pov_default_dispatched_through);
+    }
+    if (c.pov_default_payment_terms && !paymentTerms) {
+      setPaymentTerms(c.pov_default_payment_terms);
+    }
+    if (c.pov_default_delivery_terms && !deliveryTerms) {
+      setDeliveryTerms(c.pov_default_delivery_terms);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    companyStore?.companyItem?.pov_default_dispatched_through,
+    companyStore?.companyItem?.pov_default_payment_terms,
+    companyStore?.companyItem?.pov_default_delivery_terms,
+  ]);
+
   const expenseOptions = useMemo(
     () =>
       (expenseStore?.expenseDropdown || []).map((e) => ({
@@ -1023,7 +1043,7 @@ const CreatePoVendor = () => {
 
             {/* Vendor-side terms printed on the POV PDF. */}
             <Row className="mt-2">
-              <Col md="4" className="mb-1">
+              <Col md="6" className="mb-1">
                 <Label className="form-label">{t("Dispatched Through")}</Label>
                 <Input
                   maxLength={150}
@@ -1032,7 +1052,7 @@ const CreatePoVendor = () => {
                   placeholder={t("e.g. By Sea")}
                 />
               </Col>
-              <Col md="4" className="mb-1">
+              <Col md="6" className="mb-1">
                 <Label className="form-label">
                   {t("Mode/Terms of Payment")}
                 </Label>
@@ -1043,9 +1063,14 @@ const CreatePoVendor = () => {
                   placeholder={t("e.g. 50% ADVANCE & 50% AT DISPATCH TIME")}
                 />
               </Col>
-              <Col md="4" className="mb-1">
+            </Row>
+
+            <Row>
+              <Col md="12" className="mb-1">
                 <Label className="form-label">{t("Terms of Delivery")}</Label>
                 <Input
+                  type="textarea"
+                  rows="3"
                   maxLength={1000}
                   value={deliveryTerms}
                   onChange={(e) => setDeliveryTerms(e.target.value)}

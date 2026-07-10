@@ -34,6 +34,7 @@ import {
   updatePoVendor,
   cleanPoVendorMessage,
 } from "@src/views/po-vendors/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { appsRoot } from "@constant/defaultValues";
 
 const EditPoVendor = () => {
@@ -43,6 +44,8 @@ const EditPoVendor = () => {
   const { t } = useTranslation();
 
   const store = useSelector((s) => s.poVendor);
+  const companyStore = useSelector((s) => s.company);
+  const co = companyStore?.companyItem;
   const p = store?.poVendorItem || {};
   const backTo = `${appsRoot}/po-vendors/view/${id}`;
   const isDraft = (p?.status || "").toLowerCase() === "draft";
@@ -59,6 +62,7 @@ const EditPoVendor = () => {
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
+    dispatch(getCompanyDetails());
   }, [id, dispatch]);
 
   // Seed once the POV lands, so typing isn't clobbered by a later refetch.
@@ -70,11 +74,36 @@ const EditPoVendor = () => {
     // has none. Seeding from it means saving pins the default onto this POV —
     // the same thing the create page does.
     setNotes(p.notes || p.effective_remarks || "");
-    setDispatchedThrough(p.dispatched_through || "");
-    setPaymentTerms(p.payment_terms || "");
-    setDeliveryTerms(p.delivery_terms || "");
+    // Company defaults fill a term this POV never set. Applied here too (not
+    // only in the effect below) because the company may already have landed —
+    // otherwise this seed would blank out what that effect just filled.
+    setDispatchedThrough(
+      p.dispatched_through || co?.pov_default_dispatched_through || ""
+    );
+    setPaymentTerms(p.payment_terms || co?.pov_default_payment_terms || "");
+    setDeliveryTerms(p.delivery_terms || co?.pov_default_delivery_terms || "");
     setSeeded(true);
-  }, [loaded, seeded, p]);
+  }, [loaded, seeded, p, co]);
+
+  // Company defaults fill any term this POV never set. Runs once, when the
+  // company lands — so it can't overwrite a field the operator has cleared.
+  useEffect(() => {
+    if (!co) return;
+    if (co.pov_default_dispatched_through) {
+      setDispatchedThrough((v) => v || co.pov_default_dispatched_through);
+    }
+    if (co.pov_default_payment_terms) {
+      setPaymentTerms((v) => v || co.pov_default_payment_terms);
+    }
+    if (co.pov_default_delivery_terms) {
+      setDeliveryTerms((v) => v || co.pov_default_delivery_terms);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    co?.pov_default_dispatched_through,
+    co?.pov_default_payment_terms,
+    co?.pov_default_delivery_terms,
+  ]);
 
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
@@ -199,6 +228,8 @@ const EditPoVendor = () => {
             <Col md="12" className="mb-1">
               <Label className="form-label">{t("Terms of Delivery")}</Label>
               <Input
+                type="textarea"
+                rows="3"
                 maxLength={1000}
                 disabled={!isDraft}
                 value={deliveryTerms}

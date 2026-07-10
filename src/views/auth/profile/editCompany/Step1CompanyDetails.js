@@ -222,6 +222,9 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       default_declaration_text: "",
       default_remarks: "",
       pov_default_remarks: "",
+      pov_default_dispatched_through: "",
+      pov_default_payment_terms: "",
+      pov_default_delivery_terms: "",
       // ── PO defaults ──
       default_terms: "",
       authorised_signatory_name: "",
@@ -320,6 +323,10 @@ const Step1CompanyDetails = ({ section = "all" }) => {
         default_terms: company.default_terms || "",
         default_remarks: company.default_remarks || "",
         pov_default_remarks: company.pov_default_remarks || "",
+        pov_default_dispatched_through:
+          company.pov_default_dispatched_through || "",
+        pov_default_payment_terms: company.pov_default_payment_terms || "",
+        pov_default_delivery_terms: company.pov_default_delivery_terms || "",
         authorised_signatory_name: company.authorised_signatory_name || "",
         footer_address: company.footer_address || "",
         addresses: (company.addresses || []).map((a) => ({
@@ -420,6 +427,18 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       pov_default_remarks:
         values.pov_default_remarks != null
           ? values.pov_default_remarks.trim()
+          : undefined,
+      pov_default_dispatched_through:
+        values.pov_default_dispatched_through != null
+          ? values.pov_default_dispatched_through.trim()
+          : undefined,
+      pov_default_payment_terms:
+        values.pov_default_payment_terms != null
+          ? values.pov_default_payment_terms.trim()
+          : undefined,
+      pov_default_delivery_terms:
+        values.pov_default_delivery_terms != null
+          ? values.pov_default_delivery_terms.trim()
           : undefined,
       authorised_signatory_name:
         values.authorised_signatory_name != null
@@ -625,7 +644,9 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                 state for backwards-compat. */}
 
             {/* ── Tax & Compliance (India export) ── */}
-            <h4 className="mt-4 mb-2">{t("Tax & Compliance")}</h4>
+            {/* mt-1: the theme rescales Bootstrap's spacers, so mt-4 here is
+                3.5rem, not 1.5rem — it left a large gap under the row above. */}
+            <h4 className="mt-1 mb-2">{t("Tax & Compliance")}</h4>
             <Row>
               <Col md="6" className="mb-2">
                 <Label className="form-label" for="cin">
@@ -714,7 +735,25 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                   )}
                 />
               </Col>
-              <Col md="12" className="mb-2">
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="authorised_signatory_name">
+                  {t("Authorised Signatory Name")}
+                </Label>
+                <Controller name="authorised_signatory_name" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="authorised_signatory_name"
+                      maxLength={150}
+                      placeholder="e.g. Rakesh"
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+
+              {/* Long-form defaults — paired so neither leaves a dead half-row. */}
+              <Col md="6" className="mb-2">
                 <Label className="form-label" for="default_declaration_text">
                   {t("Default Declaration Text")}
                 </Label>
@@ -732,25 +771,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                     />
                   )} />
               </Col>
-
-              {/* ── PO defaults ─────────────────────────────────────── */}
               <Col md="6" className="mb-2">
-                <Label className="form-label" for="authorised_signatory_name">
-                  {t("Authorised Signatory Name")}
-                </Label>
-                <Controller name="authorised_signatory_name" control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="authorised_signatory_name"
-                      maxLength={150}
-                      placeholder="e.g. Rakesh"
-                      disabled={isReadOnly}
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  )} />
-              </Col>
-              <Col md="12" className="mb-2">
                 <Label className="form-label" for="default_terms">
                   {t("Default Terms & Conditions")}
                 </Label>
@@ -768,7 +789,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                     />
                   )} />
               </Col>
-              <Col md="12" className="mb-2">
+              <Col md="6" className="mb-2">
                 <Label className="form-label" for="default_remarks">
                   {t("Default Remarks (Sales Order)")}
                 </Label>
@@ -786,7 +807,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                     />
                   )} />
               </Col>
-              <Col md="12" className="mb-2">
+              <Col md="6" className="mb-2">
                 <Label className="form-label" for="pov_default_remarks">
                   {t("Default Remarks (Vendor Purchase Order)")}
                 </Label>
@@ -798,6 +819,59 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                       rows="4"
                       maxLength={4000}
                       placeholder="e.g. 1. WE NEED PROPER PACKING LIST WITH GROSS AND NET WEIGHT. 2. PROPER DIMENSION & DETAIL OF PRODUCT BEFORE DISPATCH..."
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+
+              {/* Vendor PO terms — copied onto a new POV, editable per POV.
+                  The POV PDF falls back to these when a POV carries none. */}
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="pov_default_dispatched_through">
+                  {t("Default Dispatched Through (Vendor PO)")}
+                </Label>
+                <Controller name="pov_default_dispatched_through" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="pov_default_dispatched_through"
+                      maxLength={150}
+                      placeholder="e.g. By Sea"
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+              <Col md="6" className="mb-2">
+                <Label className="form-label" for="pov_default_payment_terms">
+                  {t("Default Mode/Terms of Payment (Vendor PO)")}
+                </Label>
+                <Controller name="pov_default_payment_terms" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="pov_default_payment_terms"
+                      maxLength={500}
+                      placeholder="e.g. 50% ADVANCE & 50% AT DISPATCH TIME"
+                      disabled={isReadOnly}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  )} />
+              </Col>
+              <Col md="12" className="mb-2">
+                <Label className="form-label" for="pov_default_delivery_terms">
+                  {t("Default Terms of Delivery (Vendor PO)")}
+                </Label>
+                <Controller name="pov_default_delivery_terms" control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="pov_default_delivery_terms"
+                      type="textarea"
+                      rows="3"
+                      maxLength={1000}
+                      placeholder="e.g. OUR PFI NO:STIPL/PI0344/2025-26, DELIVERY TERM: 4 TO 5 WEEKS"
                       disabled={isReadOnly}
                       {...field}
                       value={field.value || ""}
