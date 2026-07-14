@@ -27,6 +27,11 @@ import leadActivity from "@src/views/leads/activityStore";
 import rebate from "@src/views/rebates/store";
 import expense from "@src/views/expenses/store";
 import currency from "@src/views/currencies/store";
+import country from "@src/views/countries/store";
+// `states`, not `state` — `state` is the conventional name for the whole redux
+// tree in every selector in this app, and shadowing it invites bugs.
+import states from "@src/views/states/store";
+import city from "@src/views/cities/store";
 import priceList from "@src/views/price-list/store";
 import quotation from "@src/views/quotations/store";
 import pfi from "@src/views/pfi/store";
@@ -106,6 +111,9 @@ const rootReducer = {
   rebate,
   expense,
   currency,
+  country,
+  states,
+  city,
   priceList,
   quotation,
   pfi,

@@ -34,6 +34,7 @@ import { Upload } from "react-feather";
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
 import Select from "react-select";
+import AddressGeoFields from "@src/views/_shared/geo/AddressGeoFields";
 import { useTranslation } from "react-i18next";
 
 // ** Constant
@@ -941,20 +942,17 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                         <Input disabled={isReadOnly} {...field} value={field.value || ""} />
                       )} />
                   </Col>
-                  <Col md="6" className="mb-2">
-                    <Label className="form-label">{t("City")}</Label>
-                    <Controller name={`addresses.${idx}.city`} control={control}
-                      render={({ field }) => (
-                        <Input disabled={isReadOnly} {...field} value={field.value || ""} />
-                      )} />
-                  </Col>
-                  <Col md="6" className="mb-2">
-                    <Label className="form-label">{t("State")}</Label>
-                    <Controller name={`addresses.${idx}.state`} control={control}
-                      render={({ field }) => (
-                        <Input disabled={isReadOnly} {...field} value={field.value || ""} />
-                      )} />
-                  </Col>
+                  {/* State + City suggest from the geo masters but still take a
+                      typed value — these rows are free text in the database. */}
+                  <AddressGeoFields
+                    control={control}
+                    setValue={setValue}
+                    namePrefix={`addresses.${idx}`}
+                    countryField={`addresses.${idx}.country`}
+                    countryList={countryList}
+                    countryAsName
+                    isReadOnly={isReadOnly}
+                  />
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Country")}</Label>
                     <Controller name={`addresses.${idx}.country`} control={control}

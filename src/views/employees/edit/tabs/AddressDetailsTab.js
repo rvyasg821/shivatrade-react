@@ -1,20 +1,30 @@
 import { Fragment, useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useTranslation } from "react-i18next";
 import Select from "react-select";
-import { getCountryList } from "@src/views/auth/register/utils/countryTimezoneUtils";
+import CreatableSelect from "react-select/creatable";
 import { useSelector } from "react-redux";
+import {
+  useCountryOptions,
+  useStateOptions,
+  useCityOptions,
+  toGeoOption,
+} from "@src/views/_shared/geo/useGeoOptions";
 
 const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
   const { t } = useTranslation();
-  const countryList = getCountryList();
   const [selectedCountry, setSelectedCountry] = useState(null);
   const locationCtx = useSelector((state) => state.locationContext);
   const authStore = useSelector((state) => state.auth);
   const companyItem = useSelector((state) => state.company?.companyItem);
+
+  // Countries come from the master now (with the static list as a fallback);
+  // state and city SUGGEST from the master but still accept a typed value, so
+  // every employee whose city was entered by hand keeps working.
+  const countryList = useCountryOptions();
 
   const schema = yup.object().shape({
     address_1: yup.string().nullable(),
@@ -30,6 +40,11 @@ const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
     shouldFocusError: false,
     defaultValues: { address_1: "", address_2: "", city: "", state: "", zip_code: "", country: "" },
   });
+
+  const countryValue = useWatch({ control, name: "country" });
+  const stateValue = useWatch({ control, name: "state" });
+  const stateOptions = useStateOptions(countryValue);
+  const cityOptions = useCityOptions(stateValue, stateOptions);
 
   useEffect(() => {
     if (employeeData) {
@@ -57,6 +72,11 @@ const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
         }
       }
     }
+    // `countryList` is deliberately NOT a dep. It changes identity when the
+    // country master arrives from the API, and this effect calls reset() —
+    // re-running it would wipe whatever the user had already typed. It does not
+    // need to re-run: useCountryOptions falls back to the static list, so the
+    // list is already populated on the first render and the country resolves.
   }, [employeeData, locationCtx, companyItem, authStore]);
 
   const buildPayload = (values) => ({
@@ -92,14 +112,44 @@ const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
             <Controller name="address_2" control={control} render={({ field }) => <Input {...field} />} />
           </Col>
           <Col md="6" className="mb-2">
-            <Label>{t("City")}</Label>
-            <Controller name="city" control={control} render={({ field }) => <Input {...field} invalid={!!errors.city} />} />
-            <FormFeedback>{errors.city?.message}</FormFeedback>
+            <Label>{t("State")}</Label>
+            <Controller name="state" control={control} render={({ field }) => (
+              <CreatableSelect
+                inputId="state"
+                classNamePrefix="select"
+                options={stateOptions}
+                value={toGeoOption(field.value)}
+                onChange={(option) => {
+                  field.onChange(option?.value || "");
+                  // The old city belongs to the old state — drop it rather than
+                  // save a state/city pair that contradict each other.
+                  setValue("city", "");
+                }}
+                onCreateOption={(input) => field.onChange(input)}
+                formatCreateLabel={(input) => `${t("Use")} "${input}"`}
+                placeholder={t("Select or type a state")}
+                isClearable
+              />
+            )} />
+            {errors.state && <div className="text-danger small mt-25">{errors.state?.message}</div>}
           </Col>
           <Col md="6" className="mb-2">
-            <Label>{t("State")}</Label>
-            <Controller name="state" control={control} render={({ field }) => <Input {...field} invalid={!!errors.state} />} />
-            <FormFeedback>{errors.state?.message}</FormFeedback>
+            <Label>{t("City")}</Label>
+            <Controller name="city" control={control} render={({ field }) => (
+              <CreatableSelect
+                inputId="city"
+                classNamePrefix="select"
+                options={cityOptions}
+                value={toGeoOption(field.value)}
+                onChange={(option) => field.onChange(option?.value || "")}
+                onCreateOption={(input) => field.onChange(input)}
+                formatCreateLabel={(input) => `${t("Use")} "${input}"`}
+                placeholder={t("Select or type a city")}
+                noOptionsMessage={() => t("Type to enter a city")}
+                isClearable
+              />
+            )} />
+            {errors.city && <div className="text-danger small mt-25">{errors.city?.message}</div>}
           </Col>
           <Col md="6" className="mb-2">
             <Label>{t("Postcode / ZIP")}</Label>
@@ -114,7 +164,13 @@ const AddressDetailsTab = forwardRef(({ employeeData }, ref) => {
                 classNamePrefix="select"
                 options={countryList}
                 value={selectedCountry}
-                onChange={(option) => { setSelectedCountry(option); field.onChange(option?.value || ""); }}
+                onChange={(option) => {
+                  setSelectedCountry(option);
+                  field.onChange(option?.value || "");
+                  // A state and city from the previous country are now wrong.
+                  setValue("state", "");
+                  setValue("city", "");
+                }}
                 placeholder={t("Select country")}
                 isClearable isSearchable
               />

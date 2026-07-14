@@ -83,12 +83,14 @@ const initServiceItem = {
   min_persons: 0,
 };
 
+// Status values are the backend enums (ACTIVE / INACTIVE), not display strings.
 const initCountryItem = {
   _id: "",
   name: "",
   currency_code: "",
   country_code: "",
-  status: "Active",
+  time_zone: "",
+  status: "ACTIVE",
 };
 
 const initStateItem = {
@@ -96,15 +98,17 @@ const initStateItem = {
   name: "",
   country_id: null,
   state_code: "",
-  status: "Active",
+  status: "ACTIVE",
 };
+
+// No country_id here: a city inherits its country from the state it is under,
+// and the backend derives it on write.
 const initCityItem = {
   _id: "",
   name: "",
-  country_id: null,
   state_id: null,
   city_code: "",
-  status: "Active",
+  status: "ACTIVE",
 };
 const initPlanItem = {
   _id: "",
