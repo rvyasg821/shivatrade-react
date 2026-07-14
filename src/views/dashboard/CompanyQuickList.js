@@ -1,17 +1,12 @@
+import { formatDate as sharedFormatDate } from "@src/utility/dateFormat";
 import React from 'react';
 import { Card, CardBody, CardHeader, Spinner, Badge, Table } from 'reactstrap';
 import { AlertCircle } from 'react-feather';
 import './CompanyQuickList.scss';
 
 const CompanyQuickList = ({ companies, loading, error }) => {
-    const formatDate = (date) => {
-        if (!date) return 'N/A';
-        return new Date(date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
+    // Was en-US ("Jul 14, 2026"). Shared DD-MM-YYYY helper — one format app-wide.
+    const formatDate = (date) => (date ? sharedFormatDate(date) : 'N/A');
 
     const getSubscriptionBadge = (subscription) => {
         if (!subscription) {

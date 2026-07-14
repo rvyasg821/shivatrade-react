@@ -404,7 +404,7 @@ const RequestsTab = ({ leaveTypeMap, employeeMap, canWrite }) => {
       name: t('Submitted'),
       width: '150px',
       cell: (row) => row.createdAt
-        ? <span className='small'>{new Date(row.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+        ? <span className='small'>{formatDate(row.createdAt)}</span>
         : '—',
       hide: 'md',
     },

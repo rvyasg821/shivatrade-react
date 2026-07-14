@@ -1,4 +1,5 @@
 // ** React Imports
+import { formatDate } from "@src/utility/dateFormat";
 import { Fragment, useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -77,7 +78,7 @@ const formatDateTime = (val) => {
   if (!val) return "—";
   try {
     const d = new Date(val);
-    return `${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB", {
+    return `${formatDate(d)} ${d.toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
     })}`;

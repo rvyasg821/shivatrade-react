@@ -34,6 +34,7 @@ import {
   Inbox,
   Repeat,
   Edit2,
+  Percent,
 } from "react-feather";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -62,6 +63,7 @@ import {
 
 import PoVendorTabView from "./tabView";
 import PoVendorTimelinePanel from "./PoVendorTimelinePanel";
+import PoVendorLineEditModal from "@src/views/_shared/po-vendor/PoVendorLineEditModal";
 
 import "@styles/react/apps/app-users.scss";
 
@@ -115,6 +117,7 @@ const ViewPoVendor = () => {
   const leftColRef = useRef(null);
   const activeLeftTabRef = useRef("overview");
   const [leftHeight, setLeftHeight] = useState(null);
+  const [gstEditOpen, setGstEditOpen] = useState(false);
   const onLeftTabChange = useCallback((key) => {
     activeLeftTabRef.current = key;
   }, []);
@@ -415,6 +418,16 @@ const ViewPoVendor = () => {
       onClick: () => navigate(`${appsRoot}/po-vendors/edit/${id}`),
     });
   }
+  // Edit GST — draft only. The rate is the ONLY per-line field that can change
+  // after the POV exists; qty is locked to the SO line. Once dispatched, the PDF
+  // is with the vendor and the tax is frozen (same rule as the vendor terms).
+  if (canUpdate && statusLower === "draft") {
+    headerActions.push({
+      icon: Percent,
+      label: t("Edit GST"),
+      onClick: () => setGstEditOpen(true),
+    });
+  }
   if (canDispatch) {
     headerActions.push({
       icon: Send,
@@ -575,6 +588,13 @@ const ViewPoVendor = () => {
           <PoVendorTabView />
         )}
       </div>
+
+      {/* Draft-only GST editor. Reads the POV's own lines from the store, so it
+          reopens showing what is actually saved. */}
+      <PoVendorLineEditModal
+        isOpen={gstEditOpen}
+        toggle={() => setGstEditOpen(false)}
+      />
     </Fragment>
   );
 };
