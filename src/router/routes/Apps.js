@@ -16,6 +16,9 @@ import {
   rebatesModuleSlug,
   expensesModuleSlug,
   currenciesModuleSlug,
+  countriesModuleSlug,
+  statesModuleSlug,
+  citiesModuleSlug,
   priceListModuleSlug,
   rfqModuleSlug,
   quotationsModuleSlug,
@@ -66,6 +69,17 @@ const EditExpense = lazy(() => import('@src/views/expenses/add'));
 const CurrencyList = lazy(() => import('@src/views/currencies'));
 const AddCurrency = lazy(() => import('@src/views/currencies/add'));
 const EditCurrency = lazy(() => import('@src/views/currencies/add'));
+
+// One form component serves add and edit — it branches on the :id route param.
+const CountryList = lazy(() => import('@src/views/countries'));
+const AddCountry = lazy(() => import('@src/views/countries/add'));
+const EditCountry = lazy(() => import('@src/views/countries/add'));
+const StateList = lazy(() => import('@src/views/states'));
+const AddState = lazy(() => import('@src/views/states/add'));
+const EditState = lazy(() => import('@src/views/states/add'));
+const CityList = lazy(() => import('@src/views/cities'));
+const AddCity = lazy(() => import('@src/views/cities/add'));
+const EditCity = lazy(() => import('@src/views/cities/add'));
 const PriceList = lazy(() => import('@src/views/price-list'));
 const AddPriceList = lazy(() => import('@src/views/price-list/add'));
 const EditPriceList = lazy(() => import('@src/views/price-list/add'));
@@ -597,6 +611,53 @@ const AppRoutes = [
       permissionId: currenciesModuleSlug,
       action: 'edit',
     },
+  },
+
+  // Geo masters — country → state → city
+  {
+    path: `${appsRoot}/countries`,
+    element: <CountryList />,
+    meta: { permissionId: countriesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/countries/add`,
+    element: <AddCountry />,
+    meta: { permissionId: countriesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/countries/edit/:id`,
+    element: <EditCountry />,
+    meta: { permissionId: countriesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/states`,
+    element: <StateList />,
+    meta: { permissionId: statesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/states/add`,
+    element: <AddState />,
+    meta: { permissionId: statesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/states/edit/:id`,
+    element: <EditState />,
+    meta: { permissionId: statesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/cities`,
+    element: <CityList />,
+    meta: { permissionId: citiesModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/cities/add`,
+    element: <AddCity />,
+    meta: { permissionId: citiesModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/cities/edit/:id`,
+    element: <EditCity />,
+    meta: { permissionId: citiesModuleSlug, action: 'edit' },
   },
   {
     path: `${appsRoot}/price-list`,

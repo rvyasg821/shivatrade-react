@@ -38,9 +38,16 @@ import Notification from "@components/toast/notification";
 // ** Third Party Components
 import PhoneInput from "react-phone-input-2";
 import Select from "react-select";
+import CreatableSelect from "react-select/creatable";
+import {
+  useCountryOptions,
+  useStateOptions,
+  useCityOptions,
+  toGeoOption,
+} from "@src/views/_shared/geo/useGeoOptions";
 import parsePhoneNumberFromString from "libphonenumber-js";
 import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
-import { getTimezoneList, getCountryList } from "@src/views/auth/register/utils/countryTimezoneUtils";
+import { getTimezoneList } from "@src/views/auth/register/utils/countryTimezoneUtils";
 import { useTranslation } from "react-i18next";
 
 // ** Icons Import
@@ -69,9 +76,12 @@ const LocationForm = () => {
   const isSystemAdmin =
     authUserItem?.role?.name === "Super Admin" || authUserItem?.role?.name === "Admin";
 
-  // ** Lists (computed once)
+  // ** Lists
   const timezoneList = getTimezoneList();
-  const countryList = getCountryList();
+  // Countries now come from the Country master (static list as fallback if it
+  // is empty). State and city suggest from the masters but stay free text —
+  // they are plain strings on the record and every existing location typed them.
+  const countryList = useCountryOptions();
 
   // ** Constants
   const isEditMode = !!id;
@@ -155,6 +165,12 @@ const LocationForm = () => {
     resolver: yupResolver(LocationSchema),
     shouldFocusError: false,
   });
+
+  // Suggestion lists for the address block, narrowed by what is picked above.
+  const watchedAddressCountry = watch("country");
+  const watchedState = watch("state");
+  const stateOptions = useStateOptions(watchedAddressCountry);
+  const cityOptions = useCityOptions(watchedState, stateOptions);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -897,20 +913,6 @@ const LocationForm = () => {
                 </Col>
 
                 <Col lg={6} md={6} sm={12} className="mb-2">
-                  <Label className="form-label" for="city">
-                    {t("City")}
-                  </Label>
-                  <Controller
-                    id="city"
-                    name="city"
-                    control={control}
-                    render={({ field }) => (
-                      <Input {...field} autoComplete="off" />
-                    )}
-                  />
-                </Col>
-
-                <Col lg={6} md={6} sm={12} className="mb-2">
                   <Label className="form-label" for="state">
                     {t("State")}
                   </Label>
@@ -919,12 +921,50 @@ const LocationForm = () => {
                     name="state"
                     control={control}
                     render={({ field }) => (
-                      <Input {...field} autoComplete="off" />
+                      <CreatableSelect
+                        inputId="state"
+                        classNamePrefix="select"
+                        options={stateOptions}
+                        value={toGeoOption(field.value)}
+                        onChange={(option) => {
+                          field.onChange(option?.value || "");
+                          setValue("city", "");
+                        }}
+                        onCreateOption={(input) => field.onChange(input)}
+                        formatCreateLabel={(input) => `${t("Use")} "${input}"`}
+                        placeholder={t("Select or type a state")}
+                        isClearable
+                      />
                     )}
                   />
                 </Col>
 
-                
+                <Col lg={6} md={6} sm={12} className="mb-2">
+                  <Label className="form-label" for="city">
+                    {t("City")}
+                  </Label>
+                  <Controller
+                    id="city"
+                    name="city"
+                    control={control}
+                    render={({ field }) => (
+                      <CreatableSelect
+                        inputId="city"
+                        classNamePrefix="select"
+                        options={cityOptions}
+                        value={toGeoOption(field.value)}
+                        onChange={(option) => field.onChange(option?.value || "")}
+                        onCreateOption={(input) => field.onChange(input)}
+                        formatCreateLabel={(input) => `${t("Use")} "${input}"`}
+                        placeholder={t("Select or type a city")}
+                        noOptionsMessage={() => t("Type to enter a city")}
+                        isClearable
+                      />
+                    )}
+                  />
+                </Col>
+
+
 
                 <Col lg={6} md={6} sm={12} className="mb-2">
                   <Label className="form-label" for="postcode">
@@ -959,6 +999,10 @@ const LocationForm = () => {
                           field.onChange(option?.value || "");
                           // Also update PhoneInput flag to match chosen country
                           if (option?.value) setPhoneCountry(option.value.toLowerCase());
+                          // A state/city chosen under the old country no longer
+                          // belongs to this one.
+                          setValue("state", "");
+                          setValue("city", "");
                         }}
                         placeholder={t("Select country")}
                         isClearable

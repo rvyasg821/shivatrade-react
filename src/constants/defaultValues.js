@@ -147,7 +147,10 @@ const locationsModuleSlug = "location"; // Company locations
 const employeesModuleSlug = "employee"; // Location employees
 
 const countriesModuleSlug = "countries";
-const statesModuleSlug = "counties/states";
+// Must match the backend permission slug in `modules.permissions.ts` — the nav
+// and the route both look the role's permissions up by this exact key. It used
+// to read "counties/states", which matched nothing on the backend.
+const statesModuleSlug = "states";
 const citiesModuleSlug = "cities";
 const companyModuleSlug = "company"
 
@@ -241,7 +244,7 @@ const rolePermissionName = {
   [locationsModuleSlug]: "Locations",
   [employeesModuleSlug]: "Employees",
   [countriesModuleSlug]: "Countries",
-  [statesModuleSlug]: "Counties / States",
+  [statesModuleSlug]: "States",
   [citiesModuleSlug]: "Cities",
 
   [toolsModuleSlug]: "Tools",
