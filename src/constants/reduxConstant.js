@@ -83,6 +83,16 @@ const initServiceItem = {
   min_persons: 0,
 };
 
+const initUomItem = {
+  _id: "",
+  code: "",
+  name: "",
+  uqc_code: "",
+  allow_decimal: true,
+  sort_order: 0,
+  status: "ACTIVE",
+};
+
 // Status values are the backend enums (ACTIVE / INACTIVE), not display strings.
 const initCountryItem = {
   _id: "",
@@ -1212,6 +1222,7 @@ export {
   initSmsTempItem,
   initEmailTempItem,
   initServiceItem,
+  initUomItem,
   initCountryItem,
   initStateItem,
   initCityItem,

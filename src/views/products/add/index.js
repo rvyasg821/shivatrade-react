@@ -88,10 +88,9 @@ const STEPS = [
   },
 ];
 import { initProductItem } from "@constant/reduxConstant";
-import {
-  STATUS_OPTIONS,
-  PRODUCT_UOM_OPTIONS,
-} from "@constant/options";
+import { STATUS_OPTIONS } from "@constant/options";
+// Units come from the UOM master via the API — the hardcoded list is gone.
+import { useUomOptions } from "@src/views/_shared/uom/useUomOptions";
 // Country of Origin comes from the country master via the API — no static list.
 import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 
@@ -112,6 +111,7 @@ const ProductForm = () => {
   // verbatim — so ask for name-valued options. No state/city cascade here:
   // country of origin is a customs field, not an address.
   const countryOptions = useCountryOptions("name");
+  const uomOptions = useUomOptions();
   const required = <span className="text-danger">*</span>;
 
   const schema = useMemo(
@@ -443,8 +443,14 @@ const ProductForm = () => {
   );
 
   const selectedUom = useMemo(
-    () => PRODUCT_UOM_OPTIONS.find((o) => o.value === watch("unit_of_measure")) || null,
-    [watch("unit_of_measure")]
+    () =>
+      uomOptions.find((o) => o.value === watch("unit_of_measure")) ||
+      // A unit saved before it was removed from the master must still render,
+      // not silently blank out and re-save as empty.
+      (watch("unit_of_measure")
+        ? { value: watch("unit_of_measure"), label: watch("unit_of_measure") }
+        : null),
+    [uomOptions, watch("unit_of_measure")]
   );
 
   // Re-route Save → run full validation, jump to the first step containing
@@ -667,7 +673,7 @@ const ProductForm = () => {
                         inputId="unit_of_measure"
                         isClearable
                         classNamePrefix="select"
-                        options={PRODUCT_UOM_OPTIONS}
+                        options={uomOptions}
                         value={selectedUom}
                         placeholder={t("Select unit")}
                         onChange={(opt) => field.onChange(opt ? opt.value : "")}

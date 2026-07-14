@@ -29,10 +29,13 @@ import instance from "@src/utility/AxiosConfig";
 import Notification from "@components/toast/notification";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import {
-  PRODUCT_UOM_OPTIONS,
-  UOM_INTEGER_ONLY,
   REBATE_EXPENSE_TYPE_OPTIONS,
 } from "@constant/options";
+// Units + the decimals-allowed flag come from the UOM master, not constants.
+import {
+  useUomOptions,
+  useIntegerOnlyUoms,
+} from "@src/views/_shared/uom/useUomOptions";
 import {
   num,
   fmt,
@@ -93,6 +96,9 @@ const SalesDocLineItems = ({
    *  vendor + price are decided later at the Quotation via auto-pick. */
   requirementMode = false,
 }) => {
+  const uomOptions = useUomOptions();
+  const integerOnlyUoms = useIntegerOnlyUoms();
+
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
 
@@ -1269,7 +1275,7 @@ const SalesDocLineItems = ({
                     name={`lines.${editingIdx}.qty`}
                     control={control}
                     render={({ field: f }) => {
-                      const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
+                      const isInt = integerOnlyUoms.has(editingLine.unit);
                       const v = num(f.value);
                       const empty = f.value === "" || f.value == null;
                       const showError = empty
@@ -1311,9 +1317,9 @@ const SalesDocLineItems = ({
                       <Select
                         classNamePrefix="select"
                         isClearable
-                        options={PRODUCT_UOM_OPTIONS}
+                        options={uomOptions}
                         value={
-                          PRODUCT_UOM_OPTIONS.find(
+                          uomOptions.find(
                             (o) => o.value === f.value,
                           ) || null
                         }
@@ -1339,7 +1345,7 @@ const SalesDocLineItems = ({
                     name={`lines.${editingIdx}.qty`}
                     control={control}
                     render={({ field: f }) => {
-                      const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
+                      const isInt = integerOnlyUoms.has(editingLine.unit);
                       const v = num(f.value);
                       const empty = f.value === "" || f.value == null;
                       // Once the line has been started (product or price set),
@@ -1419,9 +1425,9 @@ const SalesDocLineItems = ({
                       <Select
                         classNamePrefix="select"
                         isClearable
-                        options={PRODUCT_UOM_OPTIONS}
+                        options={uomOptions}
                         value={
-                          PRODUCT_UOM_OPTIONS.find(
+                          uomOptions.find(
                             (o) => o.value === f.value,
                           ) || null
                         }
@@ -1432,7 +1438,7 @@ const SalesDocLineItems = ({
                           // decimal qty so the field becomes valid.
                           if (
                             newUnit &&
-                            UOM_INTEGER_ONLY.has(newUnit) &&
+                            integerOnlyUoms.has(newUnit) &&
                             editingLine.qty &&
                             !Number.isInteger(num(editingLine.qty))
                           ) {
@@ -2214,7 +2220,7 @@ const SalesDocLineItems = ({
           {(() => {
             const q = num(editingLine.qty);
             const p = num(editingLine.unit_price);
-            const isInt = UOM_INTEGER_ONLY.has(editingLine.unit);
+            const isInt = integerOnlyUoms.has(editingLine.unit);
             const hasAnyData =
               !!editingLine.product_id ||
               !!editingLine.qty ||

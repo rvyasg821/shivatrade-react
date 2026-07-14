@@ -29,7 +29,7 @@ import { isPermissionSlugHidden } from "../../configs/appMode"
 // those are handled by the current-user ∪ role union below.
 const ALWAYS_VISIBLE_SLUGS = [
   "user", "role", "location",
-  "countries", "states", "cities",
+  "uom", "countries", "states", "cities",
   "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
   "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
   "po-vendors", "inventory", "tracking",

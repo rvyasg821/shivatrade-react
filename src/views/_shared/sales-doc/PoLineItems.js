@@ -42,9 +42,12 @@ import withReactContent from "sweetalert2-react-content";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import {
-  PRODUCT_UOM_OPTIONS,
-  UOM_INTEGER_ONLY,
 } from "@constant/options";
+// Units + the decimals-allowed flag come from the UOM master, not constants.
+import {
+  useUomOptions,
+  useIntegerOnlyUoms,
+} from "@src/views/_shared/uom/useUomOptions";
 import { currencySymbol, computeLineCosting } from "./_helpers";
 
 const num = (v) =>
@@ -93,6 +96,9 @@ const PoLineItems = ({
   initLineItem,
   vendorOptions = [],
 }) => {
+  const uomOptions = useUomOptions();
+  const integerOnlyUoms = useIntegerOnlyUoms();
+
   const { t } = useTranslation();
   const mySwal = withReactContent(Swal);
   const {
@@ -343,7 +349,7 @@ const PoLineItems = ({
   // legacy "out of vendor's list" warning no longer applies.
   const isOutOfVendorList = false;
 
-  const isIntegerUnit = UOM_INTEGER_ONLY.has(editingLine.unit);
+  const isIntegerUnit = integerOnlyUoms.has(editingLine.unit);
 
   return (
     <Card>
@@ -879,9 +885,9 @@ const PoLineItems = ({
                           classNamePrefix="select"
                           isClearable
                           isDisabled={isLocked}
-                          options={PRODUCT_UOM_OPTIONS}
+                          options={uomOptions}
                           value={
-                            PRODUCT_UOM_OPTIONS.find(
+                            uomOptions.find(
                               (o) => o.value === field.value
                             ) || null
                           }
@@ -892,7 +898,7 @@ const PoLineItems = ({
                             // qty so the form passes validation.
                             if (
                               newUnit &&
-                              UOM_INTEGER_ONLY.has(newUnit) &&
+                              integerOnlyUoms.has(newUnit) &&
                               editingLine.qty &&
                               !Number.isInteger(num(editingLine.qty))
                             ) {

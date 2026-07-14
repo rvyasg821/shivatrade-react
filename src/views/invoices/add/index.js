@@ -58,6 +58,11 @@ import { appsRoot, isAdminUser } from "@constant/defaultValues";
 // Countries/states/cities come from the masters via the API — no static list.
 import PlainGeoFields from "@src/views/_shared/geo/PlainGeoFields";
 import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
+// GST UQC now comes off the UOM master row — see useUomOptions.js. The three
+// hand-written copies of this mapping had DIVERGED: this file knew 16 units,
+// select-so-lines and MultiSoPickerModal only 9, so the same SO line produced a
+// different GST code depending on which screen imported it.
+import { useUqcResolver } from "@src/views/_shared/uom/useUomOptions";
 import {
   INVOICE_GST_ROUTE_OPTIONS as GST_ROUTES,
   CUSTOMER_ADDRESS_TYPES,
@@ -217,6 +222,7 @@ const InvoiceAddEdit = () => {
   // Name-valued: the invoice stores "India", not "IN", and the PDF prints it
   // verbatim. Used by the party snapshots AND by Country of Origin/Destination.
   const countryOptions = useCountryOptions("name");
+  const uqcFor = useUqcResolver();
 
   // ── Form state ──────────────────────────────────────────────────────
 
@@ -706,7 +712,7 @@ const InvoiceAddEdit = () => {
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
           unit: l.unit || "Nos",
-          uqc_code: mapUomToUqc(l.unit),
+          uqc_code: uqcFor(l.unit),
           qty: String(cap),
           unit_price: String(Number(l.unit_price || 0).toFixed(2)),
           // Carry the full costing from the SO line so the invoice total
@@ -1300,7 +1306,7 @@ const InvoiceAddEdit = () => {
         hsn_code: row.hsn_code || "",
         customer_reference: row.customer_reference || "",
         unit: row.unit || "Nos",
-        uqc_code: mapUomToUqc(row.unit),
+        uqc_code: uqcFor(row.unit),
         qty: String(qty),
         unit_price: String(Number(row.unit_price || 0).toFixed(2)),
         // Carry the full costing from the SO line so the invoice total
@@ -2612,7 +2618,7 @@ const InvoiceAddEdit = () => {
                       </td>
                       <td>
                         {/* Read-only — derived from the line's UOM via
-                            mapUomToUqc(); change the product's unit, not this. */}
+                            the UOM master; change the product's unit, not this. */}
                         <Input
                           value={l.uqc_code || ""}
                           readOnly
@@ -3874,32 +3880,5 @@ const CostingModal = ({
   );
 };
 
-// Quick UOM → UQC lookup (GSTR-1 standard codes).
-// Operator can override per-line in the form.
-function mapUomToUqc(unit) {
-  const u = (unit || "").trim().toUpperCase();
-  const map = {
-    KG: "KGS",
-    KGS: "KGS",
-    NOS: "NOS",
-    PIECE: "PCS",
-    PCS: "PCS",
-    PACK: "PAC",
-    BOX: "BOX",
-    LITRE: "LTR",
-    LTR: "LTR",
-    ML: "MLT",
-    METER: "MTR",
-    MTR: "MTR",
-    CM: "CMS",
-    BAG: "BAG",
-    PALLET: "PAL",
-    CONTAINER: "OTH",
-    TONNE: "TON",
-    MT: "MTS",
-    SET: "SET",
-  };
-  return map[u] || "OTH";
-}
 
 export default InvoiceAddEdit;

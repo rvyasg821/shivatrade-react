@@ -16,6 +16,7 @@ import {
   rebatesModuleSlug,
   expensesModuleSlug,
   currenciesModuleSlug,
+  uomModuleSlug,
   countriesModuleSlug,
   statesModuleSlug,
   citiesModuleSlug,
@@ -71,6 +72,9 @@ const AddCurrency = lazy(() => import('@src/views/currencies/add'));
 const EditCurrency = lazy(() => import('@src/views/currencies/add'));
 
 // One form component serves add and edit — it branches on the :id route param.
+const UomList = lazy(() => import('@src/views/uom'));
+const AddUom = lazy(() => import('@src/views/uom/add'));
+const EditUom = lazy(() => import('@src/views/uom/add'));
 const CountryList = lazy(() => import('@src/views/countries'));
 const AddCountry = lazy(() => import('@src/views/countries/add'));
 const EditCountry = lazy(() => import('@src/views/countries/add'));
@@ -611,6 +615,23 @@ const AppRoutes = [
       permissionId: currenciesModuleSlug,
       action: 'edit',
     },
+  },
+
+  // UOM master
+  {
+    path: `${appsRoot}/uom`,
+    element: <UomList />,
+    meta: { permissionId: uomModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/uom/add`,
+    element: <AddUom />,
+    meta: { permissionId: uomModuleSlug, action: 'add' },
+  },
+  {
+    path: `${appsRoot}/uom/edit/:id`,
+    element: <EditUom />,
+    meta: { permissionId: uomModuleSlug, action: 'edit' },
   },
 
   // Geo masters — country → state → city
