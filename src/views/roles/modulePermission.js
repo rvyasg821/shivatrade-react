@@ -253,12 +253,16 @@ const ModulePermission = () => {
         { title: "Users", slug: "user" },
         { title: "Roles", slug: "role" },
         { title: "Locations", slug: "location" },
+        { title: "Countries", slug: "countries" },
+        { title: "States", slug: "states" },
+        { title: "Cities", slug: "cities" },
       ]
     },
     {
       title: t("Catalogue"),
       children: [
         { title: "Categories", slug: "categories" },
+        { title: "UOM", slug: "uom" },
         { title: "Products", slug: "products" },
         { title: "Vendors", slug: "vendors" },
         { title: "Price List", slug: "price-list" },
