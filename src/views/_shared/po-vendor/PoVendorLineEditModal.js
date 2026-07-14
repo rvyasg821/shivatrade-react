@@ -1,8 +1,17 @@
-// ── PoVendor Line Edit Modal ──────────────────────────────────────
-// Draft-only modal showing this POV's PO lines. Quantities are locked
-// to the PO line's ordered qty (policy: POV = full ordered qty). The
-// modal still exists as a read-only confirmation view + a hook point
-// for future per-line tweaks if the policy changes.
+// ── PoVendor GST Edit Modal ────────────────────────────────────────
+//
+// DRAFT ONLY. The GST rate is the one and only editable field here.
+//
+// Quantities are NOT editable: a POV carries the PO line's full ordered qty by
+// policy, and the qty is what the pending/coverage guards are computed from.
+// They are shown read-only for context and sent back unchanged, so the backend's
+// replace-on-update writes the same numbers it already had.
+//
+// The GST *amount* is never stored anywhere — `line_total` is qty × price with
+// no tax in it, and the POV PDF derives the tax from `tax_pct` at render time.
+// So editing the rate here is all that is needed: every downstream figure (the
+// PDF's Input CGST/SGST/IGST rows, the grand total) follows automatically.
+// Nothing can go stale, because there is no second copy of the number.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -13,18 +22,24 @@ import {
   ModalFooter,
   Button,
   Table,
+  Input,
   Spinner,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "react-feather";
 
-import instance from "@src/utility/AxiosConfig";
-import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { updatePoVendor } from "@src/views/po-vendors/store";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
+const round2 = (n) =>
+  !isFinite(n) ? 0 : Math.round((n + Number.EPSILON) * 100) / 100;
+const fmt = (v) =>
+  num(v).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const PoVendorLineEditModal = ({ isOpen, toggle }) => {
   const { t } = useTranslation();
@@ -32,87 +47,74 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const pov = poVendorItem || {};
 
-  const [loading, setLoading] = useState(false);
-  const [coverage, setCoverage] = useState(null);
-  const [qtyByPoLine, setQtyByPoLine] = useState({});
+  // The POV's own lines are the source of truth — they already carry tax_pct,
+  // unit_price, ordered_qty and the product name. The modal used to re-fetch the
+  // PO's coverage for this, which was a network round-trip for data we already
+  // had, and coverage does not know what rate THIS POV was saved with.
+  const povLines = useMemo(() => pov?.lines || [], [pov]);
+
+  const [taxByLine, setTaxByLine] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Keyed by the POV line's OWN `_id`, never by `purchase_order_line_id`: that
+  // column is NULLABLE — a standalone POV's lines have none — so keying on it
+  // collapsed every row onto the single key `undefined`, and editing one line's
+  // GST edited them all.
+  //
+  // Seeded fresh on each open, so re-opening after a cancelled edit shows what is
+  // actually stored rather than the last keystroke.
   useEffect(() => {
-    if (!isOpen || !pov?.purchase_order_id) return;
-    let mounted = true;
-    setLoading(true);
-    setCoverage(null);
-    setQtyByPoLine({});
-
-    instance
-      .get(
-        `${API_ENDPOINTS.purchaseOrders.coverage}/${pov.purchase_order_id}/coverage`
-      )
-      .then((resp) => {
-        if (!mounted) return;
-        const data = resp?.data?.data;
-        if (!data) {
-          Notification("Error", t("Failed to load PO coverage."), "warning");
-          return;
-        }
-        // Restrict to lines belonging to THIS POV's vendor (BE enforces same).
-        const myVendorId = pov?.vendor_id;
-        const filteredLines = (data.lines || []).filter(
-          (l) => !myVendorId || !l.vendor_id || l.vendor_id === myVendorId
-        );
-        setCoverage({ ...data, lines: filteredLines });
-
-        const seed = {};
-        for (const l of filteredLines) {
-          seed[l.purchase_order_line_id] = String(num(l.ordered));
-        }
-        setQtyByPoLine(seed);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        Notification(
-          "Error",
-          err?.response?.data?.message || t("Failed to load PO coverage."),
-          "warning"
-        );
-      })
-      .finally(() => mounted && setLoading(false));
-
-    return () => {
-      mounted = false;
-    };
-  }, [isOpen, pov?.purchase_order_id, pov?.vendor_id, t]);
-
-  const totalCover = useMemo(() => {
-    let s = 0;
-    for (const l of coverage?.lines || []) {
-      s += num(qtyByPoLine[l.purchase_order_line_id]);
+    if (!isOpen) return;
+    const seed = {};
+    for (const l of povLines) {
+      seed[l._id] = String(num(l.tax_pct));
     }
-    return s;
-  }, [coverage, qtyByPoLine]);
+    setTaxByLine(seed);
+  }, [isOpen, povLines]);
+
+  const lineGst = (l) => {
+    const taxable = num(l.ordered_qty) * num(l.unit_price);
+    return round2((taxable * num(taxByLine[l._id])) / 100);
+  };
+
+  const totals = useMemo(() => {
+    let taxable = 0;
+    let gst = 0;
+    for (const l of povLines) {
+      taxable += num(l.ordered_qty) * num(l.unit_price);
+      gst += lineGst(l);
+    }
+    return { taxable: round2(taxable), gst: round2(gst) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [povLines, taxByLine]);
+
+  const setTax = (lineId, v) => {
+    // Clamp at the edges. A negative rate would reduce the payable, and >100 is
+    // not a GST rate — the backend rejects both, but stop it at the input.
+    if (v === "") return setTaxByLine((s) => ({ ...s, [lineId]: "" }));
+    const n = Math.min(100, Math.max(0, num(v)));
+    setTaxByLine((s) => ({ ...s, [lineId]: String(n) }));
+  };
 
   const onSubmit = async () => {
-    if (!coverage) return;
-    const lines = coverage.lines
-      .map((l) => ({
-        purchase_order_line_id: l.purchase_order_line_id,
-        ordered_qty: String(num(qtyByPoLine[l.purchase_order_line_id])),
-      }))
-      .filter((l) => num(l.ordered_qty) > 1e-6);
+    // `line_taxes`, NOT `lines`. The `lines` path is a wholesale replace — it
+    // deletes and recreates every POV line, and it demands a
+    // purchase_order_line_id that standalone POVs do not have. This patches the
+    // rate in place, by POV line id.
+    const line_taxes = povLines.map((l) => ({
+      _id: l._id,
+      tax_pct: String(num(taxByLine[l._id])),
+    }));
 
-    if (!lines.length) {
-      Notification(
-        "Validation",
-        t("No lines available to save."),
-        "warning"
-      );
+    if (!line_taxes.length) {
+      Notification("Validation", t("This POV has no lines."), "warning");
       return;
     }
 
     setSubmitting(true);
     try {
       await dispatch(
-        updatePoVendor({ id: pov._id, data: { lines } })
+        updatePoVendor({ id: pov._id, data: { line_taxes } })
       ).unwrap();
       toggle?.();
     } catch (err) {
@@ -125,64 +127,91 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="lg" backdrop="static">
       <ModalHeader toggle={toggle}>
-        {t("Edit Lines")} · <code>{pov?.voucher_no}</code>
+        {t("Edit GST")} · <code>{pov?.voucher_no}</code>
       </ModalHeader>
       <ModalBody>
-        {loading ? (
-          <div className="text-center py-3">
-            <Spinner /> <span className="ms-2">{t("Loading coverage…")}</span>
-          </div>
-        ) : !coverage ? (
-          <div className="alert alert-warning small">
+        {!povLines.length ? (
+          <div className="alert alert-warning small mb-0">
             <AlertTriangle size={14} className="me-1" />
-            {t("Could not load coverage.")}
+            {t("This POV has no lines.")}
           </div>
         ) : (
-          <Table responsive bordered size="sm" className="align-middle mb-0">
-            <thead className="table-light">
-              <tr>
-                <th style={{ width: 30 }}>#</th>
-                <th>{t("Product")}</th>
-                <th style={{ width: 70 }}>{t("Unit")}</th>
-                <th style={{ width: 90 }} className="text-end">
-                  {t("Ordered")}
-                </th>
-                <th style={{ width: 90 }} className="text-end">
-                  {t("Qty")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {coverage.lines.map((l, idx) => (
-                <tr key={l.purchase_order_line_id}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <div className="fw-semibold">{l?.product_name || "-"}</div>
-                    {l?.product_code && (
-                      <small className="text-muted">{l.product_code}</small>
-                    )}
-                  </td>
-                  <td>{l?.unit || "-"}</td>
-                  <td className="text-end">
-                    {num(l.ordered).toLocaleString()}
-                  </td>
-                  <td className="text-end">
-                    {num(qtyByPoLine[l.purchase_order_line_id]).toLocaleString()}
-                  </td>
+          <>
+            <div className="small text-muted mb-1">
+              {t(
+                "Only the GST rate can be changed, and only while the POV is a draft. Quantity and rate are locked to the Sales Order line."
+              )}
+            </div>
+            <Table responsive bordered size="sm" className="align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th style={{ width: 30 }}>#</th>
+                  <th>{t("Product")}</th>
+                  <th style={{ width: 70 }}>{t("Unit")}</th>
+                  <th style={{ width: 90 }} className="text-end">
+                    {t("Qty")}
+                  </th>
+                  <th style={{ width: 100 }} className="text-end">
+                    {t("Rate")} (₹)
+                  </th>
+                  <th style={{ width: 90 }} className="text-end">
+                    {t("GST")} %
+                  </th>
+                  <th style={{ width: 110 }} className="text-end">
+                    {t("GST Amt")} (₹)
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="table-light">
-                <td colSpan="4" className="text-end fw-bold">
-                  {t("Total qty")}
-                </td>
-                <td className="text-end fw-bold">
-                  {totalCover.toLocaleString()}
-                </td>
-              </tr>
-            </tfoot>
-          </Table>
+              </thead>
+              <tbody>
+                {povLines.map((l, idx) => (
+                  <tr key={l._id}>
+                    <td>{idx + 1}</td>
+                    <td>
+                      <div className="fw-semibold">{l?.product_name || "-"}</div>
+                      {l?.product_code && (
+                        <small className="text-muted">{l.product_code}</small>
+                      )}
+                    </td>
+                    <td>{l?.unit || "-"}</td>
+                    <td className="text-end text-muted">
+                      {num(l.ordered_qty).toLocaleString()}
+                    </td>
+                    <td className="text-end text-muted">
+                      {fmt(l.unit_price)}
+                    </td>
+                    <td>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        bsSize="sm"
+                        className="text-end"
+                        value={taxByLine[l._id] ?? ""}
+                        onChange={(e) => setTax(l._id, e.target.value)}
+                      />
+                    </td>
+                    <td className="text-end fw-semibold">₹{fmt(lineGst(l))}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="table-light fw-bold">
+                  <td colSpan="4" className="text-end">
+                    {t("Taxable")} (₹)
+                  </td>
+                  <td className="text-end">{fmt(totals.taxable)}</td>
+                  <td />
+                  <td className="text-end">₹{fmt(totals.gst)}</td>
+                </tr>
+              </tfoot>
+            </Table>
+            <div className="small text-muted mt-1">
+              {t(
+                "CGST/SGST vs IGST is decided from your GSTIN and the vendor's when the PDF is generated."
+              )}
+            </div>
+          </>
         )}
       </ModalBody>
       <ModalFooter>
@@ -192,9 +221,9 @@ const PoVendorLineEditModal = ({ isOpen, toggle }) => {
         <Button
           color="primary"
           onClick={onSubmit}
-          disabled={submitting || loading || totalCover <= 1e-6}
+          disabled={submitting || !povLines.length}
         >
-          {submitting ? <Spinner size="sm" /> : null} {t("Save Lines")}
+          {submitting ? <Spinner size="sm" /> : null} {t("Save GST")}
         </Button>
       </ModalFooter>
     </Modal>

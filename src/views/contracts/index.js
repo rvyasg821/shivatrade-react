@@ -1,4 +1,5 @@
 // ** React Imports
+import { formatDate } from "@src/utility/dateFormat";
 import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -565,9 +566,9 @@ const ContractList = () => {
           </span>
           <span className="text-muted small">
             {row.effective_date
-              ? `${t("Effective")}: ${new Date(row.effective_date).toLocaleDateString("en-GB")}`
+              ? `${t("Effective")}: ${formatDate(row.effective_date)}`
               : t("No effective date")}
-            {row.end_date && ` · ${t("Ends")}: ${new Date(row.end_date).toLocaleDateString("en-GB")}`}
+            {row.end_date && ` · ${t("Ends")}: ${formatDate(row.end_date)}`}
           </span>
         </div>
       ),
@@ -581,12 +582,12 @@ const ContractList = () => {
         <div className="d-flex flex-column py-1 gap-1">
           <span className="small">
             {row.issued_at
-              ? new Date(row.issued_at).toLocaleDateString("en-GB")
+              ? formatDate(row.issued_at)
               : <span className="text-muted">—</span>}
           </span>
           <span className={`small ${row.signed_at ? "text-success" : "text-muted"}`}>
             {row.signed_at
-              ? new Date(row.signed_at).toLocaleDateString("en-GB")
+              ? formatDate(row.signed_at)
               : t("Not signed")}
           </span>
         </div>

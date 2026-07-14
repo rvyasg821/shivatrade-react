@@ -205,7 +205,9 @@ const ShiftAdminPage = () => {
 
   const employees = employeeStore?.employeeItems || []
 
-  const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+  // The local "02 Jul" formatter that used to live here SHADOWED the imported
+  // one, so every date on this page silently ignored the shared helper. Removed:
+  // the page now uses the app-wide DD-MM-YYYY `formatDate` imported at the top.
 
   return (
     <Fragment>
@@ -467,7 +469,7 @@ const ShiftAdminPage = () => {
                     minWidth: '150px',
                     cell: (s) => s.requester_shift_date ? (
                       <div>
-                        <div className="small fw-semibold">{new Date(s.requester_shift_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                        <div className="small fw-semibold">{formatDate(s.requester_shift_date)}</div>
                         {(s.requester_shift_start || s.requester_shift_end) && (
                           <div className="small text-muted">{s.requester_shift_start?.slice(0, 5) || '—'} – {s.requester_shift_end?.slice(0, 5) || '—'}</div>
                         )}
@@ -479,7 +481,7 @@ const ShiftAdminPage = () => {
                     minWidth: '150px',
                     cell: (s) => s.target_shift_date ? (
                       <div>
-                        <div className="small fw-semibold">{new Date(s.target_shift_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                        <div className="small fw-semibold">{formatDate(s.target_shift_date)}</div>
                         {(s.target_shift_start || s.target_shift_end) && (
                           <div className="small text-muted">{s.target_shift_start?.slice(0, 5) || '—'} – {s.target_shift_end?.slice(0, 5) || '—'}</div>
                         )}

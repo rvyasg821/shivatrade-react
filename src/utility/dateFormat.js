@@ -32,32 +32,40 @@ const getTimezone = () => {
 const pad2 = (n) => String(n).padStart(2, '0')
 
 /**
- * Format a date as DD/MM/YY (Indian / day-first short format).
- * Accepts either a YYYY-MM-DD string or a full ISO datetime string.
- * e.g. "2026-02-26" → "26/02/26"  |  "2026-02-26T09:00:00Z" → "26/02/26"
+ * THE date format for the whole app: DD-MM-YYYY.
+ *
+ * Dashes, not slashes — it matches `docDate()` on the backend, so what a user
+ * reads on screen is exactly what prints on the PDF. Everything used to disagree:
+ * this helper produced "26/02/2026", `Utils.formatDate` produced "Feb 26, 2026",
+ * and a dozen screens called `toLocaleDateString` directly.
+ *
+ * Accepts a plain "YYYY-MM-DD" or a full ISO datetime.
+ * e.g. "2026-02-26" → "26-02-2026"  |  "2026-02-26T09:00:00Z" → "26-02-2026"
  */
 export const formatDate = (value) => {
   if (!value) return '—'
   const str = String(value)
-  // Plain date — parse locally so we don't get UTC midnight shifts.
+  // Plain date — parse the parts by hand rather than through `new Date()`, which
+  // reads a bare "YYYY-MM-DD" as UTC midnight and shifts the day backwards for
+  // anyone west of Greenwich.
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     const [y, m, d] = str.split('-').map(Number)
-    return `${pad2(d)}/${pad2(m)}/${String(y)}`
+    return `${pad2(d)}-${pad2(m)}-${String(y)}`
   }
   const d = new Date(str)
   if (Number.isNaN(d.getTime())) return '—'
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear())}`
+  return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${String(d.getFullYear())}`
 }
 
 /**
- * Format an ISO datetime string as DD/MM/YY h:MM AM/PM in company timezone.
- * e.g. "2026-02-26T09:00:00Z" → "26/02/26, 9:00 AM"
+ * Format an ISO datetime string as DD-MM-YYYY h:MM AM/PM in company timezone.
+ * e.g. "2026-02-26T09:00:00Z" → "26-02-2026, 9:00 AM"
  */
 export const formatDateTime = (isoStr) => {
   if (!isoStr) return '—'
   const d = new Date(isoStr)
   if (Number.isNaN(d.getTime())) return '—'
-  const datePart = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear())}`
+  const datePart = `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${String(d.getFullYear())}`
   const timePart = new Intl.DateTimeFormat(getLocale(), {
     timeZone: getTimezone(),
     hour: 'numeric', minute: '2-digit', hour12: true,

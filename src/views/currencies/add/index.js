@@ -57,6 +57,8 @@ import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { initCurrencyItem } from "@constant/reduxConstant";
 import { STATUS_OPTIONS, EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
+// Effective dates were rendering as the raw ISO slice ("2026-06-18").
+import { formatDate } from "@src/utility/dateFormat";
 
 // Exchange rates are STORED as "{to} units per 1 {from}" (e.g. USD per INR =
 // 0.01) — the system-wide convention. The UI shows/enters the intuitive
@@ -643,7 +645,7 @@ const CurrencyForm = () => {
                                 }
                               />
                             ) : (
-                              (r.effective_date || "").slice(0, 10)
+                              formatDate(r.effective_date)
                             )}
                           </td>
                           {true && (
@@ -767,7 +769,7 @@ const CurrencyForm = () => {
                         {toIntuitiveRate(r.rate)} {currentCode || "INR"}
                       </td>
                       <td className="text-nowrap">
-                        {(r.effective_date || "").slice(0, 10)}
+                        {formatDate(r.effective_date)}
                       </td>
                       <td className="text-end" style={{ width: 90 }}>
                         <span

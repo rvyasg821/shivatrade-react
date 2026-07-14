@@ -29,7 +29,8 @@ const STATUS_BADGE = {
   cancelled: "doc-badge-red",
 };
 
-const formatDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "—");
+// Was a local en-GB formatter ("14/07/2026"). Use the shared DD-MM-YYYY helper.
+import { formatDate } from "@src/utility/dateFormat";
 const formatMoney = (n, currency = "GBP") => {
   const symbol = currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : "";
   return `${symbol}${(Number(n) || 0).toFixed(2)}`;

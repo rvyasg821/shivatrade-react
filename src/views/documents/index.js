@@ -1,4 +1,5 @@
 // ** React Imports
+import { formatDate } from "@src/utility/dateFormat";
 import { Fragment, useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -273,7 +274,7 @@ const DocumentList = () => {
       width: "120px",
       cell: (row) => (
         <span className="small">
-          {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB") : "—"}
+          {formatDate(row.createdAt)}
         </span>
       ),
     },
@@ -335,7 +336,7 @@ const DocumentList = () => {
             <span className={`small ${expiryColor}`}>
               {d ? (
                 <>
-                  {d.toLocaleDateString("en-GB")}
+                  {formatDate(d)}
                   {!row.is_expired && daysLeft !== null && daysLeft <= 30 && daysLeft > 0 && (
                     <small className="ms-1">({daysLeft}d left)</small>
                   )}

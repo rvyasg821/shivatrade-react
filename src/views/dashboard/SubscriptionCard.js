@@ -1,3 +1,4 @@
+import { formatDate as sharedFormatDate } from "@src/utility/dateFormat";
 import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardBody, CardHeader, Badge, Button, Spinner, Progress, Row, Col } from 'reactstrap';
@@ -64,15 +65,9 @@ const SubscriptionCard = () => {
         }
     }, [subscription]);
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
+    // Was en-US ("Jul 14, 2026"). Shared DD-MM-YYYY helper — one format app-wide.
+    const formatDate = (dateString) =>
+        dateString ? sharedFormatDate(dateString) : 'N/A';
 
     const getStatusBadge = (sub) => {
         if (!sub) return <Badge color="secondary">{t('No Subscription')}</Badge>;
