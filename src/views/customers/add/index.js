@@ -63,9 +63,11 @@ import {
 } from "@constant/reduxConstant";
 import {
   STATUS_OPTIONS,
-  COUNTRY_OPTIONS,
   EXCHANGE_TO_CURRENCY_OPTIONS,
 } from "@constant/options";
+// Countries/states/cities come from the masters via the API — no static list.
+import AddressGeoFields from "@src/views/_shared/geo/AddressGeoFields";
+import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 
 const STEPS = [
   {
@@ -114,6 +116,10 @@ const CustomerForm = () => {
     });
   }, [currencyStore?.exchangeOptions]);
   const isEditMode = !!id;
+
+  // Customer addresses store the country NAME ("India"), so ask for name-valued
+  // options. Straight from the country master — no static package.
+  const countryOptions = useCountryOptions("name");
 
   const schema = useMemo(
     () =>
@@ -781,26 +787,6 @@ const CustomerForm = () => {
                       />
                     </Col>
                     <Col md="3" className="mb-2">
-                      <Label className="form-label">{t("City")}</Label>
-                      <Controller
-                        name={`addresses.${idx}.city`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input {...field} value={field.value || ""} />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
-                      <Label className="form-label">{t("State")}</Label>
-                      <Controller
-                        name={`addresses.${idx}.state`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input {...field} value={field.value || ""} />
-                        )}
-                      />
-                    </Col>
-                    <Col md="3" className="mb-2">
                       <Label className="form-label">{t("Country")}</Label>
                       <Controller
                         name={`addresses.${idx}.country`}
@@ -809,15 +795,18 @@ const CustomerForm = () => {
                           <Select
                             classNamePrefix="select"
                             isClearable
-                            options={COUNTRY_OPTIONS}
+                            options={countryOptions}
                             value={
-                              COUNTRY_OPTIONS.find(
+                              countryOptions.find(
                                 (o) => o.value === field.value
                               ) || null
                             }
-                            onChange={(opt) =>
-                              field.onChange(opt ? opt.value : "")
-                            }
+                            onChange={(opt) => {
+                              field.onChange(opt ? opt.value : "");
+                              // A state/city from the old country is now wrong.
+                              setValue(`addresses.${idx}.state`, "");
+                              setValue(`addresses.${idx}.city`, "");
+                            }}
                             placeholder={t("Select country")}
                             menuPortalTarget={document.body}
                             styles={{
@@ -827,6 +816,16 @@ const CustomerForm = () => {
                         )}
                       />
                     </Col>
+                    {/* State + City suggest from the geo masters but still take
+                        a typed value — free text on the customer record. */}
+                    <AddressGeoFields
+                      control={control}
+                      setValue={setValue}
+                      namePrefix={`addresses.${idx}`}
+                      countryField={`addresses.${idx}.country`}
+                      countryList={countryOptions}
+                      colProps={{ md: "3" }}
+                    />
                     <Col md="3" className="mb-2">
                       <Label className="form-label">{t("Postcode")}</Label>
                       <Controller
