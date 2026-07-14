@@ -109,6 +109,15 @@ export const API_ENDPOINTS = {
       list: `/modules/catalog/add-on-services/dropdown`,
     },
   },
+  // UOM master — replaces the hardcoded unit list.
+  uom: {
+    list: `/admin/uom/list`,
+    get: `/admin/uom/get`,
+    create: `/admin/uom/create`,
+    update: `/admin/uom/update`,
+    delete: `/admin/uom/delete`,
+    dropdown: `/admin/uom/dropdown`,
+  },
   // Geo masters: country → state → city.
   countries: {
     list: `/admin/country/list`,

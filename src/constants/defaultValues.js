@@ -102,6 +102,8 @@ const subscriptionsModuleSlug = "subscriptions"
 const rolesModuleSlug = "roles";
 const usersModuleSlug = "users";
 const currenciesModuleSlug = "currencies";
+// Must match the backend permission slug in `modules.permissions.ts`.
+const uomModuleSlug = "uom";
 
 // Catalogue
 const catalogueGroupSlug = "catalogue";
@@ -206,6 +208,7 @@ const rolePermissionName = {
   [rolesModuleSlug]: "Roles",
   [usersModuleSlug]: "Users",
   [currenciesModuleSlug]: "Exchange Rates",
+  [uomModuleSlug]: "UOM",
 
   // Catalogue
   [categoriesModuleSlug]: "Categories",
@@ -534,6 +537,7 @@ export {
   rolesModuleSlug,
   usersModuleSlug,
   currenciesModuleSlug,
+  uomModuleSlug,
   // Catalogue
   catalogueGroupSlug,
   categoriesModuleSlug,

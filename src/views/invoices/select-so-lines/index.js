@@ -27,27 +27,9 @@ import { useTranslation } from "react-i18next";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
+// GST UQC comes from the UOM master, not a local copy of the mapping.
+import { useUqcResolver } from "@src/views/_shared/uom/useUomOptions";
 
-// GSTR-1 UQC fallback (mirrors the add form's mapUomToUqc).
-const mapUomToUqc = (unit) => {
-  const u = (unit || "").trim().toUpperCase();
-  const map = {
-    KG: "KGS",
-    KGS: "KGS",
-    NOS: "NOS",
-    PIECE: "PCS",
-    PCS: "PCS",
-    PACK: "PAC",
-    BOX: "BOX",
-    LITRE: "LTR",
-    LTR: "LTR",
-    ML: "MLT",
-    METER: "MTR",
-    MTR: "MTR",
-    SET: "SET",
-  };
-  return map[u] || "OTH";
-};
 
 const groupKey = (g) =>
   `${(g.currency_code || "").toUpperCase()}|${(g.country_of_destination || "")
@@ -55,6 +37,7 @@ const groupKey = (g) =>
     .toLowerCase()}`;
 
 const SelectSoLines = () => {
+  const uqcFor = useUqcResolver();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -248,7 +231,7 @@ const SelectSoLines = () => {
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
           unit: l.unit || "Nos",
-          uqc_code: mapUomToUqc(l.unit),
+          uqc_code: uqcFor(l.unit),
           qty: String(qty),
           unit_price: String(l.unit_price || 0),
           discount_pct: "0",

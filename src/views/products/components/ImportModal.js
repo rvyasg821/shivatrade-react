@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { PRODUCT_UOM_OPTIONS } from "@constant/options";
+// Units come from the UOM master — the import validator on the backend checks
+// against the same table, so this list must never diverge from it.
+import { useUomOptions } from "@src/views/_shared/uom/useUomOptions";
 import SharedImportModal from "@src/views/_shared/import/ImportModal";
 
 const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const { t } = useTranslation();
   const [categoryNames, setCategoryNames] = useState([]);
+  const uomOptions = useUomOptions();
 
   // Fetch existing category names so the user can copy them straight into the
   // category_name column — avoids "category not found" errors on import.
@@ -44,12 +47,12 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("Status must be 'active' or 'inactive' (defaults to active if left blank)")}</li>
       <li>
         {t("Use one of your existing unit of measure in the unit_of_measure column")}:{" "}
-        {PRODUCT_UOM_OPTIONS.length > 0 ? (
+        {uomOptions.length > 0 ? (
           <div
             className="mt-50 p-1 bg-white border rounded text-capitalize"
             style={{ maxHeight: "90px", overflow: "auto", fontSize: "1rem" }}
           >
-            {PRODUCT_UOM_OPTIONS.map((o) => o.value).join(", ")}
+            {uomOptions.map((o) => o.value).join(", ")}
           </div>
         ) : (
           <span className="text-muted"> {t("(loading…)")}</span>
