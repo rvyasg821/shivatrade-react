@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   Box,
   Gift,
+  Eye,
 } from 'react-feather';
 import { IoBusinessOutline } from 'react-icons/io5';
 import { MdOutlineSupportAgent } from "react-icons/md";
@@ -71,6 +72,7 @@ import {
   purchaseOrdersModuleSlug,
   poVendorsModuleSlug,
   trackingModuleSlug,
+  trackingLogsModuleSlug,
   inventoryModuleSlug,
   invoicesModuleSlug,
   expensesModuleSlug,
@@ -439,6 +441,20 @@ const navigationItems = [
     resource: 'company',
     icon: <IoBusinessOutline size={20} />,
     navLink: `${appsRoot}/company`,
+    adminOnly: true,
+  },
+
+  // SaaS Activity Log (platform owner only).
+  //
+  // `adminOnly: true` hides it from every non-super-admin (see
+  // @core/layouts/utils.js:134). No `action`/`resource` on purpose: those would
+  // run an ability check against a permission row that does not exist for this
+  // module, which would hide the item even from the super admin.
+  {
+    id: trackingLogsModuleSlug,
+    title: rolePermissionName[trackingLogsModuleSlug],
+    icon: <Eye size={20} />,
+    navLink: `${appsRoot}/tracking-logs`,
     adminOnly: true,
   },
 

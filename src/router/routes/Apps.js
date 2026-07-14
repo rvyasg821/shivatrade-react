@@ -129,6 +129,7 @@ const ModulePermission = lazy(
   () => import('@src/views/roles/modulePermission'),
 );
 
+const TrackingLogs = lazy(() => import('@src/views/tracking-logs'));
 const PlanList = lazy(() => import('@src/views/plans'));
 const AddPlan = lazy(() => import('@src/views/plans/add'));
 const EditPlan = lazy(() => import('@src/views/plans/add'));
@@ -977,6 +978,16 @@ const AppRoutes = [
     element: <Payment />,
     meta: {
       permissionId: 'payments',
+      action: 'list',
+    },
+  },
+  // SaaS Activity Log — platform owner only. The backend 403s any other role;
+  // the menu item is additionally hidden via `adminOnly`.
+  {
+    path: `${appsRoot}/tracking-logs`,
+    element: <TrackingLogs />,
+    meta: {
+      permissionId: 'tracking-logs',
       action: 'list',
     },
   },
