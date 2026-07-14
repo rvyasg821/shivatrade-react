@@ -62,7 +62,10 @@ import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 // hand-written copies of this mapping had DIVERGED: this file knew 16 units,
 // select-so-lines and MultiSoPickerModal only 9, so the same SO line produced a
 // different GST code depending on which screen imported it.
-import { useUqcResolver } from "@src/views/_shared/uom/useUomOptions";
+import {
+  useUqcResolver,
+  useUomReady,
+} from "@src/views/_shared/uom/useUomOptions";
 import {
   INVOICE_GST_ROUTE_OPTIONS as GST_ROUTES,
   CUSTOMER_ADDRESS_TYPES,
@@ -223,6 +226,7 @@ const InvoiceAddEdit = () => {
   // verbatim. Used by the party snapshots AND by Country of Origin/Destination.
   const countryOptions = useCountryOptions("name");
   const uqcFor = useUqcResolver();
+  const uomReady = useUomReady();
 
   // ── Form state ──────────────────────────────────────────────────────
 
@@ -712,7 +716,9 @@ const InvoiceAddEdit = () => {
           hsn_code: l.hsn_code || "",
           customer_reference: l.customer_reference || "",
           unit: l.unit || "Nos",
-          uqc_code: uqcFor(l.unit),
+          // Same fallback as `unit` above — this was passed the raw `l.unit`,
+          // so a line with no unit asked the master for "" and got nothing.
+          uqc_code: uqcFor(l.unit || "Nos"),
           qty: String(cap),
           unit_price: String(Number(l.unit_price || 0).toFixed(2)),
           // Carry the full costing from the SO line so the invoice total
@@ -1102,8 +1108,13 @@ const InvoiceAddEdit = () => {
   // (FOB / Grand / Balance) stays in a single currency.
   //   exchange_rate stored as "1 INR = X doc_units"  →  doc = INR × rate.
   // Subtotal exposed in BOTH currencies so the UI can show ₹X · $Y.
+  // An LUT export is zero-rated: no IGST is charged and the backend forces
+  // igst_amount = 0 on save (invoice.service.ts). The preview must agree.
+  const isLut = form.gst_route === "lut_zero_rated";
+
   const totals = useMemo(() => {
     let subtotalInr = 0;
+    let igstInr = 0;
     for (const l of lines) {
       // MUST mirror the backend recompute() + Quotation engine. SEQUENTIAL:
       //   taxable = qty × price × (1 − disc/100)
@@ -1118,6 +1129,9 @@ const InvoiceAddEdit = () => {
       const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
       const lineNet = round2(afterRebate + marginAmt);
       subtotalInr = round2(subtotalInr + lineNet);
+      if (!isLut) {
+        igstInr = round2(igstInr + (lineNet * num(l.igst_rate_pct)) / 100);
+      }
     }
     const rate = num(form.exchange_rate) || 1;
     const subtotal = round2(subtotalInr * rate); // in doc currency
@@ -1131,9 +1145,21 @@ const InvoiceAddEdit = () => {
         num(form.other_charges),
     );
     const balance = round2(grand - num(form.advance_received));
-    return { subtotalInr, subtotal, fob, grand, balance };
+    // IGST is deliberately NOT added into `grand`. On an IGST-paid export the
+    // tax is refunded to the exporter, so it is not part of what the customer
+    // pays — it is shown for information (and for GSTR-1) only. Folding it into
+    // the Grand Total would overstate the invoice's headline figure.
+    const igst = round2(igstInr * rate);
+    // Both currencies exposed, same as the subtotal: the line-items grid shows
+    // IGST per line in ₹, so its footer sum must also be ₹ or the column would
+    // not add up to its own total. The Total IGST row below shows the doc
+    // currency, which is what the customer's invoice is denominated in.
+    return { subtotalInr, subtotal, fob, igstInr, igst, grand, balance };
   }, [
     lines,
+    // Switching to LUT zero-rates the whole invoice — without this dep the IGST
+    // total would keep showing the old amount after the route changed.
+    isLut,
     form.exchange_rate,
     form.discount_total,
     form.freight_charges,
@@ -1146,6 +1172,34 @@ const InvoiceAddEdit = () => {
     () => getCurrencySymbol(form.currency_code) || form.currency_symbol || "",
     [form.currency_code, form.currency_symbol]
   );
+
+  // ── UQC back-fill ───────────────────────────────────────────────────
+  //
+  // Lines get seeded the moment the PO / SO data arrives, which is usually
+  // BEFORE the UOM master's dropdown request has come back. At that point the
+  // resolver has nothing to look up against, so every line was being stamped
+  // with the GST catch-all "OTH" — even a plain "KG", which should be "KGS".
+  // That wrong code then went straight onto GSTR-1 and the Shipping Bill.
+  //
+  // Once the master lands, re-derive any code we could not resolve at seed time.
+  // Only blank / "OTH" cells are touched: a code the master actually resolved is
+  // left alone, so nothing an operator or the backend set gets overwritten.
+  useEffect(() => {
+    if (!uomReady) return;
+    setLines((prev) => {
+      let changed = false;
+      const next = prev.map((l) => {
+        if (l.uqc_code && l.uqc_code !== "OTH") return l;
+        const resolved = uqcFor(l.unit);
+        if (!resolved || resolved === l.uqc_code) return l;
+        changed = true;
+        return { ...l, uqc_code: resolved };
+      });
+      // Return the SAME array when nothing moved — a fresh array every time
+      // would re-render the whole grid on every unrelated state change.
+      return changed ? next : prev;
+    });
+  }, [uomReady, uqcFor, lines.length]);
 
   // ── Line helpers ────────────────────────────────────────────────────
 
@@ -2494,6 +2548,9 @@ const InvoiceAddEdit = () => {
                     {t("IGST %")}
                   </th>
                   <th style={{ width: 110 }} className="text-end">
+                    {t("IGST Amt")}
+                  </th>
+                  <th style={{ width: 110 }} className="text-end">
                     {t("Line Total")}
                   </th>
                   <th style={{ width: 70 }} className="text-center">
@@ -2532,6 +2589,13 @@ const InvoiceAddEdit = () => {
                   const afterRebate = afterExpense - rebatesTotal;
                   const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
                   const lineTotal = round2(afterRebate + marginAmt);
+                  // Live IGST. Zero under LUT no matter what rate is typed —
+                  // an LUT export is zero-rated, and the backend forces
+                  // igst_amount = 0 on save. Showing a number here that the
+                  // saved invoice will not have is worse than showing nothing.
+                  const lineIgst = isLut
+                    ? 0
+                    : round2((lineTotal * num(l.igst_rate_pct)) / 100);
                   const rebateCount = (l.product_rebates_snapshot || []).length;
                   const expenseCount = (l.product_expenses_snapshot || []).length;
                   return (
@@ -2656,6 +2720,15 @@ const InvoiceAddEdit = () => {
                           }
                         />
                       </td>
+                      <td className="text-end">
+                        {isLut ? (
+                          <span className="text-muted" title={t("Zero-rated under LUT")}>
+                            —
+                          </span>
+                        ) : (
+                          <span>₹{fmt(lineIgst)}</span>
+                        )}
+                      </td>
                       <td className="text-end fw-semibold">
                         ₹{fmt(lineTotal)}
                         {(rebateCount > 0 ||
@@ -2756,8 +2829,30 @@ const InvoiceAddEdit = () => {
               </tbody>
               <tfoot className="table-light">
                 <tr>
+                  {/* 8 = every column up to and including IGST % (#, HSN, Part
+                      No, Product, Qty, UQC, Unit Price, IGST %). The two cells
+                      that follow land under IGST Amt and Line Total. Bump this
+                      if a column is ever added or removed. */}
                   <td colSpan="8" className="text-end fw-bold">
                     {t("Subtotal")}
+                  </td>
+                  {/* Sum of the IGST column. Always in ₹ — the per-line IGST
+                      amounts above are in INR, so converting only the total
+                      would make the column and its own sum disagree. The doc
+                      -currency figure lives in the Total IGST row below. */}
+                  <td className="text-end fw-bold">
+                    {isLut ? (
+                      <span
+                        className="text-muted fw-normal"
+                        title={t("Zero-rated under LUT")}
+                      >
+                        —
+                      </span>
+                    ) : (
+                      <span style={{ color: "#1a2238" }}>
+                        ₹{fmt(totals.igstInr)}
+                      </span>
+                    )}
                   </td>
                   <td className="text-end fw-bold">
                     {sym && sym !== "₹" ? (
@@ -3159,9 +3254,25 @@ const InvoiceAddEdit = () => {
                   <span className="text-muted">{t("FOB Value")}</span>
                   <span>{sym}{fmt(totals.fob)}</span>
                 </div>
+                {/* NOT part of Grand Total — see the totals memo. On an
+                    IGST-paid export the tax is refunded to the exporter, so it
+                    is informational (and feeds GSTR-1), not payable by the
+                    customer. Under LUT it is zero-rated outright. */}
+                <div className="d-flex justify-content-between py-25">
+                  <span className="text-muted">
+                    {t("Total IGST")}
+                    {isLut && (
+                      <small className="ms-25">({t("zero-rated under LUT")})</small>
+                    )}
+                  </span>
+                  <span>{sym}{fmt(totals.igst)}</span>
+                </div>
                 <div className="d-flex justify-content-between py-25 border-top border-bottom py-1 my-25">
                   <span className="fw-bold">{t("Grand Total")}</span>
                   <span className="fw-bold">{sym}{fmt(totals.grand)}</span>
+                </div>
+                <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                  {t("IGST is shown for information — it is not added to the Grand Total.")}
                 </div>
                 <div className="d-flex justify-content-between py-25">
                   <span className="text-muted">{t("Balance Receivable")}</span>
@@ -3622,6 +3733,27 @@ const CostingModal = ({
   const rebates = line?.product_rebates_snapshot || [];
   const expenses = line?.product_expenses_snapshot || [];
 
+  // ── Discount ─────────────────────────────────────────────────────────
+  // `discount_pct` is a plain number on the line and is always present (0 when
+  // unused), so "add" / "delete" is a UI affordance, not a data one: deleting
+  // sets it back to 0. The modal remounts on every open, so seeding this from
+  // the line is enough — no effect needed to keep it in sync.
+  const [discountOpen, setDiscountOpen] = useState(num(line?.discount_pct) > 0);
+
+  const setDiscount = (v) => {
+    // Clamp at the edge. A negative discount would silently INCREASE the line
+    // total, and >100 would flip it negative — both are nonsense the backend
+    // would happily store.
+    if (v === "") return onChange({ discount_pct: "" });
+    const n = Math.min(100, Math.max(0, num(v)));
+    onChange({ discount_pct: String(n) });
+  };
+
+  const removeDiscount = () => {
+    onChange({ discount_pct: "0" });
+    setDiscountOpen(false);
+  };
+
   // ── Rebate row helpers ───────────────────────────────────────────────
   const setRebates = (next) => onChange({ product_rebates_snapshot: next });
 
@@ -3692,6 +3824,53 @@ const CostingModal = ({
         <code className="ms-1">{line?.product_code || line?.product_name}</code>
       </ModalHeader>
       <ModalBody>
+        {/* ── Discount ─────────────────────────────────────────────── */}
+        <div className="d-flex align-items-center justify-content-between mb-1">
+          <Label className="form-label fw-bold mb-0">{t("Discount")}</Label>
+          {!discountOpen && (
+            <Button
+              size="sm"
+              color="warning"
+              outline
+              onClick={() => setDiscountOpen(true)}
+            >
+              + {t("Add Discount")}
+            </Button>
+          )}
+        </div>
+        {!discountOpen ? (
+          <div className="text-muted small mb-2">{t("No discount")}</div>
+        ) : (
+          <Row className="align-items-center g-1 mb-2">
+            <Col md="4">
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                max="100"
+                value={line?.discount_pct ?? ""}
+                onChange={(e) => setDiscount(e.target.value)}
+                placeholder="0"
+              />
+            </Col>
+            <Col md="1" className="text-muted">
+              %
+            </Col>
+            <Col md="5" className="small text-muted">
+              {t("Applied to (qty × price + expenses − rebates).")}
+            </Col>
+            <Col md="2" className="text-end">
+              <Trash2
+                size={16}
+                className="text-danger cursor-pointer"
+                onClick={removeDiscount}
+              />
+            </Col>
+          </Row>
+        )}
+
+        <hr className="my-2" />
+
         {/* ── Rebates ──────────────────────────────────────────────── */}
         <div className="d-flex align-items-center justify-content-between mb-1">
           <Label className="form-label fw-bold mb-0">{t("Rebates")}</Label>
