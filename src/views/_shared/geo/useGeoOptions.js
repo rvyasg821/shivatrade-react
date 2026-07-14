@@ -1,21 +1,17 @@
 // Address-form option sources, backed by the Country / State / City masters.
 //
-// Two rules shape this file, and both exist to keep existing records working:
+// DATABASE ONLY. There is no static country/state/city package behind any of
+// these — every option comes from /admin/{country,state,city}/dropdown. If the
+// API returns nothing, the list is empty; it does not silently fall back to a
+// bundled list, because then the master screens would stop being the single
+// source of truth and nobody could tell which list they were looking at.
 //
-//  1. COUNTRY FALLS BACK TO THE STATIC LIST. The country master is seeded, but
-//     if it is ever empty — a fresh database, a failed seed, a 403 — an address
-//     form with no countries in it is a broken form. So an empty API response
-//     falls back to the `world-countries` list the app has always used. The
-//     stored value is the ISO-2 code either way, so the two are interchangeable
-//     and no record has to change.
-//
-//  2. STATE AND CITY STAY FREE TEXT. They are plain strings on the record
-//     (`employee.city`, `location.state`), typed by hand for years. The masters
-//     SUGGEST values; they do not constrain them. Callers pair these options
-//     with a CreatableSelect so a value that is not in the master — every
-//     historical row, and the city master ships empty — is still selectable and
-//     still saves. Turning these into strict pickers would blank out existing
-//     addresses and stop anyone entering a new city.
+// STATE AND CITY STAY FREE TEXT. They are plain strings on the record
+// (`customer.addresses[].city`, `lead.state`), typed by hand for years. The
+// masters SUGGEST values; they do not constrain them. Callers pair these
+// options with a CreatableSelect so a value that is not in the master — every
+// historical row — is still selectable and still saves. Turning these into
+// strict pickers would blank out existing addresses.
 
 import { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -23,13 +19,18 @@ import { useDispatch, useSelector } from "react-redux";
 import { getCountryDropdown } from "@src/views/countries/store";
 import { getStateDropdown } from "@src/views/states/store";
 import { getCityDropdown } from "@src/views/cities/store";
-import { getCountryList } from "@src/views/auth/register/utils/countryTimezoneUtils";
 
 /**
- * Countries as `{ value: ISO-2 code, label: name }` — the same shape the forms
- * already bind to, so switching the source changes nothing downstream.
+ * Countries from the master.
+ *
+ * @param valueBy  what the FORM stores in its country field:
+ *                 "code" → ISO-2 ("IN") — Locations, Employee address
+ *                 "name" → full name ("India") — Lead, Customer, Company
+ *
+ * Every option also carries `code`, so a name-valued form can still resolve its
+ * country back to the ISO-2 the state dropdown filters on.
  */
-export const useCountryOptions = () => {
+export const useCountryOptions = (valueBy = "code") => {
   const dispatch = useDispatch();
   const countryDropdown = useSelector((s) => s.country?.countryDropdown);
 
@@ -39,21 +40,21 @@ export const useCountryOptions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return useMemo(() => {
-    if (countryDropdown?.length) {
-      return countryDropdown.map((c) => ({
-        value: c.country_code,
+  return useMemo(
+    () =>
+      (countryDropdown || []).map((c) => ({
+        value: valueBy === "name" ? c.name : c.country_code,
         label: c.name,
+        code: c.country_code,
         _id: c._id,
-      }));
-    }
-    // Master empty or not loaded yet — never leave the form with no countries.
-    return getCountryList().map((c) => ({ value: c.value, label: c.label }));
-  }, [countryDropdown]);
+      })),
+    [countryDropdown, valueBy]
+  );
 };
 
 /**
- * States for one country, keyed by ISO-2 code (what address records hold).
+ * States for one country, keyed by ISO-2 code.
+ *
  * Options are `{ value: name, label: name }`: the record stores the NAME, so
  * the master has to hand back something a legacy free-text row can match.
  */
@@ -108,8 +109,25 @@ export const useCityOptions = (stateName, stateOptions) => {
 };
 
 /**
+ * Resolve whatever a form stores in its country field — an ISO-2 code, a full
+ * name, or a stale free-text value — to the ISO-2 the state master filters on.
+ */
+export const resolveCountryCode = (rawCountry, countryOptions = []) => {
+  if (!rawCountry) return "";
+  const needle = String(rawCountry).toLowerCase();
+  const match = countryOptions.find(
+    (c) =>
+      String(c.value).toLowerCase() === needle ||
+      String(c.label).toLowerCase() === needle ||
+      String(c.code).toLowerCase() === needle
+  );
+  // `code` is what the API options carry. Falling back to `value` keeps this
+  // working for any option list that is already ISO-code-valued.
+  return match?.code || match?.value || "";
+};
+
+/**
  * Turn a stored string into a react-select value. A value the master has never
  * heard of still renders — that is the whole point of the creatable pairing.
  */
-export const toGeoOption = (value) =>
-  value ? { value, label: value } : null;
+export const toGeoOption = (value) => (value ? { value, label: value } : null);

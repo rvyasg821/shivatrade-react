@@ -55,9 +55,12 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
+// Countries/states/cities come from the masters via the API — no static list.
+import PlainGeoFields from "@src/views/_shared/geo/PlainGeoFields";
+import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 import {
   INVOICE_GST_ROUTE_OPTIONS as GST_ROUTES,
-  COUNTRY_OPTIONS,
+  CUSTOMER_ADDRESS_TYPES,
   INCOTERMS_OPTIONS,
   REBATE_EXPENSE_TYPE_OPTIONS,
   SHIPPING_MODE_OPTIONS,
@@ -75,7 +78,7 @@ import {
   resetInvoiceItem,
 } from "@src/views/invoices/store";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
-import { getCustomerDropdown } from "@src/views/customers/store";
+import { getCustomerDropdown, getCustomer } from "@src/views/customers/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import {
   getExchangeRateOptions,
@@ -210,13 +213,10 @@ const InvoiceAddEdit = () => {
     [currencyStore?.exchangeOptions]
   );
 
-  const countryOptions = useMemo(
-    () =>
-      (COUNTRY_OPTIONS || []).map((c) =>
-        typeof c === "string" ? { value: c, label: c } : c
-      ),
-    []
-  );
+  // Countries come from the country master (API), not a static package.
+  // Name-valued: the invoice stores "India", not "IN", and the PDF prints it
+  // verbatim. Used by the party snapshots AND by Country of Origin/Destination.
+  const countryOptions = useCountryOptions("name");
 
   // ── Form state ──────────────────────────────────────────────────────
 
@@ -569,28 +569,36 @@ const InvoiceAddEdit = () => {
   // Fetch addresses for a given customer when not cached yet. Customer
   // dropdown only returns id + name, so addresses are loaded on demand
   // via /customer/get and cached by customerId.
+  // Ask for a customer's detail record. Fire-and-forget: the effect below picks
+  // the result up out of the store. This mirrors the Quotation wizard, which
+  // dispatches getCustomer and then reads `customerStore.customerItem` — rather
+  // than trying to unwrap the thunk's return value at the call site, which is
+  // what this form used to do and where the addresses were being lost.
   const ensureAddresses = useCallback(
-    async (customerId) => {
+    (customerId) => {
       if (!customerId || addressOptionsByCustomer[customerId]) return;
-      try {
-        const resp = await instance.get(
-          `${API_ENDPOINTS.customers.get}/${customerId}`
-        );
-        const cust = resp?.data?.data;
-        const opts = (cust?.addresses || []).map((a) => ({
-          value: a._id,
-          label: [a.label, a.address_line1, a.city, a.country]
-            .filter(Boolean)
-            .join(", "),
-          raw: a,
-        }));
-        setAddressOptionsByCustomer((s) => ({ ...s, [customerId]: opts }));
-      } catch {
-        setAddressOptionsByCustomer((s) => ({ ...s, [customerId]: [] }));
-      }
+      dispatch(getCustomer(customerId));
     },
-    [addressOptionsByCustomer]
+    [addressOptionsByCustomer, dispatch]
   );
+
+  // Cache the addresses of whichever customer the store is currently holding.
+  //
+  // Keyed by the id ON THE RECORD, not by the id we asked for, so it does not
+  // matter which of the three pickers (buyer / consignee / notify) triggered the
+  // fetch — the result lands under the right customer either way.
+  useEffect(() => {
+    const cust = customerStore?.customerItem;
+    if (!cust?._id) return;
+    const opts = (cust.addresses || []).map((a) => ({
+      value: a._id,
+      label: [a.label, a.address_line1, a.city, a.country]
+        .filter(Boolean)
+        .join(", "),
+      raw: a,
+    }));
+    setAddressOptionsByCustomer((s) => ({ ...s, [cust._id]: opts }));
+  }, [customerStore?.customerItem]);
 
   // ── Load PO data (?po=<id>) and pre-fill ───────────────────────────
 
@@ -807,6 +815,34 @@ const InvoiceAddEdit = () => {
   useEffect(() => {
     if (form.consignee_id) ensureAddresses(form.consignee_id);
   }, [form.consignee_id, ensureAddresses]);
+
+  // Auto-pick the buyer's default bill-to address once their addresses load.
+  //
+  // Picking a customer clears `customer_address_id` (the old pick belonged to a
+  // different customer), and without this the field just sat empty until the
+  // operator opened the dropdown and chose by hand — even when the customer had
+  // exactly one address. The consignee picker below has always done this; the
+  // bill-to one was simply missing it.
+  //
+  // The `valid` guard is what makes this safe on an existing invoice: if the
+  // saved address is among the loaded options we leave it alone, so editing an
+  // invoice never silently re-points it at the default.
+  useEffect(() => {
+    if (!form.customer_id) return;
+    const opts = addressOptionsByCustomer[form.customer_id];
+    if (!opts || !opts.length) return;
+    const valid = opts.some((o) => o.value === form.customer_address_id);
+    if (!valid) {
+      // Same priority as the Quotation wizard: explicit default, then the first
+      // BILL_TO, then whatever is first.
+      const pick =
+        opts.find((o) => o.raw?.is_default) ||
+        opts.find((o) => o.raw?.type === CUSTOMER_ADDRESS_TYPES.BILL_TO) ||
+        opts[0];
+      onF("customer_address_id", pick?.value || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.customer_id, addressOptionsByCustomer]);
 
   // ── Consignee (Ship-to), SO-style ──
   // "Same as Buyer" → mirror the buyer's customer + bill-to address.
@@ -1815,31 +1851,8 @@ const InvoiceAddEdit = () => {
                 maxLength={200}
               />
             </Col>
+            {/* Country first — it drives the State list, which drives City. */}
             <Col md="6" className="mb-1">
-              <Label className="form-label">{t("City")}</Label>
-              <Input
-                value={snap.city || ""}
-                onChange={(e) => updateSnap({ city: e.target.value })}
-                maxLength={120}
-              />
-            </Col>
-            <Col md="4" className="mb-1">
-              <Label className="form-label">{t("State")}</Label>
-              <Input
-                value={snap.state || ""}
-                onChange={(e) => updateSnap({ state: e.target.value })}
-                maxLength={120}
-              />
-            </Col>
-            <Col md="4" className="mb-1">
-              <Label className="form-label">{t("Postcode")}</Label>
-              <Input
-                value={snap.postcode || ""}
-                onChange={(e) => updateSnap({ postcode: e.target.value })}
-                maxLength={30}
-              />
-            </Col>
-            <Col md="4" className="mb-1">
               <Label className="form-label">{t("Country")}</Label>
               <Select
                 classNamePrefix="select"
@@ -1847,12 +1860,38 @@ const InvoiceAddEdit = () => {
                 options={countryOptions}
                 value={
                   countryOptions.find((o) => o.value === snap.country) ||
-                  null
+                  // A snapshot country the master has never heard of (typed
+                  // years ago, or a country since deactivated) must still show.
+                  (snap.country
+                    ? { value: snap.country, label: snap.country }
+                    : null)
                 }
                 onChange={(opt) =>
-                  updateSnap({ country: opt ? opt.value : "" })
+                  // Changing the country invalidates the state and city under it.
+                  updateSnap({
+                    country: opt ? opt.value : "",
+                    state: "",
+                    city: "",
+                  })
                 }
                 placeholder={t("Select country")}
+              />
+            </Col>
+            {/* State + City suggest from the masters, still accept free text. */}
+            <PlainGeoFields
+              country={snap.country}
+              countryList={countryOptions}
+              state={snap.state}
+              city={snap.city}
+              onChange={updateSnap}
+              colProps={{ md: "4" }}
+            />
+            <Col md="4" className="mb-1">
+              <Label className="form-label">{t("Postcode")}</Label>
+              <Input
+                value={snap.postcode || ""}
+                onChange={(e) => updateSnap({ postcode: e.target.value })}
+                maxLength={30}
               />
             </Col>
           </Row>
@@ -2055,11 +2094,17 @@ const InvoiceAddEdit = () => {
                   onF("customer_address_id", opt ? opt.value : "")
                 }
                 isDisabled={!form.customer_id}
-                placeholder={
-                  form.customer_id
-                    ? t("Select address")
-                    : t("Pick customer first")
-                }
+                placeholder={(() => {
+                  if (!form.customer_id) return t("Pick customer first");
+                  const opts = addressOptionsByCustomer[form.customer_id];
+                  // Distinguish "still loading" from "this customer genuinely
+                  // has none". A bare "Select address" on an empty list reads
+                  // as a bug when it is actually missing master data.
+                  if (!opts) return t("Loading addresses…");
+                  if (!opts.length)
+                    return t("No addresses on this customer — add one in Customers");
+                  return t("Select address");
+                })()}
               />
             </Col>
           </Row>

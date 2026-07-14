@@ -91,8 +91,9 @@ import { initProductItem } from "@constant/reduxConstant";
 import {
   STATUS_OPTIONS,
   PRODUCT_UOM_OPTIONS,
-  COUNTRY_OPTIONS,
 } from "@constant/options";
+// Country of Origin comes from the country master via the API — no static list.
+import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -106,6 +107,11 @@ const ProductForm = () => {
   const categoryStore = useSelector((state) => state.category);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
+
+  // The product stores the country NAME ("India"), and the invoice/PDF print it
+  // verbatim — so ask for name-valued options. No state/city cascade here:
+  // country of origin is a customs field, not an address.
+  const countryOptions = useCountryOptions("name");
   const required = <span className="text-danger">*</span>;
 
   const schema = useMemo(
@@ -925,11 +931,17 @@ const ProductForm = () => {
                         inputId="country_of_origin"
                         classNamePrefix="select"
                         isClearable
-                        options={COUNTRY_OPTIONS}
+                        options={countryOptions}
                         value={
-                          COUNTRY_OPTIONS.find(
+                          countryOptions.find(
                             (o) => o.value === field.value
-                          ) || null
+                          ) ||
+                          // A value the master has never heard of — saved before
+                          // this switched to the API, or a country since
+                          // deactivated — must still render, not blank out.
+                          (field.value
+                            ? { value: field.value, label: field.value }
+                            : null)
                         }
                         onChange={(opt) =>
                           field.onChange(opt ? opt.value : "")

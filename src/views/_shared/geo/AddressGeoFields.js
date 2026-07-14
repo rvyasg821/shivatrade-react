@@ -1,52 +1,53 @@
-// City + State fields for ONE address row, suggested from the geo masters.
+// State + City fields for ONE address, suggested from the geo masters.
 //
-// A component rather than inline JSX because each row needs its own
-// `useWatch`/`useStateOptions` hooks, and hooks cannot be called inside the
-// `.map()` that renders the rows.
+// A component rather than inline JSX because each address needs its own
+// `useWatch` / `useStateOptions` hooks, and hooks cannot be called inside the
+// `.map()` that renders an addresses array.
+//
+// Works for both field shapes in the app:
+//   - array rows   → namePrefix="addresses.0"  → addresses.0.state / .city
+//   - flat fields  → namePrefix omitted        → state / city
 //
 // Values stay plain strings and stay free text (CreatableSelect) — see
-// useGeoOptions.js for why. Anything already saved renders and re-saves as-is.
+// useGeoOptions.js. Anything already saved renders and re-saves as-is.
 
 import { Col, Label } from "reactstrap";
 import { Controller, useWatch } from "react-hook-form";
 import CreatableSelect from "react-select/creatable";
 import { useTranslation } from "react-i18next";
 
-import { useStateOptions, useCityOptions, toGeoOption } from "./useGeoOptions";
+import {
+  useStateOptions,
+  useCityOptions,
+  resolveCountryCode,
+  toGeoOption,
+} from "./useGeoOptions";
 
 /**
- * @param countryField  name of the sibling country field on this row
- * @param countryAsName true when the row stores the country NAME ("India")
- *                      rather than the ISO code — company addresses do.
- * @param countryList   options from useCountryOptions(), used to turn that name
- *                      back into the ISO code the state master filters on.
+ * @param countryField  name of the sibling country field
+ * @param countryList   options from useCountryOptions() — used to turn whatever
+ *                      the country field holds (ISO code OR full name) into the
+ *                      ISO-2 the state master filters on
+ * @param namePrefix    "addresses.0" for array rows; omit for flat fields
  */
 const AddressGeoFields = ({
   control,
   setValue,
-  namePrefix,
+  namePrefix = "",
   countryField,
   countryList = [],
-  countryAsName = false,
   isReadOnly = false,
   colProps = { md: "6" },
 }) => {
   const { t } = useTranslation();
 
+  const stateField = namePrefix ? `${namePrefix}.state` : "state";
+  const cityField = namePrefix ? `${namePrefix}.city` : "city";
+
   const rawCountry = useWatch({ control, name: countryField });
-  const stateName = useWatch({ control, name: `${namePrefix}.state` });
+  const stateName = useWatch({ control, name: stateField });
 
-  const countryCode = (() => {
-    if (!rawCountry) return "";
-    if (!countryAsName) return rawCountry;
-    const match = countryList.find(
-      (c) =>
-        c.label?.toLowerCase() === String(rawCountry).toLowerCase() ||
-        c.value?.toLowerCase() === String(rawCountry).toLowerCase()
-    );
-    return match?.value || "";
-  })();
-
+  const countryCode = resolveCountryCode(rawCountry, countryList);
   const stateOptions = useStateOptions(countryCode);
   const cityOptions = useCityOptions(stateName, stateOptions);
 
@@ -55,7 +56,7 @@ const AddressGeoFields = ({
       <Col {...colProps} className="mb-2">
         <Label className="form-label">{t("State")}</Label>
         <Controller
-          name={`${namePrefix}.state`}
+          name={stateField}
           control={control}
           render={({ field }) => (
             <CreatableSelect
@@ -67,11 +68,13 @@ const AddressGeoFields = ({
               onChange={(option) => {
                 field.onChange(option?.value || "");
                 // The city belonged to the previous state.
-                setValue(`${namePrefix}.city`, "");
+                setValue(cityField, "");
               }}
               onCreateOption={(input) => field.onChange(input)}
               formatCreateLabel={(input) => `${t("Use")} "${input}"`}
               placeholder={t("Select or type a state")}
+              menuPortalTarget={document.body}
+              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
             />
           )}
         />
@@ -80,7 +83,7 @@ const AddressGeoFields = ({
       <Col {...colProps} className="mb-2">
         <Label className="form-label">{t("City")}</Label>
         <Controller
-          name={`${namePrefix}.city`}
+          name={cityField}
           control={control}
           render={({ field }) => (
             <CreatableSelect
@@ -94,6 +97,8 @@ const AddressGeoFields = ({
               formatCreateLabel={(input) => `${t("Use")} "${input}"`}
               placeholder={t("Select or type a city")}
               noOptionsMessage={() => t("Type to enter a city")}
+              menuPortalTarget={document.body}
+              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
             />
           )}
         />

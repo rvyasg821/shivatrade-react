@@ -95,8 +95,10 @@ import { initLeadItem } from "@constant/reduxConstant";
 import {
   LEAD_SOURCE_OPTIONS,
   LEAD_STATUS_OPTIONS,
-  COUNTRY_OPTIONS,
 } from "@constant/options";
+// Countries/states/cities come from the masters via the API — no static list.
+import AddressGeoFields from "@src/views/_shared/geo/AddressGeoFields";
+import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 
 const LeadForm = () => {
   const { id } = useParams();
@@ -110,6 +112,10 @@ const LeadForm = () => {
   const vendorStore = useSelector((state) => state.vendor);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
+
+  // The lead record stores the country NAME ("India"), so ask for name-valued
+  // options. Straight from the country master — no static package.
+  const countryOptions = useCountryOptions("name");
 
   const [autoFillFromCustomer, setAutoFillFromCustomer] = useState(false);
 
@@ -996,26 +1002,6 @@ const LeadForm = () => {
                   />
                 </Col>
                 <Col md="3" className="mb-2">
-                  <Label className="form-label" for="city">
-                    {t("City")}
-                  </Label>
-                  <Controller
-                    name="city"
-                    control={control}
-                    render={({ field }) => <Input id="city" {...field} />}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
-                  <Label className="form-label" for="state">
-                    {t("State")}
-                  </Label>
-                  <Controller
-                    name="state"
-                    control={control}
-                    render={({ field }) => <Input id="state" {...field} />}
-                  />
-                </Col>
-                <Col md="3" className="mb-2">
                   <Label className="form-label" for="country">
                     {t("Country")}
                   </Label>
@@ -1027,15 +1013,19 @@ const LeadForm = () => {
                         inputId="country"
                         classNamePrefix="select"
                         isClearable
-                        options={COUNTRY_OPTIONS}
+                        options={countryOptions}
                         value={
-                          COUNTRY_OPTIONS.find(
+                          countryOptions.find(
                             (o) => o.value === field.value
                           ) || null
                         }
-                        onChange={(opt) =>
-                          field.onChange(opt ? opt.value : "")
-                        }
+                        onChange={(opt) => {
+                          field.onChange(opt ? opt.value : "");
+                          // A state/city picked under the old country no longer
+                          // belongs to this one.
+                          setValue("state", "");
+                          setValue("city", "");
+                        }}
                         placeholder={t("Select country")}
                         menuPortalTarget={document.body}
                         styles={{
@@ -1045,6 +1035,15 @@ const LeadForm = () => {
                     )}
                   />
                 </Col>
+                {/* State + City suggest from the geo masters but still accept a
+                    typed value — they are free text on the lead record. */}
+                <AddressGeoFields
+                  control={control}
+                  setValue={setValue}
+                  countryField="country"
+                  countryList={countryOptions}
+                  colProps={{ md: "3" }}
+                />
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="postcode">
                     {t("Postcode")}

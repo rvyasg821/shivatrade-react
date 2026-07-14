@@ -35,6 +35,7 @@ import { Upload } from "react-feather";
 import PhoneInput from "react-phone-input-2";
 import Select from "react-select";
 import AddressGeoFields from "@src/views/_shared/geo/AddressGeoFields";
+import { useCountryOptions } from "@src/views/_shared/geo/useGeoOptions";
 import { useTranslation } from "react-i18next";
 
 // ** Constant
@@ -47,7 +48,6 @@ import { getCurrencyDropdown } from "@src/views/currencies/store";
 
 // ** Utilities
 import {
-  getCountryList,
   getTimezoneList,
   getPrimaryTimezoneByCountry,
   selectStyles
@@ -85,8 +85,11 @@ const Step1CompanyDetails = ({ section = "all" }) => {
   const [submitting, setSubmitting] = useState(false);
   useFormLoading(submitting);
 
-  // State for dropdowns
-  const [countryList] = useState(getCountryList());
+  // State for dropdowns.
+  // Countries come from the country master (API), not a static package — the
+  // options are ISO-code-valued, exactly as the old static list was, so the
+  // company's `selected_country` and each address's country keep resolving.
+  const countryList = useCountryOptions("code");
   const [timezoneList] = useState(getTimezoneList());
   const [currencyList] = useState(getCurrencyList());
   const [selectedCountry, setSelectedCountry] = useState(null);
