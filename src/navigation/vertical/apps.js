@@ -588,7 +588,6 @@ const navigationItems = [
         title: rolePermissionName[countriesModuleSlug],
         icon: <Globe size={20} />,
         navLink: `${appsRoot}/countries`,
-        adminLevel: true,
       },
       {
         id: statesModuleSlug,
@@ -597,7 +596,6 @@ const navigationItems = [
         title: rolePermissionName[statesModuleSlug],
         icon: <Map size={20} />,
         navLink: `${appsRoot}/states`,
-        adminLevel: true,
       },
       {
         id: citiesModuleSlug,
@@ -606,7 +604,6 @@ const navigationItems = [
         title: rolePermissionName[citiesModuleSlug],
         icon: <MapPin size={20} />,
         navLink: `${appsRoot}/cities`,
-        adminLevel: true,
       },
     ],
   },
