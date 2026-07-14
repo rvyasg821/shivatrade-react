@@ -319,6 +319,32 @@ const PoVendorRecoverModal = ({
     });
   }, [vendorSummary, defaultLocationId]);
 
+  // Goods GST for one vendor block. Same formula as the POV PDF and the POV
+  // create screen: per line, (to_procure × rate) × tax_pct/100. Without this the
+  // "Taxable" figure on each card was the ONLY number shown, and the operator had
+  // no idea what the POV would actually cost until the PDF was generated.
+  const goodsGstFor = (v) =>
+    previewLines.reduce((s, l) => {
+      const id = l.purchase_order_line_id;
+      if (dropped[id]) return s;
+      if (num(l.to_procure) <= 0) return s;
+      if (assignment[id] !== v.vendor_id) return s;
+      const lineTotal = num(l.to_procure) * priceForLine(l, v.vendor_id);
+      return s + (lineTotal * num(l.tax_pct)) / 100;
+    }, 0);
+
+  // GST the operator entered on each charge row. Charges are taxed at their own
+  // rate on the PDF, not folded into the goods rate — mirror that here.
+  const chargeGstFor = (v) =>
+    (vendorExpenses[v.vendor_id] || []).reduce((s, r) => {
+      if (!r?.expense_id) return s;
+      const amount =
+        r.type === "percent"
+          ? (v.total * Number(r.value || 0)) / 100
+          : Number(r.value || 0);
+      return s + (amount * Number(r.gst_pct || 0)) / 100;
+    }, 0);
+
   // Charges total for a single vendor block (percent against its goods total).
   const chargesFor = (v) =>
     (vendorExpenses[v.vendor_id] || []).reduce((s, r) => {
@@ -543,6 +569,9 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 60 }} className="text-end">
                       {t("GST")} %
                     </th>
+                    <th className="text-end" style={{ width: 110 }}>
+                      {t("GST Amt")} (₹)
+                    </th>
                     <th style={{ width: 70 }} className="text-center">
                       {t("Action")}
                     </th>
@@ -688,6 +717,21 @@ const PoVendorRecoverModal = ({
                             </div>
                           )}
                         </td>
+                        {/* Live GST for this line — (to_procure × rate) × GST%.
+                            A stock-covered or dropped line buys nothing, so it
+                            carries no GST. */}
+                        <td className="text-end">
+                          {fromStock || noVendor || isDropped ? (
+                            <span className="text-muted">-</span>
+                          ) : (
+                            <span>
+                              ₹
+                              {fmt(
+                                (num(l.to_procure) * rate * num(l.tax_pct)) / 100
+                              )}
+                            </span>
+                          )}
+                        </td>
                         <td className="text-center">
                           {isDropped ? (
                             <Button
@@ -806,6 +850,10 @@ const PoVendorRecoverModal = ({
                       ],
                     }));
                   const chargesTotal = chargesFor(v);
+                  const goodsGst = goodsGstFor(v);
+                  const chargeGst = chargeGstFor(v);
+                  const gstTotal = goodsGst + chargeGst;
+                  const grandTotal = v.total + chargesTotal + gstTotal;
                   return (
                     <div key={v.vendor_id} className="po-gen-card mb-2">
                       <div className="po-gen-head justify-content-between">
@@ -817,10 +865,21 @@ const PoVendorRecoverModal = ({
                             {chargesTotal > 0 && (
                               <>
                                 {" "}
-                                + {t("Charges")} ₹{fmt(chargesTotal)} ={" "}
-                                <strong>₹{fmt(v.total + chargesTotal)}</strong>{" "}
+                                + {t("Charges")} ₹{fmt(chargesTotal)}
+                              </>
+                            )}
+                            {gstTotal > 0 && (
+                              <>
+                                {" "}
+                                + {t("GST")} ₹{fmt(gstTotal)}
+                              </>
+                            )}
+                            {(chargesTotal > 0 || gstTotal > 0) && (
+                              <>
+                                {" = "}
+                                <strong>₹{fmt(grandTotal)}</strong>{" "}
                                 <span className="text-muted">
-                                  ({t("Taxable")})
+                                  ({t("POV total")})
                                 </span>
                               </>
                             )}

@@ -64,15 +64,35 @@ export const useIntegerOnlyUoms = () => {
 };
 
 /**
+ * True once the master has actually answered.
+ *
+ * Load-bearing: `useUqcResolver` cannot tell "this unit has no UQC" apart from
+ * "the master has not loaded yet" — both would return the GST catch-all "OTH".
+ * Callers that seed a line's `uqc_code` on mount MUST wait for (or back-fill on)
+ * this flag, or they will freeze "OTH" onto every line purely because the
+ * dropdown request had not come back yet. That is exactly the bug that put
+ * "OTH" on invoice lines whose unit was a perfectly ordinary "KG".
+ */
+export const useUomReady = () => {
+  const uomDropdown = useSelector((s) => s.uom?.uomDropdown);
+  return !!uomDropdown?.length;
+};
+
+/**
  * UOM code → GST Unit Quantity Code, for GSTR-1 and the Shipping Bill.
  *
  * This replaces `mapUomToUqc`, which was copy-pasted into three invoice files
  * and only knew 9 of the 14 units — MT, Tonne, Bag, Pallet, Container and CM all
  * fell through to "OTH" on real GST paperwork. The code now comes off the master
  * row, so there is one answer and the client can correct it.
+ *
+ * Returns "" (not "OTH") while the master is still loading, so a caller that
+ * seeds too early leaves the field blank and visibly unfinished rather than
+ * writing a wrong-but-plausible "OTH". Pair with `useUomReady`.
  */
 export const useUqcResolver = () => {
   const options = useUomOptions();
+  const ready = useUomReady();
 
   return useMemo(() => {
     const byCode = new Map(
@@ -80,10 +100,10 @@ export const useUqcResolver = () => {
     );
     return (unit) => {
       if (!unit) return "";
-      // "OTH" is the GST catch-all. Reaching it means the unit is not in the
-      // master (a legacy string, or the master was unreachable) — correct, but
-      // worth knowing it is a fallback and not a lookup hit.
+      if (!ready) return ""; // master not loaded — do not guess
+      // "OTH" is the GST catch-all, and reaching it now genuinely means the unit
+      // is not in the master (a legacy string) rather than "we asked too early".
       return byCode.get(String(unit).trim().toUpperCase()) || "OTH";
     };
-  }, [options]);
+  }, [options, ready]);
 };

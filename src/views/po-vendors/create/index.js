@@ -36,7 +36,7 @@ import {
   createPoVendorStandalone,
   createPoVendorFromPo,
 } from "@src/views/po-vendors/store";
-import { getVendorDropdown } from "@src/views/vendors/store";
+import { getVendorDropdown, getVendor } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
@@ -45,6 +45,8 @@ import { appsRoot } from "@constant/defaultValues";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
+const round2 = (n) =>
+  !isFinite(n) ? 0 : Math.round((n + Number.EPSILON) * 100) / 100;
 const POV_SOURCE_STATUSES = ["confirmed", "in_process"];
 const newRow = () => ({
   key: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
@@ -416,6 +418,12 @@ const CreatePoVendor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorId]);
 
+  // The vendor dropdown only carries id + name, but the GST split needs the
+  // vendor's GSTIN (its state code). Pull the detail record when one is picked.
+  useEffect(() => {
+    if (vendorId) dispatch(getVendor(vendorId));
+  }, [vendorId, dispatch]);
+
   const standaloneTotal = useMemo(
     () => lines.reduce((s, r) => s + num(r.qty) * num(r.unit_price), 0),
     [lines]
@@ -431,6 +439,66 @@ const CreatePoVendor = () => {
       ),
     [filteredCoverLines, coverByLine, priceByLine]
   );
+
+  // ── GST (live) ───────────────────────────────────────────────────────
+  //
+  // Mirrors po-vendor-pdf.service.ts exactly, or the number on screen would not
+  // be the number on the PDF:
+  //   per line   gst = line_total × tax_pct/100   (tax_pct from the line, or the
+  //                                                PO line / product master)
+  //   intra-state → CGST + SGST (half each);  inter-state → IGST (full)
+  //   grand      = goods + charges + goods GST
+  //
+  // Charges carry their own `gst_pct` on the PDF, but this form has no field for
+  // it (newCharge() has no gst_pct), so charge GST is 0 here — same as what gets
+  // saved. Add the field and this must gain a charge-GST term too.
+  const lineGst = (qty, price, taxPct) =>
+    (num(qty) * num(price) * num(taxPct)) / 100;
+
+  const goodsGst = useMemo(() => {
+    if (linkedMode) {
+      return filteredCoverLines.reduce((s, l) => {
+        const id = l.purchase_order_line_id;
+        return (
+          s + lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+        );
+      }, 0);
+    }
+    return lines.reduce(
+      (s, r) => s + lineGst(r.qty, r.unit_price, r.tax_pct),
+      0
+    );
+  }, [linkedMode, filteredCoverLines, coverByLine, priceByLine, lines]);
+
+  // GST state code = first two digits of the GSTIN (the GST convention the PDF
+  // uses). Both sides must be known — guessing the split would print CGST/SGST
+  // on an inter-state purchase, which is a real compliance error. When either
+  // GSTIN is missing we show a single "GST" row instead of a wrong split.
+  const gstStateCode = (gstin) =>
+    gstin && /^\d{2}/.test(String(gstin)) ? String(gstin).slice(0, 2) : "";
+
+  const companyGstin = useMemo(() => {
+    const addrs = companyStore?.companyItem?.addresses || [];
+    const corp =
+      addrs.find((a) => a.type === "corporate" && a.is_default) ||
+      addrs.find((a) => a.type === "corporate") ||
+      addrs.find((a) => a.is_default) ||
+      addrs[0];
+    return corp?.gstin || "";
+  }, [companyStore?.companyItem]);
+
+  const vendorGstin =
+    vendorStore?.vendorItem?._id === vendorId
+      ? vendorStore?.vendorItem?.gstin || ""
+      : "";
+
+  const cc = gstStateCode(companyGstin);
+  const vc = gstStateCode(vendorGstin);
+  const gstSplitKnown = !!cc && !!vc;
+  const interState = gstSplitKnown && cc !== vc;
+  const cgst = interState ? 0 : goodsGst / 2;
+  const sgst = interState ? 0 : goodsGst - cgst;
+  const igst = interState ? goodsGst : 0;
 
   // ── Vendor charges (expenses) ────────────────────────────────────────
   const goodsTotal = linkedMode ? linkedTotal : standaloneTotal;
@@ -461,7 +529,8 @@ const CreatePoVendor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [charges, goodsTotal]
   );
-  const grandTotal = goodsTotal + chargesTotal;
+  // Was `goods + charges`, which silently disagreed with the PDF (that adds GST).
+  const grandTotal = goodsTotal + chargesTotal + goodsGst;
 
   const backToList = () => navigate(`${appsRoot}/po-vendors`);
 
@@ -698,6 +767,12 @@ const CreatePoVendor = () => {
                       <th style={{ width: 130 }} className="text-end">
                         {t("Rate")} (₹)
                       </th>
+                      <th style={{ width: 70 }} className="text-end">
+                        {t("GST")} %
+                      </th>
+                      <th style={{ width: 110 }} className="text-end">
+                        {t("GST Amt")} (₹)
+                      </th>
                       <th style={{ width: 120 }} className="text-end">
                         {t("Amount")} (₹)
                       </th>
@@ -706,7 +781,7 @@ const CreatePoVendor = () => {
                   <tbody>
                     {filteredCoverLines.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center text-muted py-2">
+                        <td colSpan={9} className="text-center text-muted py-2">
                           {vendorId
                             ? t("No pending lines for this vendor.")
                             : t("Pick a vendor to load lines.")}
@@ -765,6 +840,16 @@ const CreatePoVendor = () => {
                                 }
                               />
                             </td>
+                            {/* Rate is read-only in linked mode — it is the PO
+                                line's snapshot, carried by the coverage API. */}
+                            <td className="text-end text-muted">
+                              {num(l.tax_pct) || 0}
+                            </td>
+                            <td className="text-end">
+                              {round2(
+                                lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+                              ).toLocaleString()}
+                            </td>
                             <td className="text-end fw-bold">
                               {(q * price).toLocaleString()}
                             </td>
@@ -775,9 +860,12 @@ const CreatePoVendor = () => {
                   </tbody>
                   <tfoot>
                     <tr className="table-light fw-bold">
+                      {/* 6 = # · Product · UOM · Pending · Qty · Rate. The two
+                          cells after it land under GST Amt and Amount. */}
                       <td colSpan={6} className="text-end">
                         {t("Total")}
                       </td>
+                      <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
                       <td className="text-end">{linkedTotal.toLocaleString()}</td>
                     </tr>
                   </tfoot>
@@ -802,6 +890,9 @@ const CreatePoVendor = () => {
                     </th>
                     <th style={{ width: 80 }} className="text-end">
                       {t("GST")} %
+                    </th>
+                    <th style={{ width: 110 }} className="text-end">
+                      {t("GST Amt")} (₹)
                     </th>
                     <th style={{ width: 110 }} className="text-end">
                       {t("Amount")} (₹)
@@ -896,6 +987,11 @@ const CreatePoVendor = () => {
                           }
                         />
                       </td>
+                      <td className="text-end">
+                        {round2(
+                          lineGst(r.qty, r.unit_price, r.tax_pct)
+                        ).toLocaleString()}
+                      </td>
                       <td className="text-end fw-bold">
                         {(num(r.qty) * num(r.unit_price)).toLocaleString()}
                       </td>
@@ -915,9 +1011,12 @@ const CreatePoVendor = () => {
                 </tbody>
                 <tfoot>
                   <tr className="table-light fw-bold">
+                    {/* 8 = # · Product · Part No · HSN · UOM · Qty · Rate · GST%.
+                        The two cells after it land under GST Amt and Amount. */}
                     <td colSpan={8} className="text-end">
                       {t("Total")}
                     </td>
+                    <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
                     <td className="text-end">{standaloneTotal.toLocaleString()}</td>
                     <td />
                   </tr>
@@ -1030,11 +1129,55 @@ const CreatePoVendor = () => {
                     <td className="text-end">{chargesTotal.toLocaleString()}</td>
                     <td />
                   </tr>
+                  {/* GST on goods. Split CGST/SGST vs IGST only when BOTH
+                      GSTINs are known — printing CGST/SGST on an inter-state
+                      purchase is a compliance error, so we show one combined
+                      row rather than guess. */}
+                  {goodsGst > 0 &&
+                    (gstSplitKnown ? (
+                      interState ? (
+                        <tr>
+                          <td colSpan={3} className="text-end">
+                            {t("Input IGST")}
+                          </td>
+                          <td className="text-end">{round2(igst).toLocaleString()}</td>
+                          <td />
+                        </tr>
+                      ) : (
+                        <Fragment>
+                          <tr>
+                            <td colSpan={3} className="text-end">
+                              {t("Input CGST")}
+                            </td>
+                            <td className="text-end">{round2(cgst).toLocaleString()}</td>
+                            <td />
+                          </tr>
+                          <tr>
+                            <td colSpan={3} className="text-end">
+                              {t("Input SGST")}
+                            </td>
+                            <td className="text-end">{round2(sgst).toLocaleString()}</td>
+                            <td />
+                          </tr>
+                        </Fragment>
+                      )
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="text-end">
+                          {t("GST")}
+                          <small className="text-muted ms-50 fw-normal">
+                            ({t("CGST/SGST vs IGST needs both GSTINs")})
+                          </small>
+                        </td>
+                        <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
+                        <td />
+                      </tr>
+                    ))}
                   <tr className="table-light fw-bold">
                     <td colSpan={3} className="text-end">
                       {t("Grand Total")} (₹)
                     </td>
-                    <td className="text-end">{grandTotal.toLocaleString()}</td>
+                    <td className="text-end">{round2(grandTotal).toLocaleString()}</td>
                     <td />
                   </tr>
                 </tfoot>
