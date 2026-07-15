@@ -60,6 +60,7 @@ import {
   countriesModuleSlug,
   statesModuleSlug,
   citiesModuleSlug,
+  reportsModuleSlug,
   // Catalogue
   catalogueGroupSlug,
   categoriesModuleSlug,
@@ -124,6 +125,15 @@ const navigationItems = [
     title: 'Dashboard',
     icon: <Home size={20} />,
     navLink: `${appsRoot}/dashboard`,
+  },
+
+  {
+    id: reportsModuleSlug,
+    permissionId: reportsModuleSlug,
+    companyOnly: true,
+    title: rolePermissionName[reportsModuleSlug],
+    icon: <TrendingUp size={20} />,
+    navLink: `${appsRoot}/reports`,
   },
 
   // Sales

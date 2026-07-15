@@ -705,6 +705,24 @@ const PurchaseOrderWizard = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
+        // Costing worksheet — margin + expense/rebate heads. Were dropped here,
+        // so the SO recompute saw margin_pct = 0 and the entered margin never
+        // persisted. Amounts are recomputed server-side from these inputs.
+        margin_pct: String(l.margin_pct || "0"),
+        product_rebates_snapshot: (l.product_rebates_snapshot || []).map((r) => ({
+          rebate_id: r.rebate_id || null,
+          code: r.code || "",
+          name: r.name || "",
+          type: r.type || "percent",
+          pct: String(r.pct ?? "0"),
+        })),
+        product_expenses_snapshot: (l.product_expenses_snapshot || []).map((e) => ({
+          expense_id: e.expense_id || null,
+          code: e.code || "",
+          name: e.name || "",
+          type: e.type || "fixed",
+          value: String(e.value ?? "0"),
+        })),
         // Export / packing — was dropped here, so saving the SO wiped these.
         net_weight_kg: String(l.net_weight_kg ?? "0"),
         gross_weight_kg: String(l.gross_weight_kg ?? "0"),
