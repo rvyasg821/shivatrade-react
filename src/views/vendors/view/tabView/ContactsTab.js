@@ -1,60 +1,58 @@
 import { Fragment } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Table } from "reactstrap";
+import { Badge } from "reactstrap";
 import { useTranslation } from "react-i18next";
+
+import DatatablePagination from "@components/datatable/DatatablePagination";
 
 const ContactsTab = () => {
   const { t } = useTranslation();
   const { vendorItem } = useSelector((s) => s.vendor);
   const rows = vendorItem?.contacts || [];
 
-  if (rows.length === 0) {
-    return (
-      <div className="text-muted py-3 text-center">
-        {t("No contact persons on file.")}
-      </div>
-    );
-  }
+  const columns = [
+    {
+      name: t("Name"),
+      minWidth: "180px",
+      selector: (row) => (
+        <span className="text-capitalize text-wrap">{row?.name || "-"}</span>
+      ),
+    },
+    {
+      name: t("Designation"),
+      selector: (row) => (
+        <span className="text-capitalize">{row?.designation || "-"}</span>
+      ),
+    },
+    {
+      name: t("Email"),
+      minWidth: "200px",
+      selector: (row) => row?.email || "-",
+    },
+    {
+      name: t("Phone"),
+      selector: (row) =>
+        row?.country_code?.formatted ||
+        (row?.country_code?.dial_code && row?.phone
+          ? `${row.country_code.dial_code} ${row.phone}`
+          : row?.phone) ||
+        "-",
+    },
+    {
+      name: t("Primary"),
+      center: true,
+      selector: (row) =>
+        row?.is_primary ? (
+          <Badge color="light-success">{t("Primary")}</Badge>
+        ) : (
+          <span className="text-muted">-</span>
+        ),
+    },
+  ];
 
   return (
     <Fragment>
-      <h4 className="mb-2">{t("Contacts")}</h4>
-      <Table responsive bordered className="mb-0">
-        <thead>
-          <tr>
-            <th>{t("Name")}</th>
-            <th>{t("Designation")}</th>
-            <th>{t("Email")}</th>
-            <th>{t("Phone")}</th>
-            <th>{t("Primary")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((c, i) => {
-            const phone =
-              c?.country_code?.formatted ||
-              (c?.country_code?.dial_code && c?.phone
-                ? `${c.country_code.dial_code} ${c.phone}`
-                : c?.phone) ||
-              "-";
-            return (
-              <tr key={c?._id || i}>
-                <td className="text-capitalize text-wrap">{c?.name || "-"}</td>
-                <td className="text-capitalize">{c?.designation || "-"}</td>
-                <td>{c?.email || "-"}</td>
-                <td>{phone}</td>
-                <td>
-                  {c?.is_primary ? (
-                    <Badge color="light-success">{t("Primary")}</Badge>
-                  ) : (
-                    <span className="text-muted">-</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </Table>
+      <DatatablePagination columns={columns} data={rows} disablePagination />
     </Fragment>
   );
 };
