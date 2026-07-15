@@ -1,7 +1,9 @@
 import { Fragment } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Table } from "reactstrap";
+import { Badge } from "reactstrap";
 import { useTranslation } from "react-i18next";
+
+import DatatablePagination from "@components/datatable/DatatablePagination";
 
 const BankAccountsTab = () => {
   const { t } = useTranslation();
@@ -15,53 +17,60 @@ const BankAccountsTab = () => {
     return found?.code || code || "-";
   };
 
-  if (rows.length === 0) {
-    return (
-      <div className="text-muted py-3 text-center">
-        {t("No bank accounts on file.")}
-      </div>
-    );
-  }
+  const columns = [
+    {
+      name: t("Bank"),
+      minWidth: "180px",
+      selector: (row) => (
+        <span className="text-wrap">{row?.bank_name || "-"}</span>
+      ),
+    },
+    {
+      name: t("Account Holder"),
+      minWidth: "160px",
+      selector: (row) => row?.account_holder_name || "-",
+    },
+    {
+      name: t("Account Number"),
+      selector: (row) => row?.account_number || "-",
+    },
+    {
+      name: t("Currency"),
+      selector: (row) => currencyByIdOrCode(row?.currency_id, row?.currency_code),
+    },
+    {
+      name: t("Type"),
+      selector: (row) => (
+        <span className="text-capitalize">{row?.account_type || "-"}</span>
+      ),
+    },
+    {
+      name: t("IFSC"),
+      selector: (row) => row?.ifsc || "-",
+    },
+    {
+      name: t("SWIFT"),
+      selector: (row) => row?.swift_code || "-",
+    },
+    {
+      name: t("IBAN"),
+      selector: (row) => row?.iban || "-",
+    },
+    {
+      name: t("Default"),
+      center: true,
+      selector: (row) =>
+        row?.is_default ? (
+          <Badge color="light-success">{t("Default")}</Badge>
+        ) : (
+          <span className="text-muted">-</span>
+        ),
+    },
+  ];
 
   return (
     <Fragment>
-      <h4 className="mb-2">{t("Bank Accounts")}</h4>
-      <Table responsive bordered className="mb-0">
-        <thead>
-          <tr>
-            <th>{t("Bank")}</th>
-            <th>{t("Account Holder")}</th>
-            <th>{t("Account Number")}</th>
-            <th>{t("Currency")}</th>
-            <th>{t("Type")}</th>
-            <th>{t("IFSC")}</th>
-            <th>{t("SWIFT")}</th>
-            <th>{t("IBAN")}</th>
-            <th>{t("Default")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((b, i) => (
-            <tr key={b?._id || i}>
-              <td className="text-wrap">{b?.bank_name || "-"}</td>
-              <td>{b?.account_holder_name || "-"}</td>
-              <td>{b?.account_number || "-"}</td>
-              <td>{currencyByIdOrCode(b?.currency_id, b?.currency_code)}</td>
-              <td className="text-capitalize">{b?.account_type || "-"}</td>
-              <td>{b?.ifsc || "-"}</td>
-              <td>{b?.swift_code || "-"}</td>
-              <td>{b?.iban || "-"}</td>
-              <td>
-                {b?.is_default ? (
-                  <Badge color="light-success">{t("Default")}</Badge>
-                ) : (
-                  <span className="text-muted">-</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <DatatablePagination columns={columns} data={rows} disablePagination />
     </Fragment>
   );
 };
