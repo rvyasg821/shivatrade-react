@@ -16,14 +16,20 @@ import {
   Table,
   Badge,
   Spinner,
+  Button,
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
+import { Trash2 } from "react-feather";
 
 import DateInput from "@components/date-input";
-import { getApiCalls, getApiCallStats } from "../store";
-import { formatDate } from "@src/utility/dateFormat";
+import { getApiCalls, getApiCallStats, clearApiCalls } from "../store";
+import { formatDateTime } from "@src/utility/dateFormat";
+
+const mySwal = withReactContent(Swal);
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -87,6 +93,32 @@ const ApiCallsTab = ({ reloadKey }) => {
     setPage(1);
   }, [route, statusClass, from, to, perPage]);
 
+  // Force the nightly rollup+prune to run now. Rows are rolled into the Usage
+  // tab first, then everything before today's midnight is deleted — the same
+  // thing the 04:00 cron does, but on demand so it doesn't depend on the server
+  // being up at 4am.
+  const handleClearNow = () => {
+    mySwal
+      .fire({
+        title: t("Clear API call log now?"),
+        text: t(
+          "Today's calls are rolled into the Usage tab first, then every earlier row is permanently deleted. Usage totals are kept."
+        ),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, clear now"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-danger ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(clearApiCalls()).then(() => load());
+      });
+  };
+
   const pageCount = useMemo(
     () => Math.max(1, Math.ceil((total || 0) / (serverPerPage || 25))),
     [total, serverPerPage]
@@ -116,10 +148,26 @@ const ApiCallsTab = ({ reloadKey }) => {
         />
       </Row>
 
-      <div className="text-muted small mb-1">
-        {t(
-          "API calls are cleared every night at 4am. Older activity survives only as daily totals on the Usage tab."
-        )}
+      <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+        <div className="text-muted small">
+          {t(
+            "API calls are cleared every night at 4am. Older activity survives only as daily totals on the Usage tab."
+          )}
+        </div>
+        <Button
+          color="danger"
+          outline
+          size="sm"
+          onClick={handleClearNow}
+          disabled={store.clearing}
+        >
+          {store.clearing ? (
+            <Spinner size="sm" className="me-50" />
+          ) : (
+            <Trash2 size={14} className="me-50" />
+          )}
+          {t("Clear now")}
+        </Button>
       </div>
 
       <Row className="mb-2">
@@ -173,7 +221,7 @@ const ApiCallsTab = ({ reloadKey }) => {
           <Table size="sm" className="align-middle mb-0">
             <thead className="table-light">
               <tr>
-                <th style={{ width: 160 }}>{t("When")}</th>
+                <th style={{ width: 185 }}>{t("When")}</th>
                 <th style={{ width: 140 }}>{t("Who")}</th>
                 <th style={{ width: 70 }}>{t("Method")}</th>
                 <th>{t("Route")}</th>
@@ -189,7 +237,7 @@ const ApiCallsTab = ({ reloadKey }) => {
               {items.map((row) => (
                 <tr key={row._id}>
                   <td className="text-nowrap small text-muted">
-                    {formatDate(row.at)}
+                    {formatDateTime(row.at)}
                   </td>
                   <td className="text-nowrap">{row.actor_name}</td>
                   <td>
