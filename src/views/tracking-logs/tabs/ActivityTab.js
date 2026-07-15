@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
 import { getActivityLog } from "../store";
-import { formatDate } from "@src/utility/dateFormat";
+import { formatDateTime } from "@src/utility/dateFormat";
 
 // Mirrors the backend's audit allowlist. Values are TypeORM class names; labels
 // are what the team calls them (PurchaseOrderEntity = Sales Order).
@@ -182,7 +182,7 @@ const ActivityTab = ({ reloadKey }) => {
                         ) : null}
                       </td>
                       <td className="text-nowrap small text-muted">
-                        {formatDate(row.at)}
+                        {formatDateTime(row.at)}
                       </td>
                       <td className="text-nowrap fw-semibold">
                         {row.actor_name}

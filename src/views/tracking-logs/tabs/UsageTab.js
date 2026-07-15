@@ -26,6 +26,7 @@ import { Play } from "react-feather";
 
 import DateInput from "@components/date-input";
 import { getUsage, runUsageRollup } from "../store";
+import { formatDate } from "@src/utility/dateFormat";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -196,7 +197,7 @@ const UsageTab = ({ reloadKey }) => {
             <tbody>
               {days.map((d) => (
                 <tr key={d._id}>
-                  <td className="text-nowrap">{d.day}</td>
+                  <td className="text-nowrap">{formatDate(d.day)}</td>
                   <td className="small text-muted">
                     <code>{d.company_id?.slice(0, 8)}…</code>
                   </td>

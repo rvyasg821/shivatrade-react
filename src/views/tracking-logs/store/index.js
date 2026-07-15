@@ -86,6 +86,26 @@ export const runUsageRollup = createAsyncThunk(
   }
 );
 
+/**
+ * Force the nightly rollup+prune to run now. The cron only fires at 04:00 while
+ * the server is up; this lets the platform owner clear api_call_logs on demand
+ * without waiting for a night the box happens to be running.
+ */
+export const clearApiCalls = createAsyncThunk(
+  "appTrackingLogs/clearApiCalls",
+  async (_, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        API_ENDPOINTS.trackingLogs.clearApiCalls,
+        {}
+      );
+      return unwrap(resp, "Clear failed");
+    } catch (error) {
+      return rejectWithValue(errText(error, "Clear failed"));
+    }
+  }
+);
+
 const emptyList = { items: [], total: 0, page: 1, perPage: 25 };
 
 export const appTrackingLogsSlice = createSlice({
@@ -99,6 +119,7 @@ export const appTrackingLogsSlice = createSlice({
     loadingApiCalls: false,
     loadingUsage: false,
     rollingUp: false,
+    clearing: false,
     error: "",
     success: "",
   },
@@ -168,6 +189,18 @@ export const appTrackingLogsSlice = createSlice({
       })
       .addCase(runUsageRollup.rejected, (state, action) => {
         state.rollingUp = false;
+        state.error = action.payload || "";
+      })
+      // ── Manual clear (force rollup + prune now) ──
+      .addCase(clearApiCalls.pending, (state) => {
+        state.clearing = true;
+      })
+      .addCase(clearApiCalls.fulfilled, (state, action) => {
+        state.clearing = false;
+        state.success = `Cleared — ${action.payload?.deleted ?? 0} API call row(s) deleted.`;
+      })
+      .addCase(clearApiCalls.rejected, (state, action) => {
+        state.clearing = false;
         state.error = action.payload || "";
       });
   },

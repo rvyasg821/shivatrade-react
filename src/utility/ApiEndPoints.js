@@ -289,6 +289,7 @@ export const API_ENDPOINTS = {
     apiCallStats: `/admin/tracking/api-calls/stats`,
     usage: `/admin/tracking/usage`,
     usageRollup: `/admin/tracking/usage/rollup`, // POST ?day=YYYY-MM-DD
+    clearApiCalls: `/admin/tracking/api-calls/clear`, // POST — force rollup+prune now
     history: `/admin/tracking/history`, // append /:entityName/:entityId
   },
   inventory: {
