@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
-import { logout, getAuthMe, cleanAuthMessage } from "@src/views/auth/store";
+import { logout, logoutUser, getAuthMe, cleanAuthMessage } from "@src/views/auth/store";
 import { clearLocationContext } from "@src/redux/locationContext";
 import { clearCreatorContext } from "@src/redux/creatorContext";
 
@@ -43,6 +43,10 @@ const UserDropdown = () => {
   const authUserItem = authStore?.authUserItem || null;
 
   const handleLogout = () => {
+    // Notify the server first (revokes the session + records "Signed out"). This
+    // reads the token synchronously and fires the request before we clear state
+    // below, so it goes out authenticated. Best-effort — never blocks logout.
+    dispatch(logoutUser());
     dispatch(clearLocationContext()); // Reset so next user gets a fresh location context
     dispatch(clearCreatorContext()); // Reset the Created-By selection for the next user
     dispatch(logout());

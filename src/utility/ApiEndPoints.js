@@ -1,6 +1,7 @@
 export const API_ENDPOINTS = {
   auth: {
     login: `/public/auth/login`,
+    logout: `/shared/session/logout`, // POST — revokes current session + logs "Signed out"
     me: `/admin/auth/me`,
     refreshToken: `/shared/auth/refresh`,
     updateMe: `/admin/auth/update-profile`,
