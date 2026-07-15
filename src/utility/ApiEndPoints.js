@@ -293,6 +293,10 @@ export const API_ENDPOINTS = {
     clearApiCalls: `/admin/tracking/api-calls/clear`, // POST — force rollup+prune now
     history: `/admin/tracking/history`, // append /:entityName/:entityId
   },
+  reports: {
+    productProfitability: `/admin/reports/product-profitability`,
+    productProfitabilityExport: `/admin/reports/product-profitability/export`,
+  },
   inventory: {
     list: `/admin/inventory/list`,
     stats: `/admin/inventory/stats`,

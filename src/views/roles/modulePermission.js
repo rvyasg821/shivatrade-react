@@ -32,7 +32,7 @@ const ALWAYS_VISIBLE_SLUGS = [
   "uom", "countries", "states", "cities",
   "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
   "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
-  "po-vendors", "inventory", "tracking",
+  "po-vendors", "inventory", "tracking", "reports",
   "employee", "attendance", "leave", "holiday_calendar",
 ];
 

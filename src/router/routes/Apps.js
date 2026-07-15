@@ -20,6 +20,7 @@ import {
   countriesModuleSlug,
   statesModuleSlug,
   citiesModuleSlug,
+  reportsModuleSlug,
   priceListModuleSlug,
   rfqModuleSlug,
   quotationsModuleSlug,
@@ -81,6 +82,8 @@ const EditCountry = lazy(() => import('@src/views/countries/add'));
 const StateList = lazy(() => import('@src/views/states'));
 const AddState = lazy(() => import('@src/views/states/add'));
 const EditState = lazy(() => import('@src/views/states/add'));
+const ReportsLanding = lazy(() => import('@src/views/reports'));
+const ProductProfitabilityReport = lazy(() => import('@src/views/reports/product-profitability'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
 const EditCity = lazy(() => import('@src/views/cities/add'));
@@ -664,6 +667,16 @@ const AppRoutes = [
     path: `${appsRoot}/states/edit/:id`,
     element: <EditState />,
     meta: { permissionId: statesModuleSlug, action: 'edit' },
+  },
+  {
+    path: `${appsRoot}/reports`,
+    element: <ReportsLanding />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/product-profitability`,
+    element: <ProductProfitabilityReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {
     path: `${appsRoot}/cities`,
