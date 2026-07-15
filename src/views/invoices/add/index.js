@@ -610,6 +610,22 @@ const InvoiceAddEdit = () => {
     setAddressOptionsByCustomer((s) => ({ ...s, [cust._id]: opts }));
   }, [customerStore?.customerItem]);
 
+  // Auto-fill Country of Destination from the consignee's country — the goods
+  // ship to the consignee, so its country is the natural final destination.
+  // Only fills when the field is still EMPTY, so it never clobbers a value that
+  // came from the source PO, an edited invoice, or the operator's manual choice
+  // (still fully editable; merchant/re-export trades can override it).
+  useEffect(() => {
+    const consigneeCountry = form.consignee_snapshot?.country;
+    if (!consigneeCountry) return;
+    setForm((s) =>
+      s.country_of_destination
+        ? s
+        : { ...s, country_of_destination: consigneeCountry }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.consignee_snapshot?.country]);
+
   // ── Load PO data (?po=<id>) and pre-fill ───────────────────────────
 
   useEffect(() => {
