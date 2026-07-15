@@ -509,6 +509,36 @@ export const impersonateEmployee = createAsyncThunk(
   }
 );
 
+/**
+ * Tell the server we're signing out, THEN clear local state (the `logout`
+ * reducer does the clearing — dispatch it right after this).
+ *
+ * Logout was previously 100% client-side, so the backend never learned about it
+ * and no "Signed out" event reached the activity feed. This revokes the current
+ * session server-side, which records the LOGOUT audit row.
+ *
+ * The token is read synchronously up front and passed as an explicit header, so
+ * the request stays authenticated even though `clearLocalStorage()` runs a moment
+ * later (the axios interceptor only ADDS an Authorization header, never removes
+ * one, so it won't clobber ours once storage is empty). Best-effort: a failure
+ * here must never block the user from logging out.
+ */
+export const logoutUser = createAsyncThunk("appAuth/logoutUser", async () => {
+  const token = getAccessToken();
+  if (token) {
+    try {
+      await instance.post(
+        API_ENDPOINTS.auth.logout,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (e) {
+      // ignore — logout proceeds regardless of the server response
+    }
+  }
+  return true;
+});
+
 export const appAuthSlice = createSlice({
   name: "appAuth",
   initialState: {

@@ -17,6 +17,8 @@ import { formatDateTime } from "@src/utility/dateFormat";
 // are what the team calls them (PurchaseOrderEntity = Sales Order).
 const ENTITY_OPTIONS = [
   { value: "", label: "All documents" },
+  { value: "LeadEntity", label: "Lead" },
+  { value: "RfqEntity", label: "RFQ" },
   { value: "QuotationEntity", label: "Quotation" },
   { value: "PurchaseOrderEntity", label: "Sales Order" },
   { value: "PoVendorEntity", label: "Vendor PO" },
@@ -27,9 +29,47 @@ const ENTITY_OPTIONS = [
   { value: "PriceListEntity", label: "Price List" },
   { value: "VendorEntity", label: "Vendor" },
   { value: "CustomerEntity", label: "Customer" },
+  { value: "StockMovementEntity", label: "Inventory" },
   { value: "CompanyEntity", label: "Company" },
   { value: "UserEntity", label: "User" },
   { value: "RoleEntity", label: "Role" },
+  { value: "CountryEntity", label: "Country" },
+  { value: "StateEntity", label: "State" },
+  { value: "CityEntity", label: "City" },
+  { value: "LocationEntity", label: "Location" },
+  { value: "PayRunEntity", label: "Pay Run" },
+  { value: "PayslipEntity", label: "Payslip" },
+  { value: "PayScheduleEntity", label: "Pay Schedule" },
+  { value: "PayElementEntity", label: "Pay Element" },
+  { value: "EmployeeEntity", label: "Employee" },
+  { value: "CategoryEntity", label: "Category" },
+  { value: "CurrencyEntity", label: "Currency" },
+  { value: "UomEntity", label: "UOM" },
+  { value: "RebateEntity", label: "Rebate" },
+  { value: "ExpenseEntity", label: "Expense" },
+  { value: "CompanySettingsEntity", label: "Company Settings" },
+  { value: "LeaveRequestEntity", label: "Leave Request" },
+  { value: "AttendanceRecordEntity", label: "Attendance" },
+  { value: "HolidayCalendarEntity", label: "Holiday Calendar" },
+  { value: "HolidayEntity", label: "Holiday" },
+  { value: "CompanyLookupEntity", label: "Designation / Department" },
+  { value: "LeaveTypeEntity", label: "Leave Type" },
+  { value: "LeavePolicyEntity", label: "Leave Policy" },
+  { value: "LeaveEntitlementEntity", label: "Leave Entitlement" },
+  { value: "ShiftTemplateEntity", label: "Shift Template" },
+  { value: "ShiftAssignmentEntity", label: "Shift Assignment" },
+  { value: "ShiftSwapRequestEntity", label: "Shift Swap Request" },
+  { value: "AttendanceSettingsEntity", label: "Attendance Settings" },
+  { value: "ContractTemplateEntity", label: "Contract Template" },
+  { value: "EmployeeContractEntity", label: "Employee Contract" },
+  { value: "EmployeeLocationAssignmentEntity", label: "Employee Location" },
+  { value: "InvoicePaymentEntity", label: "Customer Payment" },
+  { value: "PoVendorPaymentEntity", label: "Supplier Payment" },
+  { value: "PoVendorTrackingEventEntity", label: "Shipment Tracking" },
+  { value: "PortMasterEntity", label: "Port Master" },
+  { value: "DocumentEntity", label: "Document" },
+  { value: "DocumentCategoryEntity", label: "Document Category" },
+  { value: "AuthEntity", label: "Authentication" },
 ];
 
 const ACTION_OPTIONS = [
@@ -39,6 +79,11 @@ const ACTION_OPTIONS = [
   { value: "delete", label: "Deleted" },
   { value: "soft_delete", label: "Deleted (soft)" },
   { value: "import", label: "Imported" },
+  { value: "login", label: "Signed in" },
+  { value: "logout", label: "Signed out" },
+  { value: "login_failed", label: "Failed login" },
+  { value: "pwd_reset_req", label: "Password reset requested" },
+  { value: "pwd_reset", label: "Password reset" },
 ];
 
 const ACTION_COLOR = {
@@ -47,6 +92,20 @@ const ACTION_COLOR = {
   delete: "light-danger",
   soft_delete: "light-danger",
   import: "light-info",
+  login: "light-success",
+  logout: "light-secondary",
+  login_failed: "light-danger",
+  pwd_reset_req: "light-warning",
+  pwd_reset: "light-primary",
+};
+
+// Nicer badge text than a raw underscore-split of the action code.
+const ACTION_LABEL = {
+  login: "Login",
+  logout: "Logout",
+  login_failed: "Login failed",
+  pwd_reset_req: "Reset requested",
+  pwd_reset: "Reset done",
 };
 
 const fmtValue = (v) => {
@@ -192,7 +251,8 @@ const ActivityTab = ({ reloadKey }) => {
                           color={ACTION_COLOR[row.action] || "light-secondary"}
                           className="text-capitalize"
                         >
-                          {String(row.action).replace("_", " ")}
+                          {ACTION_LABEL[row.action] ||
+                            String(row.action).replace(/_/g, " ")}
                         </Badge>
                       </td>
                       <td>{row.sentence}</td>
