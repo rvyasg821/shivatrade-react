@@ -19,6 +19,7 @@ import {
   Row,
   Table,
 } from "reactstrap";
+import Select from "react-select";
 import { AlertTriangle, DollarSign, Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -32,14 +33,28 @@ import {
   recordPoVendorPayment,
   voidPoVendorPayment,
 } from "@src/views/po-vendors/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
+const round2 = (n) => Math.round((num(n) + Number.EPSILON) * 100) / 100;
 const fmt = (n) =>
   num(n).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 const dateOnly = (v) => (v ? String(v).slice(0, 10) : "-");
+
+// TDS section presets (India). Picking one auto-fills the rate; still editable.
+// Rate shown in the label; the 194Q ₹50L-turnover threshold is the client's
+// call (they pick it when applicable — no turnover logic on our side).
+const TDS_SECTIONS = [
+  { value: "194C", label: "194C — Contractor / Sub-contractor (1–2%)", rate: 2 },
+  { value: "194J", label: "194J — Professional / Technical fees (10%)", rate: 10 },
+  { value: "194I", label: "194I — Rent, land & building (10%)", rate: 10 },
+  { value: "194H", label: "194H — Commission / Brokerage (5%)", rate: 5 },
+  { value: "194Q", label: "194Q — Purchase of goods > ₹50L (0.1%)", rate: 0.1 },
+  { value: "194A", label: "194A — Interest, non-securities (10%)", rate: 10 },
+];
 
 const STATUS_PILL = {
   unpaid: { label: "Unpaid", color: "secondary" },
@@ -56,6 +71,25 @@ const PaymentsTab = ({ registerActions }) => {
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
+  const companyStore = useSelector((s) => s.company);
+
+  // Company bank accounts (the "paid from" dropdown, #7). Loaded once.
+  useEffect(() => {
+    dispatch(getCompanyDetails());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const bankOptions = useMemo(
+    () =>
+      (companyStore?.companyItem?.bank_accounts || [])
+        .filter((b) => b?.is_active !== false)
+        .map((b) => ({
+          value: b._id,
+          label: `${b.bank_name}${
+            b.account_number ? ` — A/c ${b.account_number}` : ""
+          }${b.is_default ? " (default)" : ""}`,
+        })),
+    [companyStore?.companyItem]
+  );
 
   const p = poVendorItem || {};
   const id = p?._id;
@@ -86,15 +120,30 @@ const PaymentsTab = ({ registerActions }) => {
     payment_date: "",
     invoice_number: "",
     amount: "",
+    company_bank_account_id: "",
+    tds_section: "",
+    tds_rate_pct: "",
     notes: "",
   });
   const [errors, setErrors] = useState({});
 
+  // Live TDS breakdown: amount is GROSS → TDS held back → Net paid to vendor.
+  const grossAmt = num(form.amount);
+  const tdsRate = num(form.tds_rate_pct);
+  const tdsAmt = round2((grossAmt * tdsRate) / 100);
+  const netPaid = round2(grossAmt - tdsAmt);
+
   const openModal = () => {
+    // Default the paying bank to the company's default account, if any.
+    const def =
+      bankOptions.find((o) => /\(default\)/.test(o.label)) || bankOptions[0];
     setForm({
       payment_date: new Date().toISOString().slice(0, 10),
       invoice_number: "",
       amount: balance > 0 ? balance.toFixed(2) : "",
+      company_bank_account_id: def?.value || "",
+      tds_section: "",
+      tds_rate_pct: "",
       notes: "",
     });
     setErrors({});
@@ -106,12 +155,24 @@ const PaymentsTab = ({ registerActions }) => {
     if (!form.payment_date) e.payment_date = t("Date required");
     const amt = num(form.amount);
     if (!(amt > 0)) e.amount = t("Amount must be greater than 0");
+    if (tdsAmt > amt) e.tds = t("TDS cannot exceed the gross amount");
     // Overpaying the vendor is allowed (advances / rounding / FX) — we warn
     // in the modal but never block. See `willOverpay` below.
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
-    dispatch(recordPoVendorPayment({ id, data: form }))
+    // amount = GROSS (settles the vendor in full). Backend derives net_paid.
+    const payload = {
+      payment_date: form.payment_date,
+      amount: form.amount,
+      invoice_number: form.invoice_number || undefined,
+      notes: form.notes || undefined,
+      company_bank_account_id: form.company_bank_account_id || undefined,
+      tds_section: form.tds_section || undefined,
+      tds_rate_pct: String(tdsRate),
+      tds_amount: String(tdsAmt),
+    };
+    dispatch(recordPoVendorPayment({ id, data: payload }))
       .then((r) => {
         if (r?.meta?.requestStatus === "fulfilled") {
           setPayOpen(false);
@@ -253,8 +314,10 @@ const PaymentsTab = ({ registerActions }) => {
               <th>{t("Voucher")}</th>
               <th>{t("Date")}</th>
               <th>{t("Invoice Number")}</th>
-              <th>{t("Notes")}</th>
-              <th className="text-end">{t("Amount")}</th>
+              <th>{t("Paid From (Bank)")}</th>
+              <th className="text-end">{t("Gross")}</th>
+              <th className="text-end">{t("TDS")}</th>
+              <th className="text-end">{t("Net Paid")}</th>
               <th></th>
             </tr>
           </thead>
@@ -285,10 +348,36 @@ const PaymentsTab = ({ registerActions }) => {
                   </td>
                   <td>{dateOnly(pay.payment_date)}</td>
                   <td>{pay.invoice_number || "-"}</td>
-                  <td>{pay.notes || "-"}</td>
+                  <td>
+                    {pay.company_bank_snapshot?.bank_name || "-"}
+                    {pay.company_bank_snapshot?.account_number ? (
+                      <div className="small text-muted">
+                        {t("A/c")} {pay.company_bank_snapshot.account_number}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="text-end">
                     {sym}
                     {fmt(pay.amount)}
+                  </td>
+                  <td className="text-end">
+                    {num(pay.tds_amount) > 0 ? (
+                      <span title={pay.tds_section || ""}>
+                        {sym}
+                        {fmt(pay.tds_amount)}
+                        {pay.tds_section ? (
+                          <div className="small text-muted">
+                            {pay.tds_section}
+                          </div>
+                        ) : null}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="text-end fw-semibold">
+                    {sym}
+                    {fmt(num(pay.net_paid) || num(pay.amount))}
                   </td>
                   <td className="text-end">
                     {!voided && canPay ? (
@@ -342,7 +431,7 @@ const PaymentsTab = ({ registerActions }) => {
             </Col>
             <Col md="6" className="mb-2">
               <Label className="form-label">
-                {t("Amount")}
+                {t("Gross Amount")}
                 {p?.currency_code ? ` (${p.currency_code})` : ""}{" "}
                 <span className="text-danger">*</span>
               </Label>
@@ -377,7 +466,33 @@ const PaymentsTab = ({ registerActions }) => {
                 </div>
               ) : null}
             </Col>
-            <Col md="12" className="mb-2">
+            {/* Paying company bank account (#7 — "from which account") */}
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("Paid From (Bank)")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={bankOptions}
+                value={
+                  bankOptions.find(
+                    (o) => o.value === form.company_bank_account_id
+                  ) || null
+                }
+                onChange={(opt) =>
+                  setForm((s) => ({
+                    ...s,
+                    company_bank_account_id: opt ? opt.value : "",
+                  }))
+                }
+                placeholder={
+                  bankOptions.length
+                    ? t("Select company bank account")
+                    : t("No bank accounts — add them in Company settings")
+                }
+                noOptionsMessage={() => t("No bank accounts")}
+              />
+            </Col>
+            <Col md="6" className="mb-2">
               <Label className="form-label">{t("Invoice Number")}</Label>
               <Input
                 value={form.invoice_number}
@@ -388,6 +503,66 @@ const PaymentsTab = ({ registerActions }) => {
                 }
               />
             </Col>
+
+            {/* TDS (#7): Gross → TDS → Net paid. Optional. */}
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("TDS Section")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={TDS_SECTIONS}
+                value={
+                  TDS_SECTIONS.find((o) => o.value === form.tds_section) || null
+                }
+                onChange={(opt) =>
+                  setForm((s) => ({
+                    ...s,
+                    tds_section: opt ? opt.value : "",
+                    // Auto-fill the rate on pick; clearing wipes it.
+                    tds_rate_pct: opt ? String(opt.rate) : "",
+                  }))
+                }
+                placeholder={t("No TDS")}
+              />
+            </Col>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("TDS Rate (%)")}</Label>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                value={form.tds_rate_pct}
+                placeholder="0"
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, tds_rate_pct: e.target.value }))
+                }
+              />
+            </Col>
+            {(tdsAmt > 0 || tdsRate > 0) && (
+              <Col md="12" className="mb-2">
+                <div className="border rounded p-1 bg-light small">
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">{t("Gross")}</span>
+                    <span>{sym}{fmt(grossAmt)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between text-danger">
+                    <span>
+                      {t("TDS")}
+                      {form.tds_section ? ` (${form.tds_section})` : ""} @{" "}
+                      {fmt(tdsRate)}%
+                    </span>
+                    <span>− {sym}{fmt(tdsAmt)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between fw-bold border-top pt-25 mt-25">
+                    <span>{t("Net Paid to Vendor")}</span>
+                    <span>{sym}{fmt(netPaid)}</span>
+                  </div>
+                  {errors.tds && (
+                    <div className="text-danger mt-25">{errors.tds}</div>
+                  )}
+                </div>
+              </Col>
+            )}
             <Col md="12" className="mb-2">
               <Label className="form-label">{t("Notes")}</Label>
               <Input
