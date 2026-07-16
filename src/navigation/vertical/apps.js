@@ -34,6 +34,7 @@ import {
   Box,
   Gift,
   Eye,
+  Repeat,
 } from 'react-feather';
 import { IoBusinessOutline } from 'react-icons/io5';
 import { MdOutlineSupportAgent } from "react-icons/md";
@@ -61,6 +62,7 @@ import {
   statesModuleSlug,
   citiesModuleSlug,
   reportsModuleSlug,
+  adjustmentNotesModuleSlug,
   // Catalogue
   catalogueGroupSlug,
   categoriesModuleSlug,
@@ -134,6 +136,15 @@ const navigationItems = [
     title: rolePermissionName[reportsModuleSlug],
     icon: <TrendingUp size={20} />,
     navLink: `${appsRoot}/reports`,
+  },
+
+  {
+    id: adjustmentNotesModuleSlug,
+    permissionId: adjustmentNotesModuleSlug,
+    companyOnly: true,
+    title: rolePermissionName[adjustmentNotesModuleSlug],
+    icon: <Repeat size={20} />,
+    navLink: `${appsRoot}/adjustment-notes`,
   },
 
   // Sales

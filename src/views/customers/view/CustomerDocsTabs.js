@@ -11,7 +11,7 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { FileText, Truck, File, Layers } from "react-feather";
+import { FileText, Truck, File, Layers, BookOpen } from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
@@ -21,6 +21,7 @@ import CustomerInvoicesPanel from "./CustomerInvoicesPanel";
 import CustomerPosPanel from "./CustomerPosPanel";
 import CustomerQuotationsPanel from "./CustomerQuotationsPanel";
 import CustomerPfisPanel from "./CustomerPfisPanel";
+import CustomerLedgerTab from "./CustomerLedgerTab";
 
 const CustomerDocsTabs = () => {
   const { t } = useTranslation();
@@ -77,6 +78,7 @@ const CustomerDocsTabs = () => {
           {tabBtn("pos", t("Sales Orders"), Truck, poCount)}
           {tabBtn("quotations", t("Quotations"), FileText, quotationCount)}
           {!PFI_RETIRED && tabBtn("pfis", t("PFIs"), Layers, pfiCount)}
+          {tabBtn("ledger", t("Ledger"), BookOpen, 0)}
         </Nav>
 
         <TabContent activeTab={active}>
@@ -94,6 +96,9 @@ const CustomerDocsTabs = () => {
               <CustomerPfisPanel />
             </TabPane>
           )}
+          <TabPane tabId="ledger">
+            {active === "ledger" && <CustomerLedgerTab />}
+          </TabPane>
         </TabContent>
       </CardBody>
     </Card>

@@ -141,6 +141,7 @@ const containerStuffingModuleSlug = "container-stuffing";
 // Finance
 const financeGroupSlug = "finance";
 const reportsModuleSlug = "reports";
+const adjustmentNotesModuleSlug = "adjustment-notes";
 const invoicesModuleSlug = "invoices";
 const shippingModuleSlug = "shipping";
 const expensesModuleSlug = "expenses";
@@ -240,6 +241,7 @@ const rolePermissionName = {
 
   // Finance
   [reportsModuleSlug]: "Reports",
+  [adjustmentNotesModuleSlug]: "Adjustment Notes",
   [invoicesModuleSlug]: "Invoices",
   [shippingModuleSlug]: "Shipping",
   [expensesModuleSlug]: "Expenses",
@@ -569,6 +571,7 @@ export {
   // Finance
   financeGroupSlug,
   reportsModuleSlug,
+  adjustmentNotesModuleSlug,
   invoicesModuleSlug,
   shippingModuleSlug,
   expensesModuleSlug,

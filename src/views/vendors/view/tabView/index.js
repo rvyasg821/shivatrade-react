@@ -7,6 +7,7 @@ import PurchaseOrdersTab from "./PurchaseOrdersTab";
 import ContactsTab from "./ContactsTab";
 import AddressesTab from "./AddressesTab";
 import BankAccountsTab from "./BankAccountsTab";
+import LedgerTab from "./LedgerTab";
 
 // `active` / `setActive` can be controlled by the parent (so the KPI cards can
 // jump to a tab); falls back to internal state when used standalone.
@@ -38,6 +39,9 @@ const VendorTabView = ({ active: activeProp, setActive: setActiveProp }) => {
             </TabPane>
             <TabPane tabId="bank_accounts">
               <BankAccountsTab />
+            </TabPane>
+            <TabPane tabId="ledger">
+              {active === "ledger" && <LedgerTab />}
             </TabPane>
           </TabContent>
         </CardBody>
