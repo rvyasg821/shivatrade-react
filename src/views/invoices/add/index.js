@@ -670,7 +670,17 @@ const InvoiceAddEdit = () => {
         currency_code: po.currency_code || "USD",
         currency_symbol: po.currency_symbol || "",
         exchange_rate: po.exchange_rate || "1",
-        incoterm: po.incoterm || "FOB",
+        // CNF freight carried from the SO costing sheet → the invoice's
+        // existing freight_charges (same document currency); flip incoterm
+        // FOB→CFR (CNF) when the SO carries freight. Fresh prefill, no clobber.
+        freight_charges:
+          po.freight_total != null && Number(po.freight_total) > 0
+            ? String(po.freight_total)
+            : s.freight_charges || "0",
+        incoterm:
+          po.freight_total != null && Number(po.freight_total) > 0
+            ? "CFR"
+            : po.incoterm || "FOB",
         payment_terms: po.payment_terms || "",
         delivery_terms: po.delivery_terms || "",
         country_of_destination:
@@ -807,7 +817,16 @@ const InvoiceAddEdit = () => {
           getCurrencySymbol(seed.currency_code) ||
           s.currency_symbol,
         exchange_rate: po?.exchange_rate || s.exchange_rate,
-        incoterm: po?.incoterm || s.incoterm,
+        // CNF freight from the primary SO → invoice freight_charges; flip
+        // incoterm FOB→CFR (CNF) when the SO carries freight.
+        freight_charges:
+          po?.freight_total != null && Number(po.freight_total) > 0
+            ? String(po.freight_total)
+            : s.freight_charges || "0",
+        incoterm:
+          po?.freight_total != null && Number(po.freight_total) > 0
+            ? "CFR"
+            : po?.incoterm || s.incoterm,
         payment_terms: po?.payment_terms || s.payment_terms,
         delivery_terms: po?.delivery_terms || s.delivery_terms,
         country_of_destination:
@@ -1671,6 +1690,18 @@ const InvoiceAddEdit = () => {
     const cleaned = { ...form };
     OPTIONAL_NULLABLE.forEach((k) => {
       if (cleaned[k] === "") cleaned[k] = undefined;
+    });
+    // Charge/total fields are @IsNumberString on the DTO — an emptied input
+    // ("") is NOT skipped by @IsOptional (that only skips undefined/null), so
+    // it fails validation. Coerce blanks to "0" (they feed grand_total).
+    [
+      "discount_total",
+      "freight_charges",
+      "insurance_charges",
+      "other_charges",
+      "advance_received",
+    ].forEach((k) => {
+      if (cleaned[k] === "" || cleaned[k] == null) cleaned[k] = "0";
     });
     // UI-only flag — not an invoice field.
     delete cleaned.consignee_same_as_buyer;
@@ -3266,10 +3297,41 @@ const InvoiceAddEdit = () => {
             </Col>
             <Col md="9" className="d-flex align-items-end justify-content-end">
               <div className="small text-end" style={{ minWidth: 280 }}>
+                {/* Full breakdown so the jump from FOB → Grand Total is
+                    transparent: each charge is its own signed line, shown only
+                    when non-zero. Mirrors the backend recompute exactly. */}
+                <div className="d-flex justify-content-between py-25">
+                  <span className="text-muted">{t("Subtotal")}</span>
+                  <span>{sym}{fmt(totals.subtotal)}</span>
+                </div>
+                {num(form.discount_total) > 0 && (
+                  <div className="d-flex justify-content-between py-25">
+                    <span className="text-muted">{t("Discount Total")}</span>
+                    <span>− {sym}{fmt(num(form.discount_total))}</span>
+                  </div>
+                )}
                 <div className="d-flex justify-content-between py-25">
                   <span className="text-muted">{t("FOB Value")}</span>
                   <span>{sym}{fmt(totals.fob)}</span>
                 </div>
+                {num(form.freight_charges) > 0 && (
+                  <div className="d-flex justify-content-between py-25">
+                    <span className="text-muted">{t("Freight")}</span>
+                    <span>+ {sym}{fmt(num(form.freight_charges))}</span>
+                  </div>
+                )}
+                {num(form.insurance_charges) > 0 && (
+                  <div className="d-flex justify-content-between py-25">
+                    <span className="text-muted">{t("Insurance")}</span>
+                    <span>+ {sym}{fmt(num(form.insurance_charges))}</span>
+                  </div>
+                )}
+                {num(form.other_charges) > 0 && (
+                  <div className="d-flex justify-content-between py-25">
+                    <span className="text-muted">{t("Other Charges")}</span>
+                    <span>+ {sym}{fmt(num(form.other_charges))}</span>
+                  </div>
+                )}
                 {/* NOT part of Grand Total — see the totals memo. On an
                     IGST-paid export the tax is refunded to the exporter, so it
                     is informational (and feeds GSTR-1), not payable by the
@@ -3290,6 +3352,12 @@ const InvoiceAddEdit = () => {
                 <div className="text-muted" style={{ fontSize: "0.75rem" }}>
                   {t("IGST is shown for information — it is not added to the Grand Total.")}
                 </div>
+                {num(form.advance_received) > 0 && (
+                  <div className="d-flex justify-content-between py-25">
+                    <span className="text-muted">{t("Advance Received")}</span>
+                    <span>− {sym}{fmt(num(form.advance_received))}</span>
+                  </div>
+                )}
                 <div className="d-flex justify-content-between py-25">
                   <span className="text-muted">{t("Balance Receivable")}</span>
                   <span

@@ -261,6 +261,35 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
 };
 
 /**
+ * Split a shipment-level freight figure across lines BY QUANTITY.
+ * Returns an array of per-line freight amounts (document currency), aligned to
+ * the input `lines` order. The penny-rounding residual is folded into the last
+ * qty-bearing line so Σ(result) === round2(freightTotal) exactly — customs
+ * cross-foots the invoice, so per-line freight must sum to the entered figure.
+ *
+ *   freightPerUnit = freightTotal / Σqty ,  lineFreight = round2(qty × perUnit)
+ */
+export const splitFreightByQty = (lines, freightTotal) => {
+  const arr = (lines || []).map(() => 0);
+  const total = num(freightTotal);
+  const totalQty = (lines || []).reduce((s, l) => s + num(l?.qty), 0);
+  if (total <= 0 || totalQty <= 0) return arr;
+  const perUnit = total / totalQty;
+  let lastQtyIdx = -1;
+  (lines || []).forEach((l, i) => {
+    const q = num(l?.qty);
+    arr[i] = round2(q * perUnit);
+    if (q > 0) lastQtyIdx = i;
+  });
+  // Fold the ±0.01 rounding residual into the last qty-bearing line.
+  if (lastQtyIdx >= 0) {
+    const assigned = arr.reduce((s, v) => s + v, 0);
+    arr[lastQtyIdx] = round2(arr[lastQtyIdx] + (round2(total) - round2(assigned)));
+  }
+  return arr;
+};
+
+/**
  * Effective amount for an expense row given the current subtotal.
  *   master-linked & !is_overridden  → derive from rule (flat or % of subtotal)
  *   else                            → trust stored amount (override or ad-hoc)

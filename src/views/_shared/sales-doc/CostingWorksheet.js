@@ -34,6 +34,7 @@ import {
   fmt,
   currencySymbol,
   computeLineCosting,
+  splitFreightByQty,
 } from "@src/views/_shared/sales-doc/_helpers";
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import Notification from "@components/toast/notification";
@@ -166,6 +167,12 @@ const CostingWorksheet = ({
       { shouldDirty: true }
     );
   };
+
+  // Shipment freight for a CNF quote — one figure in the DOCUMENT currency,
+  // typed directly (like the rate). Split by qty across lines below; sits
+  // beside the costing chain (added after margin to form CNF), never inside it.
+  const freightTotalRaw = useWatch({ control, name: "freight_total" });
+  const freightTotal = num(freightTotalRaw);
 
   // All active expense / rebate master heads (from management) — the full set
   // shown in the popover; each can be ticked into a line's calculation.
@@ -550,6 +557,11 @@ const CostingWorksheet = ({
   // exchange_rate is stored as "foreign units per 1 INR" (system convention),
   // so convert INR → quote currency by MULTIPLYING.
   const grandDoc = isForeign ? totals.grand * rate : totals.grand;
+  // Per-line freight (document currency), qty-split; residual folded into the
+  // last line so Σ == freightTotal. Keyed by absolute line index.
+  const lineFreights = splitFreightByQty(liveLines, freightTotal);
+  const cnfTotal = round2(grandDoc + freightTotal);
+  const cnfRateTotal = totals.qty ? round2(cnfTotal / totals.qty) : 0;
   const money = (v) => `₹${fmt(v)}`;
   // Quote-currency symbol for the Rate/Amt columns (e.g. $ for USD).
   const docSym = isForeign ? currencySymbol(docCurrencyCode) : "₹";
@@ -575,6 +587,9 @@ const CostingWorksheet = ({
     grand: 120,
     rateDoc: 92,
     amt: 110,
+    freight: 96,
+    cnfAmt: 116,
+    cnfRate: 100,
     netwt: 92,
     grosswt: 92,
     pkg: 76,
@@ -620,6 +635,27 @@ const CostingWorksheet = ({
           ) : (
             <Badge color="light-secondary">{baseCurrencyCode}</Badge>
           )}
+          {/* Shipment freight (document currency) — split by qty across lines
+              into the Freight / CNF Amount / CNF Rate columns. */}
+          <div className="d-flex align-items-center gap-50 ws-rate-box">
+            <span className="fw-bold">
+              {t("Freight")} ({docSym})
+            </span>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              bsSize="sm"
+              className="text-end ws-rate-input"
+              disabled={readOnly}
+              value={freightTotalRaw == null ? "" : freightTotalRaw}
+              onChange={(e) =>
+                setValue("freight_total", e.target.value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </div>
           <span className="small text-muted">
             {t("Click any value to edit; costs in")} {baseCurrencyCode}
             {isForeign
@@ -670,6 +706,9 @@ const CostingWorksheet = ({
             <col style={{ width: W.grand }} />
             {isForeign && <col style={{ width: W.rateDoc }} />}
             <col style={{ width: W.amt }} />
+            <col style={{ width: W.freight }} />
+            <col style={{ width: W.cnfAmt }} />
+            <col style={{ width: W.cnfRate }} />
             <col style={{ width: W.netwt }} />
             <col style={{ width: W.grosswt }} />
             <col style={{ width: W.pkg }} />
@@ -701,6 +740,9 @@ const CostingWorksheet = ({
               <th className="text-end">
                 {t("Amt")} {isForeign ? docCurrencyCode : "₹"}
               </th>
+              <th className="text-end">{t("Freight")}</th>
+              <th className="text-end">{t("CNF Amount")}</th>
+              <th className="text-end">{t("CNF Rate")}</th>
               <th className="text-end">{t("Net Wt")}</th>
               <th className="text-end">{t("Gross Wt")}</th>
               <th className="text-end">{t("Pkgs")}</th>
@@ -710,7 +752,7 @@ const CostingWorksheet = ({
           <tbody>
             {lineFA.fields.length === 0 ? (
               <tr>
-                <td colSpan={18} className="text-center text-muted py-3">
+                <td colSpan={21} className="text-center text-muted py-3">
                   {t('No products yet — click "Add Product".')}
                 </td>
               </tr>
@@ -725,6 +767,10 @@ const CostingWorksheet = ({
                 const grandInr = c.lineTotal;
                 const amtDoc = isForeign ? grandInr * rate : grandInr;
                 const rateDoc = num(l.qty) ? amtDoc / num(l.qty) : 0;
+                // CNF = FOB (amtDoc) + this line's qty-share of freight.
+                const lineFreight = lineFreights[idx] || 0;
+                const cnfAmt = round2(amtDoc + lineFreight);
+                const cnfRate = num(l.qty) ? round2(cnfAmt / num(l.qty)) : 0;
                 // Stable per-row ids so the popover target stays in the DOM.
                 const expId = `ws-exp-${row.id}`;
                 const rebId = `ws-reb-${row.id}`;
@@ -900,6 +946,11 @@ const CostingWorksheet = ({
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(amtDoc)}
                     </td>
+                    <td className="text-end ws-calc">{moneyDoc(lineFreight)}</td>
+                    <td className="text-end ws-calc fw-bold">
+                      {moneyDoc(cnfAmt)}
+                    </td>
+                    <td className="text-end ws-calc">{moneyDoc(cnfRate)}</td>
                     <td className="p-0">
                       <EditableCell
                         value={l.net_weight_kg}
@@ -980,6 +1031,9 @@ const CostingWorksheet = ({
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}
                 </td>
+                <td className="text-end">{moneyDoc(freightTotal)}</td>
+                <td className="text-end ws-foot-grand">{moneyDoc(cnfTotal)}</td>
+                <td className="text-end">{moneyDoc(cnfRateTotal)}</td>
                 <td className="text-end">{fmt(totals.netWt)}</td>
                 <td className="text-end">{fmt(totals.grossWt)}</td>
                 <td className="text-end">{fmt(totals.packages)}</td>

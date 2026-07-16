@@ -687,6 +687,9 @@ const PurchaseOrderWizard = () => {
       remarks: values.remarks != null ? values.remarks.trim() : undefined,
       currency_code: values.currency_code || "INR",
       exchange_rate: values.exchange_rate || "1",
+      // Shipment freight (document currency) for a CNF order — split by qty
+      // across lines in the costing worksheet.
+      freight_total: values.freight_total ? String(values.freight_total) : "0",
       status: values.status || "draft",
       lines: (values.lines || []).map((l) => ({
         // Preserve _id on existing lines — backend keys upsert by it,

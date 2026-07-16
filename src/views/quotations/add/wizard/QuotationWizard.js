@@ -510,6 +510,7 @@ const QuotationWizard = () => {
         ...q,
         margin_pct: String(q.margin_pct ?? "0"),
         exchange_rate: String(Number(q.exchange_rate ?? 1)),
+        freight_total: String(q.freight_total ?? "0"),
         quotation_date:
           (q.quotation_date || "").slice(0, 10) ||
           new Date().toISOString().slice(0, 10),
@@ -804,6 +805,9 @@ const QuotationWizard = () => {
       valid_until: values.valid_until || undefined,
       currency_code: values.currency_code,
       exchange_rate: values.exchange_rate || "1",
+      // Shipment freight (document currency) for a CNF quote — split by qty
+      // across lines in the costing worksheet.
+      freight_total: values.freight_total ? String(values.freight_total) : "0",
       payment_terms: values.payment_terms?.trim() || undefined,
       delivery_terms: values.delivery_terms?.trim() || undefined,
       delivery_location: values.delivery_location?.trim() || undefined,
