@@ -297,6 +297,15 @@ export const API_ENDPOINTS = {
     productProfitability: `/admin/reports/product-profitability`,
     productProfitabilityExport: `/admin/reports/product-profitability/export`,
   },
+  adjustmentNotes: {
+    list: `/admin/adjustment-notes`,
+    create: `/admin/adjustment-notes`,
+    void: `/admin/adjustment-notes`, // append /:id/void
+  },
+  ledger: {
+    customer: `/admin/ledger/customer`, // append /:id
+    vendor: `/admin/ledger/vendor`, // append /:id
+  },
   inventory: {
     list: `/admin/inventory/list`,
     stats: `/admin/inventory/stats`,

@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Nav, NavItem, NavLink } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FileText, Truck, Users, MapPin, CreditCard } from "react-feather";
+import { FileText, Truck, Users, MapPin, CreditCard, BookOpen } from "react-feather";
 
 const TAB_DEFS = [
   { key: "price_list", label: "Price List", icon: FileText },
@@ -9,6 +9,7 @@ const TAB_DEFS = [
   { key: "contacts", label: "Contacts", icon: Users },
   { key: "addresses", label: "Addresses", icon: MapPin },
   { key: "bank_accounts", label: "Bank Accounts", icon: CreditCard },
+  { key: "ledger", label: "Ledger", icon: BookOpen },
 ];
 
 const Tabs = ({ active, toggleTab }) => {

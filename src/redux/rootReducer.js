@@ -71,6 +71,7 @@ import messageLog from "../views/message-logs/store"
 import payroll from "../views/payroll/store"
 import trackingLogs from '@src/views/tracking-logs/store'
 import productProfitability from "@src/views/reports/product-profitability/store"
+import adjustmentNote from "@src/views/adjustment-notes/store"
 // import complianceBuilder from "../views/governance/compliancebuilder/store/index"
 // import frameWorkStore from "../views/governance/compliancebuilder/frameWorkStore/index"
 // import projects from "../views/governance/resilienceIndex/projects/store/index"
@@ -150,6 +151,7 @@ const rootReducer = {
   messageLog,
   payroll,
   productProfitability,
+  adjustmentNote,
 };
 
 export default rootReducer;

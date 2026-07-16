@@ -21,6 +21,7 @@ import {
   statesModuleSlug,
   citiesModuleSlug,
   reportsModuleSlug,
+  adjustmentNotesModuleSlug,
   priceListModuleSlug,
   rfqModuleSlug,
   quotationsModuleSlug,
@@ -84,6 +85,7 @@ const AddState = lazy(() => import('@src/views/states/add'));
 const EditState = lazy(() => import('@src/views/states/add'));
 const ReportsLanding = lazy(() => import('@src/views/reports'));
 const ProductProfitabilityReport = lazy(() => import('@src/views/reports/product-profitability'));
+const AdjustmentNotes = lazy(() => import('@src/views/adjustment-notes'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
 const EditCity = lazy(() => import('@src/views/cities/add'));
@@ -677,6 +679,11 @@ const AppRoutes = [
     path: `${appsRoot}/reports/product-profitability`,
     element: <ProductProfitabilityReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/adjustment-notes`,
+    element: <AdjustmentNotes />,
+    meta: { permissionId: adjustmentNotesModuleSlug, action: 'list' },
   },
   {
     path: `${appsRoot}/cities`,

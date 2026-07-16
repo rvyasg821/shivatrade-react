@@ -32,7 +32,7 @@ const ALWAYS_VISIBLE_SLUGS = [
   "uom", "countries", "states", "cities",
   "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
   "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
-  "po-vendors", "inventory", "tracking", "reports",
+  "po-vendors", "inventory", "tracking", "reports", "adjustment-notes",
   "employee", "attendance", "leave", "holiday_calendar",
 ];
 
@@ -281,6 +281,8 @@ const ModulePermission = () => {
         { title: "Sales Order", slug: "purchase-orders" },
         { title: "Invoices", slug: "invoices" },
         { title: "Customers", slug: "customers" },
+        { title: "Adjustment Notes", slug: "adjustment-notes" },
+        { title: "Reports", slug: "reports" },
       ]
     },
     {
