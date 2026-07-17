@@ -296,6 +296,8 @@ export const API_ENDPOINTS = {
   reports: {
     productProfitability: `/admin/reports/product-profitability`,
     productProfitabilityExport: `/admin/reports/product-profitability/export`,
+    hsnSummary: `/admin/reports/hsn-summary`,
+    hsnSummaryExport: `/admin/reports/hsn-summary/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
