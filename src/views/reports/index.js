@@ -1,6 +1,7 @@
-// Reports landing — a card grid of the reports suite. Product-wise
-// Profitability, HSN Summary and Input-Output GST Balance are live; Customer
-// Turnover and Monthly Turnover are placeholders until their build docs land.
+// Reports landing — a card grid of the reports suite. Only Customer Turnover is
+// still a placeholder; the rest are live. Note the 4th card was originally
+// "Monthly Sales & Purchase" — it is now purchase-only (VPO), so no screen puts
+// sales and purchases side by side (PURCHASE_TURNOVER_VPO_REPORT_PLAN §8.3).
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
@@ -34,11 +35,12 @@ const REPORTS = [
     live: false,
   },
   {
-    key: "monthly-turnover",
-    title: "Monthly Sales & Purchase",
-    description: "Month-wise sales and purchase turnover.",
+    key: "purchase-turnover",
+    title: "Purchase Turnover (VPO)",
+    description: "Vendor PO value, paid and outstanding — by month or vendor.",
     icon: BarChart2,
-    live: false,
+    to: `${appsRoot}/reports/purchase-turnover`,
+    live: true,
   },
   {
     key: "gst-balance",
