@@ -86,6 +86,7 @@ const EditState = lazy(() => import('@src/views/states/add'));
 const ReportsLanding = lazy(() => import('@src/views/reports'));
 const ProductProfitabilityReport = lazy(() => import('@src/views/reports/product-profitability'));
 const HsnSummaryReport = lazy(() => import('@src/views/reports/hsn-summary'));
+const GstBalanceReport = lazy(() => import('@src/views/reports/gst-balance'));
 const AdjustmentNotes = lazy(() => import('@src/views/adjustment-notes'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
@@ -684,6 +685,11 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/hsn-summary`,
     element: <HsnSummaryReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/gst-balance`,
+    element: <GstBalanceReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {

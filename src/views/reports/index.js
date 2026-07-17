@@ -1,7 +1,6 @@
 // Reports landing — a card grid of the reports suite. Product-wise
-// Profitability and HSN Summary are live; the other three are placeholders
-// until their build docs land (Customer Turnover, Monthly Turnover,
-// Input-Output GST).
+// Profitability, HSN Summary and Input-Output GST Balance are live; Customer
+// Turnover and Monthly Turnover are placeholders until their build docs land.
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
@@ -46,7 +45,8 @@ const REPORTS = [
     title: "Input-Output GST Balance",
     description: "Output GST on sales vs input GST (ITC) on purchases.",
     icon: Percent,
-    live: false,
+    to: `${appsRoot}/reports/gst-balance`,
+    live: true,
   },
 ];
 
