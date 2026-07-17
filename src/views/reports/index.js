@@ -1,6 +1,7 @@
 // Reports landing — a card grid of the reports suite. Product-wise
-// Profitability is live; the other four are placeholders until their build docs
-// land (HSN Summary, Customer Turnover, Monthly Turnover, Input-Output GST).
+// Profitability and HSN Summary are live; the other three are placeholders
+// until their build docs land (Customer Turnover, Monthly Turnover,
+// Input-Output GST).
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
@@ -23,7 +24,8 @@ const REPORTS = [
     title: "HSN Summary (GSTR-1)",
     description: "Taxable value and tax grouped by HSN, for GST returns.",
     icon: FileText,
-    live: false,
+    to: `${appsRoot}/reports/hsn-summary`,
+    live: true,
   },
   {
     key: "customer-turnover",
