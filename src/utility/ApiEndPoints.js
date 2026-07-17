@@ -300,6 +300,8 @@ export const API_ENDPOINTS = {
     hsnSummaryExport: `/admin/reports/hsn-summary/export`,
     gstBalance: `/admin/reports/gst-balance`,
     gstBalanceExport: `/admin/reports/gst-balance/export`,
+    purchaseTurnover: `/admin/reports/purchase-turnover`,
+    purchaseTurnoverExport: `/admin/reports/purchase-turnover/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
