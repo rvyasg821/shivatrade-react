@@ -7,7 +7,7 @@ export const getAdjustmentNoteList = createAsyncThunk(
   async (params) => {
     try {
       const response = await instance
-        .get(`${API_ENDPOINTS.adjustmentNotes.list}`, { params })
+        .get(`${API_ENDPOINTS.ledger.register}`, { params })
         .then((r) => r.data)
         .catch((e) => e);
       if (response?.statusCode && response?.data) {

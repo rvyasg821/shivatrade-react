@@ -17,7 +17,7 @@ const Tabs = ({ active, toggleTab }) => {
 
   return (
     <Fragment>
-      <Nav pills className="mb-1 flex-wrap">
+      <Nav pills className="mb-2 flex-wrap">
         {TAB_DEFS.map(({ key, label, icon: Icon }) => (
           <NavItem key={key}>
             <NavLink active={active === key} onClick={() => toggleTab(key)}>

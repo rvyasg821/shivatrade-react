@@ -303,6 +303,7 @@ export const API_ENDPOINTS = {
     void: `/admin/adjustment-notes`, // append /:id/void
   },
   ledger: {
+    register: `/admin/ledger/register`, // notes + vendor payments + receipts
     customer: `/admin/ledger/customer`, // append /:id
     vendor: `/admin/ledger/vendor`, // append /:id
   },

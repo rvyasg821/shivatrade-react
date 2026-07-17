@@ -21,9 +21,9 @@ const VendorTabView = ({ active: activeProp, setActive: setActiveProp }) => {
 
   return (
     <Fragment>
-      <Tabs active={active} toggleTab={toggleTab} />
       <Card>
         <CardBody>
+          <Tabs active={active} toggleTab={toggleTab} />
           <TabContent activeTab={active}>
             <TabPane tabId="price_list">
               <PriceListTab />

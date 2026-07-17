@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import {
   Card,
   CardBody,
@@ -59,6 +60,12 @@ const DIRECTION_OPTIONS = [
   { value: "debit", label: "Debit (DR)" },
   { value: "credit", label: "Credit (CR)" },
 ];
+// The list is a register of every party money-movement, not just notes.
+const SOURCE_LABELS = {
+  adjustment: "Adjustment Note",
+  receipt: "Customer Receipt",
+  payment: "Vendor Payment",
+};
 
 const AdjustmentNotes = () => {
   const { t } = useTranslation();
@@ -73,11 +80,34 @@ const AdjustmentNotes = () => {
   const canAdd = isAdmin || perms?.can_all || perms?.can_add;
   const canVoid = isAdmin || perms?.can_all || perms?.can_update;
 
+  // Deep-link from a customer/vendor Ledger tab: ?party_type=…&party_id=…
+  const [searchParams] = useSearchParams();
+
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
-  const [partyTypeFilter, setPartyTypeFilter] = useState("");
+  const [partyTypeFilter, setPartyTypeFilter] = useState(
+    searchParams.get("party_type") || ""
+  );
   const [directionFilter, setDirectionFilter] = useState("");
+  // Party filter — a single dropdown whose options follow the Party Type
+  // above it (customers or vendors), with an "All" entry.
+  const [partyIdFilter, setPartyIdFilter] = useState(
+    searchParams.get("party_id") || ""
+  );
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [vendorOptions, setVendorOptions] = useState([]);
+
+  const partyFilterOptions =
+    partyTypeFilter === "customer"
+      ? customerOptions
+      : partyTypeFilter === "vendor"
+      ? vendorOptions
+      : [];
+  const allPartyOption = {
+    value: "",
+    label: partyTypeFilter === "vendor" ? t("All vendors") : t("All customers"),
+  };
 
   const handleLists = useCallback(
     (page = currentPage, perPage = rowsPerPage) => {
@@ -87,11 +117,20 @@ const AdjustmentNotes = () => {
           perPage,
           search: searchInput || undefined,
           party_type: partyTypeFilter || undefined,
+          party_id: partyIdFilter || undefined,
           direction: directionFilter || undefined,
         })
       );
     },
-    [currentPage, rowsPerPage, searchInput, partyTypeFilter, directionFilter, dispatch]
+    [
+      currentPage,
+      rowsPerPage,
+      searchInput,
+      partyTypeFilter,
+      partyIdFilter,
+      directionFilter,
+      dispatch,
+    ]
   );
 
   const handlePagination = (page) => {
@@ -111,7 +150,24 @@ const AdjustmentNotes = () => {
     }, searchInput ? 400 : 0);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, partyTypeFilter, directionFilter]);
+  }, [searchInput, partyTypeFilter, partyIdFilter, directionFilter]);
+
+  // Filter dropdown sources (loaded once).
+  useEffect(() => {
+    const map = (rows) =>
+      (rows || []).map((c) => ({
+        value: c._id || c.value,
+        label: c.company_name || c.name || c.label,
+      }));
+    instance
+      .get(API_ENDPOINTS.customers.dropdown)
+      .then((r) => setCustomerOptions(map(r?.data?.data)))
+      .catch(() => setCustomerOptions([]));
+    instance
+      .get(API_ENDPOINTS.vendors.dropdown)
+      .then((r) => setVendorOptions(map(r?.data?.data)))
+      .catch(() => setVendorOptions([]));
+  }, []);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -238,22 +294,48 @@ const AdjustmentNotes = () => {
   const columns = [
     {
       name: t("Voucher"),
-      minWidth: "185px",
+      minWidth: "210px",
+      wrap: false,
       selector: (r) => (
-        <span className="text-nowrap">{r?.voucher_no || "-"}</span>
+        <div className="py-50">
+          <div>
+            <span
+              className="fw-bold text-nowrap cursor-pointer"
+              onClick={() => setViewNote(r)}
+              // Forced !important — the theme's link/text colours override a
+              // plain class or inline style here (same trap as the badges).
+              ref={(el) => {
+                if (el) el.style.setProperty("color", "#09418B", "important");
+              }}
+            >
+              {r?.voucher_no || "-"}
+            </span>
+          </div>
+          <div className="mt-25">
+            {r?.voided_at ? (
+              <Badge className="doc-badge doc-badge-red">{t("Voided")}</Badge>
+            ) : (
+              <Badge className="doc-badge doc-badge-green">{t("Posted")}</Badge>
+            )}
+          </div>
+        </div>
       ),
     },
-    { name: t("Date"), selector: (r) => dateOnly(r?.note_date) },
+    { name: t("Date"), selector: (r) => dateOnly(r?.date) },
+    {
+      name: t("Source"),
+      minWidth: "150px",
+      selector: (r) => (
+        <span className="text-nowrap">{SOURCE_LABELS[r?.source] || "-"}</span>
+      ),
+    },
     {
       name: t("Party"),
       grow: 3,
       minWidth: "220px",
       selector: (r) => (
         <div className="py-50">
-          <Badge
-            className="text-capitalize"
-            style={{ backgroundColor: "#00cfe8", color: "#fff" }}
-          >
+          <Badge className="doc-badge doc-badge-gray text-capitalize">
             {r?.party_type}
           </Badge>
           <div className="mt-25 fw-semibold text-nowrap">
@@ -276,15 +358,6 @@ const AdjustmentNotes = () => {
       selector: (r) => `${currencySymbol(r?.currency_code)}${fmt(r?.amount)}`,
     },
     {
-      name: t("Status"),
-      selector: (r) =>
-        r?.voided_at ? (
-          <Badge color="light-secondary">{t("Voided")}</Badge>
-        ) : (
-          <Badge style={{ backgroundColor: "#7367f0", color: "#fff" }}>{t("Posted")}</Badge>
-        ),
-    },
-    {
       name: t("Action"),
       center: true,
       cell: (r) => (
@@ -295,7 +368,9 @@ const AdjustmentNotes = () => {
             title={t("View")}
             onClick={() => setViewNote(r)}
           />
-          {!r?.voided_at && canVoid ? (
+          {/* Payments/receipts are voided from their own document tab — this
+              register only owns adjustment notes. */}
+          {r?.source === "adjustment" && !r?.voided_at && canVoid ? (
             <Button
               size="sm"
               color="link"
@@ -321,15 +396,15 @@ const AdjustmentNotes = () => {
             <Row>
               <Col md="9">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       value={searchInput}
-                      placeholder={t("Search voucher / reason")}
+                      placeholder={t("Search voucher / reason / party")}
                       onChange={(e) => setSearchInput(e.target.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Select
                       classNamePrefix="select"
                       isClearable
@@ -342,11 +417,30 @@ const AdjustmentNotes = () => {
                           (o) => ({ ...o, label: t(o.label) })
                         )[0] || null
                       }
-                      onChange={(s) => setPartyTypeFilter(s ? s.value : "")}
+                      onChange={(s) => {
+                        setPartyTypeFilter(s ? s.value : "");
+                        setPartyIdFilter("");
+                      }}
                       placeholder={t("All parties")}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                    <Select
+                      classNamePrefix="select"
+                      isDisabled={!partyTypeFilter}
+                      // Only offer the ✕ once a specific party is picked —
+                      // clearing the "All" row would be a no-op.
+                      isClearable={!!partyIdFilter}
+                      options={[allPartyOption, ...partyFilterOptions]}
+                      value={
+                        partyFilterOptions.find((o) => o.value === partyIdFilter) ||
+                        (partyTypeFilter ? allPartyOption : null)
+                      }
+                      onChange={(s) => setPartyIdFilter(s ? s.value : "")}
+                      placeholder={t("Select party type first")}
+                    />
+                  </Col>
+                  <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Select
                       classNamePrefix="select"
                       isClearable
@@ -531,16 +625,17 @@ const AdjustmentNotes = () => {
               <div className="d-flex justify-content-between align-items-center mb-1">
                 <h5 className="mb-0">{viewNote.voucher_no || "-"}</h5>
                 {viewNote.voided_at ? (
-                  <Badge color="light-secondary">{t("Voided")}</Badge>
+                  <Badge className="doc-badge doc-badge-red">{t("Voided")}</Badge>
                 ) : (
-                  <Badge style={{ backgroundColor: "#7367f0", color: "#fff" }}>{t("Posted")}</Badge>
+                  <Badge className="doc-badge doc-badge-green">{t("Posted")}</Badge>
                 )}
               </div>
               <hr />
               {[
+                [t("Source"), t(SOURCE_LABELS[viewNote.source] || "-")],
                 [t("Party Type"), (viewNote.party_type || "").toUpperCase()],
                 [t("Party"), viewNote.party_name || "-"],
-                [t("Date"), dateOnly(viewNote.note_date)],
+                [t("Date"), dateOnly(viewNote.date)],
                 [
                   t("Type"),
                   viewNote.direction === "debit"
@@ -558,9 +653,13 @@ const AdjustmentNotes = () => {
                 </div>
               ))}
               <div className="mt-1">
-                <div className="text-muted mb-25">{t("Reason")}</div>
+                <div className="text-muted mb-25">
+                  {viewNote.source === "adjustment"
+                    ? t("Reason")
+                    : t("Particulars")}
+                </div>
                 <div className="border rounded p-1 bg-light">
-                  {viewNote.reason || "-"}
+                  {viewNote.particulars || "-"}
                 </div>
               </div>
               {viewNote.voided_at && (
@@ -571,7 +670,7 @@ const AdjustmentNotes = () => {
                   </div>
                 </div>
               )}
-              {!viewNote.voided_at && canVoid && (
+              {viewNote.source === "adjustment" && !viewNote.voided_at && canVoid && (
                 <Button
                   color="outline-danger"
                   className="mt-2 w-100"
