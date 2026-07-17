@@ -298,6 +298,8 @@ export const API_ENDPOINTS = {
     productProfitabilityExport: `/admin/reports/product-profitability/export`,
     hsnSummary: `/admin/reports/hsn-summary`,
     hsnSummaryExport: `/admin/reports/hsn-summary/export`,
+    gstBalance: `/admin/reports/gst-balance`,
+    gstBalanceExport: `/admin/reports/gst-balance/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
