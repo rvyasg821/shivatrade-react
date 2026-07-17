@@ -3,14 +3,16 @@
 // Balance, with a from–to filter, totals footer and Excel export. Read-only.
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Row, Col, Button, Table, Spinner } from "reactstrap";
-import { Download } from "react-feather";
+import { Download, ExternalLink } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
+import { appsRoot } from "@constant/defaultValues";
 import { currencySymbol } from "@src/views/_shared/sales-doc/_helpers";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
@@ -80,10 +82,54 @@ const LedgerStatement = ({ kind, partyId }) => {
   const ccy = data?.currency_code || "";
   const sym = currencySymbol(ccy);
   const money = (v) => `${sym}${fmt(v)}`;
+  // Balance shows the magnitude only — no minus sign.
+  const moneyAbs = (v) => `${sym}${fmt(Math.abs(num(v)))}`;
   const rows = data?.rows || [];
+  const summary = data?.summary || null;
 
   return (
     <Fragment>
+      {/* The per-party totals nothing else in the app adds up — a VPO/Invoice
+          Payments tab only ever covers one document. Lifetime figures, so they
+          ignore the from/to filter below. */}
+      {summary && (
+        <Row className="g-1 mb-2">
+          {[
+            [
+              kind === "vendor" ? t("Total Billed") : t("Total Invoiced"),
+              summary.total_billed,
+              "",
+            ],
+            [
+              kind === "vendor" ? t("Total Paid") : t("Total Received"),
+              summary.total_paid,
+              "",
+            ],
+            [t("Outstanding"), summary.outstanding, "text-warning"],
+          ].map(([label, value, cls]) => (
+            <Col md="4" key={label}>
+              <div className="border rounded p-1 h-100">
+                <div className="text-muted small">{label}</div>
+                <h4 className={`mb-0 mt-25 fw-bolder ${cls}`}>
+                  {money(value)}
+                </h4>
+              </div>
+            </Col>
+          ))}
+          <Col md="12">
+            <div className="text-muted small mt-25">
+              {kind === "vendor"
+                ? t(
+                    "Totals cover Vendor POs and payments only — adjustment notes are not included, so they may differ from the Balance below."
+                  )
+                : t(
+                    "Totals cover invoices and receipts only — adjustment notes are not included, so they may differ from the Balance below."
+                  )}
+            </div>
+          </Col>
+        </Row>
+      )}
+
       <Row className="align-items-end g-1 mb-1">
         <Col sm="4" md="3">
           <label className="form-label small mb-25">{t("From")}</label>
@@ -97,6 +143,15 @@ const LedgerStatement = ({ kind, partyId }) => {
           <span className="me-1 text-muted small">
             {t("Currency")}: <strong>{ccy || "—"}</strong>
           </span>
+          {/* The register shows the same movements plus voided rows, which the
+              ledger deliberately drops. */}
+          <Link
+            to={`${appsRoot}/adjustment-notes?party_type=${kind}&party_id=${partyId}`}
+            className="btn btn-outline-primary btn-sm me-1"
+          >
+            <ExternalLink size={14} className="me-50" />
+            {t("View all transactions")}
+          </Link>
           <Button
             color="outline-primary"
             size="sm"
@@ -144,7 +199,7 @@ const LedgerStatement = ({ kind, partyId }) => {
                   </td>
                   <td className="text-end">{r.dr ? money(r.dr) : "-"}</td>
                   <td className="text-end">{r.cr ? money(r.cr) : "-"}</td>
-                  <td className="text-end fw-semibold">{money(r.balance)}</td>
+                  <td className="text-end fw-semibold">{moneyAbs(r.balance)}</td>
                 </tr>
               ))
             )}
@@ -157,9 +212,7 @@ const LedgerStatement = ({ kind, partyId }) => {
                 </td>
                 <td className="text-end fw-bold">{money(data?.total_dr)}</td>
                 <td className="text-end fw-bold">{money(data?.total_cr)}</td>
-                <td className="text-end fw-bold">
-                  {money(data?.balance)} {ccy}
-                </td>
+                <td className="text-end fw-bold">{moneyAbs(data?.balance)}</td>
               </tr>
             </tfoot>
           )}
@@ -168,8 +221,8 @@ const LedgerStatement = ({ kind, partyId }) => {
       {rows.length > 0 && (
         <div className="text-muted small mt-1">
           {kind === "customer"
-            ? t("Balance is the amount receivable from this customer.")
-            : t("Balance is the amount payable to this vendor.")}
+            ? t("Balance is the net amount received from this customer.")
+            : t("Balance is the net amount paid to this vendor.")}
         </div>
       )}
     </Fragment>

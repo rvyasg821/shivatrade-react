@@ -42,7 +42,12 @@ const fmt = (n) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-const dateOnly = (v) => (v ? String(v).slice(0, 10) : "-");
+// Display as DD-MM-YYYY (stored/sent as YYYY-MM-DD).
+const dateOnly = (v) => {
+  const s = String(v || "").slice(0, 10);
+  const [y, m, d] = s.split("-");
+  return y && m && d ? `${d}-${m}-${y}` : "-";
+};
 
 // TDS section presets (India). Picking one auto-fills the rate; still editable.
 // Rate shown in the label; the 194Q ₹50L-turnover threshold is the client's
@@ -133,10 +138,25 @@ const PaymentsTab = ({ registerActions }) => {
   const tdsAmt = round2((grossAmt * tdsRate) / 100);
   const netPaid = round2(grossAmt - tdsAmt);
 
+  const pickDefaultBank = (opts) =>
+    opts.find((o) => /\(default\)/.test(o.label)) || opts[0];
+
+  // getCompanyDetails() is async, so opening the modal before it resolves left
+  // bankOptions empty and the dropdown blank. Back-fill the default as soon as
+  // the accounts land — but never overwrite a choice already made.
+  useEffect(() => {
+    if (!payOpen || !bankOptions.length) return;
+    setForm((s) =>
+      s.company_bank_account_id
+        ? s
+        : { ...s, company_bank_account_id: pickDefaultBank(bankOptions)?.value || "" }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payOpen, bankOptions]);
+
   const openModal = () => {
     // Default the paying bank to the company's default account, if any.
-    const def =
-      bankOptions.find((o) => /\(default\)/.test(o.label)) || bankOptions[0];
+    const def = pickDefaultBank(bankOptions);
     setForm({
       payment_date: new Date().toISOString().slice(0, 10),
       invoice_number: "",

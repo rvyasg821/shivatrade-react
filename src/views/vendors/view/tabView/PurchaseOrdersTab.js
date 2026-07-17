@@ -111,7 +111,7 @@ const PurchaseOrdersTab = () => {
       ),
     },
     {
-      name: t("PO #"),
+      name: t("SO #"),
       sortable: false,
       minWidth: "160px",
       selector: (row) =>
