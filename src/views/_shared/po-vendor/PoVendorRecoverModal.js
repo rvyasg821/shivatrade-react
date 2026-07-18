@@ -42,6 +42,7 @@ import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import { recoverPoVendors } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
 
@@ -158,6 +159,16 @@ const PoVendorRecoverModal = ({
       })
       .then((resp) => setCompanyLocations(resp?.data?.data || []))
       .catch(() => setCompanyLocations([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // ── Company POV defaults (deliver-to terms), loaded once when modal opens ──
+  // These seed each vendor's terms below, mirroring the standalone POV create
+  // form. Without this, "Generate POV" from the Sales Order ignored the company
+  // profile's Vendor-PO defaults and rendered the three term fields blank.
+  const companyDefaults = useSelector((s) => s.company?.companyItem);
+  useEffect(() => {
+    if (isOpen && !companyDefaults?._id) dispatch(getCompanyDetails());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -318,6 +329,40 @@ const PoVendorRecoverModal = ({
       return changed ? next : curr;
     });
   }, [vendorSummary, defaultLocationId]);
+
+  // Seed each active vendor's terms from the company POV defaults — blank-only,
+  // so an operator's typing is never clobbered (mirrors po-vendors/create).
+  useEffect(() => {
+    const c = companyDefaults;
+    if (!c) return;
+    const dt = c.pov_default_dispatched_through;
+    const pt = c.pov_default_payment_terms;
+    const dl = c.pov_default_delivery_terms;
+    if (!dt && !pt && !dl) return;
+    const ids = vendorSummary.map((v) => v.vendor_id);
+    if (!ids.length) return;
+    setVendorTerms((curr) => {
+      let changed = false;
+      const next = { ...curr };
+      for (const vid of ids) {
+        const seeded = { ...(curr[vid] || {}) };
+        if (dt && !seeded.dispatched_through) {
+          seeded.dispatched_through = dt;
+          changed = true;
+        }
+        if (pt && !seeded.payment_terms) {
+          seeded.payment_terms = pt;
+          changed = true;
+        }
+        if (dl && !seeded.delivery_terms) {
+          seeded.delivery_terms = dl;
+          changed = true;
+        }
+        next[vid] = seeded;
+      }
+      return changed ? next : curr;
+    });
+  }, [vendorSummary, companyDefaults]);
 
   // Goods GST for one vendor block. Same formula as the POV PDF and the POV
   // create screen: per line, (to_procure × rate) × tax_pct/100. Without this the
