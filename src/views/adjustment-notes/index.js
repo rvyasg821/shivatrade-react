@@ -226,6 +226,7 @@ const AdjustmentNotes = () => {
       direction: "credit",
       note_date: new Date().toISOString().slice(0, 10),
       amount: "",
+      gst_rate: "",
       reason: "",
     });
     setErrors({});
@@ -234,7 +235,14 @@ const AdjustmentNotes = () => {
   };
 
   const onPartyType = (v) => {
-    setForm((s) => ({ ...s, party_type: v, party_id: "", party_currency: "" }));
+    // GST is a vendor+debit-only field — drop any rate if we leave that combo.
+    setForm((s) => ({
+      ...s,
+      party_type: v,
+      party_id: "",
+      party_currency: "",
+      gst_rate: v === "vendor" ? s.gst_rate : "",
+    }));
     loadParties(v);
   };
 
@@ -253,6 +261,10 @@ const AdjustmentNotes = () => {
         direction: form.direction,
         note_date: form.note_date,
         amount: String(form.amount),
+        // GST honoured server-side only for vendor + debit; send when set.
+        ...(gstEligible && num(form.gst_rate) > 0
+          ? { gst_rate: String(form.gst_rate) }
+          : {}),
         reason: form.reason.trim(),
       })
     )
@@ -290,6 +302,15 @@ const AdjustmentNotes = () => {
     const opt = partyOptions.find((o) => o.value === form.party_id);
     return opt?.currency || "";
   };
+
+  // GST is offered only on a vendor + debit note (an INR claim back on a
+  // vendor). gst_value = round2(amount × rate / 100); final = amount + gst.
+  const gstEligible = form.party_type === "vendor" && form.direction === "debit";
+  const gstBase = num(form.amount);
+  const gstRateNum = num(form.gst_rate);
+  const gstValue =
+    gstEligible && gstRateNum > 0 ? Math.round(gstBase * gstRateNum) / 100 : 0;
+  const gstFinal = Math.round((gstBase + gstValue) * 100) / 100;
 
   const columns = [
     {
@@ -541,9 +562,15 @@ const AdjustmentNotes = () => {
                     (o) => ({ ...o, label: t(o.label) })
                   )[0] || null
                 }
-                onChange={(opt) =>
-                  setForm((s) => ({ ...s, direction: opt ? opt.value : "credit" }))
-                }
+                onChange={(opt) => {
+                  const dir = opt ? opt.value : "credit";
+                  // GST only lives on a debit note — clear it on credit.
+                  setForm((s) => ({
+                    ...s,
+                    direction: dir,
+                    gst_rate: dir === "debit" ? s.gst_rate : "",
+                  }));
+                }}
               />
             </Col>
             <Col md="6" className="mb-2">
@@ -580,6 +607,34 @@ const AdjustmentNotes = () => {
                 <FormFeedback className="d-block">{errors.amount}</FormFeedback>
               )}
             </Col>
+
+            {/* GST — vendor + debit only. Base + GST = the amount that posts. */}
+            {gstEligible && (
+              <Col md="6" className="mb-2">
+                <Label className="form-label">{t("GST Rate (%)")}</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  max="100"
+                  placeholder={t("e.g. 12")}
+                  value={form.gst_rate}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, gst_rate: e.target.value }))
+                  }
+                />
+                <div className="d-flex justify-content-between small text-muted mt-50">
+                  <span>
+                    {t("GST Value")}: {currencySymbol("INR")}
+                    {fmt(gstValue)}
+                  </span>
+                  <span className="fw-semibold text-dark">
+                    {t("Final Amount")}: {currencySymbol("INR")}
+                    {fmt(gstFinal)}
+                  </span>
+                </div>
+              </Col>
+            )}
             <Col md="12" className="mb-2">
               <Label className="form-label">
                 {t("Reason")} <span className="text-danger">*</span>
@@ -642,8 +697,26 @@ const AdjustmentNotes = () => {
                     ? t("Debit (DR)")
                     : t("Credit (CR)"),
                 ],
+                // GST breakdown — only on a vendor + debit note (gst_amount set).
+                ...(viewNote.gst_amount != null
+                  ? [
+                      [
+                        t("Base Amount"),
+                        `${currencySymbol(viewNote.currency_code)}${fmt(
+                          viewNote.base_amount
+                        )}`,
+                      ],
+                      [t("GST Rate (%)"), `${fmt(viewNote.gst_rate)}%`],
+                      [
+                        t("GST Value"),
+                        `${currencySymbol(viewNote.currency_code)}${fmt(
+                          viewNote.gst_amount
+                        )}`,
+                      ],
+                    ]
+                  : []),
                 [
-                  t("Amount"),
+                  viewNote.gst_amount != null ? t("Total Amount") : t("Amount"),
                   `${currencySymbol(viewNote.currency_code)}${fmt(viewNote.amount)}`,
                 ],
               ].map(([k, v]) => (

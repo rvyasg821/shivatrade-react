@@ -73,10 +73,13 @@ const ViewVendor = () => {
   const priceCount = useSelector(
     (s) => s.priceList?.pagination?.total ?? (s.priceList?.priceListItems || []).length
   );
+  // The "Purchase Orders" tab lists this vendor's POVs (Vendor POs) from the
+  // poVendor store — NOT sales orders (s.purchaseOrder). Count from the same
+  // source the tab renders, or the card reads 0 while the tab shows rows.
   const poCount = useSelector(
     (s) =>
-      s.purchaseOrder?.pagination?.total ??
-      (s.purchaseOrder?.purchaseOrderItems || []).length
+      s.poVendor?.pagination?.total ??
+      (s.poVendor?.poVendorItems || []).length
   );
   const bankCount = (v?.bank_accounts || []).length;
   const categoryCount = (v?.categories || []).length;
