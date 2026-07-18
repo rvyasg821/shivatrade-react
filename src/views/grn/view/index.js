@@ -271,7 +271,9 @@ const GrnView = () => {
         const data = { lines: linesPayload };
         if (statusOverride) data.status = statusOverride;
         await dispatch(updateGrn({ id: newGrn._id, data })).unwrap();
-        navigate(`${appsRoot}/grn/view/${newGrn._id}`);
+        // Replace (not push) so Back after saving returns to the POV, not to the
+        // now-submitted create form.
+        navigate(`${appsRoot}/grn/view/${newGrn._id}`, { replace: true });
       } catch (err) {
         Notification(
           "Error",
@@ -390,11 +392,17 @@ const GrnView = () => {
               outline
               size="sm"
               onClick={() =>
-                navigate(
-                  grn?.po_vendor_id
-                    ? `${appsRoot}/po-vendors/view/${grn.po_vendor_id}`
-                    : -1
-                )
+                // Pop history when we got here in-app (returns to the existing
+                // POV-detail entry) instead of PUSHING a new one — otherwise the
+                // POV page's own navigate(-1) lands back here. Fall back to an
+                // explicit path only on a deep-link/refresh (no history to pop).
+                window.history.state?.idx > 0
+                  ? navigate(-1)
+                  : navigate(
+                      grn?.po_vendor_id
+                        ? `${appsRoot}/po-vendors/view/${grn.po_vendor_id}`
+                        : `${appsRoot}/po-vendors`
+                    )
               }
             >
               <ArrowLeft size={14} /> {t("Back")}
