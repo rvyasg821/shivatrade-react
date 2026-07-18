@@ -1,7 +1,8 @@
-// Reports landing — a card grid of the reports suite. Only Customer Turnover is
-// still a placeholder; the rest are live. Note the 4th card was originally
-// "Monthly Sales & Purchase" — it is now purchase-only (VPO), so no screen puts
-// sales and purchases side by side (PURCHASE_TURNOVER_VPO_REPORT_PLAN §8.3).
+// Reports landing — a card grid of the reports suite. All five cards are now
+// live (the former "Customer Turnover" placeholder became Sales Turnover —
+// SALES_TURNOVER_REPORT_PLAN). Note the purchase card was originally "Monthly
+// Sales & Purchase"; it is now purchase-only (VPO), and Sales Turnover is the
+// sales-side counterpart (multi-currency, per §14.4).
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
@@ -28,11 +29,13 @@ const REPORTS = [
     live: true,
   },
   {
-    key: "customer-turnover",
-    title: "Customer Turnover",
-    description: "Total sales per customer over a period.",
+    key: "sales-turnover",
+    title: "Sales Turnover",
+    description:
+      "Sales value, received and outstanding — by month or customer, per currency.",
     icon: Users,
-    live: false,
+    to: `${appsRoot}/reports/sales-turnover`,
+    live: true,
   },
   {
     key: "purchase-turnover",

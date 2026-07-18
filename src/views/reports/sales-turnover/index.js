@@ -1,0 +1,368 @@
+// Sales Turnover — SALES_TURNOVER_REPORT_PLAN.md.
+// What we sold, received and are still owed — By Month (trend) / By Customer
+// (exposure). MULTI-CURRENCY: an exporter invoices in USD, EUR, INR… which can
+// never be summed together, so the report is a STACK of per-currency sections,
+// each with its own subtotal. KPI tiles show only counts (money can't cross
+// currencies); every money total lives inside a currency section.
+import { Fragment, useCallback, useEffect, useState, useLayoutEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  Row,
+  Col,
+  Card,
+  CardBody,
+  Label,
+  Input,
+  Button,
+  Table,
+  Spinner,
+} from "reactstrap";
+import Select from "react-select";
+import { Download } from "react-feather";
+import { useTranslation } from "react-i18next";
+
+import DateInput from "@components/date-input";
+import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { getSalesTurnover, cleanSalesTurnoverMessage } from "./store";
+
+// 2-dp grouping, e.g. 1,23,456.00. Native values — Indian digit grouping is a
+// harmless display choice; the currency identity comes from the symbol prefix.
+const grp = (v) =>
+  Number(v || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+// Money with its currency's symbol, e.g. "$ 42,000.00" / "₹ 2,00,000.00".
+const money = (v, symbol) => `${symbol ? `${symbol} ` : ""}${grp(v)}`;
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "unpaid", label: "Unpaid" },
+  { value: "partially_paid", label: "Partially Paid" },
+  { value: "paid", label: "Paid" },
+  { value: "overpaid", label: "Overpaid" },
+];
+
+const StatTile = ({ label, value, hint }) => (
+  <Col md="3" sm="6" className="mb-1">
+    <Card className="mb-0 border">
+      <CardBody className="py-1">
+        <div className="text-muted small">{label}</div>
+        <div className="fw-bolder" style={{ fontSize: "1.35rem" }}>
+          {value}
+        </div>
+        {hint ? <div className="text-muted small">{hint}</div> : null}
+      </CardBody>
+    </Card>
+  </Col>
+);
+
+// Negative Outstanding = the customer overpaid (advance / rounding) — legitimate.
+const Outstanding = ({ value, symbol }) => {
+  const nsign = Number(value || 0) < 0;
+  return (
+    <span className={nsign ? "text-danger fw-semibold" : "fw-semibold"}>
+      {money(value, symbol)}
+    </span>
+  );
+};
+
+// One currency's table: rows + a TOTAL foot. Same markup for month/customer —
+// only the first column header changes.
+const CurrencySection = ({ group, firstColLabel, loading }) => {
+  const { t } = useTranslation();
+  const sym = group.currency_symbol;
+  const rows = group.rows || [];
+  const totals = group.totals || {};
+  return (
+    <div className="mb-2">
+      <div className="d-flex align-items-center mb-50">
+        <h5 className="mb-0 fw-bolder">
+          {group.currency}
+          {sym ? <span className="text-muted"> ({sym})</span> : null}
+        </h5>
+      </div>
+      <div className="table-responsive">
+        <Table bordered size="sm" className="align-middle mb-0">
+          <thead className="table-light">
+            <tr>
+              <th style={{ minWidth: 140 }}>{firstColLabel}</th>
+              <th className="text-end">{t("Invoices")}</th>
+              <th className="text-end">{t("Sales Value")}</th>
+              <th className="text-end">{t("Received")}</th>
+              <th className="text-end">{t("Outstanding")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center text-muted py-2">
+                  {t("There are no records to display")}
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.key}>
+                  <td className="text-nowrap">{r.label}</td>
+                  <td className="text-end">{r.invoice_count}</td>
+                  <td className="text-end fw-bold">
+                    {money(r.sales_value, sym)}
+                  </td>
+                  <td className="text-end">{money(r.received, sym)}</td>
+                  <td className="text-end">
+                    <Outstanding value={r.outstanding} symbol={sym} />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {rows.length > 0 ? (
+            <tfoot className="table-light">
+              <tr className="fw-bolder">
+                <td>{t("TOTAL")}</td>
+                <td className="text-end">{totals.invoice_count ?? 0}</td>
+                <td className="text-end">{money(totals.sales_value, sym)}</td>
+                <td className="text-end">{money(totals.received, sym)}</td>
+                <td className="text-end">
+                  <Outstanding value={totals.outstanding} symbol={sym} />
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </Table>
+      </div>
+    </div>
+  );
+};
+
+const SalesTurnover = () => {
+  const { t } = useTranslation();
+  const dispatch = useDispatch();
+  const store = useSelector((s) => s.salesTurnover);
+
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [customer, setCustomer] = useState(null);
+  const [currency, setCurrency] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [byCustomer, setByCustomer] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState([]);
+
+  const params = useCallback(
+    (extra = {}) => ({
+      group_by: byCustomer ? "customer" : "month",
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+      customer_id: customer?.value || undefined,
+      currency: currency?.value || undefined,
+      payment_status: paymentStatus?.value || undefined,
+      ...extra,
+    }),
+    [byCustomer, dateFrom, dateTo, customer, currency, paymentStatus]
+  );
+
+  const load = useCallback(() => {
+    dispatch(getSalesTurnover(params()));
+  }, [params, dispatch]);
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    instance
+      .get(API_ENDPOINTS.customers.dropdown)
+      .then((r) =>
+        setCustomerOptions(
+          (r?.data?.data || []).map((c) => ({
+            value: c._id || c.value,
+            label: c.company_name || c.name || c.label,
+          }))
+        )
+      )
+      .catch(() => setCustomerOptions([]));
+  }, []);
+
+  // Any filter change refetches.
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo, customer, currency, paymentStatus, byCustomer]);
+
+  useEffect(() => {
+    if (store?.error) {
+      Notification("Error", store.error, "warning");
+      dispatch(cleanSalesTurnoverMessage());
+    }
+  }, [store?.error, dispatch]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const resp = await instance.get(API_ENDPOINTS.reports.salesTurnoverExport, {
+        params: params(),
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales-turnover_${byCustomer ? "customer" : "month"}${
+        dateFrom ? `_${dateFrom}` : ""
+      }${dateTo ? `_${dateTo}` : ""}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      Notification("Error", t("Export failed"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const groups = store?.groups || [];
+  const currencyOptions = (store?.available_currencies || []).map((c) => ({
+    value: c,
+    label: c,
+  }));
+  const firstColLabel = byCustomer ? t("Customer") : t("Month");
+  const hasData = groups.length > 0;
+
+  return (
+    <Fragment>
+      <div className="main-content reports-sales-turnover">
+        <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-1">
+          <h3 className="mb-0">{t("Sales Turnover")}</h3>
+          <div className="d-flex align-items-center gap-1">
+            {store?.period_label ? (
+              <span className="text-muted">{store.period_label}</span>
+            ) : null}
+            <Button
+              color="success"
+              outline
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting || !hasData}
+            >
+              <Download size={14} className="me-50" />
+              {exporting ? t("Exporting…") : t("Export")}
+            </Button>
+          </div>
+        </div>
+
+        {/* Money can't cross currencies, so the tiles are counts only — the
+            money totals live per-currency in the sections below. */}
+        <Row className="mb-1">
+          <StatTile
+            label={t("Invoices")}
+            value={store?.overall_invoice_count ?? 0}
+            hint={t("across all currencies")}
+          />
+          <StatTile
+            label={t("Currencies")}
+            value={groups.length}
+            hint={t("value totals shown per currency below")}
+          />
+        </Row>
+
+        <Card className="overflow-hidden">
+          <CardBody>
+            <Row>
+              <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("From")}</Label>
+                <DateInput
+                  id="st-from"
+                  value={dateFrom}
+                  onChange={(d, str, iso) => setDateFrom(iso || "")}
+                  placeholder={t("YYYY-MM-DD")}
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("To")}</Label>
+                <DateInput
+                  id="st-to"
+                  value={dateTo}
+                  onChange={(d, str, iso) => setDateTo(iso || "")}
+                  placeholder={t("YYYY-MM-DD")}
+                />
+              </Col>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Customer")}</Label>
+                <Select
+                  value={customer}
+                  onChange={(sel) => setCustomer(sel)}
+                  options={customerOptions}
+                  isClearable
+                  placeholder={t("All customers")}
+                  classNamePrefix="select"
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("Currency")}</Label>
+                <Select
+                  value={currency}
+                  onChange={(sel) => setCurrency(sel)}
+                  options={currencyOptions}
+                  isClearable
+                  placeholder={t("All currencies")}
+                  classNamePrefix="select"
+                />
+              </Col>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Payment status")}</Label>
+                <Select
+                  value={paymentStatus}
+                  onChange={(sel) => setPaymentStatus(sel)}
+                  options={PAYMENT_STATUS_OPTIONS.map((o) => ({
+                    ...o,
+                    label: t(o.label),
+                  }))}
+                  isClearable
+                  placeholder={t("All")}
+                  classNamePrefix="select"
+                />
+              </Col>
+              <Col sm="12" md="3" className="mb-1 d-flex align-items-end">
+                <div className="form-check form-switch mb-1">
+                  <Input
+                    type="switch"
+                    id="st-group-by-customer"
+                    checked={byCustomer}
+                    onChange={(e) => setByCustomer(e.target.checked)}
+                  />
+                  <Label for="st-group-by-customer" className="form-check-label">
+                    {t("Group by customer")}
+                  </Label>
+                </div>
+              </Col>
+            </Row>
+
+            <Row className="mt-1">
+              <Col md="12">
+                {store?.loading ? (
+                  <div className="text-center py-3">
+                    <Spinner size="sm" /> {t("Loading…")}
+                  </div>
+                ) : !hasData ? (
+                  <div className="text-center text-muted py-3">
+                    {t("There are no records to display")}
+                  </div>
+                ) : (
+                  groups.map((g) => (
+                    <CurrencySection
+                      key={g.currency}
+                      group={g}
+                      firstColLabel={firstColLabel}
+                      loading={store?.loading}
+                    />
+                  ))
+                )}
+              </Col>
+            </Row>
+          </CardBody>
+        </Card>
+      </div>
+    </Fragment>
+  );
+};
+
+export default SalesTurnover;

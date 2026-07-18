@@ -302,6 +302,8 @@ export const API_ENDPOINTS = {
     gstBalanceExport: `/admin/reports/gst-balance/export`,
     purchaseTurnover: `/admin/reports/purchase-turnover`,
     purchaseTurnoverExport: `/admin/reports/purchase-turnover/export`,
+    salesTurnover: `/admin/reports/sales-turnover`,
+    salesTurnoverExport: `/admin/reports/sales-turnover/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,

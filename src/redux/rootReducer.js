@@ -74,6 +74,7 @@ import productProfitability from "@src/views/reports/product-profitability/store
 import hsnSummary from "@src/views/reports/hsn-summary/store"
 import gstBalance from "@src/views/reports/gst-balance/store"
 import purchaseTurnover from "@src/views/reports/purchase-turnover/store"
+import salesTurnover from "@src/views/reports/sales-turnover/store"
 import adjustmentNote from "@src/views/adjustment-notes/store"
 // import complianceBuilder from "../views/governance/compliancebuilder/store/index"
 // import frameWorkStore from "../views/governance/compliancebuilder/frameWorkStore/index"
@@ -157,6 +158,7 @@ const rootReducer = {
   hsnSummary,
   gstBalance,
   purchaseTurnover,
+  salesTurnover,
   adjustmentNote,
 };
 
