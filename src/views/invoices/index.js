@@ -23,7 +23,11 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { Edit, Eye, Trash2, ExternalLink, Plus } from "react-feather";
+import { Edit, Eye, Trash2, ExternalLink, Plus, Upload, Download } from "react-feather";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
+import ReceiptsImportModal from "./components/ReceiptsImportModal";
 
 import {
   getInvoiceList,
@@ -209,6 +213,30 @@ const InvoicesList = () => {
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
   const canCreate = isSystemAdmin || isCompanyAdmin || perms?.can_create;
+
+  // Import / Export
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [receiptsModalOpen, setReceiptsModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.invoices.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoices-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export invoices"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Customer-first multi-SO line picker now lives on its own page
   // (/invoices/select-so-lines), which navigates to /invoices/add with the
@@ -427,8 +455,8 @@ const InvoicesList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="9" md="9">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -476,19 +504,46 @@ const InvoicesList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
+              </div>
               {/* Create Invoice — customer-first multi-SO picker. Bundles
                   invoiceable lines across a customer's confirmed SOs into one
                   invoice (SHIPPING_INVOICE_MERGE_PLAN §5b). The PO Coverage
                   "Generate Invoice" button remains the other entry point. */}
-              <Col
-                sm="3"
-                md="3"
-                className="d-flex align-items-start justify-content-end"
-              >
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
+                <Button
+                  color="outline-secondary"
+                  size="sm"
+                  className="text-nowrap"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {t("Export")} <Download size={14} />
+                </Button>
+                {canCreate && (
+                  <Button
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={() => setImportModalOpen(true)}
+                  >
+                    {t("Import")} <Upload size={14} />
+                  </Button>
+                )}
+                {canCreate && (
+                  <Button
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={() => setReceiptsModalOpen(true)}
+                    title={t("Import customer receipts")}
+                  >
+                    {t("Receipts")} <Upload size={14} />
+                  </Button>
+                )}
                 {canCreate && (
                   <Button
                     color="primary"
+                    className="text-nowrap"
                     onClick={() =>
                       navigate(`${appsRoot}/invoices/select-so-lines`)
                     }
@@ -497,8 +552,8 @@ const InvoicesList = () => {
                     {t("Create Invoice")}
                   </Button>
                 )}
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="invoices-tables">
@@ -517,6 +572,25 @@ const InvoicesList = () => {
           </CardBody>
         </Card>
       </div>
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleList();
+        }}
+      />
+
+      <ReceiptsImportModal
+        isOpen={receiptsModalOpen}
+        toggle={() => setReceiptsModalOpen(false)}
+        onSuccess={() => {
+          setReceiptsModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleList();
+        }}
+      />
     </Fragment>
   );
 };

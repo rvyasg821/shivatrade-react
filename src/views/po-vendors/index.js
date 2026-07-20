@@ -54,7 +54,12 @@ import {
   Phone,
   Plus,
   Download,
+  Upload,
 } from "react-feather";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
+import PaymentsImportModal from "./components/PaymentsImportModal";
 
 import { openPdfViewer } from "@src/utility/pdf";
 
@@ -258,6 +263,30 @@ const PoVendorView = () => {
   const canEdit = isAdmin || perms?.can_all || perms?.can_update;
   const canDelete = isAdmin || perms?.can_all || perms?.can_delete;
   const canCreate = isAdmin || perms?.can_all || perms?.can_create;
+
+  // Import / Export
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [paymentsModalOpen, setPaymentsModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.poVendors.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vpos-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export VPOs"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const vendorOptions = useMemo(
     () =>
@@ -617,7 +646,7 @@ const PoVendorView = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
               <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
@@ -679,16 +708,45 @@ const PoVendorView = () => {
                   </Col>
                 </Row>
               </div>
-              {canCreate && (
+              <div className="d-flex align-items-center gap-2 flex-shrink-0">
                 <Button
-                  color="primary"
+                  color="outline-secondary"
                   className="text-nowrap"
-                  onClick={() => navigate(`${appsRoot}/po-vendors/create`)}
+                  onClick={handleExport}
+                  disabled={exporting}
                 >
-                  <Plus size={16} className="me-50" />
-                  {t("Create POV")}
+                  {t("Export")} <Download size={14} />
                 </Button>
-              )}
+                {canCreate && (
+                  <Button
+                    color="outline-secondary"
+                    className="text-nowrap"
+                    onClick={() => setImportModalOpen(true)}
+                  >
+                    {t("Import")} <Upload size={14} />
+                  </Button>
+                )}
+                {canCreate && (
+                  <Button
+                    color="outline-secondary"
+                    className="text-nowrap"
+                    onClick={() => setPaymentsModalOpen(true)}
+                    title={t("Import vendor payments")}
+                  >
+                    {t("Payments")} <Upload size={14} />
+                  </Button>
+                )}
+                {canCreate && (
+                  <Button
+                    color="primary"
+                    className="text-nowrap"
+                    onClick={() => navigate(`${appsRoot}/po-vendors/create`)}
+                  >
+                    <Plus size={16} className="me-50" />
+                    {t("Create POV")}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <Row className="mt-2">
@@ -708,6 +766,26 @@ const PoVendorView = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleList();
+        }}
+      />
+
+      <PaymentsImportModal
+        isOpen={paymentsModalOpen}
+        toggle={() => setPaymentsModalOpen(false)}
+        onSuccess={() => {
+          setPaymentsModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleList();
+        }}
+      />
     </Fragment>
   );
 };

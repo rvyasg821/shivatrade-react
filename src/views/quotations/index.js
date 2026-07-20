@@ -42,7 +42,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, FileText, User, Mail, Phone, Download } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, FileText, User, Mail, Phone, Download, Upload } from "react-feather";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 import { formatMoney } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -231,6 +234,29 @@ const QuotationView = () => {
   const isCompanyAdmin = authUserItem?.role?.name === "Company Admin";
   const perms = authUserItem?.role?.permissions?.["quotations"];
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
+
+  // Import / Export
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.quotations.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `quotations-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export quotations"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
   const pfiPerms = authUserItem?.role?.permissions?.pfi;
@@ -566,7 +592,7 @@ const QuotationView = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="8" md="8">
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -631,15 +657,37 @@ const QuotationView = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
+              <Col sm="4" md="4">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/quotations/add`)}
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    {t("Add Quotation")} <PlusCircle size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {canAdd && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      className="text-nowrap"
+                      onClick={() => navigate(`${appsRoot}/quotations/add`)}
+                    >
+                      {t("Add Quotation")} <PlusCircle size={16} />
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -660,6 +708,15 @@ const QuotationView = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          handleList();
+        }}
+      />
     </Fragment>
   );
 };
