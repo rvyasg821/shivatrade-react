@@ -331,8 +331,8 @@ const PaymentsTab = ({ registerActions }) => {
         <Table responsive bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th>{t("Voucher")}</th>
-              <th>{t("Date")}</th>
+              <th className="text-nowrap text-start">{t("Voucher")}</th>
+              <th className="text-nowrap text-start">{t("Date")}</th>
               <th>{t("Invoice Number")}</th>
               <th>{t("Paid From (Bank)")}</th>
               <th className="text-end">{t("Gross")}</th>
@@ -350,7 +350,7 @@ const PaymentsTab = ({ registerActions }) => {
                   className={voided ? "text-muted" : ""}
                   style={voided ? { textDecoration: "line-through" } : {}}
                 >
-                  <td>
+                  <td className="text-nowrap text-start">
                     {pay.payment_voucher_no ? (
                       <Button
                         size="sm"
@@ -366,7 +366,7 @@ const PaymentsTab = ({ registerActions }) => {
                       "-"
                     )}
                   </td>
-                  <td>{dateOnly(pay.payment_date)}</td>
+                  <td className="text-nowrap text-start">{dateOnly(pay.payment_date)}</td>
                   <td>{pay.invoice_number || "-"}</td>
                   <td>
                     {pay.company_bank_snapshot?.bank_name || "-"}
