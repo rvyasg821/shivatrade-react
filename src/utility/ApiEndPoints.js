@@ -72,6 +72,9 @@ export const API_ENDPOINTS = {
     delete: `/admin/customer/delete`, // append /:id
     dropdown: `/admin/customer/dropdown`,
     updateMe: `/admin/customer/update`,
+    import: `/admin/customer/import`,
+    export: `/admin/customer/export`,
+    sampleExcel: `/admin/customer/sample-excel`,
     existance: `/modules/customers/isUserExists`,
     updateprofile: `/modules/customers/update-profile`,
     getallbookings: `/modules/booking-management/booking/customer`,
@@ -233,6 +236,9 @@ export const API_ENDPOINTS = {
     update: `/admin/quotation/update`,
     delete: `/admin/quotation/delete`,
     pdf: `/admin/quotation`, // append /:id/pdf (authed; opened as a blob in a new tab)
+    import: `/admin/quotation/import`,
+    export: `/admin/quotation/export`,
+    sampleExcel: `/admin/quotation/sample-excel`,
   },
   pfis: {
     list: `/admin/pfi/list`,
@@ -257,6 +263,9 @@ export const API_ENDPOINTS = {
     create: `/admin/purchase-order/create`,
     update: `/admin/purchase-order/update`,
     delete: `/admin/purchase-order/delete`,
+    import: `/admin/purchase-order/import`,
+    export: `/admin/purchase-order/export`,
+    sampleExcel: `/admin/purchase-order/sample-excel`,
     fromPfi: `/admin/purchase-order/from-pfi`, // append /:pfiId
     fromQuotation: `/admin/purchase-order/from-quotation`, // append /:quotationId
     previewFromPfi: `/admin/purchase-order/preview-from-pfi`, // append /:pfiId
@@ -273,6 +282,12 @@ export const API_ENDPOINTS = {
     create: `/admin/po-vendor/create`, // standalone (no source Sales Order)
     update: `/admin/po-vendor/update`,
     delete: `/admin/po-vendor/delete`,
+    import: `/admin/po-vendor/import`,
+    export: `/admin/po-vendor/export`,
+    sampleExcel: `/admin/po-vendor/sample-excel`,
+    paymentsImport: `/admin/po-vendor/payments/import`,
+    paymentsExport: `/admin/po-vendor/payments/export`,
+    paymentsSample: `/admin/po-vendor/payments/sample-excel`,
     fromPo: `/admin/po-vendor/from-po`, // append /:poId
     recoverPreview: `/admin/po-vendor/recover-preview`, // append /:poId
     recover: `/admin/po-vendor/recover`, // append /:poId
@@ -336,6 +351,12 @@ export const API_ENDPOINTS = {
     pdf: `/admin/invoice`, // append /:id/pdf?doc=commercial|packing-list
     poAddable: `/admin/invoice/po-addable`, // append /:poId?exclude_invoice_id=...
     customerInvoiceable: `/admin/invoice/customer-invoiceable`, // append /:customerId
+    import: `/admin/invoice/import`,
+    export: `/admin/invoice/export`,
+    sampleExcel: `/admin/invoice/sample-excel`,
+    receiptsImport: `/admin/invoice/receipts/import`,
+    receiptsExport: `/admin/invoice/receipts/export`,
+    receiptsSample: `/admin/invoice/receipts/sample-excel`,
     linesExport: `/admin/invoice/lines/export`, // ?purchase_order_id=...&invoice_id=...
     linesResolve: `/admin/invoice/lines/resolve`,
     payments: `/admin/invoice/payments`, // append /:invoiceId  (GET list / POST record)
@@ -366,15 +387,6 @@ export const API_ENDPOINTS = {
     create: `/admin/tracking-event`,
     delete: `/admin/tracking-event`, // append /:id
   },
-  customers: {
-    list: `/admin/customer/list`,
-    stats: `/admin/customer/stats`,
-    get: `/admin/customer/get`,
-    create: `/admin/customer/create`,
-    update: `/admin/customer/update`,
-    delete: `/admin/customer/delete`,
-    dropdown: `/admin/customer/dropdown`,
-  },
   leads: {
     list: `/admin/lead/list`,
     stats: `/admin/lead/stats`,
@@ -384,6 +396,9 @@ export const API_ENDPOINTS = {
     delete: `/admin/lead/delete`,
     convert: `/admin/lead/convert`,
     activity: `/admin/lead`, // append `/${leadId}/activity[/<activityId>]`
+    import: `/admin/lead/import`,
+    export: `/admin/lead/export`,
+    sampleExcel: `/admin/lead/sample-excel`,
   },
   rfq: {
     list: `/admin/rfq/list`,

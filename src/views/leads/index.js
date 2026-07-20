@@ -35,7 +35,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText, User, Mail, Phone } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, UserCheck, FileText, User, Mail, Phone, Upload, Download } from "react-feather";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 import { formatDate } from "@src/utility/dateFormat";
 
 // ** Constants
@@ -232,6 +235,29 @@ const LeadList = () => {
   const perms = authUserItem?.role?.permissions?.leads;
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
+
+  // Import / Export
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.leads.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `leads-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export leads"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
   const statusLabel = (val) =>
@@ -575,7 +601,7 @@ const LeadList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="7" md="7">
                 <Row>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Input
@@ -629,15 +655,37 @@ const LeadList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/leads/add`)}
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    {t("Add Lead")} <PlusCircle size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {canAdd && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      className="text-nowrap"
+                      onClick={() => navigate(`${appsRoot}/leads/add`)}
+                    >
+                      {t("Add Lead")} <PlusCircle size={16} />
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -658,6 +706,16 @@ const LeadList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleLeadLists();
+        }}
+      />
     </Fragment>
   );
 };

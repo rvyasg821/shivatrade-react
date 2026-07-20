@@ -49,6 +49,7 @@ import {
   Trash2,
   PlusCircle,
   Download,
+  Upload,
   User,
   Mail,
 } from "react-feather";
@@ -57,6 +58,11 @@ import { openPdfViewer } from "@src/utility/pdf";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+
+// ** Import/Export
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 import {
   PURCHASE_ORDER_STATUS_OPTIONS,
   PURCHASE_ORDER_STATUS_COLOR_MAP as STATUS_COLOR_MAP,
@@ -240,6 +246,29 @@ const PurchaseOrderView = () => {
   const perms = authUserItem?.role?.permissions?.["purchase-orders"];
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
+
+  // Import / Export
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.purchaseOrders.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales-orders-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export sales orders"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
   const customerOptions = useMemo(
@@ -509,7 +538,7 @@ const PurchaseOrderView = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="8" md="8">
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -575,15 +604,37 @@ const PurchaseOrderView = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end">
-                {canAdd && (
+              <Col sm="4" md="4">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/purchase-orders/add`)}
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    {t("Add SO")} <PlusCircle size={16} />
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {canAdd && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      className="text-nowrap"
+                      onClick={() => navigate(`${appsRoot}/purchase-orders/add`)}
+                    >
+                      {t("Add SO")} <PlusCircle size={16} />
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -604,6 +655,16 @@ const PurchaseOrderView = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          setStatsRefreshKey((k) => k + 1);
+          handleList();
+        }}
+      />
     </Fragment>
   );
 };

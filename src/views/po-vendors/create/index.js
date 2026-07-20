@@ -39,6 +39,7 @@ import {
 import { getVendorDropdown, getVendor } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { appsRoot } from "@constant/defaultValues";
@@ -64,6 +65,7 @@ const newCharge = () => ({
   expense_id: "",
   type: "percent",
   value: "",
+  gst_pct: "",
 });
 
 const CreatePoVendor = () => {
@@ -507,30 +509,23 @@ const CreatePoVendor = () => {
   const hasProductLine = linkedMode
     ? filteredCoverLines.length > 0
     : lines.some((r) => r.product_id);
-  const setCharge = (key, patch) =>
-    setCharges((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const onPickExpense = (key, opt) => {
-    const raw = opt?.raw || {};
-    setCharge(key, {
-      expense_id: opt ? opt.value : "",
-      type: raw.type || "percent",
-      value: raw.value != null ? String(raw.value) : "",
-    });
-  };
-  // percent → % of goods total; fixed → flat amount.
-  const chargeAmount = (c) =>
+  // percent → % of goods total; fixed → flat amount. Each charge also carries
+  // its own GST% (operator-entered); the charge Amount shown is charge + GST.
+  const chargeTaxable = (c) =>
     !c.expense_id
       ? 0
       : c.type === "percent"
         ? (goodsTotal * num(c.value)) / 100
         : num(c.value);
+  const chargeGross = (c) =>
+    chargeTaxable(c) + (chargeTaxable(c) * num(c.gst_pct)) / 100;
   const chargesTotal = useMemo(
-    () => charges.reduce((s, c) => s + chargeAmount(c), 0),
+    () => charges.reduce((s, c) => s + chargeGross(c), 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [charges, goodsTotal]
   );
-  // Was `goods + charges`, which silently disagreed with the PDF (that adds GST).
-  const grandTotal = goodsTotal + chargesTotal + goodsGst;
+  // charges (incl. their own GST) + goods + goods GST. Matches the PDF.
+  const grandTotal = goodsTotal + goodsGst + chargesTotal;
 
   const backToList = () => navigate(`${appsRoot}/po-vendors`);
 
@@ -547,6 +542,7 @@ const CreatePoVendor = () => {
         expense_id: c.expense_id,
         type: c.type || "percent",
         value: String(num(c.value)),
+        gst_pct: String(num(c.gst_pct)),
       }));
 
     try {
@@ -1046,141 +1042,88 @@ const CreatePoVendor = () => {
             {charges.length === 0 ? (
               <div className="text-muted small">{t("No charges added.")}</div>
             ) : (
-              <Table responsive bordered size="sm" className="align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>{t("Charge")}</th>
-                    <th style={{ width: 150 }}>{t("Type")}</th>
-                    <th style={{ width: 120 }} className="text-end">
-                      {t("Value")}
-                    </th>
-                    <th style={{ width: 120 }} className="text-end">
-                      {t("Amount")} (₹)
-                    </th>
-                    <th style={{ width: 40 }} />
-                  </tr>
-                </thead>
+              // Shared GST-enabled charges grid (Charge · Type · Value · GST% ·
+              // Amount). % charges are valued on the goods total; each charge's
+              // Amount shown includes its own GST.
+              <ExpenseGrid
+                rows={charges}
+                expenseOptions={expenseOptions}
+                typeOptions={REBATE_EXPENSE_TYPE_OPTIONS}
+                percentBase={goodsTotal}
+                onUpdateRow={(idx, patch) =>
+                  setCharges((rows) =>
+                    rows.map((r, i) => (i === idx ? { ...r, ...patch } : r))
+                  )
+                }
+                onRemoveRow={(idx) =>
+                  setCharges((rows) => rows.filter((_, i) => i !== idx))
+                }
+              />
+            )}
+
+            {/* Totals summary — charges (incl. their GST), goods GST, grand
+                total. Shown whenever there are goods or charges. */}
+            {(goodsTotal > 0 || charges.length > 0) && (
+              <Table
+                borderless
+                size="sm"
+                className="mb-0 mt-1 ms-auto"
+                style={{ maxWidth: 360 }}
+              >
                 <tbody>
-                  {charges.map((c) => (
-                    <tr key={c.key}>
-                      <td>
-                        <Select
-                          classNamePrefix="select"
-                          menuPortalTarget={
-                            typeof document !== "undefined" ? document.body : null
-                          }
-                          styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                          options={expenseOptions}
-                          value={
-                            expenseOptions.find((o) => o.value === c.expense_id) || null
-                          }
-                          onChange={(opt) => onPickExpense(c.key, opt)}
-                          placeholder={t("Select charge")}
-                        />
-                      </td>
-                      <td>
-                        <Select
-                          classNamePrefix="select"
-                          menuPortalTarget={
-                            typeof document !== "undefined" ? document.body : null
-                          }
-                          styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                          options={REBATE_EXPENSE_TYPE_OPTIONS}
-                          value={
-                            REBATE_EXPENSE_TYPE_OPTIONS.find((o) => o.value === c.type) ||
-                            null
-                          }
-                          onChange={(opt) =>
-                            setCharge(c.key, { type: opt ? opt.value : "percent" })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          bsSize="sm"
-                          className="text-end"
-                          value={c.value}
-                          onChange={(e) => setCharge(c.key, { value: e.target.value })}
-                        />
-                      </td>
-                      <td className="text-end fw-semibold">
-                        {chargeAmount(c).toLocaleString()}
-                      </td>
-                      <td className="text-center">
-                        <Trash2
-                          size={16}
-                          className="cursor-pointer text-danger"
-                          onClick={() =>
-                            setCharges((rows) => rows.filter((x) => x.key !== c.key))
-                          }
-                        />
+                  {charges.length > 0 && (
+                    <tr className="fw-bold">
+                      <td className="text-end">{t("Charges Total")}</td>
+                      <td className="text-end" style={{ width: 130 }}>
+                        {chargesTotal.toLocaleString()}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="fw-bold">
-                    <td colSpan={3} className="text-end">
-                      {t("Charges Total")}
-                    </td>
-                    <td className="text-end">{chargesTotal.toLocaleString()}</td>
-                    <td />
-                  </tr>
-                  {/* GST on goods. Split CGST/SGST vs IGST only when BOTH
-                      GSTINs are known — printing CGST/SGST on an inter-state
-                      purchase is a compliance error, so we show one combined
-                      row rather than guess. */}
+                  )}
                   {goodsGst > 0 &&
                     (gstSplitKnown ? (
                       interState ? (
                         <tr>
-                          <td colSpan={3} className="text-end">
-                            {t("Input IGST")}
+                          <td className="text-end">{t("Input IGST")}</td>
+                          <td className="text-end">
+                            {round2(igst).toLocaleString()}
                           </td>
-                          <td className="text-end">{round2(igst).toLocaleString()}</td>
-                          <td />
                         </tr>
                       ) : (
                         <Fragment>
                           <tr>
-                            <td colSpan={3} className="text-end">
-                              {t("Input CGST")}
+                            <td className="text-end">{t("Input CGST")}</td>
+                            <td className="text-end">
+                              {round2(cgst).toLocaleString()}
                             </td>
-                            <td className="text-end">{round2(cgst).toLocaleString()}</td>
-                            <td />
                           </tr>
                           <tr>
-                            <td colSpan={3} className="text-end">
-                              {t("Input SGST")}
+                            <td className="text-end">{t("Input SGST")}</td>
+                            <td className="text-end">
+                              {round2(sgst).toLocaleString()}
                             </td>
-                            <td className="text-end">{round2(sgst).toLocaleString()}</td>
-                            <td />
                           </tr>
                         </Fragment>
                       )
                     ) : (
                       <tr>
-                        <td colSpan={3} className="text-end">
+                        <td className="text-end">
                           {t("GST")}
                           <small className="text-muted ms-50 fw-normal">
                             ({t("CGST/SGST vs IGST needs both GSTINs")})
                           </small>
                         </td>
-                        <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
-                        <td />
+                        <td className="text-end">
+                          {round2(goodsGst).toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   <tr className="table-light fw-bold">
-                    <td colSpan={3} className="text-end">
-                      {t("Grand Total")} (₹)
+                    <td className="text-end">{t("Grand Total")} (₹)</td>
+                    <td className="text-end">
+                      {round2(grandTotal).toLocaleString()}
                     </td>
-                    <td className="text-end">{round2(grandTotal).toLocaleString()}</td>
-                    <td />
                   </tr>
-                </tfoot>
+                </tbody>
               </Table>
             )}
 
