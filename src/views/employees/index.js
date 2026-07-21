@@ -40,6 +40,7 @@ import withReactContent from "sweetalert2-react-content";
 import { Edit, Trash2, PlusCircle, Eye, Download, Upload, LogIn } from "react-feather";
 import { impersonateEmployee } from "@src/views/auth/store";
 import ImportModal from "./components/ImportModal";
+import EmployeeStatsCards from "./EmployeeStatsCards";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
@@ -76,6 +77,10 @@ const EmployeeList = () => {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [locationFilter, setLocationFilter] = useState("");
   const [importModal, setImportModal] = useState(false);
+  // KPI tiles. Fetched alongside the list and narrowed by the same search /
+  // location, but NOT by the status filter — Active and Inactive are two of
+  // the tiles, so filtering the table to ACTIVE must not zero the other one.
+  const [stats, setStats] = useState(null);
 
   const handleExport = async () => {
     try {
@@ -110,7 +115,27 @@ const EmployeeList = () => {
       params.location_id = effectiveLoc;
     }
     dispatch(getEmployeeList(params));
+    fetchStats(search);
   };
+
+  /**
+   * KPI counts for the same filtered set. Deliberately omits `status` and
+   * paging — the backend reuses the listing's own filter builder, so these
+   * always describe the table below (including a Location Admin's scope).
+   */
+  const fetchStats = useCallback(
+    (search = searchInput) => {
+      const params = {};
+      if (search) params.search = search;
+      const effectiveLoc = selectedLocationId || locationFilter || "";
+      if (effectiveLoc) params.location_id = effectiveLoc;
+      instance
+        .get(API_ENDPOINTS.employees.stats, { params })
+        .then((r) => setStats(r?.data?.data || null))
+        .catch(() => setStats(null));
+    },
+    [searchInput, selectedLocationId, locationFilter]
+  );
 
   const handleSort = (column, sortDirection) => {
     setSort(sortDirection);
@@ -156,6 +181,8 @@ const EmployeeList = () => {
       }
       setCurrentPage(1);
       dispatch(getEmployeeList(params));
+      // Same debounce as the list, so typing doesn't fire a stats call per key.
+      fetchStats(searchInput);
     };
 
     if (searchInput) {
@@ -430,6 +457,10 @@ const EmployeeList = () => {
         <div className="d-flex align-items-center justify-content-between mb-2">
           <h3 className="mb-0">{t("Employees")}</h3>
         </div>
+
+        {/* KPI tiles — reflect the listing's active filters (search /
+            location), so they always describe the table below. */}
+        <EmployeeStatsCards stats={stats} />
 
         <Card className="overflow-hidden">
           <CardBody>

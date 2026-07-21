@@ -460,6 +460,7 @@ export const API_ENDPOINTS = {
   },
   employees: {
     list: `/admin/employee/list`,
+    stats: `/admin/employee/stats`, // KPI tiles above the listing
     get: `/admin/employee/get`,
     create: `/admin/employee/create`,
     update: `/admin/employee/update`,
