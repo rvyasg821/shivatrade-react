@@ -207,7 +207,7 @@ const Step1Vendor = ({
 
       <Col md="3" className="mb-2">
         <Label className="form-label">
-          {t("PO Date")} {required}
+          {t("SO Date")} {required}
         </Label>
         <Controller
           name="po_date"

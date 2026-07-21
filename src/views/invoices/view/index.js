@@ -305,16 +305,23 @@ const ViewInvoice = () => {
   // transparent "Round Off" line so Subtotal/FOB still reconcile with the lines.
   const grandDoc = Math.round(rawGrandDoc);
   const roundOffDoc = grandDoc - rawGrandDoc;
-  const balanceDoc = grandDoc - num(inv?.advance_received);
+  // Adjustment Notes applied to THIS invoice. Positive = the receivable was
+  // reduced (a customer Credit note); negative = increased (a Debit note).
+  const adjustmentDoc = num(inv?.adjustment_total);
+  const balanceDoc = grandDoc - num(inv?.advance_received) - adjustmentDoc;
   const grandInr = exchangeRate > 0 ? grandDoc / exchangeRate : grandDoc;
 
   // Payment-status pill for the Payments tab summary cards (mirrors the POV
   // Payments tab). Derived from amounts so it reads right even while draft.
   const paidDoc = num(inv?.advance_received);
+  // Settled = cash received + Adjustment Notes applied to this invoice, so a
+  // credit note that clears the balance reads "Paid" rather than "Unpaid".
+  // Mirrors InvoiceService.applyPaymentDerived.
+  const settledDoc = paidDoc + adjustmentDoc;
   const payPill =
-    grandDoc > 0 && balanceDoc <= 0.01 && paidDoc > 0
+    grandDoc > 0 && balanceDoc <= 0.01 && settledDoc > 0
       ? { label: "Paid", color: "success" }
-      : paidDoc > 0
+      : settledDoc > 0
         ? { label: "Partially Paid", color: "warning" }
         : { label: "Unpaid", color: "secondary" };
 
@@ -1083,6 +1090,21 @@ const ViewInvoice = () => {
                         <span className="text-muted">{t("Advance Received")}</span>
                         <span>{sym}{fmt(inv?.advance_received)}</span>
                       </div>
+                      {/* Adjustment Notes applied to this invoice — shown only
+                          when there are any, so untouched invoices look the
+                          same as before. */}
+                      {Math.abs(adjustmentDoc) > 0.001 && (
+                        <div className="d-flex justify-content-between py-25">
+                          <span className="text-muted">
+                            {t("Adjustment Notes")}
+                          </span>
+                          <span>
+                            {adjustmentDoc > 0 ? "− " : "+ "}
+                            {sym}
+                            {fmt(Math.abs(adjustmentDoc))}
+                          </span>
+                        </div>
+                      )}
                       <div className="d-flex justify-content-between py-25 border-top pt-25">
                         <span className="fw-semibold">{t("Balance Receivable")}</span>
                         <span

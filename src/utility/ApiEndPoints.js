@@ -324,6 +324,8 @@ export const API_ENDPOINTS = {
     list: `/admin/adjustment-notes`,
     create: `/admin/adjustment-notes`,
     void: `/admin/adjustment-notes`, // append /:id/void
+    // Invoices (customer) / Vendor POs (vendor) a note can be applied to.
+    documents: `/admin/adjustment-notes/documents`,
   },
   ledger: {
     register: `/admin/ledger/register`, // notes + vendor payments + receipts

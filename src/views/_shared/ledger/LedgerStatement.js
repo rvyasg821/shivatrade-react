@@ -120,10 +120,10 @@ const LedgerStatement = ({ kind, partyId }) => {
             <div className="text-muted small mt-25">
               {kind === "vendor"
                 ? t(
-                    "Totals cover Vendor POs and payments only — adjustment notes are not included, so they may differ from the Balance below."
+                    "Lifetime totals — the date filter below does not narrow them. Total Paid is net of adjustment notes, so it agrees with the Balance column over the full date range."
                   )
                 : t(
-                    "Totals cover invoices and receipts only — adjustment notes are not included, so they may differ from the Balance below."
+                    "Lifetime totals — the date filter below does not narrow them. Total Received is net of adjustment notes, so it agrees with the Balance column over the full date range."
                   )}
             </div>
           </Col>
@@ -221,8 +221,12 @@ const LedgerStatement = ({ kind, partyId }) => {
       {rows.length > 0 && (
         <div className="text-muted small mt-1">
           {kind === "customer"
-            ? t("Balance is the net amount received from this customer.")
-            : t("Balance is the net amount paid to this vendor.")}
+            ? t(
+                "Balance is the net amount received from this customer — receipts less adjustment notes."
+              )
+            : t(
+                "Balance is the net amount paid to this vendor — payments less adjustment notes."
+              )}
         </div>
       )}
     </Fragment>

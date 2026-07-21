@@ -1,7 +1,7 @@
 // Purchase Order detail page - composes the shared detail-page kit.
 // Layout:
 //   1. Header (avatar P, voucher #, vendor, status, pipeline, actions)
-//   2. KPI strip - Grand Total | PO Date | Expected Delivery | Line Items
+//   2. KPI strip - Grand Total | Order Date | Expected Delivery | Line Items
 //   3. Summary (Buyer + Vendor + delivery/terms + notes)
 //   4. Tabs (Line Items | Coverage | PO Vendors)  |  Snapshot side panel
 

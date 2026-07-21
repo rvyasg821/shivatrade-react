@@ -85,7 +85,7 @@ const PurchaseOrderWizard = () => {
           .string()
           .trim()
           .required(t("Currency is required")),
-        po_date: yup.string().trim().required(t("PO date is required")),
+        po_date: yup.string().trim().required(t("SO date is required")),
         delivery_address: yup.string().nullable(),
         delivery_address_id: yup.string().nullable(),
         expected_delivery_date: yup.string().nullable(),
@@ -217,6 +217,9 @@ const PurchaseOrderWizard = () => {
       // Seed the saved currency so the rate effect preserves the persisted
       // exchange_rate on load and only auto-fills on a later currency change.
       autoFilledForCurrency.current = p.currency_code || null;
+      // The saved currency belongs to the saved customer — mark it so loading
+      // the SO never overwrites it with the customer master's current currency.
+      currencyFromCustomer.current = p.customer_id || null;
       reset({
         ...initPurchaseOrderItem,
         ...p,
@@ -273,6 +276,12 @@ const PurchaseOrderWizard = () => {
     dispatch(getCustomer(watchedCustomer));
   }, [watchedCustomer, dispatch]);
 
+  // Customer whose currency is currently sitting in the form. Lets us tell
+  // "auto-filled / inherited from this customer" apart from "the user typed
+  // something for this customer", so switching customers re-applies while a
+  // deliberate override for the SAME customer survives.
+  const currencyFromCustomer = useRef(null);
+
   useEffect(() => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
@@ -286,11 +295,17 @@ const PurchaseOrderWizard = () => {
       }));
       setCustomerAddressOptions(opts);
 
-      // Default the currency from the customer record when not already set —
-      // mirrors the quotation wizard. Without this, picking a customer filled
-      // the address but left Currency blank.
-      if (cust.currency && !form.getValues("currency_code")) {
-        setValue("currency_code", cust.currency, { shouldDirty: true });
+      // Currency follows the customer — filled on the first pick and
+      // RE-APPLIED when the user switches to a different customer (the
+      // previous customer's currency must not stick). The ref only advances
+      // here and on edit-hydrate, so a manual currency change made for the
+      // current customer is left alone; the rate effect refetches off the
+      // watched currency_code, so the exchange rate follows automatically.
+      if (cust.currency && currencyFromCustomer.current !== cust._id) {
+        currencyFromCustomer.current = cust._id;
+        if (form.getValues("currency_code") !== cust.currency) {
+          setValue("currency_code", cust.currency, { shouldDirty: true });
+        }
       }
 
       // Auto-select the customer's address: prefer a default/primary one, else

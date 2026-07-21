@@ -505,6 +505,9 @@ const QuotationWizard = () => {
       // keeps the persisted exchange_rate on load and only auto-fills when
       // the user later switches to a different currency.
       autoFilledForCurrency.current = q.currency_code || null;
+      // The saved currency belongs to the saved customer — never overwritten
+      // by the customer master's current currency when the quote loads.
+      currencyFromCustomer.current = q.customer_id || null;
       reset({
         ...initQuotationItem,
         ...q,
@@ -541,6 +544,11 @@ const QuotationWizard = () => {
     dispatch(getCustomer(watchedCustomer));
   }, [watchedCustomer, dispatch]);
 
+  // Customer whose currency is currently sitting in the form — see the
+  // Sales Order wizard for the same guard. Distinguishes "inherited from this
+  // customer" from "the user picked this for this customer".
+  const currencyFromCustomer = useRef(null);
+
   useEffect(() => {
     const cust = customerStore?.customerItem;
     if (cust && cust._id === watchedCustomer) {
@@ -565,8 +573,14 @@ const QuotationWizard = () => {
       // The lead's currency only fills if the lead itself carried one; this
       // also covers manually-picked customers and lead-converted customers
       // whose currency was set on the customer, not the lead.
-      if (cust.currency && !watch("currency_code")) {
-        setValue("currency_code", cust.currency);
+      // Re-applied when the customer CHANGES so the previous customer's
+      // currency never sticks; a manual override for the same customer is
+      // preserved (the ref only advances here and on edit-hydrate).
+      if (cust.currency && currencyFromCustomer.current !== cust._id) {
+        currencyFromCustomer.current = cust._id;
+        if (watch("currency_code") !== cust.currency) {
+          setValue("currency_code", cust.currency);
+        }
       }
 
       // Auto-pick an address when none is bound yet — covers the
