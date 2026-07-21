@@ -30,7 +30,11 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Trash2, PlusCircle, Download, Upload } from "react-feather";
+
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 
 // ** Constants
 import {
@@ -56,6 +60,8 @@ const UomList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleUomLists = useCallback(
     (
@@ -155,6 +161,31 @@ const UomList = () => {
       });
   };
 
+  /**
+   * Export every unit — active AND inactive, ignoring the on-screen status
+   * filter, so the file is a full snapshot that can be edited and re-imported
+   * without silently dropping the inactive ones.
+   */
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.uom.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `uom-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export units"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.[uomModuleSlug];
   const canAdd = isAdmin || perms?.can_add;
@@ -193,7 +224,14 @@ const UomList = () => {
       name: t("Decimals"),
       sortable: false,
       selector: (row) => (
-        <Badge color={row?.allow_decimal ? "light-info" : "light-secondary"}>
+        // doc-badge, not color="light-info": the theme renders the light-*
+        // variants with a dark background here, leaving dark text on dark.
+        // The doc-badge classes force white text on a solid colour.
+        <Badge
+          className={`doc-badge ${
+            row?.allow_decimal ? "doc-badge-green" : "doc-badge-gray"
+          }`}
+        >
           {row?.allow_decimal ? t("Allowed") : t("Whole numbers only")}
         </Badge>
       ),
@@ -214,7 +252,11 @@ const UomList = () => {
       name: t("Status"),
       sortable: false,
       selector: (row) => (
-        <Badge color={row?.status === "ACTIVE" ? "light-success" : "light-warning"}>
+        <Badge
+          className={`doc-badge ${
+            row?.status === "ACTIVE" ? "doc-badge-green" : "doc-badge-orange"
+          }`}
+        >
           {row?.status === "ACTIVE" ? t("Active") : t("Inactive")}
         </Badge>
       ),
@@ -285,9 +327,11 @@ const UomList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              {/* 7/5 (was 9/3): the toolbar now carries Export + Import + Add,
+                  and 3 columns forced them to wrap. */}
+              <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-uom"
@@ -297,7 +341,7 @@ const UomList = () => {
                       onChange={(e) => setSearchInput(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Select
                       value={
                         statusFilter
@@ -324,15 +368,36 @@ const UomList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
-                {canAdd && (
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
                   <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/uom/add`)}
+                    color="outline-secondary"
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={handleExport}
+                    disabled={exporting}
                   >
-                    <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {(canAdd || canEdit) && (
+                    <Button
+                      color="outline-secondary"
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={() => setImportModalOpen(true)}
+                    >
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/uom/add`)}
+                    >
+                      <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -353,6 +418,12 @@ const UomList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleUomLists()}
+      />
     </Fragment>
   );
 };
