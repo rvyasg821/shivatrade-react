@@ -243,6 +243,14 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
               const pending = num(l.pending);
               const inStock = num(l.in_stock);
               const fromStock = num(l.from_stock);
+              // Cost variance: the vendor's actual POV rate vs the rate this
+              // SO was costed at. We never rewrite the SO line (it is a
+              // customer-facing document) — the drift is flagged here so a
+              // stale margin is visible. Only meaningful once covered.
+              const costVar =
+                l.cost_variance == null ? null : num(l.cost_variance);
+              const costVarTotal = num(l.cost_variance_total);
+              const hasCostVar = costVar != null && Math.abs(costVar) > 0.001;
               return (
                 <tr key={l.purchase_order_line_id}>
                   <td>
@@ -264,6 +272,36 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
                             : t("{{qty}} from stock", {
                                 qty: fromStock.toLocaleString(),
                               })}
+                        </Badge>
+                      ) : null}
+                      {/* Vendor revised their rate after this SO was costed. */}
+                      {hasCostVar ? (
+                        <Badge
+                          className={`ms-1 align-middle doc-badge ${
+                            costVar > 0 ? "doc-badge-red" : "doc-badge-green"
+                          }`}
+                          title={t(
+                            "Vendor rate is {{vendor}} vs the {{so}} this order was costed at. The Sales Order line is left unchanged — margin on this line is based on the older cost.",
+                            {
+                              vendor: num(l.vendor_unit_price).toLocaleString(),
+                              so: num(l.so_unit_price).toLocaleString(),
+                            }
+                          )}
+                        >
+                          {costVar > 0 ? "▲" : "▼"} {t("Cost")}{" "}
+                          {costVar > 0 ? "+" : "−"}
+                          {Math.abs(costVar).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          {Math.abs(costVarTotal) > 0.001
+                            ? ` (${costVarTotal > 0 ? "+" : "−"}${Math.abs(
+                                costVarTotal
+                              ).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })})`
+                            : ""}
                         </Badge>
                       ) : null}
                     </div>
