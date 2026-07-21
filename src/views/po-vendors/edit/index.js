@@ -1,12 +1,23 @@
-// POV Edit page — draft-only header edit. Reached from the POV detail "Edit"
-// CTA. Covers the fields that are safe to change before the PDF goes to the
-// vendor: Deliver To, Remarks, and the three vendor terms printed on the PDF.
+// POV Edit page — the single place a Vendor PO is edited after creation.
+// Reached from the POV detail "Edit" CTA.
 //
-// Line items, vendor and charges are NOT edited here — they have their own
-// flows. The backend enforces the same draft-only rule (`draftEditable` in
-// po-vendor.service.ts), so this page is a convenience, not the guard.
+// Two sections, with different lifetimes (mirroring the backend allowlists in
+// po-vendor.service.ts — this page is a convenience, not the guard):
+//
+//   Header  (Deliver To, terms, remarks)  — DRAFT ONLY. Once dispatched the
+//           PDF is with the vendor and those printed terms are frozen.
+//   Lines   Rate  — draft AND dispatched (client #3: suppliers revise their
+//                   rates after the PO has gone out), but only until a GRN
+//                   exists, because a receipt bakes the cost into stock.
+//           GST % — draft only, same reason as the header terms.
+//           Qty   — never editable here; it is locked to the SO line and the
+//                   pending/coverage guards are computed from it.
+//
+// The GST *amount* is never stored: `line_total` is qty × price with no tax in
+// it and the PDF derives the tax from `tax_pct` at render time, so writing the
+// rate is all that is needed — nothing downstream can fall out of sync.
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -22,6 +33,7 @@ import {
   Button,
   Spinner,
   Alert,
+  Table,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowLeft, Save } from "react-feather";
@@ -37,6 +49,15 @@ import {
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { appsRoot } from "@constant/defaultValues";
 
+const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
+const round2 = (n) =>
+  !isFinite(n) ? 0 : Math.round((n + Number.EPSILON) * 100) / 100;
+const fmt = (v) =>
+  num(v).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 const EditPoVendor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -48,8 +69,15 @@ const EditPoVendor = () => {
   const co = companyStore?.companyItem;
   const p = store?.poVendorItem || {};
   const backTo = `${appsRoot}/po-vendors/view/${id}`;
-  const isDraft = (p?.status || "").toLowerCase() === "draft";
+  const status = (p?.status || "").toLowerCase();
+  const isDraft = status === "draft";
   const loaded = p?._id === id;
+
+  const povLines = useMemo(() => p?.lines || [], [p]);
+  // `received_qty` already counts every non-cancelled GRN (drafts included).
+  const hasReceipt = povLines.some((l) => num(l?.received_qty) > 1e-6);
+  const canEditRate = (isDraft || status === "dispatched") && !hasReceipt;
+  const canEditGst = isDraft;
 
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [expectedArrival, setExpectedArrival] = useState("");
@@ -57,6 +85,8 @@ const EditPoVendor = () => {
   const [dispatchedThrough, setDispatchedThrough] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [deliveryTerms, setDeliveryTerms] = useState("");
+  const [rateByLine, setRateByLine] = useState({});
+  const [taxByLine, setTaxByLine] = useState({});
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
@@ -82,6 +112,17 @@ const EditPoVendor = () => {
     );
     setPaymentTerms(p.payment_terms || co?.pov_default_payment_terms || "");
     setDeliveryTerms(p.delivery_terms || co?.pov_default_delivery_terms || "");
+    // Keyed by the POV line's OWN `_id`, never `purchase_order_line_id` — that
+    // column is NULL on a standalone POV, which would collapse every row onto
+    // one key and make editing one line edit them all.
+    const rates = {};
+    const taxes = {};
+    for (const l of p.lines || []) {
+      rates[l._id] = String(num(l.unit_price));
+      taxes[l._id] = String(num(l.tax_pct));
+    }
+    setRateByLine(rates);
+    setTaxByLine(taxes);
     setSeeded(true);
   }, [loaded, seeded, p, co]);
 
@@ -112,30 +153,87 @@ const EditPoVendor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.success, store?.error]);
 
+  // ── Line maths (mirrors the backend: line_total is qty × rate, tax-free) ──
+  const lineRate = (l) => num(rateByLine[l._id]);
+  const lineTotal = (l) => round2(num(l.ordered_qty) * lineRate(l));
+  const lineGst = (l) => round2((lineTotal(l) * num(taxByLine[l._id])) / 100);
+
+  const totals = useMemo(() => {
+    let goods = 0;
+    let gst = 0;
+    let wasGoods = 0;
+    for (const l of povLines) {
+      goods += lineTotal(l);
+      gst += lineGst(l);
+      wasGoods += round2(num(l.ordered_qty) * num(l.unit_price));
+    }
+    return {
+      goods: round2(goods),
+      gst: round2(gst),
+      // Goods + GST. Vendor charges are NOT in here — they are added on the
+      // detail page, so this is the goods total, not the POV grand total.
+      grand: round2(goods + gst),
+      wasGoods: round2(wasGoods),
+      delta: round2(goods - wasGoods),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [povLines, rateByLine, taxByLine]);
+
+  const setRate = (lineId, v) => {
+    if (v === "") return setRateByLine((s) => ({ ...s, [lineId]: "" }));
+    setRateByLine((s) => ({ ...s, [lineId]: String(Math.max(0, num(v))) }));
+  };
+  const setTax = (lineId, v) => {
+    // Clamp at the edges: negative would cut the payable and >100 is not a GST
+    // rate. The backend rejects both, but stop it at the input.
+    if (v === "") return setTaxByLine((s) => ({ ...s, [lineId]: "" }));
+    setTaxByLine((s) => ({
+      ...s,
+      [lineId]: String(Math.min(100, Math.max(0, num(v)))),
+    }));
+  };
+
   const onSave = async () => {
     if (saving) return;
-    if (!deliveryAddressId) {
-      Notification("Validation", t("Pick a delivery address."), "warning");
+    const data = {};
+
+    // Header fields are draft-only server-side — sending them on a dispatched
+    // POV is a hard 400, so they only go in the payload while it is a draft.
+    if (isDraft) {
+      if (!deliveryAddressId) {
+        Notification("Validation", t("Pick a delivery address."), "warning");
+        return;
+      }
+      data.delivery_address_id = deliveryAddressId;
+      // Omitted when blank — the DTO validates it as a date string, so ""
+      // would 400. A set date can be changed but not cleared here.
+      data.expected_arrival_date = expectedArrival || undefined;
+      // Sent as "" (not undefined) so a cleared field is persisted.
+      data.notes = notes?.trim() || "";
+      data.dispatched_through = dispatchedThrough?.trim() || "";
+      data.payment_terms = paymentTerms?.trim() || "";
+      data.delivery_terms = deliveryTerms?.trim() || "";
+    }
+
+    // `line_edits` patches in place by POV line id — unlike `lines` it never
+    // deletes/recreates rows and needs no purchase_order_line_id, so it works
+    // on a standalone POV too. Only send what this status allows.
+    if (povLines.length && (canEditRate || canEditGst)) {
+      data.line_edits = povLines.map((l) => ({
+        _id: l._id,
+        ...(canEditGst ? { tax_pct: String(num(taxByLine[l._id])) } : {}),
+        ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
+      }));
+    }
+
+    if (!Object.keys(data).length) {
+      Notification("Info", t("Nothing can be edited at this status."), "info");
       return;
     }
+
     setSaving(true);
     try {
-      await dispatch(
-        updatePoVendor({
-          id,
-          data: {
-            delivery_address_id: deliveryAddressId,
-            // Omitted when blank — the DTO validates it as a date string, so
-            // "" would 400. A set date can be changed but not cleared here.
-            expected_arrival_date: expectedArrival || undefined,
-            // Sent as "" (not undefined) so a cleared field is persisted.
-            notes: notes?.trim() || "",
-            dispatched_through: dispatchedThrough?.trim() || "",
-            payment_terms: paymentTerms?.trim() || "",
-            delivery_terms: deliveryTerms?.trim() || "",
-          },
-        })
-      ).unwrap();
+      await dispatch(updatePoVendor({ id, data })).unwrap();
       navigate(backTo);
     } catch (_err) {
       // The store's error toast already fired.
@@ -152,6 +250,8 @@ const EditPoVendor = () => {
     );
   }
 
+  const canSave = isDraft || canEditRate;
+
   return (
     <Fragment>
       <Card>
@@ -165,16 +265,192 @@ const EditPoVendor = () => {
           </Button>
         </CardHeader>
         <CardBody>
+          {/* What is editable right now, and why. */}
           {!isDraft && (
-            <Alert color="warning" className="p-1 d-flex align-items-center">
+            <Alert
+              color={canEditRate ? "info" : "warning"}
+              className="p-1 d-flex align-items-center"
+            >
               <AlertTriangle size={16} className="me-1" />
               <span>
-                {t(
-                  "This Vendor PO is no longer a draft — its header can't be edited."
-                )}
+                {canEditRate
+                  ? t(
+                      "This Vendor PO is already with the vendor. The header and GST are frozen — only the vendor's rate can be revised. Re-send the PDF after saving."
+                    )
+                  : hasReceipt
+                    ? t(
+                        "This Vendor PO already has a goods receipt, so nothing can be edited. Raise a Debit Note for any price difference."
+                      )
+                    : t(
+                        "This Vendor PO is no longer a draft — its header can't be edited."
+                      )}
               </span>
             </Alert>
           )}
+
+          {/* ── Line items — first section: the vendor's rate is the reason
+              this page is opened after dispatch (client #3). ── */}
+          <div className="d-flex align-items-center justify-content-between mb-1">
+            <h5 className="mb-0">{t("Line Items")}</h5>
+            <small className="text-muted">
+              {canEditGst
+                ? t(
+                    "Rate and GST are editable. Quantity is locked to the Sales Order line."
+                  )
+                : canEditRate
+                  ? t("Only the rate is editable at this status.")
+                  : t("Read-only at this status.")}
+            </small>
+          </div>
+
+          {!povLines.length ? (
+            <div className="alert alert-warning small mb-0">
+              <AlertTriangle size={14} className="me-1" />
+              {t("This Vendor PO has no lines.")}
+            </div>
+          ) : (
+            <Fragment>
+              <div className="border rounded">
+                <Table responsive bordered size="sm" className="align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ width: 34 }}>#</th>
+                      <th>{t("Product")}</th>
+                      <th style={{ width: 70 }}>{t("Unit")}</th>
+                      <th style={{ width: 90 }} className="text-end">
+                        {t("Qty")}
+                      </th>
+                      {/* Ordered as the calculation reads, left to right:
+                          Rate ×qty → Taxable ×% → GST Value + → Total. */}
+                      <th style={{ width: 130 }} className="text-end">
+                        {t("Rate")} (₹)
+                      </th>
+                      <th style={{ width: 130 }} className="text-end">
+                        {t("Taxable")} (₹)
+                      </th>
+                      <th style={{ width: 95 }} className="text-end">
+                        {t("GST")} %
+                      </th>
+                      <th style={{ width: 130 }} className="text-end">
+                        {t("GST Value")} (₹)
+                      </th>
+                      <th style={{ width: 140 }} className="text-end">
+                        {t("Total")} (₹)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {povLines.map((l, idx) => {
+                      const changed =
+                        Math.abs(lineRate(l) - num(l.unit_price)) > 0.001;
+                      return (
+                        <tr key={l._id}>
+                          <td>{idx + 1}</td>
+                          <td>
+                            <div className="fw-semibold">
+                              {l?.product_name || "-"}
+                            </div>
+                            {l?.product_code && (
+                              <small className="text-muted">
+                                {l.product_code}
+                              </small>
+                            )}
+                          </td>
+                          <td>{l?.unit || "-"}</td>
+                          <td className="text-end text-muted">
+                            {num(l.ordered_qty).toLocaleString()}
+                          </td>
+                          <td>
+                            {canEditRate ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                value={rateByLine[l._id] ?? ""}
+                                onChange={(e) => setRate(l._id, e.target.value)}
+                              />
+                            ) : (
+                              <div className="text-end text-muted">
+                                {fmt(l.unit_price)}
+                              </div>
+                            )}
+                            {/* Show what it was, so a typo is obvious. */}
+                            {changed && (
+                              <small className="text-muted d-block text-end mt-25">
+                                {t("was")} {fmt(l.unit_price)}
+                              </small>
+                            )}
+                          </td>
+                          <td className="text-end">₹{fmt(lineTotal(l))}</td>
+                          <td>
+                            {canEditGst ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                value={taxByLine[l._id] ?? ""}
+                                onChange={(e) => setTax(l._id, e.target.value)}
+                              />
+                            ) : (
+                              <div className="text-end text-muted">
+                                {fmt(l.tax_pct)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-end">₹{fmt(lineGst(l))}</td>
+                          <td className="text-end fw-semibold">
+                            ₹{fmt(round2(lineTotal(l) + lineGst(l)))}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    {/* "Goods" not "POV total": vendor charges are added on
+                        the detail page, so this must not read as the POV's
+                        grand total. */}
+                    <tr className="table-light fw-bold">
+                      <td colSpan="5" className="text-end">
+                        {t("Goods Totals")}
+                      </td>
+                      <td className="text-end">₹{fmt(totals.goods)}</td>
+                      <td />
+                      <td className="text-end">₹{fmt(totals.gst)}</td>
+                      <td className="text-end">₹{fmt(totals.grand)}</td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              </div>
+
+              {/* Net effect of the rate changes, before saving. */}
+              {Math.abs(totals.delta) > 0.001 && (
+                <div className="alert alert-primary py-50 px-1 mt-1 mb-0 small">
+                  {t("Goods total changes from")}{" "}
+                  <strong>₹{fmt(totals.wasGoods)}</strong> →{" "}
+                  <strong>₹{fmt(totals.goods)}</strong> (
+                  {totals.delta > 0 ? "+" : "−"}₹{fmt(Math.abs(totals.delta))}).{" "}
+                  {t(
+                    "Percentage vendor charges and the balance payable are recalculated on save."
+                  )}
+                </div>
+              )}
+              <div className="small text-muted mt-1">
+                {t(
+                  "CGST/SGST vs IGST is decided from your GSTIN and the vendor's when the PDF is generated."
+                )}
+              </div>
+            </Fragment>
+          )}
+
+          {/* ── Header / vendor terms — draft-only (the PDF is with the
+              vendor once dispatched, so its printed terms are frozen). ── */}
+          <hr className="my-2" />
+          <h5 className="mb-1">{t("Delivery & Terms")}</h5>
 
           <Row>
             <Col md="6" className="mb-1">
@@ -259,11 +535,7 @@ const EditPoVendor = () => {
           <Button color="secondary" outline onClick={() => navigate(backTo)}>
             {t("Cancel")}
           </Button>
-          <Button
-            color="primary"
-            disabled={saving || !isDraft}
-            onClick={onSave}
-          >
+          <Button color="primary" disabled={saving || !canSave} onClick={onSave}>
             <Save size={14} className="me-25" />{" "}
             {saving ? t("Saving…") : t("Save")}
           </Button>
