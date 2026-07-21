@@ -36,6 +36,7 @@ import {
   UncontrolledTooltip,
   Label,
   Badge,
+  Button,
 } from "reactstrap";
 import Select from "react-select";
 
@@ -48,7 +49,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 import { useTranslation } from "react-i18next";
 
-import { Activity } from "react-feather";
+import { Activity, Download } from "react-feather";
 
 import { defaultPerPageRow } from "@constant/defaultValues";
 
@@ -122,6 +123,7 @@ const InventoryView = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleList = useCallback(
     (
@@ -161,6 +163,44 @@ const InventoryView = () => {
       dispatch,
     ]
   );
+
+  /**
+   * Closing-inventory Excel. Sends the SAME filters the table is showing but
+   * no paging — the backend returns every matching row, because an export that
+   * quietly stopped at page 1 is worse than none for reconciliation.
+   */
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const params = { search: searchInput || undefined };
+      if (categoryFilter) params.category_id = categoryFilter;
+      if (vendorFilter) params.vendor_id = vendorFilter;
+      if (selectedLocationId) params.location_id = selectedLocationId;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (inStockOnly) params.in_stock_only = true;
+
+      const resp = await instance.get(API_ENDPOINTS.inventory.export, {
+        params,
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `closing-inventory_${
+        dateTo || new Date().toISOString().slice(0, 10)
+      }.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (_err) {
+      Notification("Error", t("Failed to export the inventory"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // KPI cards reflect the filtered set (no page/perPage/sort) — re-fetched
   // alongside the list whenever a filter changes.
@@ -357,6 +397,23 @@ const InventoryView = () => {
       ),
     },
     {
+      // Closing Qty × Avg Rate — the PERIOD-END valuation. Distinct from
+      // "Stock Value" further right, which values TODAY's on-hand; with a
+      // "Received To" date set the two legitimately differ, and this is the
+      // one that reconciles to the books.
+      name: t("Closing Value"),
+      center: true,
+      minWidth: "140px",
+      // fmtMoney, not fmtRate: this is a money column, so a zero closing
+      // balance must read ₹0.00 like Stock Value does — fmtRate renders 0 as
+      // "-", which made the two columns disagree on the same fact.
+      selector: (row) => (
+        <span className="text-nowrap fw-semibold">
+          {fmtMoney(row?.closing_value)}
+        </span>
+      ),
+    },
+    {
       name: t("Qty in Stock"),
       center: true,
       minWidth: "150px",
@@ -542,7 +599,7 @@ const InventoryView = () => {
                   <Col
                     xs="12"
                     md="auto"
-                    className="mb-2 mb-md-0 d-flex align-items-center"
+                    className="mb-2 mb-md-0 d-flex align-items-center gap-2"
                   >
                     <div className="form-check form-switch mb-0">
                       <Input
@@ -558,6 +615,20 @@ const InventoryView = () => {
                         {t("In stock only")}
                       </Label>
                     </div>
+                    {/* Closing-inventory Excel for the CURRENT filters, all
+                        rows (not just this page) — reconciliation needs the
+                        whole set. */}
+                    <Button
+                      color="success"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={handleExport}
+                      disabled={exporting}
+                    >
+                      <Download size={14} className="me-50" />
+                      {exporting ? t("Exporting…") : t("Export")}
+                    </Button>
                   </Col>
                 </Row>
               </Col>
