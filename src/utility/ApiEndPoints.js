@@ -121,6 +121,9 @@ export const API_ENDPOINTS = {
     update: `/admin/uom/update`,
     delete: `/admin/uom/delete`,
     dropdown: `/admin/uom/dropdown`,
+    import: `/admin/uom/import`,
+    export: `/admin/uom/export`,
+    sampleExcel: `/admin/uom/sample-excel`,
   },
   // Geo masters: country → state → city.
   countries: {
