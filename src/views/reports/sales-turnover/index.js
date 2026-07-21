@@ -147,6 +147,10 @@ const SalesTurnover = () => {
   const [currency, setCurrency] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [byCustomer, setByCustomer] = useState(false);
+  // Off = native (a section per currency, no cross-currency total).
+  // On  = every invoice converted to ₹ at ITS OWN stored rate and merged into
+  // one section, so the report finally has a single meaningful grand total.
+  const [inInr, setInInr] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [customerOptions, setCustomerOptions] = useState([]);
 
@@ -157,10 +161,11 @@ const SalesTurnover = () => {
       date_to: dateTo || undefined,
       customer_id: customer?.value || undefined,
       currency: currency?.value || undefined,
+      currency_mode: inInr ? "inr" : undefined,
       payment_status: paymentStatus?.value || undefined,
       ...extra,
     }),
-    [byCustomer, dateFrom, dateTo, customer, currency, paymentStatus]
+    [byCustomer, dateFrom, dateTo, customer, currency, paymentStatus, inInr]
   );
 
   const load = useCallback(() => {
@@ -186,7 +191,7 @@ const SalesTurnover = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo, customer, currency, paymentStatus, byCustomer]);
+  }, [dateFrom, dateTo, customer, currency, paymentStatus, byCustomer, inInr]);
 
   useEffect(() => {
     if (store?.error) {
@@ -249,19 +254,28 @@ const SalesTurnover = () => {
           </div>
         </div>
 
-        {/* Money can't cross currencies, so the tiles are counts only — the
-            money totals live per-currency in the sections below. */}
+        {/* Native mode: money can't cross currencies, so the tiles are counts
+            only. INR mode: everything is on one basis, so the turnover total
+            IS meaningful and becomes the headline. */}
         <Row className="mb-1">
           <StatTile
             label={t("Invoices")}
             value={store?.overall_invoice_count ?? 0}
             hint={t("across all currencies")}
           />
-          <StatTile
-            label={t("Currencies")}
-            value={groups.length}
-            hint={t("value totals shown per currency below")}
-          />
+          {inInr ? (
+            <StatTile
+              label={t("Total Sales Turnover")}
+              value={money(groups[0]?.totals?.sales_value, "₹")}
+              hint={t("all currencies, at each invoice's own rate")}
+            />
+          ) : (
+            <StatTile
+              label={t("Currencies")}
+              value={groups.length}
+              hint={t("value totals shown per currency below")}
+            />
+          )}
         </Row>
 
         <Card className="overflow-hidden">
@@ -321,20 +335,50 @@ const SalesTurnover = () => {
                   classNamePrefix="select"
                 />
               </Col>
-              <Col sm="12" md="3" className="mb-1 d-flex align-items-end">
-                <div className="form-check form-switch mb-1">
-                  <Input
-                    type="switch"
-                    id="st-group-by-customer"
-                    checked={byCustomer}
-                    onChange={(e) => setByCustomer(e.target.checked)}
-                  />
-                  <Label for="st-group-by-customer" className="form-check-label">
-                    {t("Group by customer")}
-                  </Label>
+              {/* The five selects above already fill the 12-col row, so the
+                  switches get their own row — side by side, not stacked, so
+                  they read as one toolbar rather than a ragged column. */}
+              <Col xs="12">
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  <div className="form-check form-switch mb-0">
+                    <Input
+                      type="switch"
+                      id="st-group-by-customer"
+                      checked={byCustomer}
+                      onChange={(e) => setByCustomer(e.target.checked)}
+                    />
+                    <Label
+                      for="st-group-by-customer"
+                      className="form-check-label"
+                    >
+                      {t("Group by customer")}
+                    </Label>
+                  </div>
+                  {/* Native ⇄ INR. Converting at each invoice's own stored rate
+                      is what makes a single grand total legitimate. */}
+                  <div className="form-check form-switch mb-0">
+                    <Input
+                      type="switch"
+                      id="st-in-inr"
+                      checked={inInr}
+                      onChange={(e) => setInInr(e.target.checked)}
+                    />
+                    <Label for="st-in-inr" className="form-check-label">
+                      {t("Show all in INR")}
+                    </Label>
+                  </div>
                 </div>
               </Col>
             </Row>
+
+            {/* Never let a converted total pass as a native one. */}
+            {inInr && (
+              <div className="alert alert-primary py-50 px-1 mt-1 mb-0 small">
+                {t(
+                  "All currencies converted to INR at each invoice's own exchange rate (the rate on the invoice, not today's), so the total below is the overall sales turnover in ₹."
+                )}
+              </div>
+            )}
 
             <Row className="mt-1">
               <Col md="12">
