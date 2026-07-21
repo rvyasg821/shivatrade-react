@@ -9,11 +9,21 @@ import {
   Card,
   CardBody,
   Label,
+  Input,
   Button,
   Table,
   Spinner,
+  Offcanvas,
+  OffcanvasHeader,
+  OffcanvasBody,
+  Badge,
 } from "reactstrap";
-import { Download, AlertTriangle } from "react-feather";
+import {
+  Download,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+} from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
@@ -38,6 +48,76 @@ const inrCompact = (v) => {
   if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)} L`;
   return `${sign}₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 };
+
+// ── Drill-down pagination ───────────────────────────────────────────────
+// Client-side: the drawer already holds the whole month, so paging is a
+// display concern — no refetch. The "x–y of N" count doubles as "how many
+// documents make up this month", which is the question being answered.
+const PAGE_SIZES = [10, 25, 50, 100];
+
+const pageSlice = (arr, page, size) => {
+  const total = (arr || []).length;
+  const pageCount = Math.max(1, Math.ceil(total / size));
+  const safe = Math.min(Math.max(0, page), pageCount - 1);
+  return {
+    total,
+    pageCount,
+    safe,
+    rows: (arr || []).slice(safe * size, safe * size + size),
+    from: total === 0 ? 0 : safe * size + 1,
+    to: Math.min(total, (safe + 1) * size),
+  };
+};
+
+const Pager = ({ meta, size, onSize, onPage, label }) => (
+  <div className="d-flex flex-wrap align-items-center justify-content-between gap-1 mt-50 small">
+    <div className="d-flex align-items-center gap-1">
+      <span className="text-muted">{label}</span>
+      <Input
+        type="select"
+        bsSize="sm"
+        style={{ width: 80 }}
+        value={size}
+        onChange={(e) => {
+          onSize(Number(e.target.value));
+          onPage(0);
+        }}
+      >
+        {PAGE_SIZES.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </Input>
+      <span className="text-muted">
+        {meta.from}–{meta.to} of {meta.total}
+      </span>
+    </div>
+    <div className="d-flex align-items-center gap-1">
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        disabled={meta.safe <= 0}
+        onClick={() => onPage(meta.safe - 1)}
+      >
+        <ChevronLeft size={14} />
+      </Button>
+      <span className="text-muted">
+        {meta.safe + 1} / {meta.pageCount}
+      </span>
+      <Button
+        color="secondary"
+        outline
+        size="sm"
+        disabled={meta.safe >= meta.pageCount - 1}
+        onClick={() => onPage(meta.safe + 1)}
+      >
+        <ChevronRight size={14} />
+      </Button>
+    </div>
+  </div>
+);
 
 const StatTile = ({ label, value, hint, valueClass = "" }) => (
   <Col md="3" sm="6" className="mb-1">
@@ -113,11 +193,50 @@ const GstBalance = () => {
     }
   };
 
+  // ── Month drill-down ──
+  // The client's actual question ("where does the purchase amount come from?")
+  // is answered document-by-document, not by prose.
+  const [breakdown, setBreakdown] = useState(null);
+  const [breakdownMonth, setBreakdownMonth] = useState(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  // Paging is per-table; both reset whenever a new month is opened.
+  const [purchasePage, setPurchasePage] = useState(0);
+  const [purchaseSize, setPurchaseSize] = useState(10);
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesSize, setSalesSize] = useState(10);
+
+  const purchaseMeta = pageSlice(
+    breakdown?.purchases,
+    purchasePage,
+    purchaseSize
+  );
+  const salesMeta = pageSlice(breakdown?.sales, salesPage, salesSize);
+
+  const openBreakdown = async (month) => {
+    setBreakdownMonth(month);
+    setBreakdown(null);
+    setPurchasePage(0);
+    setSalesPage(0);
+    setBreakdownLoading(true);
+    try {
+      const resp = await instance.get(API_ENDPOINTS.reports.gstBalanceBreakdown, {
+        params: { month },
+      });
+      setBreakdown(resp?.data?.data || null);
+    } catch (e) {
+      Notification("Error", t("Could not load the breakdown"), "warning");
+      setBreakdownMonth(null);
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
+
   const rows = store?.rows || [];
   const totals = store?.totals || {};
   // Noise on clean data — only surface the column when something landed there.
   const showUnclassified = Number(totals.input_unclassified_inr || 0) > 0;
-  const colCount = showUnclassified ? 8 : 7;
+  // +2 for the two taxable-base columns added alongside the tax columns.
+  const colCount = showUnclassified ? 10 : 9;
 
   return (
     <Fragment>
@@ -209,7 +328,26 @@ const GstBalance = () => {
                     <thead className="table-light">
                       <tr>
                         <th style={{ width: 110 }}>{t("Month")}</th>
+                        {/* The taxable bases sit immediately left of the tax
+                            they produced, so the derivation reads off the row
+                            instead of having to be explained. */}
+                        <th
+                          className="text-end"
+                          title={t(
+                            "Invoice-line taxable amount on igst_paid invoices (excludes draft/cancelled)."
+                          )}
+                        >
+                          {t("Sales Taxable (₹)")}
+                        </th>
                         <th className="text-end">{t("Output IGST (₹)")}</th>
+                        <th
+                          className="text-end"
+                          title={t(
+                            "Vendor PO goods + charges, excluding GST. Status dispatched/closed, dated by dispatch date."
+                          )}
+                        >
+                          {t("Purchase Taxable (₹)")}
+                        </th>
                         <th className="text-end">{t("Input IGST (₹)")}</th>
                         <th className="text-end">{t("Input CGST (₹)")}</th>
                         <th className="text-end">{t("Input SGST (₹)")}</th>
@@ -239,8 +377,29 @@ const GstBalance = () => {
                       ) : (
                         rows.map((r) => (
                           <tr key={r.month}>
-                            <td className="text-nowrap">{r.month_label}</td>
+                            <td className="text-nowrap">
+                              {/* Click a month to see the exact documents
+                                  behind its figures. */}
+                              {/* Explicit link styling: the theme renders
+                                  .btn-link in body colour, so a bare
+                                  color="link" button read as plain text and
+                                  nobody found the drill-down. */}
+                              <Button
+                                color="link"
+                                className="p-0 align-baseline text-primary text-decoration-underline"
+                                title={t("See the documents behind this month")}
+                                onClick={() => openBreakdown(r.month)}
+                              >
+                                {r.month_label}
+                              </Button>
+                            </td>
+                            <td className="text-end">
+                              {inr(r.output_taxable_inr)}
+                            </td>
                             <td className="text-end">{inr(r.output_igst_inr)}</td>
+                            <td className="text-end">
+                              {inr(r.input_taxable_inr)}
+                            </td>
                             <td className="text-end">{inr(r.input_igst_inr)}</td>
                             <td className="text-end">{inr(r.input_cgst_inr)}</td>
                             <td className="text-end">{inr(r.input_sgst_inr)}</td>
@@ -266,7 +425,13 @@ const GstBalance = () => {
                         <tr className="fw-bolder">
                           <td>{t("TOTAL")}</td>
                           <td className="text-end">
+                            {inr(totals.output_taxable_inr)}
+                          </td>
+                          <td className="text-end">
                             {inr(totals.output_igst_inr)}
+                          </td>
+                          <td className="text-end">
+                            {inr(totals.input_taxable_inr)}
                           </td>
                           <td className="text-end">{inr(totals.input_igst_inr)}</td>
                           <td className="text-end">{inr(totals.input_cgst_inr)}</td>
@@ -296,11 +461,191 @@ const GstBalance = () => {
                     )}
                   </div>
                 ) : null}
+
+                {/* Where every number comes from, stated on the report itself
+                    — the client could not tell what the purchase amount was
+                    derived from. Click any month for the document list. */}
+                {rows.length > 0 ? (
+                  <div className="border rounded p-1 mt-1 small text-muted">
+                    <div className="fw-semibold text-dark mb-25">
+                      {t("How these values are derived")}
+                    </div>
+                    <div>
+                      <strong>{t("Purchase Taxable + Input GST")}</strong>{" "}
+                      {t(
+                        "— from Vendor POs (goods + vendor charges, excluding GST). Only status Dispatched or Closed; drafts and cancelled are excluded. Dated by dispatch date, or the created date when a POV was never dispatch-dated. IGST vs CGST/SGST is decided by the vendor's state against your company's."
+                      )}
+                    </div>
+                    <div className="mt-25">
+                      <strong>{t("Sales Taxable + Output IGST")}</strong>{" "}
+                      {t(
+                        "— from invoice lines on invoices whose GST route is 'IGST paid'. Drafts and cancelled are excluded. Dated by invoice date."
+                      )}
+                    </div>
+                    <div className="mt-25">
+                      {t(
+                        "Click any month to see the exact Vendor POs and invoices behind its figures."
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </Col>
             </Row>
           </CardBody>
         </Card>
       </div>
+
+      {/* Month drill-down — the documents each figure is made of. Right-side
+          drawer (the app's pattern for read-only detail), widened because the
+          purchase table carries 8 columns. */}
+      <Offcanvas
+        direction="end"
+        isOpen={!!breakdownMonth}
+        toggle={() => setBreakdownMonth(null)}
+        style={{ width: "min(1100px, 95vw)" }}
+      >
+        <OffcanvasHeader toggle={() => setBreakdownMonth(null)}>
+          {t("Where these figures come from")}
+          {breakdown?.month_label ? ` · ${breakdown.month_label}` : ""}
+        </OffcanvasHeader>
+        <OffcanvasBody>
+          {breakdownLoading ? (
+            <div className="text-center py-3">
+              <Spinner size="sm" /> {t("Loading…")}
+            </div>
+          ) : (
+            <Fragment>
+              <h6 className="mb-1">
+                {t("Purchases — Vendor POs behind the Input GST")}
+              </h6>
+              <div className="table-responsive mb-2">
+                <Table bordered size="sm" className="align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>{t("Vendor PO")}</th>
+                      <th>{t("Vendor")}</th>
+                      <th>{t("State")}</th>
+                      <th>{t("Status")}</th>
+                      <th>{t("Date")}</th>
+                      <th className="text-end">{t("Taxable (₹)")}</th>
+                      <th className="text-end">{t("GST (₹)")}</th>
+                      <th>{t("Split")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseMeta.total === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="text-center text-muted py-2">
+                          {t("No vendor POs in this month")}
+                        </td>
+                      </tr>
+                    ) : (
+                      purchaseMeta.rows.map((p) => (
+                        <tr key={p.po_vendor_id}>
+                          <td className="text-nowrap">{p.voucher_no}</td>
+                          <td>{p.vendor_name}</td>
+                          <td className="text-nowrap">
+                            {p.vendor_state || (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="text-capitalize">{p.status}</td>
+                          <td className="text-nowrap">{p.date}</td>
+                          <td className="text-end">{inr(p.taxable_inr)}</td>
+                          <td className="text-end">{inr(p.gst_inr)}</td>
+                          <td>
+                            <Badge
+                              className={`doc-badge ${
+                                p.gst_split === "unclassified"
+                                  ? "doc-badge-orange"
+                                  : p.gst_split === "none"
+                                    ? "doc-badge-gray"
+                                    : "doc-badge-green"
+                              }`}
+                            >
+                              {p.gst_split === "cgst_sgst"
+                                ? "CGST/SGST"
+                                : p.gst_split === "igst"
+                                  ? "IGST"
+                                  : p.gst_split === "none"
+                                    ? t("No GST")
+                                    : t("Unclassified")}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+              <Pager
+                meta={purchaseMeta}
+                size={purchaseSize}
+                onSize={setPurchaseSize}
+                onPage={setPurchasePage}
+                label={t("Vendor POs")}
+              />
+
+              <h6 className="mb-1 mt-2">
+                {t("Sales — invoices behind the Output IGST")}
+              </h6>
+              <div className="table-responsive">
+                <Table bordered size="sm" className="align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>{t("Invoice")}</th>
+                      <th>{t("Customer")}</th>
+                      <th>{t("Status")}</th>
+                      <th>{t("Date")}</th>
+                      <th>{t("GST Route")}</th>
+                      <th className="text-end">{t("Taxable (₹)")}</th>
+                      <th className="text-end">{t("Output IGST (₹)")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesMeta.total === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="text-center text-muted py-2">
+                          {t("No invoices in this month")}
+                        </td>
+                      </tr>
+                    ) : (
+                      salesMeta.rows.map((s) => (
+                        <tr key={s.invoice_id}>
+                          <td className="text-nowrap">{s.voucher_no}</td>
+                          <td>{s.customer_name}</td>
+                          <td className="text-capitalize">
+                            {String(s.status).replace(/_/g, " ")}
+                          </td>
+                          <td className="text-nowrap">{s.invoice_date}</td>
+                          <td className="text-uppercase">
+                            {String(s.gst_route || "").replace(/_/g, " ")}
+                          </td>
+                          <td className="text-end">{inr(s.taxable_inr)}</td>
+                          <td className="text-end">{inr(s.igst_inr)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+              <Pager
+                meta={salesMeta}
+                size={salesSize}
+                onSize={setSalesSize}
+                onPage={setSalesPage}
+                label={t("Invoices")}
+              />
+
+              <div className="text-muted small mt-2">
+                {t(
+                  "Taxable excludes GST. A Vendor PO's taxable value is its goods plus vendor charges; only Dispatched and Closed POVs are counted, dated by dispatch date."
+                )}
+              </div>
+            </Fragment>
+          )}
+        </OffcanvasBody>
+      </Offcanvas>
     </Fragment>
   );
 };
