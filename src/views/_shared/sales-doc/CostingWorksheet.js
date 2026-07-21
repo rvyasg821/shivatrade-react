@@ -677,6 +677,14 @@ const CostingWorksheet = ({
               initLineItem={emptyLine()}
               currencyCode={docCurrencyCode}
               exchangeRate={exchangeRate}
+              // Shipment freight round-trip: exported (and re-imported) with
+              // the lines so the sheet's Freight / CNF columns match this
+              // worksheet. The per-line split is always re-derived by qty,
+              // so only the column's SUM is honoured on import.
+              freightTotal={freightTotal}
+              onFreightImported={(v) =>
+                setValue("freight_total", String(v), { shouldDirty: true })
+              }
             />
             <Button color="outline-primary" size="sm" onClick={addRow}>
               <Plus size={14} className="me-25" /> {t("Add Product")}

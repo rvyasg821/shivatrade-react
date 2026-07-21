@@ -110,6 +110,9 @@ const PaymentsTab = ({ registerActions }) => {
 
   const orderValue = num(p?.order_value);
   const paidToDate = num(p?.amount_paid);
+  // Net effect of Adjustment Notes applied to this POV — positive means the
+  // payable was reduced (a vendor Debit note).
+  const adjustmentTotal = num(p?.adjustment_total);
   const balance = num(p?.balance_payable);
   const payments = useMemo(
     () => (Array.isArray(p?.payments) ? p.payments : []),
@@ -290,6 +293,16 @@ const PaymentsTab = ({ registerActions }) => {
               {sym}
               {fmt(paidToDate)}
             </div>
+            {/* Adjustment Notes applied to THIS POV settle it alongside cash —
+                surfaced here so the Balance Payable below adds up on screen.
+                Hidden when there are none. */}
+            {Math.abs(adjustmentTotal) > 0.001 && (
+              <div className="text-muted small mt-25">
+                {t("Adjustments")}: {adjustmentTotal > 0 ? "− " : "+ "}
+                {sym}
+                {fmt(Math.abs(adjustmentTotal))}
+              </div>
+            )}
           </div>
         </Col>
         <Col md="3" sm="6">

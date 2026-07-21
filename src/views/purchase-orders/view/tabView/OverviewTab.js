@@ -149,7 +149,7 @@ const OverviewTab = () => {
 
       {/* Header fields */}
       <Row className="g-2 mb-3">
-        <Field label={t("PO Date")} value={(p?.po_date || "").slice(0, 10)} md="3" />
+        <Field label={t("SO Date")} value={(p?.po_date || "").slice(0, 10)} md="3" />
         <Field
           label={t("Expected Delivery")}
           value={(p?.expected_delivery_date || "").slice(0, 10)}

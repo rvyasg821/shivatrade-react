@@ -56,10 +56,41 @@ const PARTY_OPTIONS = [
   { value: "customer", label: "Customer" },
   { value: "vendor", label: "Vendor" },
 ];
+// Filter dropdown — plain debit/credit, matching the DR/CR ledger columns.
 const DIRECTION_OPTIONS = [
   { value: "debit", label: "Debit (DR)" },
   { value: "credit", label: "Credit (CR)" },
 ];
+
+/**
+ * The SAME two values, worded by what they do to the balance — because the
+ * accounting names invert between the two sides and nobody remembers which:
+ *
+ *   Customer → Credit note reduces what they owe, Debit note increases it.
+ *   Vendor   → Debit note reduces what we owe,   Credit note increases it.
+ *
+ * The stored `direction` is unchanged; only the label differs, so ledgers,
+ * exports and existing notes are untouched.
+ */
+const EFFECT_OPTIONS = {
+  customer: [
+    {
+      value: "credit",
+      label: "Reduce the bill — customer owes less (Credit Note)",
+    },
+    {
+      value: "debit",
+      label: "Increase the bill — customer owes more (Debit Note)",
+    },
+  ],
+  vendor: [
+    { value: "debit", label: "Reduce the bill — we owe less (Debit Note)" },
+    { value: "credit", label: "Increase the bill — we owe more (Credit Note)" },
+  ],
+};
+/** True when this party/direction pair lowers the document's balance. */
+const reducesBalance = (partyType, direction) =>
+  partyType === "customer" ? direction === "credit" : direction === "debit";
 // The list is a register of every party money-movement, not just notes.
 const SOURCE_LABELS = {
   adjustment: "Adjustment Note",
@@ -188,6 +219,9 @@ const AdjustmentNotes = () => {
   const [loadingParties, setLoadingParties] = useState(false);
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
+  // Invoices / Vendor POs the note can be applied to (optional link).
+  const [documentOptions, setDocumentOptions] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   // ── View drawer (right-side) ──
   const [viewNote, setViewNote] = useState(null);
@@ -218,6 +252,25 @@ const AdjustmentNotes = () => {
       .finally(() => setLoadingParties(false));
   };
 
+  /**
+   * Documents the note may be applied to. Loaded per party — an empty list is
+   * fine (the link is optional and the note stays party-level).
+   */
+  const loadDocuments = (partyType, partyId) => {
+    if (!partyType || !partyId) {
+      setDocumentOptions([]);
+      return;
+    }
+    setLoadingDocuments(true);
+    instance
+      .get(API_ENDPOINTS.adjustmentNotes.documents, {
+        params: { party_type: partyType, party_id: partyId },
+      })
+      .then((r) => setDocumentOptions(r?.data?.data || []))
+      .catch(() => setDocumentOptions([]))
+      .finally(() => setLoadingDocuments(false));
+  };
+
   const openModal = () => {
     setForm({
       party_type: "customer",
@@ -227,23 +280,33 @@ const AdjustmentNotes = () => {
       note_date: new Date().toISOString().slice(0, 10),
       amount: "",
       gst_rate: "",
+      document_id: "",
       reason: "",
     });
     setErrors({});
+    setDocumentOptions([]);
     loadParties("customer");
     setOpen(true);
   };
 
   const onPartyType = (v) => {
     // GST is a vendor+debit-only field — drop any rate if we leave that combo.
+    // Party change invalidates both the party and any document already picked.
     setForm((s) => ({
       ...s,
       party_type: v,
       party_id: "",
       party_currency: "",
+      document_id: "",
       gst_rate: v === "vendor" ? s.gst_rate : "",
     }));
+    setDocumentOptions([]);
     loadParties(v);
+  };
+
+  const onParty = (partyId) => {
+    setForm((s) => ({ ...s, party_id: partyId, document_id: "" }));
+    loadDocuments(form.party_type, partyId);
   };
 
   const submit = () => {
@@ -251,6 +314,13 @@ const AdjustmentNotes = () => {
     if (!form.party_id) e.party_id = t("Select a party");
     if (!(num(form.amount) > 0)) e.amount = t("Amount must be greater than 0");
     if (!form.reason?.trim()) e.reason = t("Reason is required");
+    // Mirror the server guard so the user sees it before the round-trip: a
+    // "reduce the bill" note can't exceed what the document still owes.
+    if (selectedDocument && willReduce && gstFinalAmount - num(selectedDocument.balance) > 0.01) {
+      e.document_id = t(
+        "This is more than the outstanding balance on that document"
+      );
+    }
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
@@ -265,6 +335,8 @@ const AdjustmentNotes = () => {
         ...(gstEligible && num(form.gst_rate) > 0
           ? { gst_rate: String(form.gst_rate) }
           : {}),
+        // Optional link — omitted entirely for a party-level note.
+        ...(form.document_id ? { document_id: form.document_id } : {}),
         reason: form.reason.trim(),
       })
     )
@@ -311,6 +383,27 @@ const AdjustmentNotes = () => {
   const gstValue =
     gstEligible && gstRateNum > 0 ? Math.round(gstBase * gstRateNum) / 100 : 0;
   const gstFinal = Math.round((gstBase + gstValue) * 100) / 100;
+
+  // ── "Apply to document" preview ──
+  // The money that actually posts (base + GST), the picked document, and what
+  // its balance becomes — so the user sees "$100.00 → $65.00" before saving.
+  const gstFinalAmount = gstEligible ? gstFinal : gstBase;
+  const selectedDocument =
+    documentOptions.find((d) => d._id === form.document_id) || null;
+  const willReduce = reducesBalance(form.party_type, form.direction);
+  const documentBalanceAfter = selectedDocument
+    ? Math.round(
+        (num(selectedDocument.balance) +
+          (willReduce ? -gstFinalAmount : gstFinalAmount)) *
+          100
+      ) / 100
+    : 0;
+  const documentSelectOptions = documentOptions.map((d) => ({
+    value: d._id,
+    label: `${d.voucher_no}  ·  ${t("balance")} ${currencySymbol(
+      d.currency_code
+    )}${fmt(d.balance)}`,
+  }));
 
   const columns = [
     {
@@ -371,6 +464,20 @@ const AdjustmentNotes = () => {
         <Badge color={r?.direction === "debit" ? "light-danger" : "light-success"}>
           {r?.direction === "debit" ? t("Debit") : t("Credit")}
         </Badge>
+      ),
+    },
+    {
+      // Which invoice / Vendor PO a note was applied to. Blank for a
+      // party-level note and for receipt/payment rows (they carry their own
+      // document in Particulars already).
+      name: t("Applied To"),
+      minWidth: "180px",
+      selector: (r) => (
+        <span className="text-nowrap">
+          {r?.document_voucher_no || (
+            <span className="text-muted">{"-"}</span>
+          )}
+        </span>
       ),
     },
     {
@@ -538,29 +645,31 @@ const AdjustmentNotes = () => {
                 isLoading={loadingParties}
                 options={partyOptions}
                 value={partyOptions.find((o) => o.value === form.party_id) || null}
-                onChange={(opt) =>
-                  setForm((s) => ({ ...s, party_id: opt ? opt.value : "" }))
-                }
+                onChange={(opt) => onParty(opt ? opt.value : "")}
                 placeholder={t("Select party")}
               />
               {errors.party_id && (
                 <div className="text-danger small">{errors.party_id}</div>
               )}
             </Col>
+            {/* Worded by EFFECT, not by DR/CR — the accounting names invert
+                between customer and vendor and nobody remembers which. The
+                stored `direction` value is unchanged. */}
             <Col md="6" className="mb-2">
               <Label className="form-label">
-                {t("Type")} <span className="text-danger">*</span>
+                {t("What should this note do?")}{" "}
+                <span className="text-danger">*</span>
               </Label>
               <Select
                 classNamePrefix="select"
-                options={DIRECTION_OPTIONS.map((o) => ({
+                options={(EFFECT_OPTIONS[form.party_type] || []).map((o) => ({
                   ...o,
                   label: t(o.label),
                 }))}
                 value={
-                  DIRECTION_OPTIONS.filter((o) => o.value === form.direction).map(
-                    (o) => ({ ...o, label: t(o.label) })
-                  )[0] || null
+                  (EFFECT_OPTIONS[form.party_type] || [])
+                    .filter((o) => o.value === form.direction)
+                    .map((o) => ({ ...o, label: t(o.label) }))[0] || null
                 }
                 onChange={(opt) => {
                   const dir = opt ? opt.value : "credit";
@@ -635,6 +744,69 @@ const AdjustmentNotes = () => {
                 </div>
               </Col>
             )}
+            {/* Optional document link. Left blank the note stays party-level
+                (only the ledger moves) — exactly the old behaviour. Picked, it
+                also moves that document's own balance and status. */}
+            <Col md="12" className="mb-2">
+              <Label className="form-label">
+                {form.party_type === "vendor"
+                  ? t("Apply to Vendor PO")
+                  : t("Apply to Invoice")}{" "}
+                <span className="text-muted small">({t("optional")})</span>
+              </Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                isLoading={loadingDocuments}
+                isDisabled={!form.party_id}
+                options={documentSelectOptions}
+                value={
+                  documentSelectOptions.find(
+                    (o) => o.value === form.document_id
+                  ) || null
+                }
+                onChange={(opt) =>
+                  setForm((s) => ({ ...s, document_id: opt ? opt.value : "" }))
+                }
+                placeholder={
+                  !form.party_id
+                    ? t("Select a party first")
+                    : documentSelectOptions.length
+                      ? t("None — apply to the whole party")
+                      : t("No open documents for this party")
+                }
+              />
+              {errors.document_id && (
+                <div className="text-danger small mt-25">
+                  {errors.document_id}
+                </div>
+              )}
+              {selectedDocument && gstFinalAmount > 0 ? (
+                <div className="alert alert-primary py-50 px-1 mt-50 mb-0 small">
+                  <strong>{selectedDocument.voucher_no}</strong>{" "}
+                  {t("balance will change from")}{" "}
+                  <strong>
+                    {currencySymbol(selectedDocument.currency_code)}
+                    {fmt(selectedDocument.balance)}
+                  </strong>{" "}
+                  →{" "}
+                  <strong>
+                    {currencySymbol(selectedDocument.currency_code)}
+                    {fmt(documentBalanceAfter)}
+                  </strong>
+                  {documentBalanceAfter <= 0.01 && willReduce
+                    ? ` — ${t("it will be marked fully settled")}.`
+                    : "."}
+                </div>
+              ) : (
+                <div className="text-muted small mt-25">
+                  {t(
+                    "Leave blank to adjust the party's overall balance only. Pick a document to change that document's balance too."
+                  )}
+                </div>
+              )}
+            </Col>
+
             <Col md="12" className="mb-2">
               <Label className="form-label">
                 {t("Reason")} <span className="text-danger">*</span>
@@ -697,6 +869,23 @@ const AdjustmentNotes = () => {
                     ? t("Debit (DR)")
                     : t("Credit (CR)"),
                 ],
+                // Plain-language effect + the document it settled, mirroring
+                // the wording on the create form.
+                ...(viewNote.source === "adjustment"
+                  ? [
+                      [
+                        t("Effect"),
+                        reducesBalance(viewNote.party_type, viewNote.direction)
+                          ? t("Reduces the bill")
+                          : t("Increases the bill"),
+                      ],
+                      [
+                        t("Applied To"),
+                        viewNote.document_voucher_no ||
+                          t("Whole party (no document)"),
+                      ],
+                    ]
+                  : []),
                 // GST breakdown — only on a vendor + debit note (gst_amount set).
                 ...(viewNote.gst_amount != null
                   ? [
