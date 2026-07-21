@@ -315,6 +315,8 @@ export const API_ENDPOINTS = {
     hsnSummaryExport: `/admin/reports/hsn-summary/export`,
     gstBalance: `/admin/reports/gst-balance`,
     gstBalanceExport: `/admin/reports/gst-balance/export`,
+    // Documents behind one month's figures (?month=YYYY-MM).
+    gstBalanceBreakdown: `/admin/reports/gst-balance/breakdown`,
     purchaseTurnover: `/admin/reports/purchase-turnover`,
     purchaseTurnoverExport: `/admin/reports/purchase-turnover/export`,
     salesTurnover: `/admin/reports/sales-turnover`,
