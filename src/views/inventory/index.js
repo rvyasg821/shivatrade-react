@@ -327,7 +327,7 @@ const InventoryView = () => {
   const columns = [
     {
       name: t("#"),
-      width: "60px",
+      width: "46px",
       selector: (row, index) => (
         <span className="text-muted">
           {(currentPage - 1) * rowsPerPage + index + 1}
@@ -335,24 +335,33 @@ const InventoryView = () => {
       ),
     },
     {
+      // `grow` alone was not enough: every numeric column reserved a wide
+      // minWidth, so there was no leftover space to grow into and long product
+      // names wrapped to 6-8 lines. An explicit minWidth reserves the room the
+      // name actually needs; the numeric columns below were tightened to pay
+      // for it.
       name: t("Product"),
-      grow: 2,
+      grow: 3,
+      minWidth: "280px",
+      wrap: true,
       selector: (row) => (
-        <div className="py-1">
+        <div className="py-50">
           <div className="fw-bold">{row?.product_name || "-"}</div>
-          {row?.product_code ? (
-            <div className="small text-muted text-nowrap">
-              {row.product_code}
-            </div>
-          ) : null}
-          {row?.category_name ? (
-            <Badge
-              className="mt-25"
-              style={{ backgroundColor: "#0d6efd", color: "#fff" }}
-            >
-              {row.category_name}
-            </Badge>
-          ) : null}
+          <div className="d-flex align-items-center flex-wrap gap-1 mt-25">
+            {row?.product_code ? (
+              <span className="small text-muted text-nowrap">
+                {row.product_code}
+              </span>
+            ) : null}
+            {row?.category_name ? (
+              <Badge
+                className="text-nowrap"
+                style={{ backgroundColor: "#0d6efd", color: "#fff" }}
+              >
+                {row.category_name}
+              </Badge>
+            ) : null}
+          </div>
         </div>
       ),
     },
@@ -361,7 +370,7 @@ const InventoryView = () => {
       name: t("Opening"),
       center: true,
       hide: "md",
-      minWidth: "110px",
+      minWidth: "84px",
       selector: (row) => (
         <span className="text-nowrap">{fmtQty(row?.opening_qty)}</span>
       ),
@@ -369,7 +378,7 @@ const InventoryView = () => {
     {
       name: t("Inward"),
       center: true,
-      minWidth: "110px",
+      minWidth: "84px",
       selector: (row) => (
         <span className="text-nowrap fw-semibold" style={{ color: "#28c76f" }}>
           {fmtQty(row?.inward_qty)}
@@ -379,7 +388,7 @@ const InventoryView = () => {
     {
       name: t("Outward"),
       center: true,
-      minWidth: "110px",
+      minWidth: "84px",
       selector: (row) => (
         <span className="text-nowrap fw-semibold" style={{ color: "#ea5455" }}>
           {fmtQty(row?.outward_qty)}
@@ -389,7 +398,7 @@ const InventoryView = () => {
     {
       name: t("Closing"),
       center: true,
-      minWidth: "110px",
+      minWidth: "84px",
       selector: (row) => (
         <span className="text-nowrap fw-semibold">
           {fmtQty(row?.closing_qty)}
@@ -403,7 +412,7 @@ const InventoryView = () => {
       // one that reconciles to the books.
       name: t("Closing Value"),
       center: true,
-      minWidth: "140px",
+      minWidth: "116px",
       // fmtMoney, not fmtRate: this is a money column, so a zero closing
       // balance must read ₹0.00 like Stock Value does — fmtRate renders 0 as
       // "-", which made the two columns disagree on the same fact.
@@ -416,7 +425,7 @@ const InventoryView = () => {
     {
       name: t("Qty in Stock"),
       center: true,
-      minWidth: "150px",
+      minWidth: "112px",
       // Live ledger on-hand (GRN-in − invoice-out) — drops to 0 once sold out,
       // not the received qty. Green = in stock, red = negative, muted = zero.
       selector: (row) => {
@@ -436,7 +445,7 @@ const InventoryView = () => {
       name: t("Avg Rate"),
       center: true,
       hide: "md",
-      minWidth: "120px",
+      minWidth: "100px",
       // Weighted-average received unit price (₹/unit).
       selector: (row) => (
         <span className="text-nowrap">{fmtRate(row?.avg_rate)}</span>
@@ -445,7 +454,7 @@ const InventoryView = () => {
     {
       name: t("Stock Value"),
       center: true,
-      minWidth: "140px",
+      minWidth: "116px",
       // Per-product on-hand valuation = Qty in Stock × Avg Rate (₹). Summing
       // this column across ALL products equals the "Current Stock Value" card
       // (the footer Total below shows that grand total straight from the KPI).
@@ -466,7 +475,7 @@ const InventoryView = () => {
       name: t("Receipt Date"),
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       center: true,
-      minWidth: "150px",
+      minWidth: "112px",
       selector: (row) => (
         <span className="text-nowrap">
           {row?.arrival_date ? formatDate(row.arrival_date) : "-"}
