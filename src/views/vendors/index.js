@@ -30,7 +30,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone, Upload } from "react-feather";
+import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone } from "react-feather";
+
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
 import VendorImportModal from "./components/VendorImportModal";
 
 // ** Constants
@@ -415,15 +418,13 @@ const VendorList = () => {
                 md="3"
                 className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap listing-toolbar-actions"
               >
-                {canAdd && (
-                  <Button
-                    color="outline-secondary"
-                    className="text-nowrap"
-                    onClick={() => setImportOpen(true)}
-                  >
-                    {t("Import")} <Upload size={14} />
-                  </Button>
-                )}
+                <ImportExportButtons
+                  exportUrl={API_ENDPOINTS.vendors.export}
+                  filenamePrefix="vendors"
+                  exportErrorMessage={t("Failed to export vendors")}
+                  canImport={canAdd}
+                  onImportClick={() => setImportOpen(true)}
+                />
                 {canAdd && (
                   <Button
                     color="primary"

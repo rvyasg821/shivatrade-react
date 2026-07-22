@@ -212,6 +212,7 @@ export const API_ENDPOINTS = {
     dropdown: `/admin/vendor/dropdown`,
     checkCode: `/admin/vendor/check-code`,
     import: `/admin/vendor/import`,
+    export: `/admin/vendor/export`,
     sampleExcel: `/admin/vendor/sample-excel`,
   },
   currencies: {
