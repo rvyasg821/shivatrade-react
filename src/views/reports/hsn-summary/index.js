@@ -2,7 +2,21 @@
 // One row per HSN × notional IGST rate × UQC, all INR, over a date range.
 import { Fragment, useCallback, useEffect, useState, useLayoutEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Row, Col, Card, CardBody, Label, Input, Button } from "reactstrap";
+import {
+  Row,
+  Col,
+  Card,
+  CardBody,
+  Label,
+  Input,
+  Button,
+  Table,
+  Spinner,
+  Badge,
+  Offcanvas,
+  OffcanvasHeader,
+  OffcanvasBody,
+} from "reactstrap";
 import Select from "react-select";
 import { Download, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
@@ -12,6 +26,7 @@ import DatatablePagination from "@components/datatable/DatatablePagination";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { Pager, pageSlice } from "@src/views/reports/_shared/DrawerPager";
 import { defaultPerPageRow } from "@constant/defaultValues";
 import { getHsnSummary, cleanHsnSummaryMessage } from "./store";
 
@@ -178,8 +193,49 @@ const HsnSummary = () => {
     }
   };
 
+  // ── HSN drill-down ──
+  // Tally's "GSTR-1 Voucher Register": click an HSN row, see the vouchers it
+  // is made of. Same drawer pattern as the GST Balance month drill-down.
+  const [drillRow, setDrillRow] = useState(null);
+  const [drill, setDrill] = useState(null);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [drillPage, setDrillPage] = useState(0);
+  const [drillSize, setDrillSize] = useState(10);
+
+  const drillMeta = pageSlice(drill?.vouchers, drillPage, drillSize);
+
+  const openDrill = async (row) => {
+    setDrillRow(row);
+    setDrill(null);
+    setDrillPage(0);
+    setDrillLoading(true);
+    try {
+      const resp = await instance.get(API_ENDPOINTS.reports.hsnSummaryBreakdown, {
+        params: {
+          // The drawer must reproduce the row's own filters exactly, or its
+          // total stops matching the row it was opened from. `search` is
+          // deliberately absent — it only narrows WHICH rows are listed, not
+          // what any one row contains.
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+          gst_route: gstRoute?.value || undefined,
+          hsn_code: row?.hsn_code || undefined,
+          uqc_code: row?.uqc_code || undefined,
+          rate: Number(row?.rate || 0),
+        },
+      });
+      setDrill(resp?.data?.data || null);
+    } catch (e) {
+      Notification("Error", t("Could not load the voucher register"), "warning");
+      setDrillRow(null);
+    } finally {
+      setDrillLoading(false);
+    }
+  };
+
   const totals = store?.totals || {};
   const hsnCount = store?.pagination?.total || 0;
+  const drillTotals = drill?.totals || {};
 
   const columns = [
     {
@@ -187,7 +243,16 @@ const HsnSummary = () => {
       sortField: "hsn",
       sortable: true,
       selector: (row) => (
-        <span className="fw-bold text-nowrap">{row?.hsn_code || "—"}</span>
+        <span
+          role="button"
+          tabIndex={0}
+          className="fw-bold text-nowrap text-primary text-decoration-underline"
+          title={t("View the vouchers behind this HSN")}
+          onClick={() => openDrill(row)}
+          onKeyDown={(e) => e.key === "Enter" && openDrill(row)}
+        >
+          {row?.hsn_code || "—"}
+        </span>
       ),
     },
     {
@@ -375,6 +440,146 @@ const HsnSummary = () => {
           </CardBody>
         </Card>
       </div>
+
+      {/* HSN drill-down — the vouchers each Table-12 row is made of, in the
+          shape the client's Tally reference uses. Right-side drawer (the app's
+          pattern for read-only detail), wide because the register carries 12
+          columns. */}
+      <Offcanvas
+        direction="end"
+        isOpen={!!drillRow}
+        toggle={() => setDrillRow(null)}
+        style={{ width: "min(1250px, 96vw)" }}
+      >
+        <OffcanvasHeader toggle={() => setDrillRow(null)}>
+          {t("Voucher Register")}
+          {drillRow ? ` · HSN ${drillRow.hsn_code || "—"}` : ""}
+        </OffcanvasHeader>
+        <OffcanvasBody>
+          {drillLoading ? (
+            <div className="text-center py-3">
+              <Spinner size="sm" /> {t("Loading…")}
+            </div>
+          ) : (
+            <Fragment>
+              <div className="d-flex flex-wrap gap-1 align-items-center mb-1">
+                <Badge className="doc-badge doc-badge-gray">
+                  {t("UQC")}: {drill?.uqc_code || "—"}
+                </Badge>
+                <Badge className="doc-badge doc-badge-gray">
+                  {t("Rate")}: {Number(drill?.rate || 0).toFixed(2)}%
+                </Badge>
+                {drill?.period_label ? (
+                  <span className="text-muted small">{drill.period_label}</span>
+                ) : null}
+              </div>
+
+              <div className="table-responsive">
+                <Table bordered size="sm" className="align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      {/* The two free-text columns need room or they wrap into
+                          six lines and the row height explodes; everything
+                          else is short and fixed. The table scrolls
+                          horizontally, so claiming width here costs nothing. */}
+                      <th className="text-nowrap">{t("Date")}</th>
+                      <th className="text-nowrap" style={{ minWidth: 170 }}>
+                        {t("Particulars")}
+                      </th>
+                      <th className="text-nowrap">{t("Vch Type")}</th>
+                      <th className="text-nowrap">{t("Vch No.")}</th>
+                      <th className="text-nowrap" style={{ minWidth: 240 }}>
+                        {t("Item")}
+                      </th>
+                      <th className="text-nowrap">{t("UQC")}</th>
+                      <th className="text-end text-nowrap">{t("Qty")}</th>
+                      <th className="text-end text-nowrap">{t("Total (₹)")}</th>
+                      <th className="text-end text-nowrap">
+                        {t("Taxable (₹)")}
+                      </th>
+                      <th className="text-end text-nowrap">{t("IGST (₹)")}</th>
+                      <th className="text-end text-nowrap">{t("CGST (₹)")}</th>
+                      <th className="text-end text-nowrap">
+                        {t("SGST/UTGST (₹)")}
+                      </th>
+                      <th className="text-end text-nowrap">{t("Cess (₹)")}</th>
+                      <th className="text-end text-nowrap">
+                        {t("Invoice Amt (₹)")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillMeta.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={14} className="text-center text-muted py-2">
+                          {t("No vouchers in this period.")}
+                        </td>
+                      </tr>
+                    ) : (
+                      drillMeta.rows.map((v, i) => (
+                        <tr key={`${v.invoice_id}-${i}`}>
+                          <td className="text-nowrap">{v.invoice_date}</td>
+                          <td>{v.customer_name || "—"}</td>
+                          <td className="text-nowrap">{v.voucher_type}</td>
+                          <td className="text-nowrap">{v.invoice_no || "—"}</td>
+                          <td>{v.product_name || "—"}</td>
+                          <td className="text-nowrap">{v.uqc_code || "—"}</td>
+                          <td className="text-end">{inr(v.qty)}</td>
+                          <td className="text-end">{inr(v.total_value_inr)}</td>
+                          <td className="text-end">
+                            {inr(v.taxable_value_inr)}
+                          </td>
+                          <td className="text-end">{inr(v.igst_inr)}</td>
+                          <td className="text-end">{inr(v.cgst_inr)}</td>
+                          <td className="text-end">{inr(v.sgst_inr)}</td>
+                          <td className="text-end">{inr(v.cess_inr)}</td>
+                          {/* The whole invoice, repeated per line — never a
+                              column to total. */}
+                          <td className="text-end text-muted">
+                            {inr(v.invoice_total_inr)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="fw-bold">
+                      <td colSpan={6} className="text-end">
+                        {t("Total")}
+                      </td>
+                      <td className="text-end">{inr(drillTotals.total_qty)}</td>
+                      <td className="text-end">
+                        {inr(drillTotals.total_value_inr)}
+                      </td>
+                      <td className="text-end">
+                        {inr(drillTotals.taxable_value_inr)}
+                      </td>
+                      <td className="text-end">{inr(drillTotals.igst_inr)}</td>
+                      <td className="text-end">{inr(drillTotals.cgst_inr)}</td>
+                      <td className="text-end">{inr(drillTotals.sgst_inr)}</td>
+                      <td className="text-end">{inr(drillTotals.cess_inr)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </Table>
+              </div>
+              <Pager
+                meta={drillMeta}
+                size={drillSize}
+                onSize={setDrillSize}
+                onPage={setDrillPage}
+                label={t("Vouchers")}
+              />
+
+              <p className="text-muted small mb-0 mt-1">
+                {t(
+                  "One row per invoice LINE, so an invoice carrying two products under the same HSN appears twice — that is what makes this table foot to the summary row. “Invoice Amt” is the whole document and repeats on those rows, so it is deliberately not totalled."
+                )}
+              </p>
+            </Fragment>
+          )}
+        </OffcanvasBody>
+      </Offcanvas>
     </Fragment>
   );
 };
