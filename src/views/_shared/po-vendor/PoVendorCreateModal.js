@@ -48,6 +48,9 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
   const [loading, setLoading] = useState(false);
   const [coverage, setCoverage] = useState(null);
   const [coverByLine, setCoverByLine] = useState({});
+  // HSN overrides typed on this screen, keyed by PO line. LOCAL to the POV
+  // being created — the Sales Order line and the product master are untouched.
+  const [hsnByLine, setHsnByLine] = useState({});
 
   // Delivery address state. Priorities (resolved server-side):
   //   manual text > picked company address id > inherit from PO.
@@ -98,6 +101,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
     setLoading(true);
     setCoverage(null);
     setCoverByLine({});
+    setHsnByLine({});
     setAddressMode("inherit");
     setPickedAddressId("");
     setManualText("");
@@ -119,10 +123,13 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
         }
         setCoverage(data);
         const seed = {};
+        const hsnSeed = {};
         for (const l of data.lines || []) {
           seed[l.purchase_order_line_id] = String(num(l.pending));
+          hsnSeed[l.purchase_order_line_id] = l.hsn_code || "";
         }
         setCoverByLine(seed);
+        setHsnByLine(hsnSeed);
       })
       .catch((err) => {
         if (!mounted) return;
@@ -203,9 +210,15 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
         return;
       }
       if (v > 1e-6) {
+        const hsn = String(
+          hsnByLine[l.purchase_order_line_id] ?? ""
+        ).trim();
         lines.push({
           purchase_order_line_id: l.purchase_order_line_id,
           ordered_qty: String(v),
+          // Omitted when blank so the backend keeps its own fallback chain
+          // (SO line → product master) instead of storing an empty HSN.
+          hsn_code: hsn || undefined,
         });
       }
     }
@@ -413,6 +426,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
               <tr>
                 <th style={{ width: 30 }}>#</th>
                 <th>{t("Product")}</th>
+                <th style={{ width: 110 }}>{t("HSN")}</th>
                 <th style={{ width: 70 }}>{t("Unit")}</th>
                 <th style={{ width: 90 }} className="text-end">
                   {t("Ordered")}
@@ -445,11 +459,20 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
                       {l?.product_code && (
                         <small className="text-muted">{l.product_code}</small>
                       )}
-                      {l?.hsn_code && (
-                        <div className="small text-muted">
-                          HSN: {l.hsn_code}
-                        </div>
-                      )}
+                    </td>
+                    <td>
+                      <Input
+                        type="text"
+                        bsSize="sm"
+                        placeholder="HSN"
+                        value={hsnByLine[l.purchase_order_line_id] ?? ""}
+                        onChange={(e) =>
+                          setHsnByLine((s) => ({
+                            ...s,
+                            [l.purchase_order_line_id]: e.target.value,
+                          }))
+                        }
+                      />
                     </td>
                     <td>{l?.unit || "-"}</td>
                     <td className="text-end">
@@ -485,7 +508,8 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
             </tbody>
             <tfoot>
               <tr className="table-light">
-                <td colSpan="6" className="text-end fw-bold">
+                {/* 7, not 6 — the HSN column was added ahead of Unit. */}
+                <td colSpan="7" className="text-end fw-bold">
                   {t("Total qty")}
                 </td>
                 <td className="text-end fw-bold">

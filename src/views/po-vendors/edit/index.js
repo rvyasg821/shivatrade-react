@@ -87,6 +87,10 @@ const EditPoVendor = () => {
   const [deliveryTerms, setDeliveryTerms] = useState("");
   const [rateByLine, setRateByLine] = useState({});
   const [taxByLine, setTaxByLine] = useState({});
+  // HSN / Part No — draft-only, like GST%. Both are descriptive fields that
+  // print on the vendor PDF, so they must not move once the document is out.
+  const [hsnByLine, setHsnByLine] = useState({});
+  const [partByLine, setPartByLine] = useState({});
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
@@ -117,12 +121,18 @@ const EditPoVendor = () => {
     // one key and make editing one line edit them all.
     const rates = {};
     const taxes = {};
+    const hsns = {};
+    const parts = {};
     for (const l of p.lines || []) {
       rates[l._id] = String(num(l.unit_price));
       taxes[l._id] = String(num(l.tax_pct));
+      hsns[l._id] = l.hsn_code || "";
+      parts[l._id] = l.part_no || "";
     }
     setRateByLine(rates);
     setTaxByLine(taxes);
+    setHsnByLine(hsns);
+    setPartByLine(parts);
     setSeeded(true);
   }, [loaded, seeded, p, co]);
 
@@ -223,6 +233,14 @@ const EditPoVendor = () => {
         _id: l._id,
         ...(canEditGst ? { tax_pct: String(num(taxByLine[l._id])) } : {}),
         ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
+        // Sent as "" (not undefined) when cleared, so emptying a wrong HSN
+        // actually persists instead of silently keeping the old one.
+        ...(canEditGst
+          ? {
+              hsn_code: String(hsnByLine[l._id] ?? "").trim(),
+              part_no: String(partByLine[l._id] ?? "").trim(),
+            }
+          : {}),
       }));
     }
 
@@ -316,6 +334,8 @@ const EditPoVendor = () => {
                     <tr>
                       <th style={{ width: 34 }}>#</th>
                       <th>{t("Product")}</th>
+                      <th style={{ width: 120 }}>{t("HSN")}</th>
+                      <th style={{ width: 120 }}>{t("Part No")}</th>
                       <th style={{ width: 70 }}>{t("Unit")}</th>
                       <th style={{ width: 90 }} className="text-end">
                         {t("Qty")}
@@ -354,6 +374,49 @@ const EditPoVendor = () => {
                               <small className="text-muted">
                                 {l.product_code}
                               </small>
+                            )}
+                          </td>
+                          {/* HSN + Part No — draft-only, same rule as GST%.
+                              Text, not number: an HSN can carry a leading zero
+                              and a part number is not a quantity. */}
+                          <td>
+                            {canEditGst ? (
+                              <Input
+                                type="text"
+                                bsSize="sm"
+                                placeholder={t("HSN")}
+                                value={hsnByLine[l._id] ?? ""}
+                                onChange={(e) =>
+                                  setHsnByLine((s) => ({
+                                    ...s,
+                                    [l._id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            ) : (
+                              <div className="text-muted">
+                                {l?.hsn_code || "-"}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {canEditGst ? (
+                              <Input
+                                type="text"
+                                bsSize="sm"
+                                placeholder={t("Part No")}
+                                value={partByLine[l._id] ?? ""}
+                                onChange={(e) =>
+                                  setPartByLine((s) => ({
+                                    ...s,
+                                    [l._id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            ) : (
+                              <div className="text-muted">
+                                {l?.part_no || "-"}
+                              </div>
                             )}
                           </td>
                           <td>{l?.unit || "-"}</td>

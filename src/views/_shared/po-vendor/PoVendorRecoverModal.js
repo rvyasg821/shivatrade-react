@@ -226,6 +226,18 @@ const PoVendorRecoverModal = ({
     );
   };
 
+  // HSN is editable for the same reason GST% is: the master's code can be
+  // wrong or blank, and the vendor-facing document needs the right one. The
+  // edit is LOCAL to the POV being generated — neither the Sales Order line
+  // nor the product master is written back.
+  const handleHsnChange = (lineId, val) => {
+    setPreviewLines((rows) =>
+      rows.map((r) =>
+        r.purchase_order_line_id === lineId ? { ...r, hsn_code: val } : r
+      )
+    );
+  };
+
   const handleDrop = (lineId) => {
     setDropped((d) => ({ ...d, [lineId]: true }));
   };
@@ -437,6 +449,12 @@ const PoVendorRecoverModal = ({
         tax_pct:
           l.tax_pct != null && l.tax_pct !== ""
             ? String(num(l.tax_pct))
+            : undefined,
+        // Omitted when blank so the backend keeps its own fallback chain
+        // (SO line → product master) rather than storing an empty HSN.
+        hsn_code:
+          l.hsn_code != null && String(l.hsn_code).trim() !== ""
+            ? String(l.hsn_code).trim()
             : undefined,
       }));
     if (assignments.length === 0) {
@@ -656,7 +674,21 @@ const PoVendorRecoverModal = ({
                           )}
                         </td>
                         <td className="text-muted">{l?.part_no || "-"}</td>
-                        <td className="text-muted">{l?.hsn_code || "-"}</td>
+                        <td>
+                          <Input
+                            type="text"
+                            bsSize="sm"
+                            style={{ width: 96 }}
+                            placeholder="HSN"
+                            value={l.hsn_code ?? ""}
+                            onChange={(e) =>
+                              handleHsnChange(
+                                l.purchase_order_line_id,
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
                         <td>{l?.unit || "-"}</td>
                         <td className="text-end fw-semibold">
                           {num(l.pending_qty).toLocaleString()}
