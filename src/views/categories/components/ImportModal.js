@@ -1,8 +1,9 @@
-import { Badge, Alert, Table } from "reactstrap";
+import { Badge, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import SharedImportModal from "@src/views/_shared/import/ImportModal";
+import ImportErrorTable from "@src/views/_shared/import/ImportErrorTable";
 
 const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const { t } = useTranslation();
@@ -30,30 +31,13 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
           <Alert color="warning" className="mb-2">
             {t("The following rows have errors and will be skipped. Fix them and re-upload, or continue to import only the valid rows.")}
           </Alert>
-          <div style={{ maxHeight: "400px", overflow: "auto" }}>
-            <Table size="sm" striped bordered responsive>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>{t("Name")}</th>
-                  <th>{t("Description")}</th>
-                  <th>{t("Details")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.rows
-                  .filter((row) => row.status === "error")
-                  .map((row) => (
-                    <tr key={row.rowNum} className="table-danger">
-                      <td>{row.rowNum}</td>
-                      <td className="small text-capitalize">{row.data.name || "—"}</td>
-                      <td className="small">{row.data.description || "—"}</td>
-                      <td className="small text-danger">{row.errors?.join(", ") || ""}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </Table>
-          </div>
+          <ImportErrorTable
+            rows={preview.rows}
+            columns={[
+              { header: t("Name"), cell: (r) => r.data.name },
+              { header: t("Description"), cell: (r) => r.data.description },
+            ]}
+          />
         </>
       ) : (
         <Alert color="success" className="mb-0 p-2 d-flex align-items-center">

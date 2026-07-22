@@ -32,6 +32,7 @@ import {
   Alert,
   Spinner,
 } from "reactstrap";
+import { AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
 import instance from "@src/utility/AxiosConfig";
 import Notification from "@components/toast/notification";
@@ -70,12 +71,18 @@ const ImportModal = ({
   const [loading, setLoading] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
   const [preview, setPreview] = useState(null);
+  // A file the server could not read at all (no header row, no data rows,
+  // wrong file type, too many rows). Shown in place on step 1 rather than only
+  // as a toast, because the fix is to go and edit the sheet — the user needs to
+  // still be looking at the reason while they do it.
+  const [fileError, setFileError] = useState(null);
 
   const reset = () => {
     setStep(1);
     setFile(null);
     setLoading(false);
     setPreview(null);
+    setFileError(null);
   };
 
   const handleClose = () => {
@@ -90,11 +97,13 @@ const ImportModal = ({
       return;
     }
     setFile(f || null);
+    setFileError(null);
   };
 
   const handlePreview = async () => {
     if (!file) return;
     setLoading(true);
+    setFileError(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -103,17 +112,18 @@ const ImportModal = ({
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      if (res?.data?.statusCode === 200) {
+      if (res?.data?.data?.fileError) {
+        // The file itself is unusable — stay on step 1 so the reason sits next
+        // to the file picker they are about to use again.
+        setFileError(res.data.data.fileError);
+      } else if (res?.data?.statusCode === 200) {
         setPreview(res.data.data);
         setStep(2);
       } else {
-        Notification(
-          "Error",
-          res?.data?.message || t("Preview failed"),
-          "warning"
-        );
+        setFileError(res?.data?.message || t("Preview failed"));
       }
     } catch (err) {
+      setFileError(errMsg(err, t("Preview failed")));
       Notification("Error", errMsg(err, t("Preview failed")), "warning");
     } finally {
       setLoading(false);
@@ -129,7 +139,10 @@ const ImportModal = ({
       const res = await instance.post(`${importUrl}${confirmQuery}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      if (res?.data?.statusCode === 200) {
+      if (res?.data?.data?.fileError) {
+        setStep(1);
+        setFileError(res.data.data.fileError);
+      } else if (res?.data?.statusCode === 200) {
         const spec = formatSuccess
           ? formatSuccess(res.data.data || {}, res.data)
           : {
@@ -196,6 +209,19 @@ const ImportModal = ({
         {/* Step 1: Upload */}
         {step === 1 && (
           <div>
+            {fileError && (
+              <Alert color="danger" className="mb-2">
+                <div className="d-flex">
+                  <AlertTriangle size={18} className="me-1 flex-shrink-0 mt-25" />
+                  <div>
+                    <strong className="d-block">
+                      {t("This file could not be imported")}
+                    </strong>
+                    {fileError}
+                  </div>
+                </div>
+              </Alert>
+            )}
             <Alert color="info" className="mb-2">
               <strong>{t("Instructions")}:</strong>
               {instructions}

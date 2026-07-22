@@ -33,6 +33,10 @@ import withReactContent from "sweetalert2-react-content";
 // ** Icons
 import { Edit, Trash2, PlusCircle } from "react-feather";
 
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
+import ImportModal from "./components/ImportModal";
+
 // ** Constants
 import {
   appsRoot,
@@ -59,6 +63,7 @@ const StateList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [countryFilter, setCountryFilter] = useState(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const handleStateLists = useCallback(
     (
@@ -268,7 +273,10 @@ const StateList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              {/* 8/4 (was 9/3): the toolbar now carries Export + Import + Add.
+                  8 rather than the UOM screen's 7, because there are three
+                  filters here and 7 squeezed them. */}
+              <Col sm="8" md="8">
                 <Row>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Input
@@ -317,15 +325,24 @@ const StateList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
-                {canAdd && (
-                  <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/states/add`)}
-                  >
-                    <PlusCircle size={14} className="me-50" /> {t("Add")}
-                  </Button>
-                )}
+              <Col sm="4" md="4">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  <ImportExportButtons
+                    exportUrl={API_ENDPOINTS.states.export}
+                    filenamePrefix="states"
+                    exportErrorMessage={t("Failed to export states")}
+                    canImport={canAdd || canEdit}
+                    onImportClick={() => setImportModalOpen(true)}
+                  />
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/states/add`)}
+                    >
+                      <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -346,6 +363,12 @@ const StateList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleStateLists()}
+      />
     </Fragment>
   );
 };

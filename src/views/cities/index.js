@@ -34,6 +34,10 @@ import withReactContent from "sweetalert2-react-content";
 // ** Icons
 import { Edit, Trash2, PlusCircle } from "react-feather";
 
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
+import ImportModal from "./components/ImportModal";
+
 // ** Constants
 import {
   appsRoot,
@@ -62,6 +66,7 @@ const CityList = () => {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [countryFilter, setCountryFilter] = useState(null);
   const [stateFilter, setStateFilter] = useState(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const handleCityLists = useCallback(
     (
@@ -293,7 +298,10 @@ const CityList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              {/* 8/4 (was 9/3): the toolbar now carries Export + Import + Add.
+                  8 rather than the UOM screen's 7, because there are four
+                  filters here and 7 squeezed them. */}
+              <Col sm="8" md="8">
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -352,15 +360,24 @@ const CityList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
-                {canAdd && (
-                  <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/cities/add`)}
-                  >
-                    <PlusCircle size={14} className="me-50" /> {t("Add")}
-                  </Button>
-                )}
+              <Col sm="4" md="4">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  <ImportExportButtons
+                    exportUrl={API_ENDPOINTS.cities.export}
+                    filenamePrefix="cities"
+                    exportErrorMessage={t("Failed to export cities")}
+                    canImport={canAdd || canEdit}
+                    onImportClick={() => setImportModalOpen(true)}
+                  />
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/cities/add`)}
+                    >
+                      <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -381,6 +398,12 @@ const CityList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleCityLists()}
+      />
     </Fragment>
   );
 };
