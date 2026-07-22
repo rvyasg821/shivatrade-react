@@ -18,18 +18,14 @@ import {
   OffcanvasBody,
   Badge,
 } from "reactstrap";
-import {
-  Download,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-} from "react-feather";
+import { Download, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { Pager, pageSlice } from "@src/views/reports/_shared/DrawerPager";
 import { getGstBalance, cleanGstBalanceMessage } from "./store";
 
 // 2-dp Indian grouping, e.g. 1,23,456.00
@@ -38,6 +34,15 @@ const inr = (v) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+// The API sends ISO dates (machine-sortable, and the export reads the month
+// off them); every screen in the app reads dd-mm-yyyy.
+const ddmmyyyy = (iso) => {
+  const s = String(iso || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || "—";
+  const [y, m, d] = s.split("-");
+  return `${d}-${m}-${y}`;
+};
 
 // Compact ₹ for the KPI tiles: ₹1.25 Cr / ₹19.10 L / ₹45,000.
 const inrCompact = (v) => {
@@ -48,76 +53,6 @@ const inrCompact = (v) => {
   if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)} L`;
   return `${sign}₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 };
-
-// ── Drill-down pagination ───────────────────────────────────────────────
-// Client-side: the drawer already holds the whole month, so paging is a
-// display concern — no refetch. The "x–y of N" count doubles as "how many
-// documents make up this month", which is the question being answered.
-const PAGE_SIZES = [10, 25, 50, 100];
-
-const pageSlice = (arr, page, size) => {
-  const total = (arr || []).length;
-  const pageCount = Math.max(1, Math.ceil(total / size));
-  const safe = Math.min(Math.max(0, page), pageCount - 1);
-  return {
-    total,
-    pageCount,
-    safe,
-    rows: (arr || []).slice(safe * size, safe * size + size),
-    from: total === 0 ? 0 : safe * size + 1,
-    to: Math.min(total, (safe + 1) * size),
-  };
-};
-
-const Pager = ({ meta, size, onSize, onPage, label }) => (
-  <div className="d-flex flex-wrap align-items-center justify-content-between gap-1 mt-50 small">
-    <div className="d-flex align-items-center gap-1">
-      <span className="text-muted">{label}</span>
-      <Input
-        type="select"
-        bsSize="sm"
-        style={{ width: 80 }}
-        value={size}
-        onChange={(e) => {
-          onSize(Number(e.target.value));
-          onPage(0);
-        }}
-      >
-        {PAGE_SIZES.map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </Input>
-      <span className="text-muted">
-        {meta.from}–{meta.to} of {meta.total}
-      </span>
-    </div>
-    <div className="d-flex align-items-center gap-1">
-      <Button
-        color="secondary"
-        outline
-        size="sm"
-        disabled={meta.safe <= 0}
-        onClick={() => onPage(meta.safe - 1)}
-      >
-        <ChevronLeft size={14} />
-      </Button>
-      <span className="text-muted">
-        {meta.safe + 1} / {meta.pageCount}
-      </span>
-      <Button
-        color="secondary"
-        outline
-        size="sm"
-        disabled={meta.safe >= meta.pageCount - 1}
-        onClick={() => onPage(meta.safe + 1)}
-      >
-        <ChevronRight size={14} />
-      </Button>
-    </div>
-  </div>
-);
 
 const StatTile = ({ label, value, hint, valueClass = "" }) => (
   <Col md="3" sm="6" className="mb-1">
@@ -550,7 +485,7 @@ const GstBalance = () => {
                             )}
                           </td>
                           <td className="text-capitalize">{p.status}</td>
-                          <td className="text-nowrap">{p.date}</td>
+                          <td className="text-nowrap">{ddmmyyyy(p.date)}</td>
                           <td className="text-end">{inr(p.taxable_inr)}</td>
                           <td className="text-end">{inr(p.gst_inr)}</td>
                           <td>
@@ -617,7 +552,9 @@ const GstBalance = () => {
                           <td className="text-capitalize">
                             {String(s.status).replace(/_/g, " ")}
                           </td>
-                          <td className="text-nowrap">{s.invoice_date}</td>
+                          <td className="text-nowrap">
+                            {ddmmyyyy(s.invoice_date)}
+                          </td>
                           <td className="text-uppercase">
                             {String(s.gst_route || "").replace(/_/g, " ")}
                           </td>
