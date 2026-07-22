@@ -56,6 +56,10 @@ const EditableCell = ({
   width,
   suffix = "",
   invalid = false,
+  // "number" for money/qty, "text" for codes. HSN has to be text: a number
+  // input drops the leading zero on codes like 08011100 and offers a spinner
+  // on something that is a classification, not a quantity.
+  type = "number",
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -83,8 +87,8 @@ const EditableCell = ({
       <Input
         innerRef={ref}
         bsSize="sm"
-        type="number"
-        step="0.01"
+        type={type}
+        {...(type === "number" ? { step: "0.01" } : {})}
         className={`text-${align} ws-input`}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -340,7 +344,9 @@ const CostingWorksheet = ({
       // went through the product picker — only when the line's own value is
       // blank, so a user override is never clobbered.
       if (!l.hsn_code && !l.hs_code && raw.hsn_code) {
+        // Both keys — see the HSN cell below for why.
         setValue(`lines.${idx}.hsn_code`, String(raw.hsn_code));
+        setValue(`lines.${idx}.hs_code`, String(raw.hsn_code));
       }
       if (!l.part_no && raw.part_no) {
         setValue(`lines.${idx}.part_no`, String(raw.part_no));
@@ -409,6 +415,7 @@ const CostingWorksheet = ({
     setValue(`lines.${idx}.product_name`, raw.name || raw.product_name || "");
     setValue(`lines.${idx}.part_no`, raw.part_no || "");
     setValue(`lines.${idx}.hsn_code`, raw.hsn_code || "");
+    setValue(`lines.${idx}.hs_code`, raw.hsn_code || "");
     setValue(
       `lines.${idx}.tax_pct`,
       raw.tax_pct != null ? String(raw.tax_pct) : "0"
@@ -572,7 +579,9 @@ const CostingWorksheet = ({
     product: 210,
     vendor: 170,
     part: 92,
-    hsn: 92,
+    // Wider than part_no now that it holds an input, not a label — an 8-digit
+    // HSN plus the cell's own padding does not fit in 92.
+    hsn: 112,
     qty: 78,
     uom: 60,
     rate: 92,
@@ -823,8 +832,28 @@ const CostingWorksheet = ({
                     <td className="small text-muted text-truncate">
                       {l.part_no || "-"}
                     </td>
-                    <td className="small text-muted text-truncate">
-                      {l.hsn_code || l.hs_code || "-"}
+                    {/* HSN is editable in draft and overrides the product
+                        master for THIS document only — the master is never
+                        written back, because a line can legitimately ship under
+                        a different classification on one contract. */}
+                    <td className="p-0">
+                      <EditableCell
+                        value={l.hsn_code || l.hs_code || ""}
+                        type="text"
+                        align="start"
+                        readOnly={readOnly}
+                        placeholder="-"
+                        onCommit={(v) => {
+                          // Both keys, deliberately: the Sales Order line field
+                          // is `hsn_code` and the Quotation's is `hs_code`, and
+                          // the Quotation submit reads `hs_code || hsn_code` —
+                          // so writing only one would let a stale hydrated
+                          // `hs_code` win over the value just typed.
+                          const next = String(v ?? "").trim();
+                          setField(idx, "hsn_code", next);
+                          setField(idx, "hs_code", next);
+                        }}
+                      />
                     </td>
                     <td className="p-0">
                       <EditableCell
@@ -1112,6 +1141,7 @@ function emptyLine() {
     product_rebates_snapshot: [],
     product_expenses_snapshot: [],
     hsn_code: "",
+    hs_code: "",
     part_no: "",
     net_weight_kg: "0",
     gross_weight_kg: "0",
