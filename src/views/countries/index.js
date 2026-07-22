@@ -32,6 +32,10 @@ import withReactContent from "sweetalert2-react-content";
 // ** Icons
 import { Edit, Trash2, PlusCircle } from "react-feather";
 
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
+import ImportModal from "./components/ImportModal";
+
 // ** Constants
 import {
   appsRoot,
@@ -50,12 +54,15 @@ const CountryList = () => {
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
 
-  const [sort, setSort] = useState("desc");
-  const [sortColumn, setSortColumn] = useState("_id");
+  // A → Z by name. The old default was `_id` descending, which on a uuid key
+  // is not an order anyone can read — it just looked shuffled.
+  const [sort, setSort] = useState("asc");
+  const [sortColumn, setSortColumn] = useState("name");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const handleCountryLists = useCallback(
     (
@@ -265,9 +272,11 @@ const CountryList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              {/* 7/5 (was 9/3): the toolbar now carries Export + Import + Add,
+                  and 3 columns forced them to wrap. */}
+              <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Input
                       type="text"
                       id="search-country"
@@ -277,7 +286,7 @@ const CountryList = () => {
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Select
                       value={
                         statusFilter
@@ -304,15 +313,24 @@ const CountryList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
-                {canAdd && (
-                  <Button
-                    color="primary"
-                    onClick={() => navigate(`${appsRoot}/countries/add`)}
-                  >
-                    <PlusCircle size={14} className="me-50" /> {t("Add")}
-                  </Button>
-                )}
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  <ImportExportButtons
+                    exportUrl={API_ENDPOINTS.countries.export}
+                    filenamePrefix="countries"
+                    exportErrorMessage={t("Failed to export countries")}
+                    canImport={canAdd || canEdit}
+                    onImportClick={() => setImportModalOpen(true)}
+                  />
+                  {canAdd && (
+                    <Button
+                      color="primary"
+                      onClick={() => navigate(`${appsRoot}/countries/add`)}
+                    >
+                      <PlusCircle size={14} className="me-50" /> {t("Add")}
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -333,6 +351,12 @@ const CountryList = () => {
           </CardBody>
         </Card>
       </div>
+
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleCountryLists()}
+      />
     </Fragment>
   );
 };

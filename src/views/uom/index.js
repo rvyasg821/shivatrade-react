@@ -30,10 +30,10 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
-import { Edit, Trash2, PlusCircle, Download, Upload } from "react-feather";
+import { Edit, Trash2, PlusCircle } from "react-feather";
 
-import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
 import ImportModal from "./components/ImportModal";
 
 // ** Constants
@@ -61,7 +61,6 @@ const UomList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   const handleUomLists = useCallback(
     (
@@ -159,31 +158,6 @@ const UomList = () => {
       .then((result) => {
         if (result.isConfirmed) dispatch(deleteUom(row?._id));
       });
-  };
-
-  /**
-   * Export every unit — active AND inactive, ignoring the on-screen status
-   * filter, so the file is a full snapshot that can be edited and re-imported
-   * without silently dropping the inactive ones.
-   */
-  const handleExport = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const res = await instance.get(API_ENDPOINTS.uom.export, {
-        responseType: "blob",
-      });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `uom-${new Date().toISOString().split("T")[0]}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      Notification("Error", t("Failed to export units"), "warning");
-    } finally {
-      setExporting(false);
-    }
   };
 
   const isAdmin = isAdminUser(authUserItem);
@@ -370,25 +344,13 @@ const UomList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
-                  <Button
-                    color="outline-secondary"
-                    size="sm"
-                    className="text-nowrap"
-                    onClick={handleExport}
-                    disabled={exporting}
-                  >
-                    {t("Export")} <Download size={14} />
-                  </Button>
-                  {(canAdd || canEdit) && (
-                    <Button
-                      color="outline-secondary"
-                      size="sm"
-                      className="text-nowrap"
-                      onClick={() => setImportModalOpen(true)}
-                    >
-                      {t("Import")} <Upload size={14} />
-                    </Button>
-                  )}
+                  <ImportExportButtons
+                    exportUrl={API_ENDPOINTS.uom.export}
+                    filenamePrefix="uom"
+                    exportErrorMessage={t("Failed to export units")}
+                    canImport={canAdd || canEdit}
+                    onImportClick={() => setImportModalOpen(true)}
+                  />
                   {canAdd && (
                     <Button
                       color="primary"

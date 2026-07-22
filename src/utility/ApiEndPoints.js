@@ -133,6 +133,9 @@ export const API_ENDPOINTS = {
     update: `/admin/country/update`,
     delete: `/admin/country/delete`,
     dropdown: `/admin/country/dropdown`,
+    import: `/admin/country/import`,
+    export: `/admin/country/export`,
+    sampleExcel: `/admin/country/sample-excel`,
   },
   states: {
     list: `/admin/state/list`,
@@ -141,6 +144,9 @@ export const API_ENDPOINTS = {
     update: `/admin/state/update`,
     delete: `/admin/state/delete`,
     dropdown: `/admin/state/dropdown`,
+    import: `/admin/state/import`,
+    export: `/admin/state/export`,
+    sampleExcel: `/admin/state/sample-excel`,
   },
   cities: {
     list: `/admin/city/list`,
@@ -149,6 +155,9 @@ export const API_ENDPOINTS = {
     update: `/admin/city/update`,
     delete: `/admin/city/delete`,
     dropdown: `/admin/city/dropdown`,
+    import: `/admin/city/import`,
+    export: `/admin/city/export`,
+    sampleExcel: `/admin/city/sample-excel`,
   },
   creator: {
     roster: `/admin/creator/roster`,

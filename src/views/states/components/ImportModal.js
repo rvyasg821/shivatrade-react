@@ -5,9 +5,10 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import SharedImportModal from "@src/views/_shared/import/ImportModal";
 import ImportErrorTable from "@src/views/_shared/import/ImportErrorTable";
 
-// Mirrors the Categories import modal. The key differences come from the
-// master itself: the match key is `code` (not name), and UOM is global
-// reference data so nothing is company-scoped.
+// Mirrors the Countries import modal, plus the one thing states add: a parent.
+// The country is given by NAME and must already be in the Country master —
+// nobody can be asked to paste UUIDs into a spreadsheet, and a parent that does
+// not exist yet is an error rather than a silent create.
 const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const { t } = useTranslation();
 
@@ -16,12 +17,12 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("Download the sample Excel to see the required format")}</li>
       <li>
         {t(
-          "Required column: code. Optional columns: name, uqc_code, allow_decimal, sort_order, status"
+          "Required columns: name, country. Optional columns: state_code, status"
         )}
       </li>
       <li>
         {t(
-          "allow_decimal must be 'yes' or 'no' — use 'no' for countable units like Nos or Box (defaults to yes)"
+          "The country column holds the country NAME (e.g. India) and must already exist in the Country master — import Countries first"
         )}
       </li>
       <li>
@@ -31,10 +32,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       </li>
       <li>
         {t(
-          "If a code matches an existing unit, that unit is updated — the code itself is never renamed, because products store it as plain text"
+          "A state is matched on name WITHIN its country, so the same name under two countries stays two separate states"
         )}
       </li>
-      <li>{t("Accepts .xlsx, .xls or .csv files (max 5 MB)")}</li>
+      <li>{t("Accepts .xlsx, .xls or .csv files (max 5 MB, 5000 rows)")}</li>
     </ol>
   );
 
@@ -64,9 +65,9 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
           <ImportErrorTable
             rows={preview.rows}
             columns={[
-              { header: t("Code"), cell: (r) => r.data.code },
               { header: t("Name"), cell: (r) => r.data.name },
-              { header: t("UQC"), cell: (r) => r.data.uqc_code },
+              { header: t("Country"), cell: (r) => r.data.country },
+              { header: t("State Code"), cell: (r) => r.data.state_code },
             ]}
           />
         </>
@@ -84,10 +85,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       isOpen={isOpen}
       toggle={toggle}
       onSuccess={onSuccess}
-      title={t("Import Units of Measure")}
-      importUrl={API_ENDPOINTS.uom.import}
-      sampleUrl={API_ENDPOINTS.uom.sampleExcel}
-      sampleFilename="uom-import-sample.xlsx"
+      title={t("Import States")}
+      importUrl={API_ENDPOINTS.states.import}
+      sampleUrl={API_ENDPOINTS.states.sampleExcel}
+      sampleFilename="states-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
     />

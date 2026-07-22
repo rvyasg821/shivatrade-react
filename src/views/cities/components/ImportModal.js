@@ -5,9 +5,10 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import SharedImportModal from "@src/views/_shared/import/ImportModal";
 import ImportErrorTable from "@src/views/_shared/import/ImportErrorTable";
 
-// Mirrors the Categories import modal. The key differences come from the
-// master itself: the match key is `code` (not name), and UOM is global
-// reference data so nothing is company-scoped.
+// The city master ships empty on purpose, so this modal is how it actually gets
+// populated. Both parents are named, and `country` is not decorative: Punjab is
+// a state in two countries and Georgia is both a state and a country, so
+// without it those rows would be genuinely ambiguous.
 const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const { t } = useTranslation();
 
@@ -16,12 +17,17 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("Download the sample Excel to see the required format")}</li>
       <li>
         {t(
-          "Required column: code. Optional columns: name, uqc_code, allow_decimal, sort_order, status"
+          "Required columns: name, state, country. Optional columns: city_code, status"
         )}
       </li>
       <li>
         {t(
-          "allow_decimal must be 'yes' or 'no' — use 'no' for countable units like Nos or Box (defaults to yes)"
+          "state and country hold NAMES (e.g. Gujarat, India) and must already exist in their masters — import Countries, then States, then Cities"
+        )}
+      </li>
+      <li>
+        {t(
+          "The country column is required even though the state implies it, because the same state name can exist in more than one country"
         )}
       </li>
       <li>
@@ -31,10 +37,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       </li>
       <li>
         {t(
-          "If a code matches an existing unit, that unit is updated — the code itself is never renamed, because products store it as plain text"
+          "A city is matched on name WITHIN its state, so the same name in two states stays two separate cities"
         )}
       </li>
-      <li>{t("Accepts .xlsx, .xls or .csv files (max 5 MB)")}</li>
+      <li>{t("Accepts .xlsx, .xls or .csv files (max 5 MB, 5000 rows)")}</li>
     </ol>
   );
 
@@ -64,9 +70,9 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
           <ImportErrorTable
             rows={preview.rows}
             columns={[
-              { header: t("Code"), cell: (r) => r.data.code },
               { header: t("Name"), cell: (r) => r.data.name },
-              { header: t("UQC"), cell: (r) => r.data.uqc_code },
+              { header: t("State"), cell: (r) => r.data.state },
+              { header: t("Country"), cell: (r) => r.data.country },
             ]}
           />
         </>
@@ -84,10 +90,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       isOpen={isOpen}
       toggle={toggle}
       onSuccess={onSuccess}
-      title={t("Import Units of Measure")}
-      importUrl={API_ENDPOINTS.uom.import}
-      sampleUrl={API_ENDPOINTS.uom.sampleExcel}
-      sampleFilename="uom-import-sample.xlsx"
+      title={t("Import Cities")}
+      importUrl={API_ENDPOINTS.cities.import}
+      sampleUrl={API_ENDPOINTS.cities.sampleExcel}
+      sampleFilename="cities-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
     />
