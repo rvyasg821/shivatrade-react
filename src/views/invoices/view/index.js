@@ -300,10 +300,10 @@ const ViewInvoice = () => {
     num(inv?.freight_charges) +
     num(inv?.insurance_charges) +
     num(inv?.other_charges);
-  // … then round the grand total to a whole number to mirror the backend
-  // (invoice recompute uses Math.round). The difference is shown as a
-  // transparent "Round Off" line so Subtotal/FOB still reconcile with the lines.
-  const grandDoc = Math.round(rawGrandDoc);
+  // Keep the exact 2-decimal total, mirroring the backend recompute (round2).
+  // The grand total must equal FOB + freight + insurance + other to the cent
+  // (767.65, not 768). roundOffDoc then collapses to 0 and its line hides.
+  const grandDoc = Math.round(rawGrandDoc * 100) / 100;
   const roundOffDoc = grandDoc - rawGrandDoc;
   // Adjustment Notes applied to THIS invoice. Positive = the receivable was
   // reduced (a customer Credit note); negative = increased (a Debit note).
@@ -764,7 +764,10 @@ const ViewInvoice = () => {
     inv?.exchange_rate && {
       icon: Percent,
       label: t("Exchange Rate"),
-      value: `${sym}1 = ₹${fmt(inv.exchange_rate, 4)}`,
+      // exchange_rate is stored as foreign-per-₹1 (e.g. 0.0120). Invert it to
+      // show the rupee value of one foreign unit, matching the PDF:
+      // "$1 = ₹83.33", not the raw "$1 = ₹0.0120".
+      value: `${sym}1 = ₹${fmt(exchangeRate > 0 ? 1 / exchangeRate : 0, 2)}`,
     },
   ].filter(Boolean);
 
