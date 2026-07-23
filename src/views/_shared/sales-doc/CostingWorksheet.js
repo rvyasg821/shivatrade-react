@@ -665,13 +665,6 @@ const CostingWorksheet = ({
               }
             />
           </div>
-          <span className="small text-muted">
-            {t("Click any value to edit; costs in")} {baseCurrencyCode}
-            {isForeign
-              ? `, ${t("customer amounts in")} ${docCurrencyCode}`
-              : ""}
-            .
-          </span>
         </div>
         {!readOnly && (
           <div className="d-flex align-items-center flex-wrap gap-1 listing-toolbar-actions">
