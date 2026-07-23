@@ -12,8 +12,11 @@ import DatatablePagination from "@components/datatable/DatatablePagination";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import { Edit, Trash2, PlusCircle } from "react-feather";
+import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import ImportModal from "./components/ImportModal";
 
 const TYPE_LABEL = {
   percent: "Percent",
@@ -35,6 +38,8 @@ const RebateList = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleLists = useCallback(
     (sorting = sort, sortCol = sortColumn, page = currentPage, perPage = rowsPerPage, search = searchInput, status = statusFilter) => {
@@ -57,6 +62,25 @@ const RebateList = () => {
     handleLists(sort, sortColumn, 1, value, searchInput);
   };
   const handleSearch = (value) => setSearchInput(value);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.rebates.export, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rebates-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      Notification("Error", t("Failed to export rebates"), "warning");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     let handler;
@@ -163,13 +187,13 @@ const RebateList = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
-              <Col sm="9" md="9">
+              <Col sm="7" md="7">
                 <Row>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Input type="text" value={searchInput} className="w-100 select"
                       placeholder={t("Search Rebates")} onChange={(e) => handleSearch(e?.target?.value)} />
                   </Col>
-                  <Col sm="6" md="4" className="mb-2 mb-md-0">
+                  <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Select
                       value={statusFilter ? { value: statusFilter, label: statusFilter === "ACTIVE" ? t("Active") : t("Inactive") } : null}
                       onChange={(s) => setStatusFilter(s ? s.value : "")}
@@ -179,12 +203,22 @@ const RebateList = () => {
                   </Col>
                 </Row>
               </Col>
-              <Col sm="3" md="3" className="text-end listing-toolbar-actions">
-                {canAdd && (
-                  <Button color="primary" onClick={() => navigate(`${appsRoot}/rebates/add`)}>
-                    <PlusCircle size={14} className="me-50" />{t("Add")}
+              <Col sm="5" md="5">
+                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={handleExport} disabled={exporting}>
+                    {t("Export")} <Download size={14} />
                   </Button>
-                )}
+                  {canAdd && (
+                    <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={() => setImportModalOpen(true)}>
+                      {t("Import")} <Upload size={14} />
+                    </Button>
+                  )}
+                  {canAdd && (
+                    <Button color="primary" className="text-nowrap" onClick={() => navigate(`${appsRoot}/rebates/add`)}>
+                      <PlusCircle size={14} className="me-50" />{t("Add")}
+                    </Button>
+                  )}
+                </div>
               </Col>
             </Row>
             <Row className="mt-2">
@@ -204,6 +238,11 @@ const RebateList = () => {
           </CardBody>
         </Card>
       </div>
+      <ImportModal
+        isOpen={importModalOpen}
+        toggle={() => setImportModalOpen((prev) => !prev)}
+        onSuccess={() => handleLists()}
+      />
     </Fragment>
   );
 };
