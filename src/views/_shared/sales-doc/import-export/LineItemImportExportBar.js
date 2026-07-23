@@ -89,6 +89,41 @@ const LineItemImportExportBar = ({
     }
   };
 
+  // Quotation & Sales Order only — the client-facing costing REPORT: grouped
+  // header bands + pretty currency labels + computed amounts + TOTAL row. This
+  // file is NOT re-importable; it's a snapshot to print/share.
+  const isCostingDoc = docType === "quotation" || docType === "po";
+  const handleExportFormatted = async () => {
+    if (!liveLines.length) {
+      Notification("Info", t("No lines to export yet"), "info");
+      return;
+    }
+    try {
+      const res = await instance.post(
+        API_ENDPOINTS.salesDocImport.export,
+        {
+          docType,
+          lines: liveLines,
+          currencyCode,
+          exchangeRate,
+          freightTotal,
+          docNumber,
+          formatted: true,
+        },
+        { responseType: "blob" },
+      );
+      const datePart = new Date().toISOString().slice(0, 10);
+      const id = docNumber || "draft";
+      const prefix = docType === "po" ? "so" : docType;
+      downloadBlob(
+        res.data,
+        `${prefix}-costing-report-${id}-${datePart}.xlsx`,
+      );
+    } catch {
+      Notification("Error", t("Failed to generate the file"), "warning");
+    }
+  };
+
   // Fixed merge rule (no UI option): if (product_code, vendor_code) matches an
   // existing line → update in place; otherwise append. Guarantees no duplicate
   // product+vendor pairs are ever created in the form.
@@ -177,6 +212,19 @@ const LineItemImportExportBar = ({
           <FileText size={14} className="me-50" />
           {t("Export Excel")}
         </Button>
+
+        {isCostingDoc && (
+          <Button
+            color="primary"
+            outline
+            size="sm"
+            onClick={handleExportFormatted}
+            disabled={!liveLines.length}
+          >
+            <FileText size={14} className="me-50" />
+            {t("Export Report")}
+          </Button>
+        )}
       </div>
 
       <LineItemImportModal
