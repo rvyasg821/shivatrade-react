@@ -460,6 +460,9 @@ export const API_ENDPOINTS = {
     update: `/admin/rebate/update`,
     delete: `/admin/rebate/delete`,
     dropdown: `/admin/rebate/dropdown`,
+    import: `/admin/rebate/import`,
+    export: `/admin/rebate/export`,
+    sampleExcel: `/admin/rebate/sample-excel`,
   },
   expenses: {
     list: `/admin/expense/list`,
@@ -468,6 +471,9 @@ export const API_ENDPOINTS = {
     update: `/admin/expense/update`,
     delete: `/admin/expense/delete`,
     dropdown: `/admin/expense/dropdown`,
+    import: `/admin/expense/import`,
+    export: `/admin/expense/export`,
+    sampleExcel: `/admin/expense/sample-excel`,
   },
   employees: {
     list: `/admin/employee/list`,

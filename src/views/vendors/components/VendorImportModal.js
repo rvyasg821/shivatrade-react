@@ -51,6 +51,11 @@ const VendorImportModal = ({ isOpen, toggle, onSuccess }) => {
       </li>
       <li>
         {t(
+          "contact_phone_code is the phone's dial code, e.g. +91. Optional — blank defaults to +91 (India). The country flag is derived from it."
+        )}
+      </li>
+      <li>
+        {t(
           "Addresses sheet: one row per address, with the vendor's company_name repeated. A vendor with three addresses gets three rows. Mark one is_default per type."
         )}
       </li>
