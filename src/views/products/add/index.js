@@ -43,6 +43,8 @@ import Notification from "@components/toast/notification";
 // ** Third Party
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 // ** Icons
 import { ArrowLeft, Loader, Package, DollarSign, Truck } from "react-feather";
@@ -106,6 +108,8 @@ const ProductForm = () => {
   const categoryStore = useSelector((state) => state.category);
   const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
+  const mySwal = withReactContent(Swal);
+  const [applyingHsn, setApplyingHsn] = useState(false);
 
   // The product stores the country NAME ("India"), and the invoice/PDF print it
   // verbatim — so ask for name-valued options. No state/city cascade here:
@@ -246,6 +250,63 @@ const ProductForm = () => {
     resolver: yupResolver(schema),
     defaultValues: initProductItem,
   });
+
+  // Apply the current HSN code to every existing document (leads, quotations,
+  // sales orders, vendor POs, GRNs, debit notes, invoices) that uses this
+  // product. Overwrites per-line HSN across ALL statuses — hence the confirm.
+  const handleApplyHsn = async () => {
+    const hsn = (watch("hsn_code") || "").trim();
+    const confirm = await mySwal.fire({
+      title: t("Apply HSN to all documents?"),
+      html: hsn
+        ? t(
+            "HSN <b>{{hsn}}</b> will be written onto every document that uses this product — leads, quotations, sales orders, vendor POs, GRNs, debit notes and invoices — across all statuses. This overwrites any HSN edited on those lines and cannot be undone.",
+            { hsn }
+          )
+        : t(
+            "The HSN on every document that uses this product will be <b>cleared</b> — leads, quotations, sales orders, vendor POs, GRNs, debit notes and invoices — across all statuses. This cannot be undone."
+          ),
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: t("Yes, apply to all"),
+      cancelButtonText: t("Cancel"),
+      customClass: {
+        confirmButton: "btn btn-primary",
+        cancelButton: "btn btn-outline-danger ms-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!confirm.isConfirmed) return;
+
+    setApplyingHsn(true);
+    try {
+      const res = await instance.post(
+        `${API_ENDPOINTS.products.applyHsn}/${id}`,
+        { hsn_code: hsn }
+      );
+      const data = res?.data?.data || res?.data || {};
+      const rows = (data.updated || [])
+        .map((u) => `${u.count} ${u.label}`)
+        .join(", ");
+      await mySwal.fire({
+        title: t("Done"),
+        html: data.total
+          ? t("Updated {{total}} line(s): {{rows}}", {
+              total: data.total,
+              rows,
+            })
+          : t("No existing documents use this product yet."),
+        icon: "success",
+        confirmButtonText: t("OK"),
+        customClass: { confirmButton: "btn btn-primary" },
+        buttonsStyling: false,
+      });
+    } catch {
+      Notification("Error", t("Failed to apply HSN to documents"), "warning");
+    } finally {
+      setApplyingHsn(false);
+    }
+  };
 
   // ── Wizard navigation state ─────────────────────────────────────────
   const [activeStep, setActiveStep] = useState(0);
@@ -749,6 +810,19 @@ const ProductForm = () => {
                       />
                     )}
                   />
+                  {isEditMode && (
+                    <Button
+                      color="link"
+                      size="sm"
+                      className="p-0 mt-50"
+                      onClick={handleApplyHsn}
+                      disabled={applyingHsn}
+                    >
+                      {applyingHsn
+                        ? t("Applying…")
+                        : t("Apply HSN to all documents")}
+                    </Button>
+                  )}
                 </Col>
                 <Col md="4" className="mb-2">
                   <Label className="form-label" for="tax_pct">

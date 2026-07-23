@@ -202,6 +202,7 @@ export const API_ENDPOINTS = {
     import: `/admin/product/import`,
     export: `/admin/product/export`,
     sampleExcel: `/admin/product/sample-excel`,
+    applyHsn: `/admin/product/apply-hsn`,
   },
   vendors: {
     list: `/admin/vendor/list`,
