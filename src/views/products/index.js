@@ -301,8 +301,8 @@ const ProductList = () => {
       sortField: "unit_of_measure",
       sortable: false,
       center: true,
-      width: "90px",
-      selector: (row) => <span className="text-wrap">{row?.unit_of_measure || "-"}</span>,
+      minWidth: "120px",
+      selector: (row) => <span className="text-nowrap">{row?.unit_of_measure || "-"}</span>,
     },
     {
       name: t("Price"),
