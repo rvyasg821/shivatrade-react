@@ -97,6 +97,7 @@ const QuotationWizard = () => {
           .trim()
           .required(t("Quotation date is required")),
         valid_until: yup.string().nullable(),
+        reference_no: yup.string().nullable().max(100),
         customer_address_id: yup.string().nullable(),
         exchange_rate: yup.string().nullable(),
         payment_terms: yup.string().nullable().max(100),
@@ -817,6 +818,7 @@ const QuotationWizard = () => {
       consignee_snapshot: buildConsigneeSnapshot(values.consignee_address_id),
       quotation_date: values.quotation_date,
       valid_until: values.valid_until || undefined,
+      reference_no: values.reference_no?.trim() || undefined,
       currency_code: values.currency_code,
       exchange_rate: values.exchange_rate || "1",
       // Shipment freight (document currency) for a CNF quote — split by qty

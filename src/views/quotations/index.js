@@ -366,6 +366,12 @@ const QuotationView = () => {
       },
     },
     {
+      name: t("Reference No."),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
+      sortable: false,
+      selector: (row) => row?.reference_no || "-",
+    },
+    {
       name: t("Date"),
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "quotation_date",

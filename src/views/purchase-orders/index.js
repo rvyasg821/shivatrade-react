@@ -388,6 +388,14 @@ const PurchaseOrderView = () => {
       },
     },
     {
+      name: t("Reference No."),
+      hide: "md", // hidden on small screens (≤ md ≈ 959px)
+      sortable: false,
+      minWidth: "140px",
+      wrap: true,
+      selector: (row) => row?.reference_no || "-",
+    },
+    {
       name: t("Date"),
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortField: "po_date",

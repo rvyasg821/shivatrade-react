@@ -80,6 +80,10 @@ const PoVendorRecoverModal = ({
   const [assignment, setAssignment] = useState({});
   // dropped[purchase_order_line_id] = true → exclude from batch
   const [dropped, setDropped] = useState({});
+  // qtyEdited[purchase_order_line_id] = true → operator changed the "To Procure"
+  // quantity, so we send an explicit ordered_qty override (may exceed the SO's
+  // pending). Untouched lines omit it and the backend keeps its auto-deduct.
+  const [qtyEdited, setQtyEdited] = useState({});
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
   // Per-vendor optional advance paid. Shape:
@@ -179,6 +183,7 @@ const PoVendorRecoverModal = ({
     setActiveVendors([]);
     setAssignment({});
     setDropped({});
+    setQtyEdited({});
     setVendorExpenses({});
     setVendorAdvances({});
     setVendorLocations({});
@@ -236,6 +241,21 @@ const PoVendorRecoverModal = ({
         r.purchase_order_line_id === lineId ? { ...r, hsn_code: val } : r
       )
     );
+  };
+
+  // "To Procure" is editable so the operator can adjust the quantity actually
+  // ordered from the vendor (client req #3). Editing it drives every live total
+  // below (goods, GST, POV total) because they all read `to_procure`, and marks
+  // the line so onSubmit sends an explicit ordered_qty override. Raising a line
+  // that was "from stock" (to_procure 0) reveals its vendor picker automatically
+  // — `fromStock` is derived from this value on each render.
+  const handleQtyChange = (lineId, val) => {
+    setPreviewLines((rows) =>
+      rows.map((r) =>
+        r.purchase_order_line_id === lineId ? { ...r, to_procure: val } : r
+      )
+    );
+    setQtyEdited((s) => ({ ...s, [lineId]: true }));
   };
 
   const handleDrop = (lineId) => {
@@ -450,6 +470,12 @@ const PoVendorRecoverModal = ({
           l.tax_pct != null && l.tax_pct !== ""
             ? String(num(l.tax_pct))
             : undefined,
+        // Only send the qty when the operator edited it — otherwise the backend
+        // keeps its own pending − stock auto-deduct. An edited value may exceed
+        // pending; the backend flags such lines past the over-shipment guard.
+        ordered_qty: qtyEdited[l.purchase_order_line_id]
+          ? String(num(l.to_procure))
+          : undefined,
         // Omitted when blank so the backend keeps its own fallback chain
         // (SO line → product master) rather than storing an empty HSN.
         hsn_code:
@@ -701,8 +727,27 @@ const PoVendorRecoverModal = ({
                         >
                           {num(l.in_stock).toLocaleString()}
                         </td>
-                        <td className="text-end fw-bold">
-                          {num(l.to_procure).toLocaleString()}
+                        <td className="text-end fw-bold" style={{ minWidth: 96 }}>
+                          {isDropped || noVendor ? (
+                            num(l.to_procure).toLocaleString()
+                          ) : (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              bsSize="sm"
+                              className="text-end ms-auto"
+                              style={{ width: 84 }}
+                              value={l.to_procure ?? ""}
+                              title={t("Adjust quantity to procure")}
+                              onChange={(e) =>
+                                handleQtyChange(
+                                  l.purchase_order_line_id,
+                                  e.target.value
+                                )
+                              }
+                            />
+                          )}
                         </td>
                         <td>
                           {fromStock ? (

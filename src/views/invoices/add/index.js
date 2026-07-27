@@ -235,6 +235,7 @@ const InvoiceAddEdit = () => {
     due_date: "",
     purchase_order_id: queryPoId,
     customer_po_no: "",
+    reference_no: "",
     country_of_destination: "",
     country_of_origin: "India",
     customer_id: "",
@@ -688,6 +689,8 @@ const InvoiceAddEdit = () => {
         // Carry the buyer's PO# + advance already collected from the source
         // Sales Order (S4) so they're visible/editable before save.
         customer_po_no: po.customer_po_number || s.customer_po_no || "",
+        // Manual tracking reference carried from the source Sales Order.
+        reference_no: po.reference_no || s.reference_no || "",
         advance_received:
           po.advance_amount != null && po.advance_amount !== ""
             ? String(po.advance_amount)
@@ -837,6 +840,9 @@ const InvoiceAddEdit = () => {
         // Buyer's PO # — carried from the primary source Sales Order, same as
         // the single-SO path. Blank-only, so it never clobbers a typed value.
         customer_po_no: po?.customer_po_number || s.customer_po_no || "",
+        // Reference No. — carried from the primary source Sales Order, same
+        // blank-only rule so it never clobbers a typed value.
+        reference_no: po?.reference_no || s.reference_no || "",
         advance_received:
           po?.advance_amount != null && po?.advance_amount !== ""
             ? String(po.advance_amount)
@@ -1010,6 +1016,7 @@ const InvoiceAddEdit = () => {
       due_date: inv.due_date?.slice(0, 10) || "",
       purchase_order_id: inv.purchase_order_id || "",
       customer_po_no: inv.customer_po_no || "",
+      reference_no: inv.reference_no || "",
       country_of_destination: inv.country_of_destination || "",
       country_of_origin: inv.country_of_origin || "India",
       customer_id: inv.customer_id || "",
@@ -2394,6 +2401,15 @@ const InvoiceAddEdit = () => {
                 onChange={(e) => onF("customer_po_no", e.target.value)}
                 placeholder="e.g. PO-2026-018"
                 maxLength={60}
+              />
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">{t("Reference No.")}</Label>
+              <Input
+                value={form.reference_no}
+                onChange={(e) => onF("reference_no", e.target.value)}
+                placeholder="e.g. REF-2026-018"
+                maxLength={100}
               />
             </Col>
             <Col md="4" className="mb-2">

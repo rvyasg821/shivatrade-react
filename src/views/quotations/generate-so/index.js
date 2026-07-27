@@ -45,6 +45,7 @@ const GenerateSalesOrder = () => {
   const [locations, setLocations] = useState([]);
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [customerPoNumber, setCustomerPoNumber] = useState("");
+  const [referenceNo, setReferenceNo] = useState("");
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceDate, setAdvanceDate] = useState("");
   const [advanceNotes, setAdvanceNotes] = useState("");
@@ -59,6 +60,14 @@ const GenerateSalesOrder = () => {
       dispatch(getQuotation(quotationId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotationId]);
+
+  // Prefill the Reference No. from the quotation being converted (the backend
+  // also defaults it, but seeding here keeps the field visible + editable).
+  useEffect(() => {
+    if (q?._id === quotationId && q?.reference_no)
+      setReferenceNo(q.reference_no);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q?._id, q?.reference_no, quotationId]);
 
   // Check whether this quotation already spawned a Sales Order.
   useEffect(() => {
@@ -149,6 +158,7 @@ const GenerateSalesOrder = () => {
         {
           delivery_address_id: deliveryAddressId,
           customer_po_number: customerPoNumber?.trim() || undefined,
+          reference_no: referenceNo?.trim() || undefined,
           advance_amount:
             advanceAmount === "" || advanceAmount == null
               ? undefined
@@ -289,6 +299,20 @@ const GenerateSalesOrder = () => {
                   value={customerPoNumber}
                   onChange={(e) => setCustomerPoNumber(e.target.value)}
                   placeholder={t("Buyer's own PO number")}
+                />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label fw-semibold">
+                  {t("Reference No.")}
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  maxLength={100}
+                  value={referenceNo}
+                  onChange={(e) => setReferenceNo(e.target.value)}
+                  placeholder={t("Manual tracking reference")}
                 />
               </div>
 

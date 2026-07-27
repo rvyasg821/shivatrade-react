@@ -603,12 +603,23 @@ const ViewQuotation = () => {
             // Prefer the source RFQ number, then the source lead's RQ number,
             // and only fall back to the quotation's own id hash.
             const sourceNo = q?.rfq_voucher_no || q?.lead_voucher_no;
-            return sourceNo ? (
-              <span>
-                <Hash size={12} className="me-25" />
-                {sourceNo}
+            if (!sourceNo && !q?.reference_no) return null;
+            return (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                {sourceNo ? (
+                  <span className="d-inline-flex align-items-center">
+                    <Hash size={12} className="me-25" />
+                    {sourceNo}
+                  </span>
+                ) : null}
+                {q?.reference_no ? (
+                  <span className="d-inline-flex align-items-center">
+                    <Hash size={12} className="me-25" />
+                    {t("Ref")}: {q.reference_no}
+                  </span>
+                ) : null}
               </span>
-            ) : null;
+            );
           })()}
           badge={{
             label: statusLabel,

@@ -29,7 +29,7 @@ const PoCustomerOrderPanel = () => {
 
   const hasAdvance = Number(p?.advance_amount) > 0;
   const hasData =
-    !!p?.customer_po_number || hasAdvance || !!p?.advance_notes;
+    !!p?.customer_po_number || !!p?.reference_no || hasAdvance || !!p?.advance_notes;
   if (!hasData) return null;
 
   const sym = p?.currency_symbol || "₹";
@@ -37,6 +37,7 @@ const PoCustomerOrderPanel = () => {
   return (
     <DetailPanel title={t("Customer Order")}>
       <Row label={t("Customer PO #")} value={p?.customer_po_number} />
+      <Row label={t("Reference No.")} value={p?.reference_no} />
       <Row
         label={t("Advance")}
         value={hasAdvance ? `${sym} ${Number(p.advance_amount).toLocaleString()}` : ""}
