@@ -14,7 +14,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const instructions = (
     <ol className="mb-0 mt-1">
       <li>{t("Download the sample Excel — columns follow the Add Customer form order")}</li>
-      <li>{t("Required columns: company_name, contact_name, contact_email")}</li>
+      <li>{t("Only company_name is required; contact_name and contact_email are optional")}</li>
       <li>{t("Status must be 'active' or 'inactive' (defaults to active if left blank)")}</li>
       <li>{t("Currency is the customer's default trading currency, e.g. USD / INR / EUR (blank uses your company default)")}</li>
       <li>{t("Country defaults to India when left blank; bill_to_address and ship_to_address are the address lines")}</li>

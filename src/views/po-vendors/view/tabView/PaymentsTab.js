@@ -501,7 +501,7 @@ const PaymentsTab = ({ registerActions }) => {
             </Col>
             {/* Paying company bank account (#7 — "from which account") */}
             <Col md="6" className="mb-2">
-              <Label className="form-label">{t("Paid From (Bank)")}</Label>
+              <Label className="form-label">{t("Paid From")}</Label>
               <Select
                 classNamePrefix="select"
                 isClearable
