@@ -743,6 +743,11 @@ const ViewInvoice = () => {
       label: t("Buyer's PO #"),
       value: inv.customer_po_no,
     },
+    inv?.reference_no && {
+      icon: Hash,
+      label: t("Reference No."),
+      value: inv.reference_no,
+    },
   ].filter(Boolean);
 
   const tradeFields = [

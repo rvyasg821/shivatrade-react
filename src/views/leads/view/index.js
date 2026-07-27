@@ -493,13 +493,23 @@ const ViewLead = () => {
             ) : null
           }
           meta={
-            l?.voucher_no ? (
-              <span
-                className="d-inline-flex align-items-center fw-semibold"
-                style={{ color: "#09418B" }}
-              >
-                <Hash size={12} className="me-25" />
-                {l.voucher_no}
+            l?.voucher_no || l?.reference_no ? (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                {l?.voucher_no ? (
+                  <span
+                    className="d-inline-flex align-items-center fw-semibold"
+                    style={{ color: "#09418B" }}
+                  >
+                    <Hash size={12} className="me-25" />
+                    {l.voucher_no}
+                  </span>
+                ) : null}
+                {l?.reference_no ? (
+                  <span className="d-inline-flex align-items-center">
+                    <FileText size={12} className="me-25" />
+                    {t("Reference No.")}: {l.reference_no}
+                  </span>
+                ) : null}
               </span>
             ) : null
           }

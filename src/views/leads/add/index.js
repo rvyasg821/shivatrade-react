@@ -499,6 +499,7 @@ const LeadForm = () => {
               )
             )
           : undefined,
+      reference_no: data.reference_no?.trim() || undefined,
       quantity: data.quantity?.trim() || undefined,
       delivery_expectation: data.delivery_expectation?.trim() || undefined,
       preferred_vendors: data.preferred_vendors?.length
@@ -717,6 +718,25 @@ const LeadForm = () => {
                   {errors.company_name && (
                     <FormFeedback>{errors.company_name.message}</FormFeedback>
                   )}
+                </Col>
+                <Col md="6" className="mb-2">
+                  <Label className="form-label" for="reference_no">
+                    {t("Reference No.")}
+                  </Label>
+                  <Controller
+                    name="reference_no"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="reference_no"
+                        type="text"
+                        maxLength={100}
+                        placeholder={t("Manual tracking reference")}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    )}
+                  />
                 </Col>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="contact_name">

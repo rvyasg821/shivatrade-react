@@ -349,6 +349,14 @@ const InvoicesList = () => {
           row?.invoice_date ? formatDate(row.invoice_date) : "-",
       },
       {
+        name: t("Reference No."),
+        sortable: false,
+        minWidth: "150px",
+        // Hidden on small screens (≤ md ≈ 959px); shown on desktop.
+        hide: "md",
+        selector: (row) => row?.reference_no || "-",
+      },
+      {
         name: t("Amount"),
         sortable: false,
         selector: formatTotal,

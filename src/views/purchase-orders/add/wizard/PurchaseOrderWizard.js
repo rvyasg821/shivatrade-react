@@ -693,6 +693,7 @@ const PurchaseOrderWizard = () => {
       po_date: values.po_date,
       expected_delivery_date: values.expected_delivery_date || undefined,
       customer_po_number: values.customer_po_number?.trim() || undefined,
+      reference_no: values.reference_no?.trim() || undefined,
       delivery_address: values.delivery_address?.trim() || undefined,
       delivery_address_id: values.delivery_address_id || undefined,
       payment_terms: values.payment_terms?.trim() || undefined,

@@ -146,6 +146,12 @@ const QuotationInfoCard = () => {
           <ul className="list-unstyled mb-2">
             <InfoRow icon={User} value={q?.customer_name} />
             <InfoRow
+              icon={Hash}
+              value={
+                q?.reference_no ? `${t("Ref")}: ${q.reference_no}` : null
+              }
+            />
+            <InfoRow
               icon={Calendar}
               value={
                 q?.quotation_date

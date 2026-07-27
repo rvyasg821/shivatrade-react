@@ -266,6 +266,26 @@ const Step1Customer = ({
         />
       </Col>
 
+      <Col md="6" className="mb-2">
+        <Label className="form-label">
+          {t("Reference No.")}{" "}
+          <small className="text-muted">({t("optional")})</small>
+        </Label>
+        <Controller
+          name="reference_no"
+          control={control}
+          render={({ field }) => (
+            <Input
+              placeholder={t("Manual tracking reference")}
+              maxLength={100}
+              disabled={isLocked}
+              {...field}
+              value={field.value || ""}
+            />
+          )}
+        />
+      </Col>
+
       <Col md="3" className="mb-2">
         <Label className="form-label">
           {t("Currency")} {required}
