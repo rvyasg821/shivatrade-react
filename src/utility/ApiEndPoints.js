@@ -336,6 +336,8 @@ export const API_ENDPOINTS = {
     purchaseTurnoverExport: `/admin/reports/purchase-turnover/export`,
     salesTurnover: `/admin/reports/sales-turnover`,
     salesTurnoverExport: `/admin/reports/sales-turnover/export`,
+    soInvoiceReconciliation: `/admin/reports/so-invoice-reconciliation`,
+    soInvoiceReconciliationExport: `/admin/reports/so-invoice-reconciliation/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
