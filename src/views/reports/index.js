@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -51,6 +51,15 @@ const REPORTS = [
     description: "Output GST on sales vs input GST (ITC) on purchases.",
     icon: Percent,
     to: `${appsRoot}/reports/gst-balance`,
+    live: true,
+  },
+  {
+    key: "so-invoice-reconciliation",
+    title: "SO vs Invoice — Price Reconciliation",
+    description:
+      "Per-line differences between the Sales Order selling price and the actual invoiced price.",
+    icon: GitPullRequest,
+    to: `${appsRoot}/reports/so-invoice-reconciliation`,
     live: true,
   },
 ];
