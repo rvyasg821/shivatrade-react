@@ -138,17 +138,23 @@ const CustomerForm = () => {
           .array()
           .of(
             yup.object().shape({
+              // Contact name & email are optional — company_name is the only
+              // required field on a customer.
               name: yup
                 .string()
                 .trim()
-                .required(t("Contact name is required"))
-                .max(150),
+                .max(150)
+                .nullable()
+                .notRequired(),
               designation: yup.string().trim().nullable().notRequired(),
+              // Format-checked only when a value is present (yup's .email()
+              // excludes empty strings).
               email: yup
                 .string()
                 .trim()
                 .email(t("Invalid email"))
-                .required(t("Email is required")),
+                .nullable()
+                .notRequired(),
               phone: yup.string().trim().nullable().notRequired(),
               is_primary: yup.boolean(),
             })
@@ -321,9 +327,9 @@ const CustomerForm = () => {
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
-        name: c.name.trim(),
+        name: optStr(c.name),
         designation: optStr(c.designation),
-        email: c.email.trim(),
+        email: optStr(c.email),
         phone: optStr(c.phone),
         country_code: c.country_code || null,
         is_primary: !!c.is_primary,
@@ -543,7 +549,7 @@ const CustomerForm = () => {
                   <Row>
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for={`contacts.${idx}.name`}>
-                        {t("Name")} <span className="text-danger">*</span>
+                        {t("Name")}
                       </Label>
                       <Controller
                         name={`contacts.${idx}.name`}
@@ -580,7 +586,7 @@ const CustomerForm = () => {
                     </Col>
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for={`contacts.${idx}.email`}>
-                        {t("Email")} <span className="text-danger">*</span>
+                        {t("Email")}
                       </Label>
                       <Controller
                         name={`contacts.${idx}.email`}

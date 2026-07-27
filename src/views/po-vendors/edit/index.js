@@ -87,6 +87,9 @@ const EditPoVendor = () => {
   const [deliveryTerms, setDeliveryTerms] = useState("");
   const [rateByLine, setRateByLine] = useState({});
   const [taxByLine, setTaxByLine] = useState({});
+  // Ordered qty per line — draft-only, like GST%. Editable so a POV's quantity
+  // can be corrected before it goes to the vendor.
+  const [qtyByLine, setQtyByLine] = useState({});
   // HSN / Part No — draft-only, like GST%. Both are descriptive fields that
   // print on the vendor PDF, so they must not move once the document is out.
   const [hsnByLine, setHsnByLine] = useState({});
@@ -123,16 +126,19 @@ const EditPoVendor = () => {
     const taxes = {};
     const hsns = {};
     const parts = {};
+    const qtys = {};
     for (const l of p.lines || []) {
       rates[l._id] = String(num(l.unit_price));
       taxes[l._id] = String(num(l.tax_pct));
       hsns[l._id] = l.hsn_code || "";
       parts[l._id] = l.part_no || "";
+      qtys[l._id] = String(num(l.ordered_qty));
     }
     setRateByLine(rates);
     setTaxByLine(taxes);
     setHsnByLine(hsns);
     setPartByLine(parts);
+    setQtyByLine(qtys);
     setSeeded(true);
   }, [loaded, seeded, p, co]);
 
@@ -165,7 +171,10 @@ const EditPoVendor = () => {
 
   // ── Line maths (mirrors the backend: line_total is qty × rate, tax-free) ──
   const lineRate = (l) => num(rateByLine[l._id]);
-  const lineTotal = (l) => round2(num(l.ordered_qty) * lineRate(l));
+  // Edited qty when present, else the stored ordered_qty (read-only statuses).
+  const lineQty = (l) =>
+    qtyByLine[l._id] !== undefined ? num(qtyByLine[l._id]) : num(l.ordered_qty);
+  const lineTotal = (l) => round2(lineQty(l) * lineRate(l));
   const lineGst = (l) => round2((lineTotal(l) * num(taxByLine[l._id])) / 100);
 
   const totals = useMemo(() => {
@@ -187,11 +196,15 @@ const EditPoVendor = () => {
       delta: round2(goods - wasGoods),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [povLines, rateByLine, taxByLine]);
+  }, [povLines, rateByLine, taxByLine, qtyByLine]);
 
   const setRate = (lineId, v) => {
     if (v === "") return setRateByLine((s) => ({ ...s, [lineId]: "" }));
     setRateByLine((s) => ({ ...s, [lineId]: String(Math.max(0, num(v))) }));
+  };
+  const setQty = (lineId, v) => {
+    if (v === "") return setQtyByLine((s) => ({ ...s, [lineId]: "" }));
+    setQtyByLine((s) => ({ ...s, [lineId]: String(Math.max(0, num(v))) }));
   };
   const setTax = (lineId, v) => {
     // Clamp at the edges: negative would cut the payable and >100 is not a GST
@@ -225,6 +238,20 @@ const EditPoVendor = () => {
       data.delivery_terms = deliveryTerms?.trim() || "";
     }
 
+    // Quantity is editable in draft — block a save that would send 0 / blank,
+    // which the backend rejects anyway (ordered_qty must be > 0).
+    if (canEditGst) {
+      const bad = povLines.find((l) => num(qtyByLine[l._id]) <= 0);
+      if (bad) {
+        Notification(
+          "Validation",
+          t("Quantity must be greater than 0 on every line."),
+          "warning"
+        );
+        return;
+      }
+    }
+
     // `line_edits` patches in place by POV line id — unlike `lines` it never
     // deletes/recreates rows and needs no purchase_order_line_id, so it works
     // on a standalone POV too. Only send what this status allows.
@@ -232,6 +259,8 @@ const EditPoVendor = () => {
       data.line_edits = povLines.map((l) => ({
         _id: l._id,
         ...(canEditGst ? { tax_pct: String(num(taxByLine[l._id])) } : {}),
+        // Quantity is draft-only, same gate as GST.
+        ...(canEditGst ? { ordered_qty: String(num(qtyByLine[l._id])) } : {}),
         ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
         // Sent as "" (not undefined) when cleared, so emptying a wrong HSN
         // actually persists instead of silently keeping the old one.
@@ -312,9 +341,7 @@ const EditPoVendor = () => {
             <h5 className="mb-0">{t("Line Items")}</h5>
             <small className="text-muted">
               {canEditGst
-                ? t(
-                    "Rate and GST are editable. Quantity is locked to the Sales Order line."
-                  )
+                ? t("Quantity, rate and GST are editable while the PO is a draft.")
                 : canEditRate
                   ? t("Only the rate is editable at this status.")
                   : t("Read-only at this status.")}
@@ -420,8 +447,22 @@ const EditPoVendor = () => {
                             )}
                           </td>
                           <td>{l?.unit || "-"}</td>
-                          <td className="text-end text-muted">
-                            {num(l.ordered_qty).toLocaleString()}
+                          <td>
+                            {canEditGst ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                bsSize="sm"
+                                className="text-end"
+                                value={qtyByLine[l._id] ?? ""}
+                                onChange={(e) => setQty(l._id, e.target.value)}
+                              />
+                            ) : (
+                              <div className="text-end text-muted">
+                                {num(l.ordered_qty).toLocaleString()}
+                              </div>
+                            )}
                           </td>
                           <td>
                             {canEditRate ? (

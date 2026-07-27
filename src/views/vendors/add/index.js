@@ -170,7 +170,8 @@ const VendorForm = () => {
         gstin: yup
           .string()
           .trim()
-          .required(t("GST number is required"))
+          .nullable()
+          .notRequired()
           .max(15, t("GSTIN must be at most 15 characters")),
         category_ids: yup.array().of(yup.string()).nullable().notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
@@ -183,27 +184,26 @@ const VendorForm = () => {
           .array()
           .of(
             yup.object().shape({
-              name: yup
-                .string()
-                .trim()
-                .required(t("Contact name is required"))
-                .max(150),
+              // Contact name and email are optional — only company_name is
+              // required. Email is format-checked only when provided.
+              name: yup.string().trim().nullable().notRequired().max(150),
               designation: yup.string().trim().nullable().notRequired(),
               email: yup
                 .string()
                 .trim()
-                .email(t("Invalid email"))
-                .required(t("Email is required")),
+                .nullable()
+                .notRequired()
+                .email(t("Invalid email")),
               phone: yup.string().trim().nullable().notRequired(),
               is_primary: yup.boolean(),
             })
           )
-          .min(1, t("At least one contact is required"))
           .test(
-            "exactly-one-primary",
-            t("Exactly one contact must be marked as primary"),
+            "at-most-one-primary",
+            t("Only one contact can be marked as primary"),
             (arr) =>
-              Array.isArray(arr) && arr.filter((c) => c.is_primary).length === 1
+              !Array.isArray(arr) ||
+              arr.filter((c) => c.is_primary).length <= 1
           ),
       }),
     [t]
@@ -423,9 +423,10 @@ const VendorForm = () => {
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
-        name: c.name.trim(),
+        // Name and email are optional now — guard against undefined.
+        name: optStr(c.name),
         designation: optStr(c.designation),
-        email: c.email.trim(),
+        email: optStr(c.email),
         phone: optStr(c.phone),
         country_code: c.country_code || null,
         is_primary: !!c.is_primary,
@@ -624,8 +625,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="gstin">
-                        {t("GST Number (GSTIN)")}{" "}
-                        <span className="text-danger">*</span>
+                        {t("GST Number (GSTIN)")}
                       </Label>
                       <Controller
                         name="gstin"
@@ -780,7 +780,7 @@ const VendorForm = () => {
                             className="form-label"
                             for={`contacts.${idx}.name`}
                           >
-                            {t("Name")} <span className="text-danger">*</span>
+                            {t("Name")}
                           </Label>
                           <Controller
                             name={`contacts.${idx}.name`}
@@ -823,7 +823,7 @@ const VendorForm = () => {
                             className="form-label"
                             for={`contacts.${idx}.email`}
                           >
-                            {t("Email")} <span className="text-danger">*</span>
+                            {t("Email")}
                           </Label>
                           <Controller
                             name={`contacts.${idx}.email`}

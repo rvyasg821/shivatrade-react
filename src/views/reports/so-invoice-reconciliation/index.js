@@ -96,12 +96,19 @@ const SoInvoiceReconciliation = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [customer, setCustomer] = useState(null);
+  const [invoiceFilter, setInvoiceFilter] = useState(null);
+  const [soFilter, setSoFilter] = useState(null);
   const [searchInput, setSearchInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customerOptions, setCustomerOptions] = useState([]);
+  // Invoice / Sales-Order dropdown sources come from the report response
+  // itself — the backend returns the distinct docs in range (before the narrow),
+  // so the options stay stable while you pick one.
+  const [invoiceOptions, setInvoiceOptions] = useState([]);
+  const [soOptions, setSoOptions] = useState([]);
   const [data, setData] = useState({
     period_label: "",
     rows: [],
@@ -116,9 +123,11 @@ const SoInvoiceReconciliation = () => {
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       customer_id: customer?.value || undefined,
+      invoice_id: invoiceFilter?.value || undefined,
+      purchase_order_id: soFilter?.value || undefined,
       search: searchInput || undefined,
     }),
-    [dateFrom, dateTo, customer, searchInput]
+    [dateFrom, dateTo, customer, invoiceFilter, soFilter, searchInput]
   );
 
   const load = useCallback(
@@ -136,6 +145,20 @@ const SoInvoiceReconciliation = () => {
           totals: payload.totals || {},
           pagination: payload.pagination || { total: 0, perPage },
         });
+        // Refresh the dropdown sources from the response (distinct docs in
+        // range, before the invoice/SO narrow).
+        setInvoiceOptions(
+          (payload.invoice_options || []).map((o) => ({
+            value: o.id,
+            label: o.no,
+          }))
+        );
+        setSoOptions(
+          (payload.so_options || []).map((o) => ({
+            value: o.id,
+            label: o.no,
+          }))
+        );
       } catch (e) {
         Notification("Error", t("There are no records to display"), "warning");
         setData((d) => ({ ...d, rows: [], totals: {}, pagination: { total: 0, perPage } }));
@@ -176,7 +199,7 @@ const SoInvoiceReconciliation = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, dateFrom, dateTo, customer]);
+  }, [searchInput, dateFrom, dateTo, customer, invoiceFilter, soFilter]);
 
   const handlePagination = (page) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -280,7 +303,7 @@ const SoInvoiceReconciliation = () => {
                   placeholder={t("YYYY-MM-DD")}
                 />
               </Col>
-              <Col sm="6" md="4" className="mb-1">
+              <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("Customer")}</Label>
                 <Select
                   value={customer}
@@ -291,7 +314,33 @@ const SoInvoiceReconciliation = () => {
                   classNamePrefix="select"
                 />
               </Col>
-              <Col sm="6" md="4" className="mb-1">
+              <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("Invoice")}</Label>
+                <Select
+                  value={invoiceFilter}
+                  onChange={(sel) => setInvoiceFilter(sel)}
+                  options={invoiceOptions}
+                  isClearable
+                  placeholder={t("All invoices")}
+                  classNamePrefix="select"
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("Sales Order")}</Label>
+                <Select
+                  value={soFilter}
+                  onChange={(sel) => setSoFilter(sel)}
+                  options={soOptions}
+                  isClearable
+                  placeholder={t("All sales orders")}
+                  classNamePrefix="select"
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("Search")}</Label>
                 <Input
                   type="text"
