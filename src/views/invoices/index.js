@@ -274,18 +274,43 @@ const InvoicesList = () => {
                   <span className="text-muted fst-italic">{t("(draft)")}</span>
                 )}
               </Link>
-              {refVoucher ? (
+              {/* One line per source Sales Order, each linking to its OWN page.
+                  A multi-SO invoice used to join them with commas and link every
+                  one to the header's single purchase_order_id. */}
+              {Array.isArray(row?.source_orders) && row.source_orders.length ? (
+                <div className="mt-1 d-flex flex-column gap-25">
+                  {row.source_orders.map((so) => (
+                    <Link
+                      key={so.id}
+                      to={`${appsRoot}/purchase-orders/view/${so.id}`}
+                      className="small text-muted d-inline-flex align-items-center"
+                      style={{ wordBreak: "break-word" }}
+                    >
+                      SO - {so.voucher_no}
+                      <ExternalLink size={12} className="ms-1 flex-shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              ) : refVoucher ? (
+                // Fallback for older rows without resolved source_orders.
                 <div className="mt-1">
                   {refTo ? (
                     <Link
                       to={refTo}
-                      className="small text-muted text-nowrap d-inline-flex align-items-center"
+                      className="small text-muted d-inline-flex align-items-start"
+                      style={{ wordBreak: "break-word" }}
                     >
-                      SO - {refVoucher}
-                      <ExternalLink size={12} className="ms-1" />
+                      <span>SO - {refVoucher}</span>
+                      <ExternalLink
+                        size={12}
+                        className="ms-1 flex-shrink-0 mt-25"
+                      />
                     </Link>
                   ) : (
-                    <span className="small text-muted text-nowrap">
+                    <span
+                      className="small text-muted"
+                      style={{ wordBreak: "break-word" }}
+                    >
                       SO - {refVoucher}
                     </span>
                   )}

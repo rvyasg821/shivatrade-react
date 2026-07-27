@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import {
   Card,
   CardBody,
@@ -30,7 +30,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
-import { defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
+import { defaultPerPageRow, isAdminUser, appsRoot } from "@constant/defaultValues";
 import { currencySymbol } from "@src/views/_shared/sales-doc/_helpers";
 import {
   getAdjustmentNoteList,
@@ -347,9 +347,14 @@ const AdjustmentNotes = () => {
   };
 
   const handleVoid = (row) => {
+    const isNote = row?.source === "adjustment";
     mySwal
       .fire({
-        title: t("Void this adjustment note?"),
+        title: isNote
+          ? t("Void this adjustment note?")
+          : row?.source === "receipt"
+          ? t("Void this customer receipt?")
+          : t("Void this vendor payment?"),
         text: t("It stays in the audit log but is removed from the ledger."),
         icon: "warning",
         input: "text",
@@ -363,9 +368,39 @@ const AdjustmentNotes = () => {
         },
         buttonsStyling: false,
       })
-      .then((res) => {
+      .then(async (res) => {
         if (!res.isConfirmed) return;
-        dispatch(voidAdjustmentNote({ id: row._id, reason: res.value || undefined }));
+        const reason = res.value || undefined;
+        // Adjustment notes are owned by this register (redux thunk). Customer
+        // receipts and vendor payments are voided through their document's own
+        // endpoint (invoice / Vendor PO), then the list is refreshed.
+        if (isNote) {
+          dispatch(voidAdjustmentNote({ id: row._id, reason }));
+          return;
+        }
+        if (!row?.document_id) {
+          Notification(
+            "Error",
+            t("Missing linked document — cannot void this entry."),
+            "warning"
+          );
+          return;
+        }
+        const url =
+          row.source === "receipt"
+            ? `${API_ENDPOINTS.invoices.voidPayment}/${row.document_id}/void/${row._id}`
+            : `${API_ENDPOINTS.poVendors.payments}/${row.document_id}/void/${row._id}`;
+        try {
+          await instance.post(url, { reason });
+          Notification("Success", t("Voided successfully"), "success");
+          handleLists();
+        } catch (e) {
+          Notification(
+            "Error",
+            e?.response?.data?.message || t("Failed to void"),
+            "warning"
+          );
+        }
       });
   };
 
@@ -435,6 +470,40 @@ const AdjustmentNotes = () => {
         </div>
       ),
     },
+    {
+      // The invoice / Vendor PO this row relates to — the adjustment's target,
+      // a receipt's invoice, or a payment's Vendor PO. Linked to that document's
+      // page (customer → Invoice, vendor → Vendor PO).
+      name: t("Document Voucher"),
+      minWidth: "190px",
+      selector: (r) => {
+        if (!r?.document_voucher_no) {
+          return <span className="text-muted">{"-"}</span>;
+        }
+        // No id (older rows) → show the number without a link rather than a
+        // dead link.
+        if (!r?.document_id) {
+          return <span className="text-nowrap">{r.document_voucher_no}</span>;
+        }
+        const to =
+          r.party_type === "vendor"
+            ? `${appsRoot}/po-vendors/view/${r.document_id}`
+            : `${appsRoot}/invoices/view/${r.document_id}`;
+        return (
+          <Link
+            to={to}
+            className="text-nowrap fw-semibold"
+            ref={(el) => {
+              // Same !important trap as the voucher cell — the theme overrides
+              // a plain link colour.
+              if (el) el.style.setProperty("color", "#09418B", "important");
+            }}
+          >
+            {r.document_voucher_no}
+          </Link>
+        );
+      },
+    },
     { name: t("Date"), selector: (r) => dateOnly(r?.date) },
     {
       name: t("Source"),
@@ -467,20 +536,6 @@ const AdjustmentNotes = () => {
       ),
     },
     {
-      // Which invoice / Vendor PO a note was applied to. Blank for a
-      // party-level note and for receipt/payment rows (they carry their own
-      // document in Particulars already).
-      name: t("Applied To"),
-      minWidth: "180px",
-      selector: (r) => (
-        <span className="text-nowrap">
-          {r?.document_voucher_no || (
-            <span className="text-muted">{"-"}</span>
-          )}
-        </span>
-      ),
-    },
-    {
       name: t("Amount"),
       right: true,
       selector: (r) => `${currencySymbol(r?.currency_code)}${fmt(r?.amount)}`,
@@ -496,9 +551,14 @@ const AdjustmentNotes = () => {
             title={t("View")}
             onClick={() => setViewNote(r)}
           />
-          {/* Payments/receipts are voided from their own document tab — this
-              register only owns adjustment notes. */}
-          {r?.source === "adjustment" && !r?.voided_at && canVoid ? (
+          {/* Void from the register: adjustment notes directly, and customer
+              receipts / vendor payments through their document's own void
+              endpoint (needs the linked document id). */}
+          {!r?.voided_at &&
+          canVoid &&
+          (r?.source === "adjustment" ||
+            ((r?.source === "receipt" || r?.source === "payment") &&
+              r?.document_id)) ? (
             <Button
               size="sm"
               color="link"
@@ -879,13 +939,42 @@ const AdjustmentNotes = () => {
                           ? t("Reduces the bill")
                           : t("Increases the bill"),
                       ],
-                      [
-                        t("Applied To"),
-                        viewNote.document_voucher_no ||
-                          t("Whole party (no document)"),
-                      ],
                     ]
                   : []),
+                // Linked document (Invoice / Vendor PO) — clickable to its page.
+                // Present on adjustments (applied-to doc), receipts (invoice) and
+                // payments (Vendor PO). Falls back to the party-level wording only
+                // for a document-less adjustment.
+                ...(viewNote.document_voucher_no
+                  ? [
+                      [
+                        t("Document Voucher"),
+                        viewNote.document_id ? (
+                          <Link
+                            to={
+                              viewNote.party_type === "vendor"
+                                ? `${appsRoot}/po-vendors/view/${viewNote.document_id}`
+                                : `${appsRoot}/invoices/view/${viewNote.document_id}`
+                            }
+                            ref={(el) => {
+                              if (el)
+                                el.style.setProperty(
+                                  "color",
+                                  "#09418B",
+                                  "important"
+                                );
+                            }}
+                          >
+                            {viewNote.document_voucher_no}
+                          </Link>
+                        ) : (
+                          viewNote.document_voucher_no
+                        ),
+                      ],
+                    ]
+                  : viewNote.source === "adjustment"
+                    ? [[t("Applied To"), t("Whole party (no document)")]]
+                    : []),
                 // GST breakdown — only on a vendor + debit note (gst_amount set).
                 ...(viewNote.gst_amount != null
                   ? [
@@ -932,19 +1021,26 @@ const AdjustmentNotes = () => {
                   </div>
                 </div>
               )}
-              {viewNote.source === "adjustment" && !viewNote.voided_at && canVoid && (
-                <Button
-                  color="outline-danger"
-                  className="mt-2 w-100"
-                  onClick={() => {
-                    const r = viewNote;
-                    setViewNote(null);
-                    handleVoid(r);
-                  }}
-                >
-                  {t("Void this note")}
-                </Button>
-              )}
+              {!viewNote.voided_at &&
+                canVoid &&
+                (viewNote.source === "adjustment" ||
+                  ((viewNote.source === "receipt" ||
+                    viewNote.source === "payment") &&
+                    viewNote.document_id)) && (
+                  <Button
+                    color="outline-danger"
+                    className="mt-2 w-100"
+                    onClick={() => {
+                      const r = viewNote;
+                      setViewNote(null);
+                      handleVoid(r);
+                    }}
+                  >
+                    {viewNote.source === "adjustment"
+                      ? t("Void this note")
+                      : t("Void this payment")}
+                  </Button>
+                )}
             </div>
           )}
         </OffcanvasBody>
