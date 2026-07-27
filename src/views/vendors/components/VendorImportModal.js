@@ -46,7 +46,7 @@ const VendorImportModal = ({ isOpen, toggle, onSuccess }) => {
       </li>
       <li>
         {t(
-          "contact_name and contact_email are required for a NEW vendor — the main contact is what creates its login."
+          "Required for a NEW vendor: company_name, gstin, and contact_name + contact_email (the main contact creates its login). status defaults to active. Everything else is optional."
         )}
       </li>
       <li>
