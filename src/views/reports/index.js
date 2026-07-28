@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -60,6 +60,15 @@ const REPORTS = [
       "Per-line differences between the Sales Order selling price and the actual invoiced price.",
     icon: GitPullRequest,
     to: `${appsRoot}/reports/so-invoice-reconciliation`,
+    live: true,
+  },
+  {
+    key: "stock-turnover",
+    title: "Stock Turnover Ratio",
+    description:
+      "How quickly inventory is sold and replaced — turnover ratio and days-of-inventory per product.",
+    icon: Repeat,
+    to: `${appsRoot}/reports/stock-turnover`,
     live: true,
   },
 ];

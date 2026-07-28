@@ -338,6 +338,8 @@ export const API_ENDPOINTS = {
     salesTurnoverExport: `/admin/reports/sales-turnover/export`,
     soInvoiceReconciliation: `/admin/reports/so-invoice-reconciliation`,
     soInvoiceReconciliationExport: `/admin/reports/so-invoice-reconciliation/export`,
+    stockTurnover: `/admin/reports/stock-turnover`,
+    stockTurnoverExport: `/admin/reports/stock-turnover/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
