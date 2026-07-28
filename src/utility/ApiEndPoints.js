@@ -340,6 +340,8 @@ export const API_ENDPOINTS = {
     soInvoiceReconciliationExport: `/admin/reports/so-invoice-reconciliation/export`,
     stockTurnover: `/admin/reports/stock-turnover`,
     stockTurnoverExport: `/admin/reports/stock-turnover/export`,
+    inventoryHoldingDays: `/admin/reports/inventory-holding-days`,
+    inventoryHoldingDaysExport: `/admin/reports/inventory-holding-days/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,

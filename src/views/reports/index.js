@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -69,6 +69,15 @@ const REPORTS = [
       "How quickly inventory is sold and replaced — turnover ratio and days-of-inventory per product.",
     icon: Repeat,
     to: `${appsRoot}/reports/stock-turnover`,
+    live: true,
+  },
+  {
+    key: "inventory-holding-days",
+    title: "Inventory Holding Days",
+    description:
+      "Average days a unit was held in stock before it sold (GRN receipt → invoice), via FIFO matching.",
+    icon: Clock,
+    to: `${appsRoot}/reports/inventory-holding-days`,
     live: true,
   },
 ];
