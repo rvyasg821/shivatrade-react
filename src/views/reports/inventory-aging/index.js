@@ -1,10 +1,8 @@
-// Stock Turnover Ratio report.
-// Measures how quickly inventory is sold and replaced. All money is INR:
-//   turnover ratio = COGS ÷ average inventory value (at weighted-avg vendor cost)
-//   DIO (days)     = period days ÷ ratio  — how long stock sits before selling
-// Per-product rows + an overall (₹-normalised) turnover in the tiles & foot.
-// Mirrors so-invoice-reconciliation's structure (date range + filters + export
-// + pagination). Slow movers (ratio < 1 over the period) get a subtle wash.
+// Inventory Aging report.
+// Aging of CLOSING stock as of a snapshot date: how much on-hand qty & value
+// has been sitting ≥ the selected threshold (30/60/90/120 days, via dropdown).
+// FIFO-attributed to GRN receipts, valued at weighted-avg vendor cost (INR).
+// Identifies slow-moving items. Mirrors stock-turnover's structure.
 import {
   Fragment,
   useCallback,
@@ -40,17 +38,18 @@ const grp = (v) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-
-// Plain qty, up to 2 dp, no forced decimals (e.g. "50" / "12.5").
+// Plain qty, up to 2 dp.
 const qty = (v) =>
   Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
-// A muted em-dash for null / missing values.
 const Dash = () => <span className="text-muted">—</span>;
 
-// Turnover ratio "×" (2 dp), or a dash when undefined (no stock to turn over).
-const ratioText = (v) =>
-  v === null || v === undefined ? null : `${Number(v).toFixed(2)}×`;
+const AGING_OPTIONS = [
+  { value: 30, label: "30 days" },
+  { value: 60, label: "60 days" },
+  { value: 90, label: "90 days" },
+  { value: 120, label: "120 days" },
+];
 
 const StatTile = ({ label, value, hint, valueClass = "" }) => (
   <Col md="3" sm="6" className="mb-1">
@@ -66,11 +65,11 @@ const StatTile = ({ label, value, hint, valueClass = "" }) => (
   </Col>
 );
 
-const StockTurnover = () => {
+const InventoryAging = () => {
   const { t } = useTranslation();
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [asOf, setAsOf] = useState("");
+  const [agingDays, setAgingDays] = useState(AGING_OPTIONS[2]); // default 90
   const [category, setCategory] = useState(null);
   const [product, setProduct] = useState(null);
   const [searchInput, setSearchInput] = useState("");
@@ -81,8 +80,8 @@ const StockTurnover = () => {
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [productOptions, setProductOptions] = useState([]);
   const [data, setData] = useState({
-    period_label: "",
-    period_days: 0,
+    as_of_label: "",
+    aging_days: 90,
     rows: [],
     totals: {},
     pagination: { total: 0, perPage: defaultPerPageRow },
@@ -90,26 +89,26 @@ const StockTurnover = () => {
 
   const baseParams = useCallback(
     () => ({
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
+      as_of: asOf || undefined,
+      aging_days: agingDays?.value || 90,
       category_id: category?.value || undefined,
       product_id: product?.value || undefined,
       search: searchInput || undefined,
     }),
-    [dateFrom, dateTo, category, product, searchInput]
+    [asOf, agingDays, category, product, searchInput]
   );
 
   const load = useCallback(
     async (page = currentPage, perPage = rowsPerPage) => {
       setLoading(true);
       try {
-        const resp = await instance.get(API_ENDPOINTS.reports.stockTurnover, {
+        const resp = await instance.get(API_ENDPOINTS.reports.inventoryAging, {
           params: { ...baseParams(), page, perPage },
         });
         const payload = resp?.data?.data || {};
         setData({
-          period_label: payload.period_label || "",
-          period_days: payload.period_days || 0,
+          as_of_label: payload.as_of_label || "",
+          aging_days: payload.aging_days || 90,
           rows: payload.rows || [],
           totals: payload.totals || {},
           pagination: payload.pagination || { total: 0, perPage },
@@ -155,7 +154,6 @@ const StockTurnover = () => {
       .catch(() => setProductOptions([]));
   }, []);
 
-  // Debounced search + immediate refetch on any other filter change.
   useEffect(() => {
     let handler;
     if (searchInput) {
@@ -169,7 +167,7 @@ const StockTurnover = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, dateFrom, dateTo, category, product]);
+  }, [searchInput, asOf, agingDays, category, product]);
 
   const handlePagination = (page) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -189,13 +187,13 @@ const StockTurnover = () => {
     setExporting(true);
     try {
       const resp = await instance.get(
-        API_ENDPOINTS.reports.stockTurnoverExport,
+        API_ENDPOINTS.reports.inventoryAgingExport,
         { params: baseParams(), responseType: "blob" }
       );
       const url = window.URL.createObjectURL(new Blob([resp.data]));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "stock-turnover.xlsx";
+      a.download = "inventory-aging.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -214,15 +212,18 @@ const StockTurnover = () => {
   const pageCount = Math.ceil((total || 1) / (perPage || 1));
   const startIndex = total ? (currentPage - 1) * perPage + 1 : 0;
   const endIndex = Math.min(startIndex - 1 + perPage, total);
+  const nDays = data.aging_days || agingDays?.value || 90;
 
   return (
     <Fragment>
-      <div className="main-content reports-stock-turnover">
+      <div className="main-content reports-inventory-aging">
         <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-1">
-          <h3 className="mb-0">{t("Stock Turnover Ratio")}</h3>
+          <h3 className="mb-0">{t("Inventory Aging")}</h3>
           <div className="d-flex align-items-center gap-1">
-            {data.period_label ? (
-              <span className="text-muted">{data.period_label}</span>
+            {data.as_of_label ? (
+              <span className="text-muted">
+                {t("As of")} {data.as_of_label}
+              </span>
             ) : null}
             <Button
               color="success"
@@ -241,21 +242,23 @@ const StockTurnover = () => {
           <StatTile
             label={t("Products")}
             value={totals.product_count ?? 0}
-            hint={t("with sales or stock")}
+            hint={t("with closing stock")}
           />
           <StatTile
-            label={t("Avg Inventory Value (₹)")}
-            value={`₹ ${grp(totals.avg_inventory_value_inr)}`}
+            label={t("Closing Value (₹)")}
+            value={`₹ ${grp(totals.closing_value_inr)}`}
           />
-          <StatTile label={t("COGS (₹)")} value={`₹ ${grp(totals.cogs_inr)}`} />
           <StatTile
-            label={t("Overall Turnover")}
-            value={ratioText(totals.turnover_ratio) || <Dash />}
-            hint={
-              totals.dio_days != null
-                ? `${t("DIO")} ${Number(totals.dio_days).toFixed(0)} ${t("days")}`
-                : t("no inventory in period")
+            label={`${t("Aged Value")} (≥${nDays}d)`}
+            value={`₹ ${grp(totals.aged_value_inr)}`}
+            valueClass={
+              Number(totals.aged_value_inr) > 0 ? "text-danger" : ""
             }
+            hint={t("tied up in slow movers")}
+          />
+          <StatTile
+            label={t("% Aged (value)")}
+            value={`${Number(totals.aged_pct || 0).toFixed(1)}%`}
           />
         </Row>
 
@@ -263,21 +266,24 @@ const StockTurnover = () => {
           <CardBody>
             <Row>
               <Col sm="6" md="2" className="mb-1">
-                <Label className="form-label">{t("From")}</Label>
+                <Label className="form-label">{t("As of")}</Label>
                 <DateInput
-                  id="stk-from"
-                  value={dateFrom}
-                  onChange={(d, str, iso) => setDateFrom(iso || "")}
-                  placeholder={t("YYYY-MM-DD")}
+                  id="iag-asof"
+                  value={asOf}
+                  onChange={(d, str, iso) => setAsOf(iso || "")}
+                  placeholder={t("Today")}
                 />
               </Col>
               <Col sm="6" md="2" className="mb-1">
-                <Label className="form-label">{t("To")}</Label>
-                <DateInput
-                  id="stk-to"
-                  value={dateTo}
-                  onChange={(d, str, iso) => setDateTo(iso || "")}
-                  placeholder={t("YYYY-MM-DD")}
+                <Label className="form-label">{t("Aged over")}</Label>
+                <Select
+                  value={agingDays}
+                  onChange={(sel) => setAgingDays(sel || AGING_OPTIONS[2])}
+                  options={AGING_OPTIONS}
+                  isClearable={false}
+                  classNamePrefix="select"
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
               </Col>
               <Col sm="6" md="3" className="mb-1">
@@ -325,7 +331,7 @@ const StockTurnover = () => {
                   </div>
                 ) : !rows.length ? (
                   <div className="text-center text-muted py-3">
-                    {t("No products with sales or stock in this period")}
+                    {t("No products with closing stock")}
                   </div>
                 ) : (
                   <Fragment>
@@ -339,42 +345,29 @@ const StockTurnover = () => {
                             <th className="text-nowrap">{t("Product")}</th>
                             <th className="text-nowrap">{t("Category")}</th>
                             <th className="text-end text-nowrap">
-                              {t("Opening")}
+                              {t("Closing Qty")}
                             </th>
                             <th className="text-end text-nowrap">
-                              {t("Closing")}
+                              {t("Closing Value (₹)")}
                             </th>
                             <th className="text-end text-nowrap">
-                              {t("Avg Qty")}
+                              {t("Aged Qty")} (≥{nDays}d)
                             </th>
                             <th className="text-end text-nowrap">
-                              {t("Unit Cost (₹)")}
+                              {t("Aged Value (₹)")}
                             </th>
                             <th className="text-end text-nowrap">
-                              {t("Avg Inv Value (₹)")}
+                              {t("% Aged")}
                             </th>
                             <th className="text-end text-nowrap">
-                              {t("Qty Sold")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("COGS (₹)")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("Turnover")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("DIO (days)")}
+                              {t("Oldest (days)")}
                             </th>
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((r) => {
-                            // Slow mover: didn't turn over even once in the
-                            // period → subtle warning wash.
-                            const slow =
-                              r.turnover_ratio !== null &&
-                              r.turnover_ratio !== undefined &&
-                              Number(r.turnover_ratio) < 1;
+                            // Slow mover: any aged stock → subtle warning wash.
+                            const slow = Number(r.aged_qty) > 0;
                             return (
                               <tr
                                 key={r.product_id}
@@ -389,32 +382,56 @@ const StockTurnover = () => {
                                       {r.product_code}
                                     </div>
                                   ) : null}
+                                  {Number(r.undated_qty) > 0 ? (
+                                    <div
+                                      className="small text-muted"
+                                      title={t(
+                                        "Opening / non-GRN stock with no receipt date — counted as oldest."
+                                      )}
+                                    >
+                                      * {qty(r.undated_qty)}{" "}
+                                      {t("undated (treated oldest)")}
+                                    </div>
+                                  ) : null}
                                 </td>
                                 <td className="text-nowrap">
                                   {r.category_name || <Dash />}
                                 </td>
-                                <td className="text-end">{qty(r.opening_qty)}</td>
-                                <td className="text-end">{qty(r.closing_qty)}</td>
-                                <td className="text-end">{qty(r.avg_qty)}</td>
-                                <td className="text-end text-nowrap">
-                                  {grp(r.unit_cost)}
+                                <td className="text-end">
+                                  {qty(r.closing_qty)}
                                 </td>
                                 <td className="text-end text-nowrap">
-                                  {grp(r.avg_inventory_value_inr)}
+                                  {grp(r.closing_value_inr)}
                                 </td>
-                                <td className="text-end">{qty(r.qty_sold)}</td>
-                                <td className="text-end text-nowrap">
-                                  {grp(r.cogs_inr)}
+                                <td className="text-end fw-semibold">
+                                  {Number(r.aged_qty) > 0 ? (
+                                    qty(r.aged_qty)
+                                  ) : (
+                                    <Dash />
+                                  )}
                                 </td>
-                                <td className="text-end text-nowrap fw-semibold">
-                                  {ratioText(r.turnover_ratio) || <Dash />}
+                                <td
+                                  className={`text-end text-nowrap ${
+                                    Number(r.aged_value_inr) > 0
+                                      ? "text-danger fw-semibold"
+                                      : ""
+                                  }`}
+                                >
+                                  {Number(r.aged_value_inr) > 0 ? (
+                                    grp(r.aged_value_inr)
+                                  ) : (
+                                    <Dash />
+                                  )}
                                 </td>
-                                <td className="text-end text-nowrap">
-                                  {r.dio_days === null ||
-                                  r.dio_days === undefined ? (
+                                <td className="text-end">
+                                  {Number(r.aged_pct || 0).toFixed(1)}%
+                                </td>
+                                <td className="text-end">
+                                  {r.oldest_days === null ||
+                                  r.oldest_days === undefined ? (
                                     <Dash />
                                   ) : (
-                                    Number(r.dio_days).toFixed(0)
+                                    Number(r.oldest_days).toFixed(0)
                                   )}
                                 </td>
                               </tr>
@@ -426,29 +443,36 @@ const StockTurnover = () => {
                             className="fw-bolder"
                             style={{ borderTop: "2px solid #d8d6de" }}
                           >
-                            <td colSpan={6}>{t("Totals (INR)")}</td>
+                            <td colSpan={2}>{t("Totals (INR)")}</td>
                             <td className="text-end">
-                              {`₹ ${grp(totals.avg_inventory_value_inr)}`}
-                            </td>
-                            <td className="text-end">{qty(totals.qty_sold)}</td>
-                            <td className="text-end">
-                              {`₹ ${grp(totals.cogs_inr)}`}
+                              {qty(totals.closing_qty)}
                             </td>
                             <td className="text-end">
-                              {ratioText(totals.turnover_ratio) || <Dash />}
+                              {`₹ ${grp(totals.closing_value_inr)}`}
                             </td>
                             <td className="text-end">
-                              {totals.dio_days === null ||
-                              totals.dio_days === undefined ? (
-                                <Dash />
-                              ) : (
-                                Number(totals.dio_days).toFixed(0)
-                              )}
+                              {qty(totals.aged_qty)}
                             </td>
+                            <td className="text-end text-danger">
+                              {`₹ ${grp(totals.aged_value_inr)}`}
+                            </td>
+                            <td className="text-end">
+                              {Number(totals.aged_pct || 0).toFixed(1)}%
+                            </td>
+                            <td />
                           </tr>
                         </tfoot>
                       </Table>
                     </div>
+
+                    {Number(totals.undated_qty) > 0 ? (
+                      <div className="small text-muted mt-1">
+                        {qty(totals.undated_qty)}{" "}
+                        {t(
+                          "on-hand unit(s) had no GRN receipt date (opening / non-GRN stock) and are counted as oldest."
+                        )}
+                      </div>
+                    ) : null}
 
                     <Row className="row justify-content-md-between align-items-md-center pagination mt-2">
                       <Col sm={6} xl={6}>
@@ -456,7 +480,7 @@ const StockTurnover = () => {
                           <div className="label-select d-flex align-items-center gap-1">
                             <Label className="pr-2 mb-0">{t("Show")}</Label>
                             <select
-                              id="stkSelectPage"
+                              id="iagSelectPage"
                               value={rowsPerPage}
                               className="form-select form-select-page"
                               onChange={(e) => handlePerPage(e?.target?.value)}
@@ -507,4 +531,4 @@ const StockTurnover = () => {
   );
 };
 
-export default StockTurnover;
+export default InventoryAging;
