@@ -94,21 +94,24 @@ export const PoCoveragePanel = ({ data, registerActions }) => {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
 
-  // Generate Invoice — gated on actual vendor dispatch + remaining
-  // un-invoiced qty. Hides once everything dispatched is already on an
-  // invoice; the BE enforces the same rule per-line (Rule A).
+  // Generate Invoice — gated on remaining un-invoiced FULFILLED qty. Fulfilled
+  // = dispatched by a vendor OR covered from free stock (sell-from-stock), both
+  // folded into `invoiceable` by the coverage service. Hides once everything
+  // fulfilled is already on an invoice; the BE enforces the same rule per-line.
   const dispatchedTotal = num(coverage?.totals?.dispatched);
+  const fromStockTotal = num(coverage?.totals?.from_stock);
   const invoiceableTotal = num(coverage?.totals?.invoiceable);
   const canGenerateInvoice =
     canCreateInvoice &&
-    dispatchedTotal > 0 &&
     invoiceableTotal > 0 &&
     poStatus !== "draft" &&
     poStatus !== "cancelled";
 
   const invoicedTotal = num(coverage?.totals?.invoiced);
   const fullyInvoiced =
-    dispatchedTotal > 0 && invoiceableTotal <= 1e-6 && invoicedTotal > 0;
+    (dispatchedTotal > 0 || fromStockTotal > 0) &&
+    invoiceableTotal <= 1e-6 &&
+    invoicedTotal > 0;
 
   // Publish the Coverage tab's action buttons to the top-right of the tab bar.
   // POV creation now lives on the PO detail header ("Generate POV"); the

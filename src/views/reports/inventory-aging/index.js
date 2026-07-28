@@ -1,8 +1,8 @@
 // Inventory Aging report.
-// Aging of CLOSING stock as of a snapshot date: how much on-hand qty & value
-// has been sitting ≥ the selected threshold (30/60/90/120 days, via dropdown).
-// FIFO-attributed to GRN receipts, valued at weighted-avg vendor cost (INR).
-// Identifies slow-moving items. Mirrors stock-turnover's structure.
+// Aging of CLOSING stock as of a snapshot date, FIFO-attributed to GRN receipts
+// and split into fixed age buckets — 0-30 / 31-60 / 61-90 / 91-120 / >120 days —
+// each with qty & value (weighted-avg vendor cost, INR). Identifies slow-moving
+// items (the >120 column). Mirrors stock-turnover's structure.
 import {
   Fragment,
   useCallback,
@@ -44,12 +44,8 @@ const qty = (v) =>
 
 const Dash = () => <span className="text-muted">—</span>;
 
-const AGING_OPTIONS = [
-  { value: 30, label: "30 days" },
-  { value: 60, label: "60 days" },
-  { value: 90, label: "90 days" },
-  { value: 120, label: "120 days" },
-];
+// Fixed bucket labels (also the fallback header when a page has no rows).
+const BUCKET_LABELS = ["0-30", "31-60", "61-90", "91-120", ">120"];
 
 const StatTile = ({ label, value, hint, valueClass = "" }) => (
   <Col md="3" sm="6" className="mb-1">
@@ -65,11 +61,27 @@ const StatTile = ({ label, value, hint, valueClass = "" }) => (
   </Col>
 );
 
+// One bucket cell: qty on top, ₹value below (muted). Emphasized when `danger`.
+const BucketCell = ({ bucket, danger }) => {
+  const q = Number(bucket?.qty || 0);
+  if (q <= 0)
+    return (
+      <td className="text-end text-nowrap">
+        <Dash />
+      </td>
+    );
+  return (
+    <td className={`text-end text-nowrap ${danger ? "text-danger" : ""}`}>
+      <div className="fw-semibold">{qty(bucket.qty)}</div>
+      <div className="small text-muted">₹{grp(bucket.value)}</div>
+    </td>
+  );
+};
+
 const InventoryAging = () => {
   const { t } = useTranslation();
 
   const [asOf, setAsOf] = useState("");
-  const [agingDays, setAgingDays] = useState(AGING_OPTIONS[2]); // default 90
   const [category, setCategory] = useState(null);
   const [product, setProduct] = useState(null);
   const [searchInput, setSearchInput] = useState("");
@@ -81,7 +93,6 @@ const InventoryAging = () => {
   const [productOptions, setProductOptions] = useState([]);
   const [data, setData] = useState({
     as_of_label: "",
-    aging_days: 90,
     rows: [],
     totals: {},
     pagination: { total: 0, perPage: defaultPerPageRow },
@@ -90,12 +101,11 @@ const InventoryAging = () => {
   const baseParams = useCallback(
     () => ({
       as_of: asOf || undefined,
-      aging_days: agingDays?.value || 90,
       category_id: category?.value || undefined,
       product_id: product?.value || undefined,
       search: searchInput || undefined,
     }),
-    [asOf, agingDays, category, product, searchInput]
+    [asOf, category, product, searchInput]
   );
 
   const load = useCallback(
@@ -108,7 +118,6 @@ const InventoryAging = () => {
         const payload = resp?.data?.data || {};
         setData({
           as_of_label: payload.as_of_label || "",
-          aging_days: payload.aging_days || 90,
           rows: payload.rows || [],
           totals: payload.totals || {},
           pagination: payload.pagination || { total: 0, perPage },
@@ -167,7 +176,7 @@ const InventoryAging = () => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, asOf, agingDays, category, product]);
+  }, [searchInput, asOf, category, product]);
 
   const handlePagination = (page) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -207,12 +216,21 @@ const InventoryAging = () => {
 
   const rows = data.rows || [];
   const totals = data.totals || {};
+  const totalBuckets = totals.buckets || [];
+  const bucketLabels = totalBuckets.length
+    ? totalBuckets.map((b) => b.label)
+    : BUCKET_LABELS;
   const total = data.pagination?.total || 0;
   const perPage = data.pagination?.perPage || rowsPerPage;
   const pageCount = Math.ceil((total || 1) / (perPage || 1));
   const startIndex = total ? (currentPage - 1) * perPage + 1 : 0;
   const endIndex = Math.min(startIndex - 1 + perPage, total);
-  const nDays = data.aging_days || agingDays?.value || 90;
+
+  // >120 (oldest) bucket — the slow-mover signal — for the tiles.
+  const over120Value =
+    totalBuckets.length ? totalBuckets[totalBuckets.length - 1].value : 0;
+  const closingValue = totals.closing_value_inr || 0;
+  const over120Pct = closingValue > 0 ? (over120Value / closingValue) * 100 : 0;
 
   return (
     <Fragment>
@@ -246,19 +264,17 @@ const InventoryAging = () => {
           />
           <StatTile
             label={t("Closing Value (₹)")}
-            value={`₹ ${grp(totals.closing_value_inr)}`}
+            value={`₹ ${grp(closingValue)}`}
           />
           <StatTile
-            label={`${t("Aged Value")} (≥${nDays}d)`}
-            value={`₹ ${grp(totals.aged_value_inr)}`}
-            valueClass={
-              Number(totals.aged_value_inr) > 0 ? "text-danger" : ""
-            }
-            hint={t("tied up in slow movers")}
+            label={`${t("Value >120 days")} (₹)`}
+            value={`₹ ${grp(over120Value)}`}
+            valueClass={over120Value > 0 ? "text-danger" : ""}
+            hint={t("oldest / slow movers")}
           />
           <StatTile
-            label={t("% Aged (value)")}
-            value={`${Number(totals.aged_pct || 0).toFixed(1)}%`}
+            label={t("% >120 days (value)")}
+            value={`${Number(over120Pct).toFixed(1)}%`}
           />
         </Row>
 
@@ -272,18 +288,6 @@ const InventoryAging = () => {
                   value={asOf}
                   onChange={(d, str, iso) => setAsOf(iso || "")}
                   placeholder={t("Today")}
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
-                <Label className="form-label">{t("Aged over")}</Label>
-                <Select
-                  value={agingDays}
-                  onChange={(sel) => setAgingDays(sel || AGING_OPTIONS[2])}
-                  options={AGING_OPTIONS}
-                  isClearable={false}
-                  classNamePrefix="select"
-                  menuPortalTarget={document.body}
-                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
               </Col>
               <Col sm="6" md="3" className="mb-1">
@@ -350,24 +354,29 @@ const InventoryAging = () => {
                             <th className="text-end text-nowrap">
                               {t("Closing Value (₹)")}
                             </th>
-                            <th className="text-end text-nowrap">
-                              {t("Aged Qty")} (≥{nDays}d)
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("Aged Value (₹)")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("% Aged")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {t("Oldest (days)")}
-                            </th>
+                            {bucketLabels.map((lbl, i) => (
+                              <th
+                                key={lbl}
+                                className={`text-end text-nowrap ${
+                                  i === bucketLabels.length - 1
+                                    ? "text-danger"
+                                    : ""
+                                }`}
+                                title={t("Qty (top) · ₹ Value (below)")}
+                              >
+                                {lbl} {t("days")}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((r) => {
-                            // Slow mover: any aged stock → subtle warning wash.
-                            const slow = Number(r.aged_qty) > 0;
+                            const buckets = r.buckets || [];
+                            const lastIdx = buckets.length - 1;
+                            // Slow mover: has any >120-day stock.
+                            const slow =
+                              lastIdx >= 0 &&
+                              Number(buckets[lastIdx]?.qty || 0) > 0;
                             return (
                               <tr
                                 key={r.product_id}
@@ -386,11 +395,11 @@ const InventoryAging = () => {
                                     <div
                                       className="small text-muted"
                                       title={t(
-                                        "Opening / non-GRN stock with no receipt date — counted as oldest."
+                                        "Opening / non-GRN stock with no receipt date — counted in >120."
                                       )}
                                     >
                                       * {qty(r.undated_qty)}{" "}
-                                      {t("undated (treated oldest)")}
+                                      {t("undated (in >120)")}
                                     </div>
                                   ) : null}
                                 </td>
@@ -403,37 +412,13 @@ const InventoryAging = () => {
                                 <td className="text-end text-nowrap">
                                   {grp(r.closing_value_inr)}
                                 </td>
-                                <td className="text-end fw-semibold">
-                                  {Number(r.aged_qty) > 0 ? (
-                                    qty(r.aged_qty)
-                                  ) : (
-                                    <Dash />
-                                  )}
-                                </td>
-                                <td
-                                  className={`text-end text-nowrap ${
-                                    Number(r.aged_value_inr) > 0
-                                      ? "text-danger fw-semibold"
-                                      : ""
-                                  }`}
-                                >
-                                  {Number(r.aged_value_inr) > 0 ? (
-                                    grp(r.aged_value_inr)
-                                  ) : (
-                                    <Dash />
-                                  )}
-                                </td>
-                                <td className="text-end">
-                                  {Number(r.aged_pct || 0).toFixed(1)}%
-                                </td>
-                                <td className="text-end">
-                                  {r.oldest_days === null ||
-                                  r.oldest_days === undefined ? (
-                                    <Dash />
-                                  ) : (
-                                    Number(r.oldest_days).toFixed(0)
-                                  )}
-                                </td>
+                                {buckets.map((b, i) => (
+                                  <BucketCell
+                                    key={b.key || i}
+                                    bucket={b}
+                                    danger={i === lastIdx}
+                                  />
+                                ))}
                               </tr>
                             );
                           })}
@@ -450,16 +435,19 @@ const InventoryAging = () => {
                             <td className="text-end">
                               {`₹ ${grp(totals.closing_value_inr)}`}
                             </td>
-                            <td className="text-end">
-                              {qty(totals.aged_qty)}
-                            </td>
-                            <td className="text-end text-danger">
-                              {`₹ ${grp(totals.aged_value_inr)}`}
-                            </td>
-                            <td className="text-end">
-                              {Number(totals.aged_pct || 0).toFixed(1)}%
-                            </td>
-                            <td />
+                            {totalBuckets.map((b, i) => (
+                              <td
+                                key={b.key || i}
+                                className={`text-end text-nowrap ${
+                                  i === totalBuckets.length - 1
+                                    ? "text-danger"
+                                    : ""
+                                }`}
+                              >
+                                <div>{qty(b.qty)}</div>
+                                <div className="small">₹{grp(b.value)}</div>
+                              </td>
+                            ))}
                           </tr>
                         </tfoot>
                       </Table>
@@ -469,7 +457,7 @@ const InventoryAging = () => {
                       <div className="small text-muted mt-1">
                         {qty(totals.undated_qty)}{" "}
                         {t(
-                          "on-hand unit(s) had no GRN receipt date (opening / non-GRN stock) and are counted as oldest."
+                          "on-hand unit(s) had no GRN receipt date (opening / non-GRN stock) and are counted in the >120 bucket."
                         )}
                       </div>
                     ) : null}
