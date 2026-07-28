@@ -42,6 +42,8 @@ import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import { recoverPoVendors } from "@src/views/po-vendors/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import { getExchangeRateOptions } from "@src/views/currencies/store";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { REBATE_EXPENSE_TYPE_OPTIONS } from "@constant/options";
@@ -135,11 +137,21 @@ const PoVendorRecoverModal = ({
   const poId = purchaseOrder?._id;
   const previewEndpoint = `${API_ENDPOINTS.poVendors.recoverPreview}/${poId}`;
 
+  // Per-vendor display currency + rate. One POV is created per vendor, so each
+  // can be in its own currency. Shape: { [vid]: { currency_code, rate_display } }
+  // where rate_display = ₹ per 1 foreign unit (what the operator sees/edits).
+  // Prices stay entered in INR; this only sets how each SAVED POV renders.
+  const [vendorCurrencies, setVendorCurrencies] = useState({});
+
   // ── Expense master (loaded once when modal opens) ──
   const expenseStore = useSelector((s) => s.expense);
+  const currencyStore = useSelector((s) => s.currency);
   useEffect(() => {
     if (isOpen && !expenseStore?.expenseDropdown?.length) {
       dispatch(getExpenseDropdown());
+    }
+    if (isOpen && !currencyStore?.exchangeOptions?.length) {
+      dispatch(getExchangeRateOptions());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -153,6 +165,66 @@ const PoVendorRecoverModal = ({
     [expenseStore?.expenseDropdown]
   );
   const expenseTypeOptions = REBATE_EXPENSE_TYPE_OPTIONS;
+
+  // Home INR (excluded from the exchange-rate options, which list only foreign
+  // targets) + every foreign currency that has a rate configured. Unlike an
+  // export quotation, a POV to a domestic vendor is legitimately in ₹.
+  const currencyOptions = useMemo(() => {
+    const foreign = (currencyStore?.exchangeOptions || [])
+      .filter((c) => c.code !== "INR")
+      .map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
+      }));
+    return [{ value: "INR", label: "INR (₹)" }, ...foreign];
+  }, [currencyStore?.exchangeOptions]);
+
+  // GST is an Indian INR tax, not applicable on a foreign-currency POV. When a
+  // vendor's currency isn't INR, GST% is forced to 0 for that vendor everywhere
+  // (inputs, per-vendor preview, submit payload).
+  const vcFor = (vid) =>
+    vendorCurrencies[vid] || { currency_code: "INR", rate_display: "1" };
+  const gstAppliesFor = (vid) => vcFor(vid).currency_code === "INR";
+  // Stored foreign-per-₹1 rate for a vendor (INR → 1). rate_display is ₹/foreign.
+  const storedRateFor = (vid) => {
+    const vc = vcFor(vid);
+    if (vc.currency_code === "INR") return 1;
+    const disp = Number(vc.rate_display);
+    return disp > 0 ? 1 / disp : 1;
+  };
+  // Vendor's currency symbol; multiply an INR amount by storedRateFor to show it
+  // in that vendor's currency (all card previews are INR-sourced).
+  const symFor = (vid) => getCurrencySymbol(vcFor(vid).currency_code) || "₹";
+  const setVendorRateDisplay = (vid, text) =>
+    setVendorCurrencies((curr) => ({
+      ...curr,
+      [vid]: { ...(curr[vid] || { currency_code: "INR" }), rate_display: text },
+    }));
+  const setVendorCurrency = (vid, code) => {
+    setVendorCurrencies((curr) => ({
+      ...curr,
+      [vid]: {
+        currency_code: code,
+        rate_display: code === "INR" ? "1" : "",
+      },
+    }));
+    if (code && code !== "INR") {
+      instance
+        .get(API_ENDPOINTS.currencies.currentRate, { params: { to: code } })
+        .then((resp) => {
+          const r = Number(resp?.data?.data?.rate);
+          if (r > 0)
+            setVendorCurrencies((curr) => ({
+              ...curr,
+              [vid]: {
+                currency_code: code,
+                rate_display: String(Math.round((1 / r) * 100) / 100),
+              },
+            }));
+        })
+        .catch(() => {});
+    }
+  };
 
   // ── Company locations (deliver-to options, loaded once when modal opens) ──
   useEffect(() => {
@@ -326,6 +398,26 @@ const PoVendorRecoverModal = ({
     );
   }, [previewLines, assignment, dropped, activeVendors]);
 
+  // Default each vendor's currency to INR once vendors are known. Blank-only,
+  // so an operator's explicit per-vendor pick is never clobbered. (The vendor
+  // decides its own currency here — it is NOT inherited from the Sales Order,
+  // whose currency is the customer's, not the vendor's.)
+  useEffect(() => {
+    if (!vendorSummary.length) return;
+    setVendorCurrencies((curr) => {
+      let changed = false;
+      const next = { ...curr };
+      for (const v of vendorSummary) {
+        if (!next[v.vendor_id]) {
+          changed = true;
+          next[v.vendor_id] = { currency_code: "INR", rate_display: "1" };
+        }
+      }
+      return changed ? next : curr;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorSummary]);
+
   // Prune charges for vendors no longer in the batch.
   useEffect(() => {
     const activeVendorIds = new Set(vendorSummary.map((v) => v.vendor_id));
@@ -401,14 +493,16 @@ const PoVendorRecoverModal = ({
   // "Taxable" figure on each card was the ONLY number shown, and the operator had
   // no idea what the POV would actually cost until the PDF was generated.
   const goodsGstFor = (v) =>
-    previewLines.reduce((s, l) => {
-      const id = l.purchase_order_line_id;
-      if (dropped[id]) return s;
-      if (num(l.to_procure) <= 0) return s;
-      if (assignment[id] !== v.vendor_id) return s;
-      const lineTotal = num(l.to_procure) * priceForLine(l, v.vendor_id);
-      return s + (lineTotal * num(l.tax_pct)) / 100;
-    }, 0);
+    !gstAppliesFor(v.vendor_id)
+      ? 0
+      : previewLines.reduce((s, l) => {
+          const id = l.purchase_order_line_id;
+          if (dropped[id]) return s;
+          if (num(l.to_procure) <= 0) return s;
+          if (assignment[id] !== v.vendor_id) return s;
+          const lineTotal = num(l.to_procure) * priceForLine(l, v.vendor_id);
+          return s + (lineTotal * num(l.tax_pct)) / 100;
+        }, 0);
 
   // GST the operator entered on each charge row. Charges are taxed at their own
   // rate on the PDF, not folded into the goods rate — mirror that here.
@@ -466,10 +560,13 @@ const PoVendorRecoverModal = ({
       .map((l) => ({
         purchase_order_line_id: l.purchase_order_line_id,
         vendor_id: assignment[l.purchase_order_line_id],
-        tax_pct:
-          l.tax_pct != null && l.tax_pct !== ""
-            ? String(num(l.tax_pct))
-            : undefined,
+        // GST is an Indian INR tax — a foreign-currency POV carries none, so
+        // force the line's GST% to "0" when its vendor's currency isn't INR.
+        tax_pct: !gstAppliesFor(assignment[l.purchase_order_line_id])
+          ? "0"
+          : l.tax_pct != null && l.tax_pct !== ""
+          ? String(num(l.tax_pct))
+          : undefined,
         // Only send the qty when the operator edited it — otherwise the backend
         // keeps its own pending − stock auto-deduct. An edited value may exceed
         // pending; the backend flags such lines past the over-shipment guard.
@@ -517,6 +614,18 @@ const PoVendorRecoverModal = ({
       trimmedLocations[vid] = vendorLocations[vid];
     }
 
+    const trimmedCurrencies = {};
+    for (const vid of submittingVendorIds) {
+      const vc = vcFor(vid);
+      const isForeign = vc.currency_code && vc.currency_code !== "INR";
+      // Send every vendor explicitly so an INR vendor under a foreign SO does
+      // not inherit the SO currency on the backend.
+      trimmedCurrencies[vid] = {
+        currency_code: vc.currency_code || "INR",
+        exchange_rate: isForeign ? String(storedRateFor(vid)) : "1",
+      };
+    }
+
     // Trim out empty vendor blocks (no rows) and rows missing expense_id.
     const trimmedExpenses = {};
     for (const [vid, rows] of Object.entries(vendorExpenses)) {
@@ -526,19 +635,24 @@ const PoVendorRecoverModal = ({
           expense_id: r.expense_id,
           type: r.type || "percent",
           value: r.value || "0",
-          gst_pct: r.gst_pct || "0",
+          // GST never applies on a foreign-currency POV.
+          gst_pct: gstAppliesFor(vid) ? r.gst_pct || "0" : "0",
         }));
       }
     }
 
-    // Per-vendor advances with a positive amount only.
+    // Per-vendor advances with a positive amount only. The advance is entered
+    // in the vendor's currency, but payments are STORED in INR — convert back
+    // (INR = foreign / storedRate, where storedRate is foreign-per-₹1).
     const trimmedAdvances = {};
     for (const [vid, adv] of Object.entries(vendorAdvances)) {
       if (num(adv?.amount) > 0) {
+        const sr = storedRateFor(vid) || 1;
+        const amountInr = Math.round((num(adv.amount) / sr) * 100) / 100;
         trimmedAdvances[vid] = {
           payment_date:
             adv.payment_date || new Date().toISOString().slice(0, 10),
-          amount: String(num(adv.amount)),
+          amount: String(amountInr),
           invoice_number: adv.invoice_number?.trim() || undefined,
           notes: adv.notes?.trim() || undefined,
         };
@@ -561,6 +675,7 @@ const PoVendorRecoverModal = ({
       const result = await dispatch(
         recoverPoVendors({
           purchase_order_id: poId,
+          vendor_currencies: trimmedCurrencies,
           assignments,
           vendor_expenses: trimmedExpenses,
           vendor_advances: Object.keys(trimmedAdvances).length
@@ -621,6 +736,7 @@ const PoVendorRecoverModal = ({
                 "Each line is pre-picked to the cheapest price-list vendor. Change the vendor to re-assign, or skip a line. One POV is created per unique vendor."
               )}
             </p>
+
             {previewLines.every((l) => l.fully_covered) && (
               <div className="alert alert-info small mb-2">
                 <AlertTriangle size={14} className="me-1" />
@@ -679,6 +795,11 @@ const PoVendorRecoverModal = ({
                     const noVendor = vendorOpts.length === 0;
                     // Fully covered from on-hand stock → no Vendor PO needed.
                     const fromStock = num(l.to_procure) <= 0;
+                    // GST applies only when this line's assigned vendor's POV
+                    // currency is INR.
+                    const lineGstApplies = gstAppliesFor(
+                      assignment[l.purchase_order_line_id]
+                    );
                     return (
                       <tr
                         key={l.purchase_order_line_id}
@@ -827,7 +948,8 @@ const PoVendorRecoverModal = ({
                                 bsSize="sm"
                                 className="text-end"
                                 style={{ width: 66 }}
-                                value={l.tax_pct ?? ""}
+                                value={lineGstApplies ? (l.tax_pct ?? "") : 0}
+                                disabled={!lineGstApplies}
                                 onChange={(e) =>
                                   handleTaxChange(
                                     l.purchase_order_line_id,
@@ -849,7 +971,10 @@ const PoVendorRecoverModal = ({
                             <span>
                               ₹
                               {fmt(
-                                (num(l.to_procure) * rate * num(l.tax_pct)) / 100
+                                lineGstApplies
+                                  ? (num(l.to_procure) * rate * num(l.tax_pct)) /
+                                      100
+                                  : 0
                               )}
                             </span>
                           )}
@@ -974,8 +1099,15 @@ const PoVendorRecoverModal = ({
                   const chargesTotal = chargesFor(v);
                   const goodsGst = goodsGstFor(v);
                   const chargeGst = chargeGstFor(v);
-                  const gstTotal = goodsGst + chargeGst;
+                  // GST is an Indian INR tax — nil on a foreign-currency POV.
+                  const gstTotal = gstAppliesFor(v.vendor_id)
+                    ? goodsGst + chargeGst
+                    : 0;
                   const grandTotal = v.total + chargesTotal + gstTotal;
+                  // Preview totals are INR-sourced; show them in the vendor's
+                  // chosen currency (× rate) with its symbol.
+                  const vSym = symFor(v.vendor_id);
+                  const vRate = storedRateFor(v.vendor_id);
                   return (
                     <div key={v.vendor_id} className="po-gen-card mb-2">
                       <div className="po-gen-head justify-content-between">
@@ -983,23 +1115,29 @@ const PoVendorRecoverModal = ({
                           <span className="text-muted">{t("PO to")}: </span>
                           <span className="fw-semibold">{v.vendor_name}</span>
                           <span className="ms-1">
-                            · {v.lines} {t("line(s)")} · ₹{fmt(v.total)}
+                            · {v.lines} {t("line(s)")} · {vSym}
+                            {fmt(v.total * vRate)}
                             {chargesTotal > 0 && (
                               <>
                                 {" "}
-                                + {t("Charges")} ₹{fmt(chargesTotal)}
+                                + {t("Charges")} {vSym}
+                                {fmt(chargesTotal * vRate)}
                               </>
                             )}
                             {gstTotal > 0 && (
                               <>
                                 {" "}
-                                + {t("GST")} ₹{fmt(gstTotal)}
+                                + {t("GST")} {vSym}
+                                {fmt(gstTotal * vRate)}
                               </>
                             )}
                             {(chargesTotal > 0 || gstTotal > 0) && (
                               <>
                                 {" = "}
-                                <strong>₹{fmt(grandTotal)}</strong>{" "}
+                                <strong>
+                                  {vSym}
+                                  {fmt(grandTotal * vRate)}
+                                </strong>{" "}
                                 <span className="text-muted">
                                   ({t("POV total")})
                                 </span>
@@ -1018,6 +1156,61 @@ const PoVendorRecoverModal = ({
                         </Button>
                       </div>
                       <div className="p-1">
+                        {/* Per-vendor display currency + exchange rate. Vendor
+                            prices are entered in INR (₹) above — this only sets
+                            how this vendor's SAVED POV renders (detail + PDF).
+                            Defaults to the source Sales Order's currency.
+                            exchange_rate is stored foreign-per-₹1. */}
+                        <Row className="mb-1">
+                          <Col md="3" sm="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Currency")}
+                            </Label>
+                            <Select
+                              classNamePrefix="select"
+                              options={currencyOptions}
+                              value={
+                                currencyOptions.find(
+                                  (o) => o.value === vcFor(v.vendor_id).currency_code
+                                ) || {
+                                  value: vcFor(v.vendor_id).currency_code,
+                                  label: vcFor(v.vendor_id).currency_code,
+                                }
+                              }
+                              onChange={(opt) =>
+                                setVendorCurrency(v.vendor_id, opt?.value || "INR")
+                              }
+                              isClearable={false}
+                              menuPortalTarget={document.body}
+                              menuPosition="fixed"
+                              styles={{
+                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                              }}
+                            />
+                          </Col>
+                          <Col md="3" sm="6">
+                            <Label className="form-label small fw-semibold mb-25">
+                              {t("Exchange Rate")}
+                              {vcFor(v.vendor_id).currency_code !== "INR" && (
+                                <span className="text-muted">
+                                  {" "}
+                                  (₹ {t("per 1")} {vcFor(v.vendor_id).currency_code})
+                                </span>
+                              )}
+                            </Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              bsSize="sm"
+                              value={vcFor(v.vendor_id).rate_display}
+                              disabled={vcFor(v.vendor_id).currency_code === "INR"}
+                              onChange={(e) =>
+                                setVendorRateDisplay(v.vendor_id, e.target.value)
+                              }
+                            />
+                          </Col>
+                        </Row>
                         {/* Deliver-to location (ShivaTrade's receiving
                             location). Required — auto-filled to the default;
                             sets the POV's delivery_address_id → stock ledger. */}
@@ -1130,6 +1323,9 @@ const PoVendorRecoverModal = ({
                           expenseOptions={expenseOptions}
                           typeOptions={expenseTypeOptions}
                           percentBase={v.total}
+                          sym={vSym}
+                          rate={vRate}
+                          gstApplies={gstAppliesFor(v.vendor_id)}
                           onUpdateRow={updateRow}
                           onRemoveRow={removeRow}
                         />
@@ -1161,7 +1357,7 @@ const PoVendorRecoverModal = ({
                               bsSize="sm"
                               min="0"
                               step="any"
-                              placeholder={t("Amount ₹")}
+                              placeholder={`${t("Amount")} ${vSym}`}
                               value={vendorAdvances[v.vendor_id]?.amount || ""}
                               onChange={(e) =>
                                 updateAdvance(v.vendor_id, {

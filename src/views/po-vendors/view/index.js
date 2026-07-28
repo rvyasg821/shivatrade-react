@@ -108,6 +108,10 @@ const ViewPoVendor = () => {
   const authUserItem = authStore?.authUserItem || null;
   const p = store?.poVendorItem || {};
   const sym = p?.currency_symbol || "₹";
+  // All POV money is stored in INR; multiply by the POV's exchange rate
+  // (foreign-per-₹1, 1 for INR) to display in the POV's currency.
+  const rate = Number(p?.exchange_rate) || 1;
+  const fmtCcy = (vInr) => fmtMoney(num(vInr) * rate);
 
   // Right-side Event Timeline height tracks ONLY the Line Items ("overview")
   // tab so it doesn't balloon on the taller GRN / Debit Note / Expense tabs.
@@ -306,13 +310,18 @@ const ViewPoVendor = () => {
   // GST on the goods lines (Σ line_total × tax_pct%) — same basis as the POV
   // PDF's Input IGST / CGST+SGST. Charges carry no GST (per-charge GST was
   // dropped), so line GST is the whole tax.
+  // GST is an Indian (INR) tax — it does not apply to a POV priced in a
+  // foreign currency, so it stays 0 there.
+  const gstApplies = (p?.currency_code || "INR") === "INR";
   const computedGst = useMemo(
     () =>
-      lines.reduce(
-        (s, l) => s + (num(l?.line_total) * num(l?.tax_pct)) / 100,
-        0
-      ),
-    [lines]
+      gstApplies
+        ? lines.reduce(
+            (s, l) => s + (num(l?.line_total) * num(l?.tax_pct)) / 100,
+            0
+          )
+        : 0,
+    [lines, gstApplies]
   );
   // True amount payable to the vendor = goods + charges + GST. Use the
   // backend's `order_value` (GST-inclusive — the exact figure the Payments
@@ -350,14 +359,14 @@ const ViewPoVendor = () => {
     {
       key: "total",
       label: t("POV Total"),
-      value: lines.length > 0 ? `${sym} ${fmtMoney(grandTotal)}` : "-",
+      value: lines.length > 0 ? `${sym} ${fmtCcy(grandTotal)}` : "-",
       sub:
         lines.length > 0 && (expensesTotal > 0 || gstTotal > 0)
           ? [
-              `${t("Goods")} ${sym}${fmtMoney(goodsTotal)}`,
-              gstTotal > 0 ? `${t("GST")} ${sym}${fmtMoney(gstTotal)}` : null,
+              `${t("Goods")} ${sym}${fmtCcy(goodsTotal)}`,
+              gstTotal > 0 ? `${t("GST")} ${sym}${fmtCcy(gstTotal)}` : null,
               expensesTotal > 0
-                ? `${t("Charges")} ${sym}${fmtMoney(expensesTotal)}`
+                ? `${t("Charges")} ${sym}${fmtCcy(expensesTotal)}`
                 : null,
             ]
               .filter(Boolean)
@@ -521,6 +530,11 @@ const ViewPoVendor = () => {
       {p?.currency_code ? (
         <span className="text-muted">
           · {sym} {p.currency_code}
+          {rate > 0 && rate !== 1
+            ? ` · ₹${(1 / rate).toLocaleString(undefined, {
+                maximumFractionDigits: 4,
+              })} ${t("per 1")} ${p.currency_code}`
+            : ""}
         </span>
       ) : null}
     </span>

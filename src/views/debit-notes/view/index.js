@@ -28,6 +28,7 @@ import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -62,6 +63,12 @@ const DebitNoteView = () => {
   const [draftDn, setDraftDn] = useState(null);
   const [saving, setSaving] = useState(false);
   const dn = isCreate ? draftDn : store?.debitNoteItem;
+  // Amounts are STORED in INR; a foreign-currency Debit Note (inherited from the
+  // POV) carries exchange_rate (foreign-per-₹1) + code. The form works in the
+  // POV currency: `edits` hold POV-currency unit prices (seeded × rate) and are
+  // converted back to INR at save. `sym` is the currency symbol for display.
+  const rate = Number(dn?.exchange_rate) || 1;
+  const sym = getCurrencySymbol(dn?.currency_code) || "₹";
 
   // Editable line map keyed by debit-note line id.
   const [edits, setEdits] = useState({});
@@ -124,6 +131,7 @@ const DebitNoteView = () => {
       po_vendor_voucher_no: g.po_vendor_voucher_no,
       purchase_order_voucher_no: g.purchase_order_voucher_no,
       currency_code: pov.currency_code,
+      exchange_rate: pov.exchange_rate,
       dn_date: null,
       lines,
     });
@@ -137,8 +145,9 @@ const DebitNoteView = () => {
       seed[l._id] = {
         returned_qty:
           l.returned_qty != null ? num(l.returned_qty).toFixed(2) : "0.00",
+        // Stored INR → shown/edited in the POV currency (× rate).
         unit_price:
-          l.unit_price != null ? num(l.unit_price).toFixed(2) : "0.00",
+          l.unit_price != null ? (num(l.unit_price) * rate).toFixed(2) : "0.00",
         remarks: l.remarks || "",
       };
     }
@@ -176,13 +185,16 @@ const DebitNoteView = () => {
     }, 0);
   }, [dn?.lines, edits]);
 
+  // Unit price is edited in the POV currency; convert back to INR for storage.
+  const unitPriceInr = (v) => (rate > 0 ? num(v) / rate : num(v));
+
   const buildLinesPayload = () =>
     (dn?.lines || []).map((l) => {
       const e = edits[l._id] || {};
       return {
         _id: l._id,
         returned_qty: String(num(e.returned_qty)),
-        unit_price: String(num(e.unit_price)),
+        unit_price: String(unitPriceInr(e.unit_price)),
         remarks: e.remarks || "",
       };
     });
@@ -200,7 +212,7 @@ const DebitNoteView = () => {
           return {
             grn_line_id: l.grn_line_id,
             returned_qty: String(num(e.returned_qty)),
-            unit_price: String(num(e.unit_price)),
+            unit_price: String(unitPriceInr(e.unit_price)),
             remarks: e.remarks || "",
           };
         });
@@ -432,10 +444,14 @@ const DebitNoteView = () => {
                             className="text-end"
                           />
                         ) : (
-                          <span>{fmtMoney(l.unit_price)}</span>
+                          <span>
+                            {sym}
+                            {fmtMoney(num(l.unit_price) * rate)}
+                          </span>
                         )}
                       </td>
                       <td className="text-end fw-semibold text-nowrap">
+                        {sym}
                         {fmtMoney(lineAmt)}
                       </td>
                       <td>
@@ -462,7 +478,10 @@ const DebitNoteView = () => {
                     {t("Total")}
                   </td>
                   <td className="text-end fw-bold text-nowrap">
-                    {fmtMoney(isDraft ? previewTotal : dn.total_amount)}
+                    {sym}
+                    {fmtMoney(
+                      isDraft ? previewTotal : num(dn.total_amount) * rate
+                    )}
                     {cur}
                   </td>
                   <td />

@@ -7,7 +7,7 @@
 //     coverage). Mirrors the old "Create POV" popup, now as a page modelled
 //     on the Generate Sales Order page.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -39,6 +39,8 @@ import {
 import { getVendorDropdown, getVendor } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
+import { getExchangeRateOptions } from "@src/views/currencies/store";
+import { getCurrencySymbol } from "@src/utility/currency";
 import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
@@ -78,6 +80,7 @@ const CreatePoVendor = () => {
   const expenseStore = useSelector((s) => s.expense);
   const poFromStore = useSelector((s) => s.purchaseOrder?.purchaseOrderItem);
   const companyStore = useSelector((s) => s.company);
+  const currencyStore = useSelector((s) => s.currency);
 
   const [creating, setCreating] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -88,6 +91,18 @@ const CreatePoVendor = () => {
   const [dispatchedThrough, setDispatchedThrough] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [deliveryTerms, setDeliveryTerms] = useState("");
+
+  // Currency the SAVED POV renders in. Line prices stay in INR (₹); this only
+  // sets how the stored POV's detail view + PDF present amounts. exchange_rate
+  // is foreign-per-₹1 (e.g. USD ≈ 0.012).
+  const [currencyCode, setCurrencyCode] = useState("INR");
+  const [exchangeRate, setExchangeRate] = useState("1");
+  // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
+  // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
+  // e.g. 0.012). Seed the display from the stored value while unfocused; store
+  // 1/X on edit. Mirrors the quotation exchange-rate field.
+  const [rateDisplay, setRateDisplay] = useState("1");
+  const rateFocused = useRef(false);
 
   // Standalone manual lines.
   const [lines, setLines] = useState([newRow()]);
@@ -111,6 +126,10 @@ const CreatePoVendor = () => {
   });
 
   const linkedMode = !!pickedSoId;
+  // GST is an Indian (INR) tax — it does not apply on a foreign-currency POV.
+  // When the POV is in a foreign currency the GST is treated as 0 and the GST%
+  // inputs are disabled/blanked.
+  const gstApplies = currencyCode === "INR";
 
   // ── Dropdowns ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,6 +137,7 @@ const CreatePoVendor = () => {
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getCompanyDetails());
+    dispatch(getExchangeRateOptions());
   }, [dispatch]);
 
   // Pre-fill Remarks from the company's default POV remarks (new POV only).
@@ -162,6 +182,19 @@ const CreatePoVendor = () => {
       })),
     [expenseStore?.expenseDropdown]
   );
+
+  // Home INR (excluded from the exchange-rate options, which list only foreign
+  // targets) + every foreign currency that has a rate configured. Unlike an
+  // export quotation, a POV to a domestic vendor is legitimately in ₹.
+  const currencyOptions = useMemo(() => {
+    const foreign = (currencyStore?.exchangeOptions || [])
+      .filter((c) => c.code !== "INR")
+      .map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
+      }));
+    return [{ value: "INR", label: "INR (₹)" }, ...foreign];
+  }, [currencyStore?.exchangeOptions]);
 
   const productOptions = useMemo(
     () =>
@@ -263,6 +296,49 @@ const CreatePoVendor = () => {
       setDeliveryAddressId(poFromStore.delivery_address_id);
     }
   }, [linkedMode, poFromStore, pickedSoId]);
+
+  // Linked-mode: default the POV currency from the source SO.
+  useEffect(() => {
+    if (linkedMode && poFromStore?._id === pickedSoId && poFromStore?.currency_code) {
+      setCurrencyCode(poFromStore.currency_code);
+      setExchangeRate(String(poFromStore.exchange_rate ?? 1));
+    }
+  }, [linkedMode, poFromStore, pickedSoId]);
+
+  // Rate auto-fetch: pull the current master rate whenever the currency CHANGES.
+  // Only currencyCode is in the deps so a rate the user just typed is not
+  // clobbered on every keystroke. Home currency (INR) is always exactly 1.
+  useEffect(() => {
+    if (currencyCode === "INR") {
+      setExchangeRate("1");
+      return;
+    }
+    let cancelled = false;
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, { params: { to: currencyCode } })
+      .then((resp) => {
+        if (cancelled) return;
+        const rate = resp?.data?.data?.rate;
+        if (rate != null) setExchangeRate(String(Number(rate)));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyCode]);
+
+  // Keep the displayed ₹-per-foreign value in sync with the stored rate while
+  // the field is not being edited.
+  useEffect(() => {
+    if (rateFocused.current) return;
+    if (currencyCode === "INR") {
+      setRateDisplay("1");
+      return;
+    }
+    const r = Number(exchangeRate);
+    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
+  }, [exchangeRate, currencyCode]);
 
   // PO line _id → vendor_id, to filter coverage lines by the chosen vendor.
   const vendorByLineId = useMemo(() => {
@@ -458,6 +534,7 @@ const CreatePoVendor = () => {
     (num(qty) * num(price) * num(taxPct)) / 100;
 
   const goodsGst = useMemo(() => {
+    if (!gstApplies) return 0;
     if (linkedMode) {
       return filteredCoverLines.reduce((s, l) => {
         const id = l.purchase_order_line_id;
@@ -470,7 +547,7 @@ const CreatePoVendor = () => {
       (s, r) => s + lineGst(r.qty, r.unit_price, r.tax_pct),
       0
     );
-  }, [linkedMode, filteredCoverLines, coverByLine, priceByLine, lines]);
+  }, [gstApplies, linkedMode, filteredCoverLines, coverByLine, priceByLine, lines]);
 
   // GST state code = first two digits of the GSTIN (the GST convention the PDF
   // uses). Both sides must be known — guessing the split would print CGST/SGST
@@ -518,11 +595,12 @@ const CreatePoVendor = () => {
         ? (goodsTotal * num(c.value)) / 100
         : num(c.value);
   const chargeGross = (c) =>
-    chargeTaxable(c) + (chargeTaxable(c) * num(c.gst_pct)) / 100;
+    chargeTaxable(c) +
+    (gstApplies ? (chargeTaxable(c) * num(c.gst_pct)) / 100 : 0);
   const chargesTotal = useMemo(
     () => charges.reduce((s, c) => s + chargeGross(c), 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [charges, goodsTotal]
+    [charges, goodsTotal, gstApplies]
   );
   // charges (incl. their own GST) + goods + goods GST. Matches the PDF.
   const grandTotal = goodsTotal + goodsGst + chargesTotal;
@@ -542,7 +620,7 @@ const CreatePoVendor = () => {
         expense_id: c.expense_id,
         type: c.type || "percent",
         value: String(num(c.value)),
-        gst_pct: String(num(c.gst_pct)),
+        gst_pct: gstApplies ? String(num(c.gst_pct)) : "0",
       }));
 
     try {
@@ -590,6 +668,11 @@ const CreatePoVendor = () => {
               payment_terms: paymentTerms?.trim() || undefined,
               delivery_terms: deliveryTerms?.trim() || undefined,
               expenses: expensesPayload.length ? expensesPayload : undefined,
+              currency_code: currencyCode || undefined,
+              exchange_rate:
+                currencyCode && currencyCode !== "INR"
+                  ? String(Number(exchangeRate) || 1)
+                  : undefined,
             },
           })
         ).unwrap();
@@ -622,7 +705,11 @@ const CreatePoVendor = () => {
             part_no: r.part_no || undefined,
             hsn_code: r.hsn_code || undefined,
             unit: r.unit || undefined,
-            tax_pct: r.tax_pct != null ? String(r.tax_pct) : undefined,
+            tax_pct: gstApplies
+              ? r.tax_pct != null
+                ? String(r.tax_pct)
+                : undefined
+              : "0",
           });
         }
         if (!payloadLines.length) {
@@ -634,6 +721,13 @@ const CreatePoVendor = () => {
           return;
         }
         const advanceAmt = num(advance.amount);
+        // The advance is entered in the POV currency, but payments are STORED
+        // in INR. Convert back (INR = foreign / exchange_rate) before sending.
+        const advRate = Number(exchangeRate) || 1;
+        const advanceAmtInr =
+          currencyCode && currencyCode !== "INR" && advRate > 0
+            ? round2(advanceAmt / advRate)
+            : advanceAmt;
         result = await dispatch(
           createPoVendorStandalone({
             vendor_id: vendorId,
@@ -644,13 +738,18 @@ const CreatePoVendor = () => {
             payment_terms: paymentTerms?.trim() || undefined,
             delivery_terms: deliveryTerms?.trim() || undefined,
             expenses: expensesPayload.length ? expensesPayload : undefined,
+            currency_code: currencyCode || undefined,
+            exchange_rate:
+              currencyCode && currencyCode !== "INR"
+                ? String(Number(exchangeRate) || 1)
+                : undefined,
             advance:
               advanceAmt > 0
                 ? {
                     payment_date:
                       advance.payment_date ||
                       new Date().toISOString().slice(0, 10),
-                    amount: String(advanceAmt),
+                    amount: String(advanceAmtInr),
                     invoice_number: advance.invoice_number?.trim() || undefined,
                     notes: advance.notes?.trim() || undefined,
                   }
@@ -692,7 +791,7 @@ const CreatePoVendor = () => {
           <CardBody>
             <div className="row g-2 mb-2">
               {/* Vendor */}
-              <div className="col-md-6">
+              <div className="col-md-3">
                 <Label className="form-label">
                   {t("Vendor")} <span className="text-danger">*</span>
                 </Label>
@@ -706,7 +805,7 @@ const CreatePoVendor = () => {
               </div>
 
               {/* Delivery address */}
-              <div className="col-md-6">
+              <div className="col-md-3">
                 <Label className="form-label">
                   {t("Deliver To")}{" "}
                   {!linkedMode && <span className="text-danger">*</span>}
@@ -715,6 +814,51 @@ const CreatePoVendor = () => {
                   value={deliveryAddressId}
                   onChange={setDeliveryAddressId}
                   autoSelectDefault={false}
+                />
+              </div>
+
+              {/* Currency the SAVED POV renders in (lines stay in ₹). */}
+              <div className="col-md-3">
+                <Label className="form-label">{t("Currency")}</Label>
+                <Select
+                  classNamePrefix="select"
+                  options={currencyOptions}
+                  value={
+                    currencyOptions.find((o) => o.value === currencyCode) || null
+                  }
+                  onChange={(opt) => setCurrencyCode(opt ? opt.value : "INR")}
+                  placeholder={t("Select currency")}
+                />
+              </div>
+
+              {/* Exchange rate — shown as ₹ per 1 foreign unit (e.g. 83.33);
+                  stored as foreign per ₹1. Locked at 1 for home currency. */}
+              <div className="col-md-3">
+                <Label className="form-label">
+                  {t("Exchange Rate")}
+                  {currencyCode !== "INR" && (
+                    <small className="text-muted">
+                      {" "}
+                      (₹ {t("per 1")} {currencyCode})
+                    </small>
+                  )}
+                </Label>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  disabled={currencyCode === "INR"}
+                  value={rateDisplay}
+                  onFocus={() => (rateFocused.current = true)}
+                  onBlur={() => (rateFocused.current = false)}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setRateDisplay(text);
+                    const inrPerForeign = Number(text);
+                    setExchangeRate(
+                      inrPerForeign > 0 ? String(1 / inrPerForeign) : ""
+                    );
+                  }}
                 />
               </div>
             </div>
@@ -839,11 +983,13 @@ const CreatePoVendor = () => {
                             {/* Rate is read-only in linked mode — it is the PO
                                 line's snapshot, carried by the coverage API. */}
                             <td className="text-end text-muted">
-                              {num(l.tax_pct) || 0}
+                              {gstApplies ? num(l.tax_pct) || 0 : 0}
                             </td>
                             <td className="text-end">
                               {round2(
-                                lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+                                gstApplies
+                                  ? lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+                                  : 0
                               ).toLocaleString()}
                             </td>
                             <td className="text-end fw-bold">
@@ -976,8 +1122,8 @@ const CreatePoVendor = () => {
                           step="0.01"
                           bsSize="sm"
                           className="text-end"
-                          disabled={!r.product_id}
-                          value={r.tax_pct}
+                          disabled={!r.product_id || !gstApplies}
+                          value={gstApplies ? (r.tax_pct ?? "") : 0}
                           onChange={(e) =>
                             setRow(r.key, { tax_pct: e.target.value })
                           }
@@ -985,7 +1131,7 @@ const CreatePoVendor = () => {
                       </td>
                       <td className="text-end">
                         {round2(
-                          lineGst(r.qty, r.unit_price, r.tax_pct)
+                          gstApplies ? lineGst(r.qty, r.unit_price, r.tax_pct) : 0
                         ).toLocaleString()}
                       </td>
                       <td className="text-end fw-bold">
@@ -1050,6 +1196,7 @@ const CreatePoVendor = () => {
                 expenseOptions={expenseOptions}
                 typeOptions={REBATE_EXPENSE_TYPE_OPTIONS}
                 percentBase={goodsTotal}
+                gstApplies={gstApplies}
                 onUpdateRow={(idx, patch) =>
                   setCharges((rows) =>
                     rows.map((r, i) => (i === idx ? { ...r, ...patch } : r))
@@ -1123,6 +1270,20 @@ const CreatePoVendor = () => {
                       {round2(grandTotal).toLocaleString()}
                     </td>
                   </tr>
+                  {currencyCode !== "INR" && (
+                    <tr>
+                      <td colSpan={2} className="text-end text-muted small">
+                        ≈ {getCurrencySymbol(currencyCode) || currencyCode}
+                        {(
+                          grandTotal * (Number(exchangeRate) || 1)
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        (₹{rateDisplay} {t("per 1")} {currencyCode})
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </Table>
             )}
@@ -1167,7 +1328,7 @@ const CreatePoVendor = () => {
               </Col>
             </Row>
 
-            <div className="mt-2" style={{ maxWidth: 640 }}>
+            <div className="mt-2">
               <Label className="form-label">{t("Remarks (optional)")}</Label>
               <Input
                 type="textarea"
@@ -1187,7 +1348,7 @@ const CreatePoVendor = () => {
                   {t("Advance Paid to Vendor")}{" "}
                   <span className="text-muted small">({t("optional")})</span>
                 </Label>
-                <div className="border rounded p-2" style={{ maxWidth: 760 }}>
+                <div className="border rounded p-2">
                   <div className="row g-2">
                     <div className="col-md-4">
                       <Label className="form-label">{t("Payment Date")}</Label>
@@ -1200,7 +1361,12 @@ const CreatePoVendor = () => {
                       />
                     </div>
                     <div className="col-md-4">
-                      <Label className="form-label">{t("Amount")}</Label>
+                      <Label className="form-label">
+                        {t("Amount")}
+                        {currencyCode && currencyCode !== "INR"
+                          ? ` (${currencyCode})`
+                          : ""}
+                      </Label>
                       <Input
                         type="number"
                         step="any"
@@ -1211,6 +1377,20 @@ const CreatePoVendor = () => {
                           setAdvance((s) => ({ ...s, amount: e.target.value }))
                         }
                       />
+                      {currencyCode !== "INR" &&
+                      num(advance.amount) > 0 &&
+                      (Number(exchangeRate) || 0) > 0 ? (
+                        <small className="text-muted">
+                          ≈ ₹
+                          {round2(
+                            num(advance.amount) / (Number(exchangeRate) || 1)
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {t("recorded")}
+                        </small>
+                      ) : null}
                     </div>
                     <div className="col-md-4">
                       <Label className="form-label">{t("Invoice Number")}</Label>

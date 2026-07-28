@@ -99,6 +99,17 @@ const PaymentsTab = ({ registerActions }) => {
   const p = poVendorItem || {};
   const id = p?._id;
   const sym = p?.currency_symbol || "₹";
+  // All POV payment money is stored in INR; multiply by the POV's exchange
+  // rate (foreign-per-₹1, 1 for INR) to display read-only amounts in the POV's
+  // currency. `fmtCcy` = INR → displayed currency; `fmt` stays raw INR for the
+  // Record Payment input (amounts are entered/stored in INR).
+  const rate = Number(p?.exchange_rate) || 1;
+  const fmtCcy = (vInr) => fmt(num(vInr) * rate);
+  // The Record Payment modal now works in the POV currency (enter USD, see the
+  // USD balance) even though payments are STORED in INR. `toInr` converts an
+  // entered POV-currency amount back to INR for the payload; `toCcy` the way in.
+  const toInr = (vCcy) => (rate > 0 ? num(vCcy) / rate : num(vCcy));
+  const toCcy = (vInr) => num(vInr) * rate;
   const statusLower = (p?.status || "").toLowerCase();
 
   const isAdmin = isAdminUser(authUserItem);
@@ -163,7 +174,8 @@ const PaymentsTab = ({ registerActions }) => {
     setForm({
       payment_date: new Date().toISOString().slice(0, 10),
       invoice_number: "",
-      amount: balance > 0 ? balance.toFixed(2) : "",
+      // Pre-fill the balance in the POV currency (the field is entered in it).
+      amount: balance > 0 ? toCcy(balance).toFixed(2) : "",
       company_bank_account_id: def?.value || "",
       tds_section: "",
       tds_rate_pct: "",
@@ -184,16 +196,24 @@ const PaymentsTab = ({ registerActions }) => {
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
+    // The modal is entered in the POV currency, but payments are STORED in INR
+    // (the vendor ledger is INR). Convert the gross + TDS back to INR here. If
+    // the operator kept the full balance, snap to the exact INR balance so an
+    // FX round-trip can't leave a ₹0.01 residue on a fully-settled POV.
+    const isFullBalance =
+      balance > 0 && Math.abs(grossAmt - toCcy(balance)) < 0.01;
+    const amountInr = isFullBalance ? round2(balance) : round2(toInr(grossAmt));
+    const tdsAmountInr = round2(toInr(tdsAmt));
     // amount = GROSS (settles the vendor in full). Backend derives net_paid.
     const payload = {
       payment_date: form.payment_date,
-      amount: form.amount,
+      amount: String(amountInr),
       invoice_number: form.invoice_number || undefined,
       notes: form.notes || undefined,
       company_bank_account_id: form.company_bank_account_id || undefined,
       tds_section: form.tds_section || undefined,
       tds_rate_pct: String(tdsRate),
-      tds_amount: String(tdsAmt),
+      tds_amount: String(tdsAmountInr),
     };
     dispatch(recordPoVendorPayment({ id, data: payload }))
       .then((r) => {
@@ -282,7 +302,7 @@ const PaymentsTab = ({ registerActions }) => {
             <div className="text-muted small">{t("Order Value (Payable)")}</div>
             <div className="fw-bolder text-body">
               {sym}
-              {fmt(orderValue)}
+              {fmtCcy(orderValue)}
             </div>
           </div>
         </Col>
@@ -291,7 +311,7 @@ const PaymentsTab = ({ registerActions }) => {
             <div className="text-muted small">{t("Total Paid")}</div>
             <div className="fw-bolder text-body">
               {sym}
-              {fmt(paidToDate)}
+              {fmtCcy(paidToDate)}
             </div>
             {/* Adjustment Notes applied to THIS POV settle it alongside cash —
                 surfaced here so the Balance Payable below adds up on screen.
@@ -300,7 +320,7 @@ const PaymentsTab = ({ registerActions }) => {
               <div className="text-muted small mt-25">
                 {t("Adjustments")}: {adjustmentTotal > 0 ? "− " : "+ "}
                 {sym}
-                {fmt(Math.abs(adjustmentTotal))}
+                {fmtCcy(Math.abs(adjustmentTotal))}
               </div>
             )}
           </div>
@@ -322,7 +342,7 @@ const PaymentsTab = ({ registerActions }) => {
               }}
             >
               {sym}
-              {fmt(Math.abs(balance))}
+              {fmtCcy(Math.abs(balance))}
             </div>
           </div>
         </Col>
@@ -391,13 +411,13 @@ const PaymentsTab = ({ registerActions }) => {
                   </td>
                   <td className="text-end">
                     {sym}
-                    {fmt(pay.amount)}
+                    {fmtCcy(pay.amount)}
                   </td>
                   <td className="text-end">
                     {num(pay.tds_amount) > 0 ? (
                       <span title={pay.tds_section || ""}>
                         {sym}
-                        {fmt(pay.tds_amount)}
+                        {fmtCcy(pay.tds_amount)}
                         {pay.tds_section ? (
                           <div className="small text-muted">
                             {pay.tds_section}
@@ -410,7 +430,7 @@ const PaymentsTab = ({ registerActions }) => {
                   </td>
                   <td className="text-end fw-semibold">
                     {sym}
-                    {fmt(num(pay.net_paid) || num(pay.amount))}
+                    {fmtCcy(num(pay.net_paid) || num(pay.amount))}
                   </td>
                   <td className="text-end">
                     {!voided && canPay ? (
@@ -484,11 +504,11 @@ const PaymentsTab = ({ registerActions }) => {
               <small className="text-muted">
                 {balance < -0.01
                   ? `${t("Already overpaid by")}: ${sym}${fmt(
-                      Math.abs(balance)
+                      toCcy(Math.abs(balance))
                     )}`
-                  : `${t("Balance payable")}: ${sym}${fmt(balance)}`}
+                  : `${t("Balance payable")}: ${sym}${fmt(toCcy(balance))}`}
               </small>
-              {num(form.amount) - balance > 0.01 && num(form.amount) > 0 ? (
+              {num(form.amount) - toCcy(balance) > 0.01 && num(form.amount) > 0 ? (
                 <div className="d-flex align-items-start gap-50 mt-1 text-warning small">
                   <AlertTriangle size={14} className="mt-25 flex-shrink-0" />
                   <span>

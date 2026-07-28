@@ -184,6 +184,13 @@ const ExpensesTab = ({ registerActions }) => {
           typeOptions={TYPE_OPTIONS}
           percentBase={subtotal}
           sym={sym}
+          // Amount column always renders in the POV currency (× rate) so its
+          // symbol and value agree — the VALUE column stays the raw INR/percent
+          // entry. `percentBase` (subtotal) is INR, so a % charge computes in
+          // INR then converts, matching the POV Total card.
+          rate={Number(p?.exchange_rate) || 1}
+          // GST is an Indian (INR) tax — nil on a foreign-currency POV.
+          gstApplies={(p?.currency_code || "INR") === "INR"}
           readOnly={!isDraft}
           onUpdateRow={updateRow}
           onRemoveRow={removeRow}

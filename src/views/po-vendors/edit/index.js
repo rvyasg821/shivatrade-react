@@ -17,7 +17,7 @@
 // it and the PDF derives the tax from `tax_pct` at render time, so writing the
 // rate is all that is needed — nothing downstream can fall out of sync.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -37,16 +37,21 @@ import {
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowLeft, Save } from "react-feather";
+import Select from "react-select";
 
 import DateInput from "@components/date-input";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 import Notification from "@components/toast/notification";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import {
   getPoVendor,
   updatePoVendor,
   cleanPoVendorMessage,
 } from "@src/views/po-vendors/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
+import { getExchangeRateOptions } from "@src/views/currencies/store";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { appsRoot } from "@constant/defaultValues";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
@@ -66,6 +71,7 @@ const EditPoVendor = () => {
 
   const store = useSelector((s) => s.poVendor);
   const companyStore = useSelector((s) => s.company);
+  const currencyStore = useSelector((s) => s.currency);
   const co = companyStore?.companyItem;
   const p = store?.poVendorItem || {};
   const backTo = `${appsRoot}/po-vendors/view/${id}`;
@@ -94,12 +100,28 @@ const EditPoVendor = () => {
   // print on the vendor PDF, so they must not move once the document is out.
   const [hsnByLine, setHsnByLine] = useState({});
   const [partByLine, setPartByLine] = useState({});
+  // Display currency — draft-only, like GST%/terms. Line prices stay in INR;
+  // this only sets how the saved POV renders. exchange_rate is foreign-per-₹1.
+  const [currencyCode, setCurrencyCode] = useState("INR");
+  const [exchangeRate, setExchangeRate] = useState("1");
+  // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
+  // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
+  // e.g. 0.012). Seed the display from the stored value while unfocused; store
+  // 1/X on edit. Mirrors the create page's exchange-rate field.
+  const [rateDisplay, setRateDisplay] = useState("1");
+  const rateFocused = useRef(false);
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
+
+  // GST is an Indian (INR) tax — it does not apply on a foreign-currency POV.
+  // When the POV is in a foreign currency the GST is treated as 0 and the GST%
+  // inputs are disabled/blanked.
+  const gstApplies = currencyCode === "INR";
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
     dispatch(getCompanyDetails());
+    dispatch(getExchangeRateOptions());
   }, [id, dispatch]);
 
   // Seed once the POV lands, so typing isn't clobbered by a later refetch.
@@ -119,6 +141,9 @@ const EditPoVendor = () => {
     );
     setPaymentTerms(p.payment_terms || co?.pov_default_payment_terms || "");
     setDeliveryTerms(p.delivery_terms || co?.pov_default_delivery_terms || "");
+    // Display currency + rate — seeded once from the loaded POV.
+    setCurrencyCode(p.currency_code || "INR");
+    setExchangeRate(String(p.exchange_rate ?? 1));
     // Keyed by the POV line's OWN `_id`, never `purchase_order_line_id` — that
     // column is NULL on a standalone POV, which would collapse every row onto
     // one key and make editing one line edit them all.
@@ -169,13 +194,63 @@ const EditPoVendor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.success, store?.error]);
 
+  // Rate auto-fetch: pull the current master rate whenever the currency CHANGES.
+  // Only currencyCode is in the deps so a rate the user just typed is not
+  // clobbered on every keystroke. Home currency (INR) is always exactly 1.
+  useEffect(() => {
+    if (currencyCode === "INR") {
+      setExchangeRate("1");
+      return;
+    }
+    let cancelled = false;
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, { params: { to: currencyCode } })
+      .then((resp) => {
+        if (cancelled) return;
+        const rate = resp?.data?.data?.rate;
+        if (rate != null) setExchangeRate(String(Number(rate)));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyCode]);
+
+  // Keep the displayed ₹-per-foreign value in sync with the stored rate while
+  // the field is not being edited.
+  useEffect(() => {
+    if (rateFocused.current) return;
+    if (currencyCode === "INR") {
+      setRateDisplay("1");
+      return;
+    }
+    const r = Number(exchangeRate);
+    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
+  }, [exchangeRate, currencyCode]);
+
+  // Home INR (excluded from the exchange-rate options, which list only foreign
+  // targets) + every foreign currency that has a rate configured. Unlike an
+  // export quotation, a POV to a domestic vendor is legitimately in ₹.
+  const currencyOptions = useMemo(() => {
+    const foreign = (currencyStore?.exchangeOptions || [])
+      .filter((c) => c.code !== "INR")
+      .map((c) => ({
+        value: c.code,
+        label: c.name ? `${c.code} - ${c.name}` : c.code,
+      }));
+    return [{ value: "INR", label: "INR (₹)" }, ...foreign];
+  }, [currencyStore?.exchangeOptions]);
+
   // ── Line maths (mirrors the backend: line_total is qty × rate, tax-free) ──
   const lineRate = (l) => num(rateByLine[l._id]);
   // Edited qty when present, else the stored ordered_qty (read-only statuses).
   const lineQty = (l) =>
     qtyByLine[l._id] !== undefined ? num(qtyByLine[l._id]) : num(l.ordered_qty);
   const lineTotal = (l) => round2(lineQty(l) * lineRate(l));
-  const lineGst = (l) => round2((lineTotal(l) * num(taxByLine[l._id])) / 100);
+  // GST is an Indian INR tax — 0 on a foreign-currency POV.
+  const lineGst = (l) =>
+    gstApplies ? round2((lineTotal(l) * num(taxByLine[l._id])) / 100) : 0;
 
   const totals = useMemo(() => {
     let goods = 0;
@@ -196,7 +271,7 @@ const EditPoVendor = () => {
       delta: round2(goods - wasGoods),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [povLines, rateByLine, taxByLine, qtyByLine]);
+  }, [povLines, rateByLine, taxByLine, qtyByLine, gstApplies]);
 
   const setRate = (lineId, v) => {
     if (v === "") return setRateByLine((s) => ({ ...s, [lineId]: "" }));
@@ -236,6 +311,13 @@ const EditPoVendor = () => {
       data.dispatched_through = dispatchedThrough?.trim() || "";
       data.payment_terms = paymentTerms?.trim() || "";
       data.delivery_terms = deliveryTerms?.trim() || "";
+      // Display currency — draft-only server-side (rejected otherwise). Line
+      // prices stay in INR; exchange_rate (foreign-per-₹1) only for non-home.
+      data.currency_code = currencyCode || undefined;
+      data.exchange_rate =
+        currencyCode && currencyCode !== "INR"
+          ? String(Number(exchangeRate) || 1)
+          : undefined;
     }
 
     // Quantity is editable in draft — block a save that would send 0 / blank,
@@ -258,7 +340,10 @@ const EditPoVendor = () => {
     if (povLines.length && (canEditRate || canEditGst)) {
       data.line_edits = povLines.map((l) => ({
         _id: l._id,
-        ...(canEditGst ? { tax_pct: String(num(taxByLine[l._id])) } : {}),
+        // GST is an Indian INR tax — force 0 on a foreign-currency POV.
+        ...(canEditGst
+          ? { tax_pct: gstApplies ? String(num(taxByLine[l._id])) : "0" }
+          : {}),
         // Quantity is draft-only, same gate as GST.
         ...(canEditGst ? { ordered_qty: String(num(qtyByLine[l._id])) } : {}),
         ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
@@ -497,12 +582,13 @@ const EditPoVendor = () => {
                                 step="0.01"
                                 bsSize="sm"
                                 className="text-end"
-                                value={taxByLine[l._id] ?? ""}
+                                disabled={!gstApplies}
+                                value={gstApplies ? (taxByLine[l._id] ?? "") : 0}
                                 onChange={(e) => setTax(l._id, e.target.value)}
                               />
                             ) : (
                               <div className="text-end text-muted">
-                                {fmt(l.tax_pct)}
+                                {gstApplies ? fmt(l.tax_pct) : fmt(0)}
                               </div>
                             )}
                           </td>
@@ -578,6 +664,59 @@ const EditPoVendor = () => {
                 placeholder={t("YYYY-MM-DD")}
               />
             </Col>
+          </Row>
+
+          {/* Display currency — draft-only. Line prices stay in INR; this only
+              sets how the saved POV renders. Read-only once dispatched. */}
+          <Row>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Currency")}</Label>
+              {isDraft ? (
+                <Select
+                  classNamePrefix="select"
+                  options={currencyOptions}
+                  value={
+                    currencyOptions.find((o) => o.value === currencyCode) || null
+                  }
+                  onChange={(opt) => setCurrencyCode(opt ? opt.value : "INR")}
+                  placeholder={t("Select currency")}
+                />
+              ) : (
+                <div className="fw-semibold">
+                  {getCurrencySymbol(currencyCode) || ""} {currencyCode}
+                </div>
+              )}
+            </Col>
+            {isDraft && (
+              <Col md="6" className="mb-1">
+                <Label className="form-label">
+                  {t("Exchange Rate")}
+                  {currencyCode !== "INR" && (
+                    <small className="text-muted">
+                      {" "}
+                      (₹ {t("per 1")} {currencyCode})
+                    </small>
+                  )}
+                </Label>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  disabled={currencyCode === "INR"}
+                  value={rateDisplay}
+                  onFocus={() => (rateFocused.current = true)}
+                  onBlur={() => (rateFocused.current = false)}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setRateDisplay(text);
+                    const inrPerForeign = Number(text);
+                    setExchangeRate(
+                      inrPerForeign > 0 ? String(1 / inrPerForeign) : ""
+                    );
+                  }}
+                />
+              </Col>
+            )}
           </Row>
 
           {/* Vendor-side terms printed on this POV's PDF. */}

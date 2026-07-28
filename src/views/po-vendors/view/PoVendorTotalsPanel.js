@@ -29,6 +29,11 @@ const PoVendorTotalsPanel = () => {
   const p = poVendorItem || {};
   const lines = p?.lines || [];
   const sym = p?.currency_symbol || "₹";
+  // VPO money is stored in INR; POV header carries the foreign-per-₹1 rate.
+  const rate = Number(p?.exchange_rate) || 1;
+  const fmtCcy = (v) => fmt(num(v) * rate);
+  // GST is an Indian (INR) tax — never applies to a foreign-currency POV.
+  const gstApplies = (p?.currency_code || "INR") === "INR";
 
   // Live tax_pct from product master.
   useEffect(() => {
@@ -60,15 +65,17 @@ const PoVendorTotalsPanel = () => {
     // GST applies on Taxable (subtotal + charges), pro-rated to
     // per-line by the same chargesPct factor used on the server.
     const chargesPct = subtotal > 0 ? chargesTotal / subtotal : 0;
-    const gstTotal = lines.reduce(
-      (s, l) =>
-        s +
-        (num(l?.line_total) *
-          (1 + chargesPct) *
-          num(productTaxById[l?.product_id])) /
-          100,
-      0,
-    );
+    const gstTotal = gstApplies
+      ? lines.reduce(
+          (s, l) =>
+            s +
+            (num(l?.line_total) *
+              (1 + chargesPct) *
+              num(productTaxById[l?.product_id])) /
+              100,
+          0,
+        )
+      : 0;
     const cgst = gstTotal / 2;
     const sgst = gstTotal - cgst;
     const rawGrand = taxable + gstTotal;
@@ -84,7 +91,7 @@ const PoVendorTotalsPanel = () => {
       roundOff,
       grandRounded,
     };
-  }, [lines, productTaxById, expensesSnapshot]);
+  }, [lines, productTaxById, expensesSnapshot, gstApplies]);
 
   if (!lines.length && !expensesSnapshot.length) return null;
 
@@ -99,7 +106,7 @@ const PoVendorTotalsPanel = () => {
         <div className="d-flex justify-content-between mb-1">
           <span>{t("Subtotal")}</span>
           <strong>
-            {sym} {fmt(totals.subtotal)}
+            {sym} {fmtCcy(totals.subtotal)}
           </strong>
         </div>
 
@@ -113,7 +120,7 @@ const PoVendorTotalsPanel = () => {
               {e.type === "percent" ? ` (${num(e.value)}%)` : ""}
             </span>
             <span>
-              {sym} {fmt(num(e.amount))}
+              {sym} {fmtCcy(num(e.amount))}
             </span>
           </div>
         ))}
@@ -122,7 +129,7 @@ const PoVendorTotalsPanel = () => {
           <div className="d-flex justify-content-between mb-1 text-muted">
             <span>= {t("Taxable")}</span>
             <span>
-              {sym} {fmt(totals.taxable)}
+              {sym} {fmtCcy(totals.taxable)}
             </span>
           </div>
         )}
@@ -132,13 +139,13 @@ const PoVendorTotalsPanel = () => {
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>+ {t("CGST")}</span>
               <span>
-                {sym} {fmt(totals.cgst)}
+                {sym} {fmtCcy(totals.cgst)}
               </span>
             </div>
             <div className="d-flex justify-content-between mb-1 text-muted">
               <span>+ {t("SGST")}</span>
               <span>
-                {sym} {fmt(totals.sgst)}
+                {sym} {fmtCcy(totals.sgst)}
               </span>
             </div>
           </Fragment>
@@ -149,7 +156,7 @@ const PoVendorTotalsPanel = () => {
             <span>{t("Round Off")}</span>
             <span>
               {totals.roundOff >= 0 ? "+ " : "− "}
-              {sym} {fmt(Math.abs(totals.roundOff))}
+              {sym} {fmtCcy(Math.abs(totals.roundOff))}
             </span>
           </div>
         )}
@@ -162,7 +169,7 @@ const PoVendorTotalsPanel = () => {
         >
           <span className="fw-bold">{t("Grand Total")}</span>
           <span className="fw-bold">
-            {sym} {fmt(totals.grandRounded)}
+            {sym} {fmtCcy(totals.grandRounded)}
           </span>
         </div>
       </CardBody>
