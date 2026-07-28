@@ -10,7 +10,7 @@ import {
   getVendorList,
   cleanVendorMessage,
 } from "./store";
-import { getCategoryDropdown } from "@src/views/categories/store";
+import instance from "@src/utility/AxiosConfig";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -52,7 +52,6 @@ const VendorList = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.vendor);
-  const categoryStore = useSelector((state) => state.category);
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -63,6 +62,9 @@ const VendorList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [categoryFilter, setCategoryFilter] = useState("");
+  // Filter dropdown sources from the Vendor Category master, not the product
+  // category master.
+  const [vendorCategoryOptions, setVendorCategoryOptions] = useState([]);
   const [importOpen, setImportOpen] = useState(false);
 
   const handleVendorLists = useCallback(
@@ -135,7 +137,17 @@ const VendorList = () => {
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
-    dispatch(getCategoryDropdown());
+    instance
+      .get(API_ENDPOINTS.vendorCategories.dropdown)
+      .then((r) =>
+        setVendorCategoryOptions(
+          (r?.data?.data || []).map((c) => ({
+            value: c._id,
+            label: c.code ? `${c.code} - ${c.name}` : c.name,
+          }))
+        )
+      )
+      .catch(() => setVendorCategoryOptions([]));
   }, []);
 
   useEffect(() => {
@@ -180,10 +192,7 @@ const VendorList = () => {
     onDone: () => handleVendorLists(),
   });
 
-  const categoryOptions = (categoryStore?.categoryDropdown || []).map((c) => ({
-    value: c._id,
-    label: c.name,
-  }));
+  const categoryOptions = vendorCategoryOptions;
 
   const columns = [
     {

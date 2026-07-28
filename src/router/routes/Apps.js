@@ -9,6 +9,7 @@ import {
   appsRoot,
   holidayCalendarModuleSlug,
   categoriesModuleSlug,
+  vendorCategoriesModuleSlug,
   productsModuleSlug,
   vendorsModuleSlug,
   customersModuleSlug,
@@ -46,6 +47,9 @@ const EditLocation = lazy(() => import('@src/views/locations/add'));
 const CategoryList = lazy(() => import('@src/views/categories'));
 const AddCategory = lazy(() => import('@src/views/categories/add'));
 const EditCategory = lazy(() => import('@src/views/categories/add'));
+const VendorCategoryList = lazy(() => import('@src/views/vendor-categories'));
+const AddVendorCategory = lazy(() => import('@src/views/vendor-categories/add'));
+const EditVendorCategory = lazy(() => import('@src/views/vendor-categories/add'));
 const ProductList = lazy(() => import('@src/views/products'));
 const AddProduct = lazy(() => import('@src/views/products/add'));
 const EditProduct = lazy(() => import('@src/views/products/add'));
@@ -436,6 +440,30 @@ const AppRoutes = [
     element: <EditCategory />,
     meta: {
       permissionId: categoriesModuleSlug,
+      action: 'edit',
+    },
+  },
+  {
+    path: `${appsRoot}/vendor-categories`,
+    element: <VendorCategoryList />,
+    meta: {
+      permissionId: vendorCategoriesModuleSlug,
+      action: 'list',
+    },
+  },
+  {
+    path: `${appsRoot}/vendor-categories/add`,
+    element: <AddVendorCategory />,
+    meta: {
+      permissionId: vendorCategoriesModuleSlug,
+      action: 'add',
+    },
+  },
+  {
+    path: `${appsRoot}/vendor-categories/edit/:id`,
+    element: <EditVendorCategory />,
+    meta: {
+      permissionId: vendorCategoriesModuleSlug,
       action: 'edit',
     },
   },

@@ -194,6 +194,15 @@ const initCategoryItem = {
   status: "active",
 };
 
+const initVendorCategoryItem = {
+  _id: "",
+  code: "",
+  name: "",
+  description: "",
+  is_active: true,
+  status: "active",
+};
+
 const initProductItem = {
   _id: "",
   code: "",
@@ -274,6 +283,7 @@ const initVendorItem = {
     other: "",
   },
   category_ids: [],
+  product_category_ids: [],
   // Tax & Compliance
   gstin: "",
   pan: "",
@@ -1233,6 +1243,7 @@ export {
   initAddOnServiceItem,
   initLocationItem,
   initCategoryItem,
+  initVendorCategoryItem,
   initProductItem,
   initVendorItem,
   initVendorContactItem,

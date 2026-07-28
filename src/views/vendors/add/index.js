@@ -10,7 +10,6 @@ import {
   updateVendor,
   cleanVendorMessage,
 } from "../store";
-import { getCategoryDropdown } from "@src/views/categories/store";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
 import { startLoading, stopLoading } from "../../loadingstore";
 
@@ -82,7 +81,7 @@ const STEPS = [
     key: "company",
     label: "Company & Contacts",
     icon: Briefcase,
-    fields: ["company_name", "vendor_code", "gstin", "category_ids", "status", "contacts"],
+    fields: ["company_name", "vendor_code", "gstin", "category_ids", "product_category_ids", "status", "contacts"],
   },
   {
     key: "addresses",
@@ -111,8 +110,14 @@ const VendorForm = () => {
   const dispatch = useDispatch();
 
   const store = useSelector((state) => state.vendor);
-  const categoryStore = useSelector((state) => state.category);
   const currencyStore = useSelector((state) => state.currency);
+
+  // Vendor categories come from the dedicated Vendor Category master (NOT the
+  // product category master). Fetched directly off its dropdown endpoint.
+  const [vendorCategoryOptions, setVendorCategoryOptions] = useState([]);
+  // Product categories come from the PRODUCT Category master — a second,
+  // parallel association alongside the vendor categories above.
+  const [productCategoryOptions, setProductCategoryOptions] = useState([]);
   const isEditMode = !!id;
 
   // Vendor addresses store the country NAME ("India"), so ask for name-valued
@@ -174,6 +179,11 @@ const VendorForm = () => {
           .notRequired()
           .max(15, t("GSTIN must be at most 15 characters")),
         category_ids: yup.array().of(yup.string()).nullable().notRequired(),
+        product_category_ids: yup
+          .array()
+          .of(yup.string())
+          .nullable()
+          .notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
         incoterms: yup.string().nullable().notRequired(),
         status: yup
@@ -273,7 +283,6 @@ const VendorForm = () => {
   });
 
   useLayoutEffect(() => {
-    dispatch(getCategoryDropdown());
     dispatch(getCurrencyDropdown());
     if (isEditMode) {
       dispatch(getVendor(id));
@@ -297,6 +306,7 @@ const VendorForm = () => {
           other: v.social_media?.other || "",
         },
         category_ids: (v.categories || []).map((c) => c._id),
+        product_category_ids: (v.product_categories || []).map((c) => c._id),
         gstin: v.gstin || "",
         pan: v.pan || "",
         vendor_code: v.vendor_code || "",
@@ -363,19 +373,45 @@ const VendorForm = () => {
     }
   }, [store?.actionFlag, store?.success, store?.error]);
 
-  const categoryOptions = useMemo(
-    () =>
-      (categoryStore?.categoryDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.name,
-      })),
-    [categoryStore?.categoryDropdown]
-  );
+  // Load the Vendor Category master dropdown once on mount.
+  useEffect(() => {
+    instance
+      .get(API_ENDPOINTS.vendorCategories.dropdown)
+      .then((r) =>
+        setVendorCategoryOptions(
+          (r?.data?.data || []).map((c) => ({
+            value: c._id,
+            label: c.code ? `${c.code} - ${c.name}` : c.name,
+          }))
+        )
+      )
+      .catch(() => setVendorCategoryOptions([]));
+  }, []);
+
+  // Load the (product) Category master dropdown once on mount.
+  useEffect(() => {
+    instance
+      .get(API_ENDPOINTS.categories.dropdown)
+      .then((r) =>
+        setProductCategoryOptions(
+          (r?.data?.data || []).map((c) => ({
+            value: c._id,
+            label: c.code ? `${c.code} - ${c.name}` : c.name,
+          }))
+        )
+      )
+      .catch(() => setProductCategoryOptions([]));
+  }, []);
 
   const selectedCategories = useMemo(() => {
     const ids = watch("category_ids") || [];
-    return categoryOptions.filter((o) => ids.includes(o.value));
-  }, [categoryOptions, watch("category_ids")]);
+    return vendorCategoryOptions.filter((o) => ids.includes(o.value));
+  }, [vendorCategoryOptions, watch("category_ids")]);
+
+  const selectedProductCategories = useMemo(() => {
+    const ids = watch("product_category_ids") || [];
+    return productCategoryOptions.filter((o) => ids.includes(o.value));
+  }, [productCategoryOptions, watch("product_category_ids")]);
 
   const selectedPaymentTerms = useMemo(
     () =>
@@ -415,6 +451,7 @@ const VendorForm = () => {
         other: optStr(data.social_media?.other),
       },
       category_ids: data.category_ids || [],
+      product_category_ids: data.product_category_ids || [],
       gstin: optStr(data.gstin),
       pan: optStr(data.pan),
       vendor_code: optStr(data.vendor_code),
@@ -650,7 +687,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="category_ids">
-                        {t("Categories")}
+                        {t("Vendor Categories")}
                       </Label>
                       <Controller
                         name="category_ids"
@@ -661,9 +698,11 @@ const VendorForm = () => {
                             isMulti
                             isClearable
                             classNamePrefix="select"
-                            options={categoryOptions}
+                            options={vendorCategoryOptions}
                             value={selectedCategories}
-                            placeholder={t("Select one or more categories")}
+                            placeholder={t(
+                              "Select one or more vendor categories"
+                            )}
                             onChange={(opts) =>
                               field.onChange((opts || []).map((o) => o.value))
                             }
@@ -673,6 +712,37 @@ const VendorForm = () => {
                       {errors.category_ids && (
                         <FormFeedback className="d-block">
                           {errors.category_ids.message}
+                        </FormFeedback>
+                      )}
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label" for="product_category_ids">
+                        {t("Product Categories")}
+                      </Label>
+                      <Controller
+                        name="product_category_ids"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            inputId="product_category_ids"
+                            isMulti
+                            isClearable
+                            classNamePrefix="select"
+                            options={productCategoryOptions}
+                            value={selectedProductCategories}
+                            placeholder={t(
+                              "Select one or more product categories"
+                            )}
+                            onChange={(opts) =>
+                              field.onChange((opts || []).map((o) => o.value))
+                            }
+                          />
+                        )}
+                      />
+                      {errors.product_category_ids && (
+                        <FormFeedback className="d-block">
+                          {errors.product_category_ids.message}
                         </FormFeedback>
                       )}
                     </Col>

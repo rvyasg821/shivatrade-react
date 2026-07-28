@@ -108,6 +108,7 @@ const uomModuleSlug = "uom";
 // Catalogue
 const catalogueGroupSlug = "catalogue";
 const categoriesModuleSlug = "categories";
+const vendorCategoriesModuleSlug = "vendor-categories";
 const productsModuleSlug = "products";
 const priceListModuleSlug = "price-list";
 
@@ -214,6 +215,7 @@ const rolePermissionName = {
 
   // Catalogue
   [categoriesModuleSlug]: "Categories",
+  [vendorCategoriesModuleSlug]: "Vendor Categories",
   [productsModuleSlug]: "Products",
   [priceListModuleSlug]: "Price List",
 
@@ -545,6 +547,7 @@ export {
   // Catalogue
   catalogueGroupSlug,
   categoriesModuleSlug,
+  vendorCategoriesModuleSlug,
   productsModuleSlug,
   priceListModuleSlug,
   // Parties

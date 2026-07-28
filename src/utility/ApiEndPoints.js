@@ -187,6 +187,18 @@ export const API_ENDPOINTS = {
     export: `/admin/category/export`,
     sampleExcel: `/admin/category/sample-excel`,
   },
+  vendorCategories: {
+    list: `/admin/vendor-category/list`,
+    get: `/admin/vendor-category/get`,
+    create: `/admin/vendor-category/create`,
+    update: `/admin/vendor-category/update`,
+    delete: `/admin/vendor-category/delete`,
+    deleteMany: `/admin/vendor-category/delete-many`,
+    dropdown: `/admin/vendor-category/dropdown`,
+    import: `/admin/vendor-category/import`,
+    export: `/admin/vendor-category/export`,
+    sampleExcel: `/admin/vendor-category/sample-excel`,
+  },
   portMaster: {
     list: `/admin/port-master/list`,
     get: `/admin/port-master/get`,
