@@ -212,6 +212,22 @@ export const deleteCity = createAsyncThunk("appCity/deleteCity", async (id) => {
   }
 });
 
+export const deleteManyCities = createAsyncThunk(
+  "appCity/deleteManyCities",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.cities.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Slice ──────────────────────────────────────────────────────────────
 
 export const appCitySlice = createSlice({

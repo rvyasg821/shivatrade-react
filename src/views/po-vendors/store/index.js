@@ -410,6 +410,22 @@ export const voidPoVendorPayment = createAsyncThunk(
 
 // ─── Delete (draft only) ───────────────────────────────────────────────
 
+export const deleteManyPoVendors = createAsyncThunk(
+  "appPoVendor/deleteManyPoVendors",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.poVendors.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 export const deletePoVendor = createAsyncThunk(
   "appPoVendor/deletePoVendor",
   async (id) => {

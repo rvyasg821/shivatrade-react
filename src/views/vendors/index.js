@@ -4,7 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deleteVendor, getVendorList, cleanVendorMessage } from "./store";
+import {
+  deleteVendor,
+  deleteManyVendors,
+  getVendorList,
+  cleanVendorMessage,
+} from "./store";
 import { getCategoryDropdown } from "@src/views/categories/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
@@ -35,6 +40,7 @@ import { Edit, Eye, Trash2, PlusCircle, User, Mail, Phone } from "react-feather"
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
 import VendorImportModal from "./components/VendorImportModal";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
@@ -167,6 +173,12 @@ const VendorList = () => {
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "vendors",
+    deleteFn: (ids) => dispatch(deleteManyVendors(ids)).unwrap(),
+    onDone: () => handleVendorLists(),
+  });
 
   const categoryOptions = (categoryStore?.categoryDropdown || []).map((c) => ({
     value: c._id,
@@ -418,6 +430,18 @@ const VendorList = () => {
                 md="3"
                 className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap listing-toolbar-actions"
               >
+                {canDelete && bulk.selectedRows.length > 0 && (
+                  <Button
+                    color="danger"
+                    outline
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={bulk.confirmBulkDelete}
+                    disabled={bulk.deleting}
+                  >
+                    {t("Delete Selected")} ({bulk.selectedRows.length})
+                  </Button>
+                )}
                 <ImportExportButtons
                   exportUrl={API_ENDPOINTS.vendors.export}
                   filenamePrefix="vendors"
@@ -448,6 +472,9 @@ const VendorList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

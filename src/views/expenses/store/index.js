@@ -151,6 +151,18 @@ export const deleteExpense = createAsyncThunk("appExpense/deleteExpense", async 
   }
 });
 
+export const deleteManyExpenses = createAsyncThunk(
+  "appExpense/deleteManyExpenses",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.expenses.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(error?.response?.data?.message || error.message || error);
+    }
+  }
+);
+
 export const appExpenseSlice = createSlice({
   name: "appExpense",
   initialState: {

@@ -32,12 +32,14 @@ import ReceiptsImportModal from "./components/ReceiptsImportModal";
 import {
   getInvoiceList,
   deleteInvoice,
+  deleteManyInvoices,
   cleanInvoiceMessage,
 } from "./store";
 import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import { startLoading, stopLoading } from "../loadingstore";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import DateInput from "@components/date-input";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import {
@@ -212,6 +214,11 @@ const InvoicesList = () => {
   const perms = authUserItem?.role?.permissions?.invoices;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+  const bulk = useBulkDelete({
+    entityLabel: "invoices",
+    deleteFn: (ids) => dispatch(deleteManyInvoices(ids)).unwrap(),
+    onDone: () => handleList(),
+  });
   const canCreate = isSystemAdmin || isCompanyAdmin || perms?.can_create;
 
   // Import / Export
@@ -543,6 +550,18 @@ const InvoicesList = () => {
                   invoice (SHIPPING_INVOICE_MERGE_PLAN §5b). The PO Coverage
                   "Generate Invoice" button remains the other entry point. */}
               <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
+                {canDelete && bulk.selectedRows.length > 0 && (
+                  <Button
+                    color="danger"
+                    outline
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={bulk.confirmBulkDelete}
+                    disabled={bulk.deleting}
+                  >
+                    {t("Delete Selected")} ({bulk.selectedRows.length})
+                  </Button>
+                )}
                 <Button
                   color="outline-secondary"
                   size="sm"
@@ -599,6 +618,9 @@ const InvoicesList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

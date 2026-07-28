@@ -121,6 +121,20 @@ export const deleteGrn = createAsyncThunk("appGrn/deleteGrn", async (id) => {
   }
 });
 
+export const deleteManyGrns = createAsyncThunk(
+  "appGrn/deleteManyGrns",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.grn.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 const initialState = {
   grnItems: [],
   grnItem: null,

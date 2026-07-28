@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteExpense, getExpenseList, cleanExpenseMessage } from "./store";
+import { deleteExpense, deleteManyExpenses, getExpenseList, cleanExpenseMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 import {
   Col, Badge, Row, Card, Input, Button, CardBody, UncontrolledTooltip,
@@ -16,6 +16,7 @@ import { Edit, Trash2, PlusCircle, Upload, Download } from "react-feather";
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import ImportModal from "./components/ImportModal";
 
 const TYPE_LABEL = { percent: "Percent", fixed: "Fixed" };
@@ -120,6 +121,13 @@ const ExpenseList = () => {
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
 
+  // Multi-select bulk delete (server respects the module's delete guard).
+  const bulk = useBulkDelete({
+    entityLabel: "expenses",
+    deleteFn: (ids) => dispatch(deleteManyExpenses(ids)).unwrap(),
+    onDone: () => handleLists(),
+  });
+
   const columns = [
     {
       name: t("Name"), sortField: "name", sortable: true,
@@ -202,6 +210,18 @@ const ExpenseList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={handleExport} disabled={exporting}>
                     {t("Export")} <Download size={14} />
                   </Button>
@@ -229,6 +249,9 @@ const ExpenseList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

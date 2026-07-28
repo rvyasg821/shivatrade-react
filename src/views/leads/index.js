@@ -6,10 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   deleteLead,
+  deleteManyLeads,
   getLeadList,
   cleanLeadMessage,
   convertLead,
 } from "./store";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -259,6 +261,13 @@ const LeadList = () => {
     }
   };
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+
+  // Multi-select bulk delete (server respects the lead RFQ/Quotation guard).
+  const bulk = useBulkDelete({
+    entityLabel: "leads",
+    deleteFn: (ids) => dispatch(deleteManyLeads(ids)).unwrap(),
+    onDone: () => handleLeadLists(),
+  });
 
   const statusLabel = (val) =>
     LEAD_STATUS_OPTIONS.find((s) => s.value === val)?.label || val || "-";
@@ -669,6 +678,18 @@ const LeadList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <Button
                     color="outline-secondary"
                     size="sm"
@@ -712,6 +733,9 @@ const LeadList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>
