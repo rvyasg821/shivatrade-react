@@ -342,6 +342,8 @@ export const API_ENDPOINTS = {
     stockTurnoverExport: `/admin/reports/stock-turnover/export`,
     inventoryHoldingDays: `/admin/reports/inventory-holding-days`,
     inventoryHoldingDaysExport: `/admin/reports/inventory-holding-days/export`,
+    inventoryAging: `/admin/reports/inventory-aging`,
+    inventoryAgingExport: `/admin/reports/inventory-aging/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,

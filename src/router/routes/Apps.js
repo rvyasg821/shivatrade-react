@@ -92,6 +92,7 @@ const SalesTurnoverReport = lazy(() => import('@src/views/reports/sales-turnover
 const SoInvoiceReconciliationReport = lazy(() => import('@src/views/reports/so-invoice-reconciliation'));
 const StockTurnoverReport = lazy(() => import('@src/views/reports/stock-turnover'));
 const InventoryHoldingDaysReport = lazy(() => import('@src/views/reports/inventory-holding-days'));
+const InventoryAgingReport = lazy(() => import('@src/views/reports/inventory-aging'));
 const AdjustmentNotes = lazy(() => import('@src/views/adjustment-notes'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
@@ -720,6 +721,11 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/inventory-holding-days`,
     element: <InventoryHoldingDaysReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/inventory-aging`,
+    element: <InventoryAgingReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {

@@ -463,8 +463,8 @@ const InventoryHoldingDays = () => {
 
                     <Row className="row justify-content-md-between align-items-md-center pagination mt-2">
                       <Col sm={6} xl={6}>
-                        <div className="d-block d-md-flex align-items-center justify-content-start">
-                          <div className="label-select">
+                        <div className="d-block d-md-flex align-items-center justify-content-start gap-2">
+                          <div className="label-select d-flex align-items-center gap-1">
                             <Label className="pr-2 mb-0">{t("Show")}</Label>
                             <select
                               id="ihdSelectPage"

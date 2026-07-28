@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -78,6 +78,15 @@ const REPORTS = [
       "Average days a unit was held in stock before it sold (GRN receipt → invoice), via FIFO matching.",
     icon: Clock,
     to: `${appsRoot}/reports/inventory-holding-days`,
+    live: true,
+  },
+  {
+    key: "inventory-aging",
+    title: "Inventory Aging",
+    description:
+      "Closing stock aged over 30 / 60 / 90 / 120 days — qty & value tied up in slow-moving items.",
+    icon: Archive,
+    to: `${appsRoot}/reports/inventory-aging`,
     live: true,
   },
 ];
