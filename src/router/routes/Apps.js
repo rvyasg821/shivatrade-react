@@ -90,6 +90,7 @@ const GstBalanceReport = lazy(() => import('@src/views/reports/gst-balance'));
 const PurchaseTurnoverReport = lazy(() => import('@src/views/reports/purchase-turnover'));
 const SalesTurnoverReport = lazy(() => import('@src/views/reports/sales-turnover'));
 const SoInvoiceReconciliationReport = lazy(() => import('@src/views/reports/so-invoice-reconciliation'));
+const StockTurnoverReport = lazy(() => import('@src/views/reports/stock-turnover'));
 const AdjustmentNotes = lazy(() => import('@src/views/adjustment-notes'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
@@ -708,6 +709,11 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/so-invoice-reconciliation`,
     element: <SoInvoiceReconciliationReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/stock-turnover`,
+    element: <StockTurnoverReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {
