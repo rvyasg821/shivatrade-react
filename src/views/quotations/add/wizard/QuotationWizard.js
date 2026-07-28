@@ -237,6 +237,10 @@ const QuotationWizard = () => {
     if (lead.currency && !watch("currency_code")) {
       setValue("currency_code", lead.currency);
     }
+    // Manual tracking reference flows Lead → Quotation → SO → Invoice.
+    if (lead.reference_no && !watch("reference_no")) {
+      setValue("reference_no", lead.reference_no);
+    }
     // Lead `description` is the RFQ brief the salesperson captured —
     // copy into internal_notes so the original spec stays attached to
     // the quotation without leaking onto the client-facing PDF.
