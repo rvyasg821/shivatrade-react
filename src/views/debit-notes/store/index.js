@@ -114,6 +114,22 @@ export const deleteDebitNote = createAsyncThunk(
   }
 );
 
+export const deleteManyDebitNotes = createAsyncThunk(
+  "appDebitNote/deleteManyDebitNotes",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.debitNotes.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 const initialState = {
   debitNoteItems: [],
   debitNoteItem: null,

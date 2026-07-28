@@ -192,6 +192,20 @@ export const deleteLead = createAsyncThunk("appLead/deleteLead", async (id) => {
   }
 });
 
+export const deleteManyLeads = createAsyncThunk(
+  "appLead/deleteManyLeads",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.leads.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 async function convertLeadRequest(id) {
   return instance
     .post(`${API_ENDPOINTS.leads.convert}/${id}`)

@@ -151,6 +151,15 @@ export const deleteRebate = createAsyncThunk("appRebate/deleteRebate", async (id
   }
 });
 
+export const deleteManyRebates = createAsyncThunk("appRebate/deleteManyRebates", async (ids, { rejectWithValue }) => {
+  try {
+    const res = await instance.post(API_ENDPOINTS.rebates.deleteMany, { ids });
+    return res?.data?.data || { deleted: ids, skipped: [] };
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || error.message || error);
+  }
+});
+
 export const appRebateSlice = createSlice({
   name: "appRebate",
   initialState: {

@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteRebate, getRebateList, cleanRebateMessage } from "./store";
+import { deleteRebate, deleteManyRebates, getRebateList, cleanRebateMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 import {
   Col, Badge, Row, Card, Input, Button, CardBody, UncontrolledTooltip,
@@ -17,6 +17,7 @@ import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValue
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportModal from "./components/ImportModal";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 
 const TYPE_LABEL = {
   percent: "Percent",
@@ -123,6 +124,12 @@ const RebateList = () => {
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
 
+  const bulk = useBulkDelete({
+    entityLabel: "rebates",
+    deleteFn: (ids) => dispatch(deleteManyRebates(ids)).unwrap(),
+    onDone: () => handleLists(),
+  });
+
   const columns = [
     {
       name: t("Name"), sortField: "name", sortable: true,
@@ -205,6 +212,11 @@ const RebateList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button color="danger" outline size="sm" className="text-nowrap" onClick={bulk.confirmBulkDelete} disabled={bulk.deleting}>
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={handleExport} disabled={exporting}>
                     {t("Export")} <Download size={14} />
                   </Button>
@@ -232,6 +244,9 @@ const RebateList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

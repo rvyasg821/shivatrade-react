@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deleteCustomer, getCustomerList, cleanCustomerMessage } from "./store";
+import { deleteCustomer, deleteManyCustomers, getCustomerList, cleanCustomerMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -23,6 +23,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 
 // ** Third Party
@@ -186,6 +187,15 @@ const CustomerList = () => {
   const canAdd = isSystemAdmin || isCompanyAdmin || perms?.can_add;
   const canEdit = isSystemAdmin || isCompanyAdmin || perms?.can_update;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "customers",
+    deleteFn: (ids) => dispatch(deleteManyCustomers(ids)).unwrap(),
+    onDone: () => {
+      handleCustomerLists();
+      setStatsRefreshKey((k) => k + 1);
+    },
+  });
 
   const columns = [
     {
@@ -403,6 +413,18 @@ const CustomerList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <Button
                     color="outline-secondary"
                     size="sm"
@@ -446,6 +468,9 @@ const CustomerList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

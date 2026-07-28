@@ -220,6 +220,22 @@ export const deleteProduct = createAsyncThunk(
   }
 );
 
+export const deleteManyProducts = createAsyncThunk(
+  "appProduct/deleteManyProducts",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.products.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 export const appProductSlice = createSlice({
   name: "appProduct",
   initialState: {

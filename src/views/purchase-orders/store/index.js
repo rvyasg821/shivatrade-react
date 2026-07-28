@@ -208,6 +208,23 @@ export const deletePurchaseOrder = createAsyncThunk(
   }
 );
 
+export const deleteManySalesOrders = createAsyncThunk(
+  "appPurchaseOrder/deleteManySalesOrders",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(
+        API_ENDPOINTS.purchaseOrders.deleteMany,
+        { ids }
+      );
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Slice ────────────────────────────────────────────────────────────
 
 export const appPurchaseOrderSlice = createSlice({

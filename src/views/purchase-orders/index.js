@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   deletePurchaseOrder,
+  deleteManySalesOrders,
   getPurchaseOrderList,
   cleanPurchaseOrderMessage,
 } from "./store";
@@ -34,6 +35,7 @@ import Select from "react-select";
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 import DateInput from "@components/date-input";
 
@@ -270,6 +272,13 @@ const PurchaseOrderView = () => {
     }
   };
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
+
+  // Multi-select bulk delete (server respects the Sales Order delete guard).
+  const bulk = useBulkDelete({
+    entityLabel: "sales orders",
+    deleteFn: (ids) => dispatch(deleteManySalesOrders(ids)).unwrap(),
+    onDone: () => handleList(),
+  });
 
   const customerOptions = useMemo(
     () =>
@@ -614,6 +623,18 @@ const PurchaseOrderView = () => {
               </Col>
               <Col sm="4" md="4">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <Button
                     color="outline-secondary"
                     size="sm"
@@ -657,6 +678,9 @@ const PurchaseOrderView = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

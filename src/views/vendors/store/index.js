@@ -220,6 +220,20 @@ export const deleteVendor = createAsyncThunk(
   }
 );
 
+export const deleteManyVendors = createAsyncThunk(
+  "appVendor/deleteManyVendors",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.vendors.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 export const appVendorSlice = createSlice({
   name: "appVendor",
   initialState: {

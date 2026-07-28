@@ -198,6 +198,23 @@ async function deleteCategoryRequest(id) {
     .catch((error) => error);
 }
 
+// Bulk soft-delete. Returns { deleted, skipped } from the server (guard-aware).
+export const deleteManyCategories = createAsyncThunk(
+  "appCategory/deleteManyCategories",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.categories.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 export const deleteCategory = createAsyncThunk(
   "appCategory/deleteCategory",
   async (id) => {

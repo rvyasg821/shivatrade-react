@@ -70,6 +70,7 @@ export const API_ENDPOINTS = {
     create: `/admin/customer/create`,
     update: `/admin/customer/update`, // append /:id
     delete: `/admin/customer/delete`, // append /:id
+    deleteMany: '/admin/customer/delete-many',
     dropdown: `/admin/customer/dropdown`,
     updateMe: `/admin/customer/update`,
     import: `/admin/customer/import`,
@@ -132,6 +133,7 @@ export const API_ENDPOINTS = {
     create: `/admin/country/create`,
     update: `/admin/country/update`,
     delete: `/admin/country/delete`,
+    deleteMany: `/admin/country/delete-many`,
     dropdown: `/admin/country/dropdown`,
     import: `/admin/country/import`,
     export: `/admin/country/export`,
@@ -143,6 +145,7 @@ export const API_ENDPOINTS = {
     create: `/admin/state/create`,
     update: `/admin/state/update`,
     delete: `/admin/state/delete`,
+    deleteMany: `/admin/state/delete-many`,
     dropdown: `/admin/state/dropdown`,
     import: `/admin/state/import`,
     export: `/admin/state/export`,
@@ -154,6 +157,7 @@ export const API_ENDPOINTS = {
     create: `/admin/city/create`,
     update: `/admin/city/update`,
     delete: `/admin/city/delete`,
+    deleteMany: `/admin/city/delete-many`,
     dropdown: `/admin/city/dropdown`,
     import: `/admin/city/import`,
     export: `/admin/city/export`,
@@ -177,6 +181,7 @@ export const API_ENDPOINTS = {
     create: `/admin/category/create`,
     update: `/admin/category/update`,
     delete: `/admin/category/delete`,
+    deleteMany: `/admin/category/delete-many`,
     dropdown: `/admin/category/dropdown`,
     import: `/admin/category/import`,
     export: `/admin/category/export`,
@@ -196,6 +201,7 @@ export const API_ENDPOINTS = {
     create: `/admin/product/create`,
     update: `/admin/product/update`,
     delete: `/admin/product/delete`,
+    deleteMany: `/admin/product/delete-many`,
     dropdown: `/admin/product/dropdown`,
     checkCode: `/admin/product/check-code`,
     checkName: `/admin/product/check-name`,
@@ -210,6 +216,7 @@ export const API_ENDPOINTS = {
     create: `/admin/vendor/create`,
     update: `/admin/vendor/update`,
     delete: `/admin/vendor/delete`,
+    deleteMany: '/admin/vendor/delete-many',
     dropdown: `/admin/vendor/dropdown`,
     checkCode: `/admin/vendor/check-code`,
     import: `/admin/vendor/import`,
@@ -249,6 +256,7 @@ export const API_ENDPOINTS = {
     create: `/admin/quotation/create`,
     update: `/admin/quotation/update`,
     delete: `/admin/quotation/delete`,
+    deleteMany: `/admin/quotation/delete-many`,
     pdf: `/admin/quotation`, // append /:id/pdf (authed; opened as a blob in a new tab)
     import: `/admin/quotation/import`,
     export: `/admin/quotation/export`,
@@ -277,6 +285,7 @@ export const API_ENDPOINTS = {
     create: `/admin/purchase-order/create`,
     update: `/admin/purchase-order/update`,
     delete: `/admin/purchase-order/delete`,
+    deleteMany: `/admin/purchase-order/delete-many`,
     import: `/admin/purchase-order/import`,
     export: `/admin/purchase-order/export`,
     sampleExcel: `/admin/purchase-order/sample-excel`,
@@ -296,6 +305,7 @@ export const API_ENDPOINTS = {
     create: `/admin/po-vendor/create`, // standalone (no source Sales Order)
     update: `/admin/po-vendor/update`,
     delete: `/admin/po-vendor/delete`,
+    deleteMany: `/admin/po-vendor/delete-many`,
     import: `/admin/po-vendor/import`,
     export: `/admin/po-vendor/export`,
     sampleExcel: `/admin/po-vendor/sample-excel`,
@@ -373,6 +383,7 @@ export const API_ENDPOINTS = {
     create: `/admin/invoice/create`,
     update: `/admin/invoice/update`, // append /:id
     delete: `/admin/invoice/delete`, // append /:id
+    deleteMany: `/admin/invoice/delete-many`,
     issue: `/admin/invoice/issue`, // append /:id
     issuePreview: `/admin/invoice/issue-preview`, // append /:id
     cancel: `/admin/invoice/cancel`, // append /:id
@@ -422,6 +433,7 @@ export const API_ENDPOINTS = {
     create: `/admin/lead/create`,
     update: `/admin/lead/update`,
     delete: `/admin/lead/delete`,
+    deleteMany: `/admin/lead/delete-many`,
     convert: `/admin/lead/convert`,
     activity: `/admin/lead`, // append `/${leadId}/activity[/<activityId>]`
     import: `/admin/lead/import`,
@@ -451,6 +463,7 @@ export const API_ENDPOINTS = {
     get: `/admin/grn/get`, // append /:id
     update: `/admin/grn/update`, // append /:id
     delete: `/admin/grn/delete`, // append /:id
+    deleteMany: `/admin/grn/delete-many`,
     pdf: `/admin/grn`, // append /:id/pdf (authed; opened in the in-app viewer)
   },
   debitNotes: {
@@ -460,6 +473,7 @@ export const API_ENDPOINTS = {
     get: `/admin/debit-note/get`, // append /:id
     update: `/admin/debit-note/update`, // append /:id
     delete: `/admin/debit-note/delete`, // append /:id
+    deleteMany: `/admin/debit-note/delete-many`,
     pdf: `/admin/debit-note`, // append /:id/pdf (authed; opened in the in-app viewer)
   },
   rebates: {
@@ -468,6 +482,7 @@ export const API_ENDPOINTS = {
     create: `/admin/rebate/create`,
     update: `/admin/rebate/update`,
     delete: `/admin/rebate/delete`,
+    deleteMany: `/admin/rebate/delete-many`,
     dropdown: `/admin/rebate/dropdown`,
     import: `/admin/rebate/import`,
     export: `/admin/rebate/export`,
@@ -479,6 +494,7 @@ export const API_ENDPOINTS = {
     create: `/admin/expense/create`,
     update: `/admin/expense/update`,
     delete: `/admin/expense/delete`,
+    deleteMany: `/admin/expense/delete-many`,
     dropdown: `/admin/expense/dropdown`,
     import: `/admin/expense/import`,
     export: `/admin/expense/export`,

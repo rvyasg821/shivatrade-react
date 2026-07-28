@@ -4,7 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deleteCountry, getCountryList, cleanCountryMessage } from "./store";
+import {
+  deleteCountry,
+  deleteManyCountries,
+  getCountryList,
+  cleanCountryMessage,
+} from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -34,6 +39,7 @@ import { Edit, Trash2, PlusCircle } from "react-feather";
 
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import ImportModal from "./components/ImportModal";
 
 // ** Constants
@@ -162,6 +168,12 @@ const CountryList = () => {
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "countries",
+    deleteFn: (ids) => dispatch(deleteManyCountries(ids)).unwrap(),
+    onDone: () => handleCountryLists(),
+  });
 
   const columns = [
     {
@@ -315,6 +327,18 @@ const CountryList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <ImportExportButtons
                     exportUrl={API_ENDPOINTS.countries.export}
                     filenamePrefix="countries"
@@ -345,6 +369,9 @@ const CountryList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

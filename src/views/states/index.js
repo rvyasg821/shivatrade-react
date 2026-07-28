@@ -4,7 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deleteState, getStateList, cleanStateMessage } from "./store";
+import {
+  deleteState,
+  deleteManyStates,
+  getStateList,
+  cleanStateMessage,
+} from "./store";
 import { getCountryDropdown } from "../countries/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
@@ -35,6 +40,7 @@ import { Edit, Trash2, PlusCircle } from "react-feather";
 
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import ImportModal from "./components/ImportModal";
 
 // ** Constants
@@ -171,6 +177,12 @@ const StateList = () => {
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "states",
+    deleteFn: (ids) => dispatch(deleteManyStates(ids)).unwrap(),
+    onDone: () => handleStateLists(),
+  });
 
   const countryOptions = (countryStore?.countryDropdown || []).map((c) => ({
     value: c._id,
@@ -327,6 +339,18 @@ const StateList = () => {
               </Col>
               <Col sm="4" md="4">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <ImportExportButtons
                     exportUrl={API_ENDPOINTS.states.export}
                     filenamePrefix="states"
@@ -357,6 +381,9 @@ const StateList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

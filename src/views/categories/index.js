@@ -10,7 +10,13 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
-import { deleteCategory, getCategoryList, cleanCategoryMessage } from "./store";
+import {
+  deleteCategory,
+  deleteManyCategories,
+  getCategoryList,
+  cleanCategoryMessage,
+} from "./store";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap Imports
@@ -221,6 +227,13 @@ const CategoryList = () => {
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
 
+  // Multi-select bulk delete (server respects the sub-category guard).
+  const bulk = useBulkDelete({
+    entityLabel: "categories",
+    deleteFn: (ids) => dispatch(deleteManyCategories(ids)).unwrap(),
+    onDone: () => handleCategoryLists(),
+  });
+
   const columns = [
     {
       name: t("Name"),
@@ -370,6 +383,18 @@ const CategoryList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      size="sm"
+                      className="text-nowrap"
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   {canRead && (
                     <Button
                       color="outline-secondary"
@@ -414,6 +439,9 @@ const CategoryList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>
