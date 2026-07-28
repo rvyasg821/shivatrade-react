@@ -18,6 +18,7 @@ import role from "@src/views/roles/store";
 
 import location from "@src/views/locations/store";
 import category from "@src/views/categories/store";
+import vendorCategory from "@src/views/vendor-categories/store";
 import product from "@src/views/products/store";
 import vendor from "@src/views/vendors/store";
 import customer from "@src/views/customers/store";
@@ -109,6 +110,7 @@ const rootReducer = {
   permissions,
   location,
   category,
+  vendorCategory,
   product,
   vendor,
   customer,

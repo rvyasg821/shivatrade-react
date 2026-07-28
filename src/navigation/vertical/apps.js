@@ -35,6 +35,7 @@ import {
   Gift,
   Eye,
   Repeat,
+  Tag,
 } from 'react-feather';
 import { IoBusinessOutline } from 'react-icons/io5';
 import { MdOutlineSupportAgent } from "react-icons/md";
@@ -66,6 +67,7 @@ import {
   // Catalogue
   catalogueGroupSlug,
   categoriesModuleSlug,
+  vendorCategoriesModuleSlug,
   productsModuleSlug,
   priceListModuleSlug,
   // Parties
@@ -236,6 +238,15 @@ const navigationItems = [
         navLink: `${appsRoot}/categories`,
         permissionId: categoriesModuleSlug,
         resource: categoriesModuleSlug,
+        companyOnly: true,
+      },
+      {
+        id: vendorCategoriesModuleSlug,
+        title: rolePermissionName[vendorCategoriesModuleSlug],
+        icon: <Tag size={20} />,
+        navLink: `${appsRoot}/vendor-categories`,
+        permissionId: vendorCategoriesModuleSlug,
+        resource: vendorCategoriesModuleSlug,
         companyOnly: true,
       },
       {

@@ -30,7 +30,7 @@ import { isPermissionSlugHidden } from "../../configs/appMode"
 const ALWAYS_VISIBLE_SLUGS = [
   "user", "role", "location",
   "uom", "countries", "states", "cities",
-  "categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
+  "categories", "vendor-categories", "products", "vendors", "price-list", "currencies", "rebates", "expenses",
   "customers", "leads", "rfq", "quotations", "pfi", "purchase-orders", "invoices",
   "po-vendors", "inventory", "tracking", "reports", "adjustment-notes",
   "employee", "attendance", "leave", "holiday_calendar",
@@ -262,6 +262,7 @@ const ModulePermission = () => {
       title: t("Catalogue"),
       children: [
         { title: "Categories", slug: "categories" },
+        { title: "Vendor Categories", slug: "vendor-categories" },
         { title: "UOM", slug: "uom" },
         { title: "Products", slug: "products" },
         { title: "Vendors", slug: "vendors" },
