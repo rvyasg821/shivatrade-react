@@ -120,8 +120,8 @@ const RfqsPanel = ({ embedded = false }) => {
           <Table size="sm" bordered className="mb-0">
             <thead>
               <tr>
-                <th>{t("Date")}</th>
                 <th>{t("RFQ #")}</th>
+                <th>{t("Date")}</th>
                 <th className="text-center">{t("Vendors")}</th>
                 <th>{t("Status")}</th>
                 <th className="text-center">{t("Action")}</th>
@@ -130,8 +130,19 @@ const RfqsPanel = ({ embedded = false }) => {
             <tbody>
               {pageRows.map((row) => (
                 <tr key={row?._id}>
+                  <td className="text-wrap">
+                    {row?._id ? (
+                      <Link
+                        to={`${appsRoot}/rfq/view/${row._id}`}
+                        style={{ color: "#09418B", fontWeight: 500 }}
+                      >
+                        {row?.voucher_no || "-"}
+                      </Link>
+                    ) : (
+                      row?.voucher_no || "-"
+                    )}
+                  </td>
                   <td>{row?.rfq_date ? formatDate(row.rfq_date) : "-"}</td>
-                  <td className="text-wrap">{row?.voucher_no || "-"}</td>
                   <td className="text-center">{row?.vendor_count ?? 0}</td>
                   <td>
                     <Badge

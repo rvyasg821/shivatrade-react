@@ -316,7 +316,7 @@ const LeadList = () => {
       name: t("Reference No."),
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
-      grow: 0, // short content — hug it instead of expanding
+      minWidth: "150px", // widen so the header fits on one line
       selector: (row) =>
         row?.reference_no ? (
           <span className="text-nowrap">{row.reference_no}</span>
