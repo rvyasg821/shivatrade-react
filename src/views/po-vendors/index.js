@@ -508,10 +508,13 @@ const PoVendorView = () => {
         // detail "POV Total" card); fall back to goods-only if not present.
         const orderValue = num(row?.order_value);
         const amount = orderValue > 0 ? orderValue : goods;
-        // POV is always INR — render with ₹ + thousands, no decimals.
+        // Amounts are stored in INR; a foreign POV carries exchange_rate
+        // (foreign-per-₹1) + currency_code, so render in the POV currency.
+        const rate = Number(row?.exchange_rate) || 1;
+        const code = row?.currency_code || "INR";
         return (
           <span className="fw-bold text-nowrap">
-            {formatMoney(amount, "INR")}
+            {formatMoney(amount * rate, code)}
           </span>
         );
       },

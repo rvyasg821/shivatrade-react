@@ -25,6 +25,14 @@ const ExpenseGrid = ({
   typeOptions = [],
   percentBase = 0, // amount a % expense is computed on
   sym = "₹",
+  // Display multiplier for the read-only Amount column: POV amounts are stored
+  // in INR; a foreign POV passes exchange_rate (foreign-per-₹1) so the charge
+  // renders in the POV currency. Editable callers omit it → 1 (INR entry).
+  rate = 1,
+  // GST is an Indian (INR) tax — it does not apply on a foreign-currency POV.
+  // When false, the charge GST% is disabled/blanked and no GST is added to the
+  // charge amount. Callers pass `currency === "INR"`; default keeps GST on.
+  gstApplies = true,
   readOnly = false,
   onUpdateRow, // (idx, patch) => void
   onRemoveRow, // (idx) => void
@@ -65,7 +73,7 @@ const ExpenseGrid = ({
               (o) => o.value === r.expense_id || !usedIds.has(o.value)
             );
             const taxable = amountOf(r); // the charge value (pre-GST)
-            const gstAmt = (taxable * num(r.gst_pct)) / 100;
+            const gstAmt = gstApplies ? (taxable * num(r.gst_pct)) / 100 : 0;
             const grossAmt = taxable + gstAmt; // charge + its GST
             return (
               <tr key={idx}>
@@ -154,14 +162,15 @@ const ExpenseGrid = ({
                 </td>
                 <td>
                   {readOnly ? (
-                    <span>{num(r.gst_pct)}%</span>
+                    <span>{gstApplies ? num(r.gst_pct) : 0}%</span>
                   ) : (
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
                       bsSize="sm"
-                      value={r.gst_pct ?? ""}
+                      disabled={!gstApplies}
+                      value={gstApplies ? r.gst_pct ?? "" : 0}
                       onChange={(e) =>
                         onUpdateRow(idx, { gst_pct: e.target.value })
                       }
@@ -169,7 +178,7 @@ const ExpenseGrid = ({
                   )}
                 </td>
                 <td className="text-end fw-semibold">
-                  {sym} {fmt2(grossAmt)}
+                  {sym} {fmt2(grossAmt * rate)}
                 </td>
                 {!readOnly && (
                   <td className="text-center">

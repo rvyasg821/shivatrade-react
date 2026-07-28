@@ -39,6 +39,8 @@ const OverviewTab = ({ registerActions }) => {
   }, [pageCount, page]);
   const pageLines = lines.slice(pageStart, pageEnd);
   const sym = p?.currency_symbol || "₹";
+  // VPO money is stored in INR; POV header carries the foreign-per-₹1 rate.
+  const rate = Number(p?.exchange_rate) || 1;
 
   // Column totals (whole list, not just current page).
   const totals = lines.reduce(
@@ -52,7 +54,7 @@ const OverviewTab = ({ registerActions }) => {
     { ordered: 0, dispatched: 0, received: 0, amount: 0 }
   );
   const money = (v) =>
-    `${sym} ${num(v).toLocaleString(undefined, {
+    `${sym} ${(num(v) * rate).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
