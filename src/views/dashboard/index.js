@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-    Row, Col, Card, CardBody, CardHeader, CardTitle, Spinner, Badge, Button, Progress,
+    Row, Col, Card, CardBody, CardHeader, CardTitle, Spinner, Badge, Button, ButtonGroup, Progress,
     Modal, ModalHeader, ModalBody, ModalFooter, FormGroup, Label, Input,
 } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
@@ -480,6 +480,16 @@ const Dashboard = () => {
     const isCompanyAdmin = roleName === 'company admin';
     const isLocationAdmin = roleName === 'location admin';
 
+    // Period window for the ERP dashboard figures — "This Month" vs
+    // "Financial Year". Only the ERP dashboard reads it (superadmin dashboard
+    // is unaffected), so the toggle shows only when an ERP dashboard renders.
+    const [erpPeriod, setErpPeriod] = useState('fy');
+    const showErpDashboard =
+        !isSuperAdmin &&
+        (isCompanyAdmin ||
+            isLocationAdmin ||
+            hasErpAccess(authStore?.authUserItem));
+
 
     const {
         adminStats, adminStatsLoading, adminStatsError,
@@ -572,7 +582,7 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    <ErpDashboard />
+                    <ErpDashboard period={erpPeriod} />
                 </div>
             );
         }
@@ -580,7 +590,7 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    <ErpDashboard />
+                    <ErpDashboard period={erpPeriod} />
                 </div>
             );
         }
@@ -596,7 +606,7 @@ const Dashboard = () => {
                     <h5 className="text-muted fw-bolder mb-1 pt-1 border-top">
                         {t("Business Overview")}
                     </h5>
-                    <ErpDashboard />
+                    <ErpDashboard period={erpPeriod} />
                 </Fragment>
             );
         }
@@ -607,6 +617,24 @@ const Dashboard = () => {
         <div className='main-content dashboard'>
             <div className="d-flex align-items-center justify-content-between mb-2">
                 <h3 className='mb-0'>{t("Dashboard")}</h3>
+                {showErpDashboard && (
+                    <ButtonGroup size="sm">
+                        <Button
+                            color="primary"
+                            outline={erpPeriod !== 'month'}
+                            onClick={() => setErpPeriod('month')}
+                        >
+                            {t("This Month")}
+                        </Button>
+                        <Button
+                            color="primary"
+                            outline={erpPeriod !== 'fy'}
+                            onClick={() => setErpPeriod('fy')}
+                        >
+                            {t("Financial Year")}
+                        </Button>
+                    </ButtonGroup>
+                )}
             </div>
             {renderContent()}
         </div>
