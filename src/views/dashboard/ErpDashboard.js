@@ -86,9 +86,30 @@ const countOf = (url, params) =>
     .then((r) => Number(r?.data?.pagination?.total ?? (r?.data?.data || []).length) || 0)
     .catch(() => 0);
 
-const ErpDashboard = () => {
+const ErpDashboard = ({ period = "fy" }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  // Period window for the time-based figures. "month" = 1st of the current
+  // month → today; "fy" = 1 Apr (Indian FY) → today. Only revenue/leaderboard
+  // and the "created in range" KPI counts use it; current-state cards (Stock
+  // Value, Needs attention, entity counts) ignore it and stay live.
+  const dateParams = useMemo(() => {
+    const now = new Date();
+    const iso = (dt) =>
+      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
+        dt.getDate()
+      ).padStart(2, "0")}`;
+    const date_to = iso(now);
+    let date_from;
+    if (period === "month") {
+      date_from = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+    } else {
+      const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      date_from = `${fyStartYear}-04-01`;
+    }
+    return { date_from, date_to };
+  }, [period]);
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem) || null;
   const isAdmin = isAdminUser(authUserItem);
@@ -129,18 +150,34 @@ const ErpDashboard = () => {
     setLoading(true);
 
     // Fetch only what the role can see; everything else stays undefined.
+    // Time-based figures pass the period window (dateParams); current-state
+    // cards omit it. quoteStatsLive is an UNFILTERED quotation fetch that backs
+    // the always-live "Quotations draft / sent" attention count (the filtered
+    // quoteStats drives the period-scoped KPI total instead). SO "waiting for
+    // POV" and invoice "overdue" stay live server-side, so no twin fetch there.
     const jobs = {
-      invoiceStats: vis.invoices ? get(API_ENDPOINTS.invoices.stats) : null,
-      leaderboard: vis.invoices ? get(API_ENDPOINTS.invoices.leaderboard) : null,
-      soStats: vis.sales ? get(API_ENDPOINTS.purchaseOrders.stats) : null,
-      quoteStats: vis.quotations ? get(API_ENDPOINTS.quotations.stats) : null,
-      povStats: vis.pov ? get(API_ENDPOINTS.poVendors.stats) : null,
+      invoiceStats: vis.invoices
+        ? get(API_ENDPOINTS.invoices.stats, dateParams)
+        : null,
+      leaderboard: vis.invoices
+        ? get(API_ENDPOINTS.invoices.leaderboard, dateParams)
+        : null,
+      soStats: vis.sales
+        ? get(API_ENDPOINTS.purchaseOrders.stats, dateParams)
+        : null,
+      quoteStats: vis.quotations
+        ? get(API_ENDPOINTS.quotations.stats, dateParams)
+        : null,
+      quoteStatsLive: vis.quotations
+        ? get(API_ENDPOINTS.quotations.stats)
+        : null,
+      povStats: vis.pov ? get(API_ENDPOINTS.poVendors.stats, dateParams) : null,
       grnStats: vis.pov ? get(API_ENDPOINTS.grn.stats) : null,
       dnOpen: vis.pov
         ? countOf(API_ENDPOINTS.debitNotes.list, { status: "issued" })
         : null,
       invStats: vis.inventory ? get(API_ENDPOINTS.inventory.stats) : null,
-      leadStats: vis.leads ? get(API_ENDPOINTS.leads.stats) : null,
+      leadStats: vis.leads ? get(API_ENDPOINTS.leads.stats, dateParams) : null,
       customers: vis.customers ? countOf(API_ENDPOINTS.customers.list) : null,
       vendors: vis.vendors ? countOf(API_ENDPOINTS.vendors.list) : null,
       products: vis.products ? countOf(API_ENDPOINTS.products.list) : null,
@@ -159,14 +196,16 @@ const ErpDashboard = () => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anyVisible, authUserItem?._id]);
+  }, [anyVisible, authUserItem?._id, period]);
 
   if (!anyVisible) return null;
 
   // ── Derived figures ──────────────────────────────────────────────────
   const bySo = d?.soStats?.by_status || {};
   const byPov = d?.povStats?.by_status || {};
-  const byQuote = d?.quoteStats?.by_status || {};
+  // Attention "draft / sent" reads the UNFILTERED quotation stats so it stays
+  // live regardless of the selected period (the KPI total uses the filtered one).
+  const byQuote = d?.quoteStatsLive?.by_status || {};
   const byGrn = d?.grnStats?.by_status || {};
 
   const openSos = num(bySo.draft) + num(bySo.confirmed) + num(bySo.in_process);
