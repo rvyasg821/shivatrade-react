@@ -533,6 +533,22 @@ const CreatePoVendor = () => {
   const lineGst = (qty, price, taxPct) =>
     (num(qty) * num(price) * num(taxPct)) / 100;
 
+  // Display currency: all line maths stay in ₹; the tables render them in the
+  // POV currency (₹ value × foreign-per-₹1 rate) with the matching symbol.
+  // `exchangeRate` already STORES foreign-per-₹1 (see the header comment); INR
+  // resolves to identity so home-currency POVs are unchanged.
+  const sym = getCurrencySymbol(currencyCode) || "₹";
+  const dispRate = currencyCode !== "INR" ? Number(exchangeRate) || 1 : 1;
+  const toDisp = (inr) => num(inr) * dispRate;
+  const dispStr = (inr) => round2(toDisp(inr)).toLocaleString();
+  // Editable Rate input helpers — value shown in the POV currency (no commas),
+  // stored back as ₹.
+  const rateInputVal = (inr) =>
+    inr === "" || inr == null
+      ? ""
+      : String(Math.round(toDisp(num(inr)) * 10000) / 10000);
+  const rateToInr = (disp) => (disp === "" ? "" : String(num(disp) / dispRate));
+
   const goodsGst = useMemo(() => {
     if (!gstApplies) return 0;
     if (linkedMode) {
@@ -905,16 +921,16 @@ const CreatePoVendor = () => {
                         {t("Qty")}
                       </th>
                       <th style={{ width: 130 }} className="text-end">
-                        {t("Rate")} (₹)
+                        {t("Rate")} ({sym})
                       </th>
                       <th style={{ width: 70 }} className="text-end">
                         {t("GST")} %
                       </th>
                       <th style={{ width: 110 }} className="text-end">
-                        {t("GST Amt")} (₹)
+                        {t("GST Amt")} ({sym})
                       </th>
                       <th style={{ width: 120 }} className="text-end">
-                        {t("Amount")} (₹)
+                        {t("Amount")} ({sym})
                       </th>
                     </tr>
                   </thead>
@@ -974,9 +990,12 @@ const CreatePoVendor = () => {
                                 step="0.01"
                                 bsSize="sm"
                                 className="text-end"
-                                value={priceByLine[id] ?? ""}
+                                value={rateInputVal(priceByLine[id])}
                                 onChange={(e) =>
-                                  setPriceByLine((s) => ({ ...s, [id]: e.target.value }))
+                                  setPriceByLine((s) => ({
+                                    ...s,
+                                    [id]: rateToInr(e.target.value),
+                                  }))
                                 }
                               />
                             </td>
@@ -986,14 +1005,16 @@ const CreatePoVendor = () => {
                               {gstApplies ? num(l.tax_pct) || 0 : 0}
                             </td>
                             <td className="text-end">
-                              {round2(
+                              {sym}
+                              {dispStr(
                                 gstApplies
                                   ? lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
                                   : 0
-                              ).toLocaleString()}
+                              )}
                             </td>
                             <td className="text-end fw-bold">
-                              {(q * price).toLocaleString()}
+                              {sym}
+                              {dispStr(q * price)}
                             </td>
                           </tr>
                         );
@@ -1007,8 +1028,14 @@ const CreatePoVendor = () => {
                       <td colSpan={6} className="text-end">
                         {t("Total")}
                       </td>
-                      <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
-                      <td className="text-end">{linkedTotal.toLocaleString()}</td>
+                      <td className="text-end">
+                        {sym}
+                        {dispStr(goodsGst)}
+                      </td>
+                      <td className="text-end">
+                        {sym}
+                        {dispStr(linkedTotal)}
+                      </td>
                     </tr>
                   </tfoot>
                 </Table>
@@ -1028,16 +1055,16 @@ const CreatePoVendor = () => {
                       {t("Qty")} <span className="text-danger">*</span>
                     </th>
                     <th style={{ width: 110 }} className="text-end">
-                      {t("Rate")} (₹) <span className="text-danger">*</span>
+                      {t("Rate")} ({sym}) <span className="text-danger">*</span>
                     </th>
                     <th style={{ width: 80 }} className="text-end">
                       {t("GST")} %
                     </th>
                     <th style={{ width: 110 }} className="text-end">
-                      {t("GST Amt")} (₹)
+                      {t("GST Amt")} ({sym})
                     </th>
                     <th style={{ width: 110 }} className="text-end">
-                      {t("Amount")} (₹)
+                      {t("Amount")} ({sym})
                     </th>
                     <th style={{ width: 40 }} />
                   </tr>
@@ -1111,8 +1138,10 @@ const CreatePoVendor = () => {
                           bsSize="sm"
                           className="text-end"
                           disabled={!r.product_id}
-                          value={r.unit_price}
-                          onChange={(e) => setRow(r.key, { unit_price: e.target.value })}
+                          value={rateInputVal(r.unit_price)}
+                          onChange={(e) =>
+                            setRow(r.key, { unit_price: rateToInr(e.target.value) })
+                          }
                         />
                       </td>
                       <td>
@@ -1130,12 +1159,14 @@ const CreatePoVendor = () => {
                         />
                       </td>
                       <td className="text-end">
-                        {round2(
+                        {sym}
+                        {dispStr(
                           gstApplies ? lineGst(r.qty, r.unit_price, r.tax_pct) : 0
-                        ).toLocaleString()}
+                        )}
                       </td>
                       <td className="text-end fw-bold">
-                        {(num(r.qty) * num(r.unit_price)).toLocaleString()}
+                        {sym}
+                        {dispStr(num(r.qty) * num(r.unit_price))}
                       </td>
                       <td className="text-center">
                         {lines.length > 1 && (
@@ -1158,8 +1189,14 @@ const CreatePoVendor = () => {
                     <td colSpan={8} className="text-end">
                       {t("Total")}
                     </td>
-                    <td className="text-end">{round2(goodsGst).toLocaleString()}</td>
-                    <td className="text-end">{standaloneTotal.toLocaleString()}</td>
+                    <td className="text-end">
+                      {sym}
+                      {dispStr(goodsGst)}
+                    </td>
+                    <td className="text-end">
+                      {sym}
+                      {dispStr(standaloneTotal)}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>
@@ -1196,6 +1233,12 @@ const CreatePoVendor = () => {
                 expenseOptions={expenseOptions}
                 typeOptions={REBATE_EXPENSE_TYPE_OPTIONS}
                 percentBase={goodsTotal}
+                sym={sym}
+                // Amount column renders in the POV currency (× rate) so it agrees
+                // with the Charges Total; the VALUE column stays the raw INR /
+                // percent entry — same pattern as the detail Expenses tab and the
+                // Generate-POV modal.
+                rate={dispRate}
                 gstApplies={gstApplies}
                 onUpdateRow={(idx, patch) =>
                   setCharges((rows) =>
@@ -1222,7 +1265,8 @@ const CreatePoVendor = () => {
                     <tr className="fw-bold">
                       <td className="text-end">{t("Charges Total")}</td>
                       <td className="text-end" style={{ width: 130 }}>
-                        {chargesTotal.toLocaleString()}
+                        {sym}
+                        {dispStr(chargesTotal)}
                       </td>
                     </tr>
                   )}
@@ -1232,7 +1276,8 @@ const CreatePoVendor = () => {
                         <tr>
                           <td className="text-end">{t("Input IGST")}</td>
                           <td className="text-end">
-                            {round2(igst).toLocaleString()}
+                            {sym}
+                            {dispStr(igst)}
                           </td>
                         </tr>
                       ) : (
@@ -1240,13 +1285,15 @@ const CreatePoVendor = () => {
                           <tr>
                             <td className="text-end">{t("Input CGST")}</td>
                             <td className="text-end">
-                              {round2(cgst).toLocaleString()}
+                              {sym}
+                              {dispStr(cgst)}
                             </td>
                           </tr>
                           <tr>
                             <td className="text-end">{t("Input SGST")}</td>
                             <td className="text-end">
-                              {round2(sgst).toLocaleString()}
+                              {sym}
+                              {dispStr(sgst)}
                             </td>
                           </tr>
                         </Fragment>
@@ -1260,23 +1307,23 @@ const CreatePoVendor = () => {
                           </small>
                         </td>
                         <td className="text-end">
-                          {round2(goodsGst).toLocaleString()}
+                          {sym}
+                          {dispStr(goodsGst)}
                         </td>
                       </tr>
                     ))}
                   <tr className="table-light fw-bold">
-                    <td className="text-end">{t("Grand Total")} (₹)</td>
+                    <td className="text-end">{t("Grand Total")} ({sym})</td>
                     <td className="text-end">
-                      {round2(grandTotal).toLocaleString()}
+                      {sym}
+                      {dispStr(grandTotal)}
                     </td>
                   </tr>
                   {currencyCode !== "INR" && (
                     <tr>
                       <td colSpan={2} className="text-end text-muted small">
-                        ≈ {getCurrencySymbol(currencyCode) || currencyCode}
-                        {(
-                          grandTotal * (Number(exchangeRate) || 1)
-                        ).toLocaleString(undefined, {
+                        ≈ ₹
+                        {round2(grandTotal).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}{" "}

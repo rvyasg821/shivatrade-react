@@ -252,6 +252,19 @@ const EditPoVendor = () => {
   const lineGst = (l) =>
     gstApplies ? round2((lineTotal(l) * num(taxByLine[l._id])) / 100) : 0;
 
+  // Display currency: all line maths stay in ₹; the table renders them in the
+  // POV currency (₹ value × foreign-per-₹1 rate) with the matching symbol.
+  // `exchangeRate` already STORES foreign-per-₹1 (see the header comment).
+  const sym = getCurrencySymbol(currencyCode) || "₹";
+  const dispRate = currencyCode !== "INR" ? Number(exchangeRate) || 1 : 1;
+  const toDisp = (inr) => num(inr) * dispRate;
+  // Value for the editable Rate input, shown in the POV currency (no commas).
+  const rateInputVal = (l) => {
+    const v = rateByLine[l._id];
+    if (v === "" || v == null) return "";
+    return String(Math.round(toDisp(num(v)) * 10000) / 10000);
+  };
+
   const totals = useMemo(() => {
     let goods = 0;
     let gst = 0;
@@ -455,19 +468,19 @@ const EditPoVendor = () => {
                       {/* Ordered as the calculation reads, left to right:
                           Rate ×qty → Taxable ×% → GST Value + → Total. */}
                       <th style={{ width: 130 }} className="text-end">
-                        {t("Rate")} (₹)
+                        {t("Rate")} ({sym})
                       </th>
                       <th style={{ width: 130 }} className="text-end">
-                        {t("Taxable")} (₹)
+                        {t("Taxable")} ({sym})
                       </th>
                       <th style={{ width: 95 }} className="text-end">
                         {t("GST")} %
                       </th>
                       <th style={{ width: 130 }} className="text-end">
-                        {t("GST Value")} (₹)
+                        {t("GST Value")} ({sym})
                       </th>
                       <th style={{ width: 140 }} className="text-end">
-                        {t("Total")} (₹)
+                        {t("Total")} ({sym})
                       </th>
                     </tr>
                   </thead>
@@ -554,25 +567,37 @@ const EditPoVendor = () => {
                               <Input
                                 type="number"
                                 min="0"
-                                step="0.01"
+                                step="any"
                                 bsSize="sm"
                                 className="text-end"
-                                value={rateByLine[l._id] ?? ""}
-                                onChange={(e) => setRate(l._id, e.target.value)}
+                                value={rateInputVal(l)}
+                                onChange={(e) =>
+                                  setRate(
+                                    l._id,
+                                    e.target.value === ""
+                                      ? ""
+                                      : String(num(e.target.value) / dispRate)
+                                  )
+                                }
                               />
                             ) : (
                               <div className="text-end text-muted">
-                                {fmt(l.unit_price)}
+                                {sym}
+                                {fmt(toDisp(l.unit_price))}
                               </div>
                             )}
                             {/* Show what it was, so a typo is obvious. */}
                             {changed && (
                               <small className="text-muted d-block text-end mt-25">
-                                {t("was")} {fmt(l.unit_price)}
+                                {t("was")} {sym}
+                                {fmt(toDisp(l.unit_price))}
                               </small>
                             )}
                           </td>
-                          <td className="text-end">₹{fmt(lineTotal(l))}</td>
+                          <td className="text-end">
+                            {sym}
+                            {fmt(toDisp(lineTotal(l)))}
+                          </td>
                           <td>
                             {canEditGst ? (
                               <Input
@@ -592,9 +617,13 @@ const EditPoVendor = () => {
                               </div>
                             )}
                           </td>
-                          <td className="text-end">₹{fmt(lineGst(l))}</td>
+                          <td className="text-end">
+                            {sym}
+                            {fmt(toDisp(lineGst(l)))}
+                          </td>
                           <td className="text-end fw-semibold">
-                            ₹{fmt(round2(lineTotal(l) + lineGst(l)))}
+                            {sym}
+                            {fmt(toDisp(round2(lineTotal(l) + lineGst(l))))}
                           </td>
                         </tr>
                       );
@@ -608,10 +637,19 @@ const EditPoVendor = () => {
                       <td colSpan="5" className="text-end">
                         {t("Goods Totals")}
                       </td>
-                      <td className="text-end">₹{fmt(totals.goods)}</td>
+                      <td className="text-end">
+                        {sym}
+                        {fmt(toDisp(totals.goods))}
+                      </td>
                       <td />
-                      <td className="text-end">₹{fmt(totals.gst)}</td>
-                      <td className="text-end">₹{fmt(totals.grand)}</td>
+                      <td className="text-end">
+                        {sym}
+                        {fmt(toDisp(totals.gst))}
+                      </td>
+                      <td className="text-end">
+                        {sym}
+                        {fmt(toDisp(totals.grand))}
+                      </td>
                     </tr>
                   </tfoot>
                 </Table>
@@ -621,9 +659,18 @@ const EditPoVendor = () => {
               {Math.abs(totals.delta) > 0.001 && (
                 <div className="alert alert-primary py-50 px-1 mt-1 mb-0 small">
                   {t("Goods total changes from")}{" "}
-                  <strong>₹{fmt(totals.wasGoods)}</strong> →{" "}
-                  <strong>₹{fmt(totals.goods)}</strong> (
-                  {totals.delta > 0 ? "+" : "−"}₹{fmt(Math.abs(totals.delta))}).{" "}
+                  <strong>
+                    {sym}
+                    {fmt(toDisp(totals.wasGoods))}
+                  </strong>{" "}
+                  →{" "}
+                  <strong>
+                    {sym}
+                    {fmt(toDisp(totals.goods))}
+                  </strong>{" "}
+                  ({totals.delta > 0 ? "+" : "−"}
+                  {sym}
+                  {fmt(toDisp(Math.abs(totals.delta)))}).{" "}
                   {t(
                     "Percentage vendor charges and the balance payable are recalculated on save."
                   )}
