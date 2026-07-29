@@ -440,19 +440,30 @@ const PoVendorRecoverModal = ({
   // whose currency is the customer's, not the vendor's.)
   useEffect(() => {
     if (!vendorSummary.length) return;
-    setVendorCurrencies((curr) => {
-      let changed = false;
-      const next = { ...curr };
-      for (const v of vendorSummary) {
-        if (!next[v.vendor_id]) {
-          changed = true;
-          next[v.vendor_id] = { currency_code: "INR", rate_display: "1" };
-        }
+    // Blank-only default: each vendor seeds to ITS preferred currency (from the
+    // vendor master, surfaced on active_vendors); a foreign pick also fetches
+    // the live exchange rate via setVendorCurrency. Vendors with no preference
+    // (or INR) fall back to ₹. An operator's explicit pick is never clobbered.
+    for (const v of vendorSummary) {
+      if (vendorCurrencies[v.vendor_id]) continue;
+      const pref = activeVendors.find(
+        (av) => av.vendor_id === v.vendor_id
+      )?.currency_code;
+      if (pref && pref.toUpperCase() !== "INR") {
+        setVendorCurrency(v.vendor_id, pref);
+      } else {
+        setVendorCurrencies((curr) =>
+          curr[v.vendor_id]
+            ? curr
+            : {
+                ...curr,
+                [v.vendor_id]: { currency_code: "INR", rate_display: "1" },
+              }
+        );
       }
-      return changed ? next : curr;
-    });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendorSummary]);
+  }, [vendorSummary, activeVendors]);
 
   // Prune charges for vendors no longer in the batch.
   useEffect(() => {

@@ -236,6 +236,8 @@ const CreatePoVendor = () => {
       return {
         value: v._id,
         label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
+        // Carried so picking a vendor can auto-select its preferred currency.
+        currency_code: v.currency_code || "",
       };
     });
   }, [linkedMode, poFromStore, pickedSoId, soVendorOptions, vendorStore?.vendorDropdown]);
@@ -815,7 +817,16 @@ const CreatePoVendor = () => {
                   classNamePrefix="select"
                   options={vendorOptions}
                   value={vendorOptions.find((o) => o.value === vendorId) || null}
-                  onChange={(opt) => setVendorId(opt ? opt.value : "")}
+                  onChange={(opt) => {
+                    setVendorId(opt ? opt.value : "");
+                    // Auto-select the vendor's preferred currency (standalone
+                    // only — linked mode inherits the source SO's currency). A
+                    // blank preference leaves the current selection untouched;
+                    // changing currency triggers the rate auto-fetch effect.
+                    if (!linkedMode && opt?.currency_code) {
+                      setCurrencyCode(opt.currency_code);
+                    }
+                  }}
                   placeholder={t("Select vendor")}
                 />
               </div>

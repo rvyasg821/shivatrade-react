@@ -290,6 +290,7 @@ const initVendorItem = {
   vendor_code: "",
   payment_terms: "",
   incoterms: "",
+  currency_code: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initVendorContactItem, is_primary: true }],

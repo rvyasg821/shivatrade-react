@@ -186,6 +186,7 @@ const VendorForm = () => {
           .notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
         incoterms: yup.string().nullable().notRequired(),
+        currency_code: yup.string().nullable().notRequired(),
         status: yup
           .string()
           .oneOf(["active", "inactive"])
@@ -312,6 +313,7 @@ const VendorForm = () => {
         vendor_code: v.vendor_code || "",
         payment_terms: v.payment_terms || "",
         incoterms: v.incoterms || "",
+        currency_code: v.currency_code || "",
         status: v.status || (v.is_active ? "active" : "inactive"),
         is_active: v.is_active,
         contacts:
@@ -428,6 +430,23 @@ const VendorForm = () => {
     [watch("incoterms")]
   );
 
+  // Preferred currency (stored as ISO code). Same master list the bank-account
+  // rows use, keyed by code so it seeds the Vendor-PO currency directly.
+  const currencyCodeOptions = useMemo(
+    () =>
+      (currencyStore?.currencyDropdown || []).map((c) => ({
+        value: c.code,
+        label: `${c.code} - ${c.name}`,
+      })),
+    [currencyStore?.currencyDropdown]
+  );
+  const selectedCurrency = useMemo(
+    () =>
+      currencyCodeOptions.find((o) => o.value === watch("currency_code")) ||
+      null,
+    [currencyCodeOptions, watch("currency_code")]
+  );
+
   const handleSetPrimary = (idx) => {
     const current = watch("contacts") || [];
     current.forEach((_, i) => {
@@ -457,6 +476,7 @@ const VendorForm = () => {
       vendor_code: optStr(data.vendor_code),
       payment_terms: optStr(data.payment_terms),
       incoterms: optStr(data.incoterms),
+      currency_code: optStr(data.currency_code),
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
@@ -826,6 +846,32 @@ const VendorForm = () => {
                           />
                         )}
                       />
+                    </Col>
+
+                    <Col md="6" className="mb-2">
+                      <Label className="form-label" for="currency_code">
+                        {t("Currency")}
+                      </Label>
+                      <Controller
+                        name="currency_code"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            inputId="currency_code"
+                            isClearable
+                            classNamePrefix="select"
+                            options={currencyCodeOptions}
+                            value={selectedCurrency}
+                            placeholder={t("Select currency")}
+                            onChange={(opt) =>
+                              field.onChange(opt ? opt.value : "")
+                            }
+                          />
+                        )}
+                      />
+                      <small className="text-muted">
+                        {t("Auto-selected on this vendor's Vendor POs.")}
+                      </small>
                     </Col>
                   </Row>
 
