@@ -86,6 +86,10 @@ const PoVendorRecoverModal = ({
   // quantity, so we send an explicit ordered_qty override (may exceed the SO's
   // pending). Untouched lines omit it and the backend keeps its auto-deduct.
   const [qtyEdited, setQtyEdited] = useState({});
+  // rateOverride[purchase_order_line_id] = raw string the operator typed in the
+  // Rate column, in the assigned vendor's currency. Blank/absent → use the
+  // vendor's price-list rate. Converted back to ₹ by effRate / on submit.
+  const [rateOverride, setRateOverride] = useState({});
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
   // Per-vendor optional advance paid. Shape:
@@ -291,6 +295,22 @@ const PoVendorRecoverModal = ({
 
   const handleVendorChange = (lineId, vendorId) => {
     setAssignment((s) => ({ ...s, [lineId]: vendorId }));
+    // A new vendor has its own price-list rate — drop any rate the operator
+    // typed for the previous vendor so the new default shows through.
+    setRateOverride((s) => {
+      if (!(lineId in s)) return s;
+      const n = { ...s };
+      delete n[lineId];
+      return n;
+    });
+  };
+
+  // Rate is editable — the operator can override the vendor's price-list rate
+  // per line. Entered in the vendor's currency (raw string kept as typed, like
+  // the per-vendor advance); converted to ₹ wherever an INR rate is needed and
+  // on submit. Blank reverts the line to its price-list rate.
+  const handleRateChange = (lineId, val) => {
+    setRateOverride((s) => ({ ...s, [lineId]: val }));
   };
 
   // GST% is editable — defaults from the product/HSN master, override when a
@@ -369,6 +389,19 @@ const PoVendorRecoverModal = ({
     return c ? Number(c.unit_price) || 0 : 0;
   };
 
+  // Effective per-line rate in ₹ — the operator's override (typed in the
+  // vendor's currency → back to ₹) when present, else the price-list rate.
+  // Everything that costs a line (goods total, GST, POV total, payload) reads
+  // this so an edited rate flows through consistently.
+  const effRate = (l, vendorId) => {
+    const ov = rateOverride[l.purchase_order_line_id];
+    if (ov != null && String(ov) !== "") {
+      const sr = storedRateFor(vendorId) || 1;
+      return Math.round(((Number(ov) || 0) / sr) * 100) / 100;
+    }
+    return priceForLine(l, vendorId);
+  };
+
   // Group active assignments by vendor → "N POVs" preview + goods total (₹).
   const vendorSummary = useMemo(() => {
     const map = new Map();
@@ -390,13 +423,16 @@ const PoVendorRecoverModal = ({
         total: 0,
       };
       existing.lines += 1;
-      existing.total += num(l.to_procure) * priceForLine(l, vid);
+      existing.total += num(l.to_procure) * effRate(l, vid);
       map.set(vid, existing);
     }
     return Array.from(map.values()).sort((a, b) =>
       (a.vendor_name || "").localeCompare(b.vendor_name || "")
     );
-  }, [previewLines, assignment, dropped, activeVendors]);
+    // effRate reads rateOverride + storedRateFor(vendorCurrencies), so the
+    // per-vendor goods total recomputes when either changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewLines, assignment, dropped, activeVendors, rateOverride, vendorCurrencies]);
 
   // Default each vendor's currency to INR once vendors are known. Blank-only,
   // so an operator's explicit per-vendor pick is never clobbered. (The vendor
@@ -500,7 +536,7 @@ const PoVendorRecoverModal = ({
           if (dropped[id]) return s;
           if (num(l.to_procure) <= 0) return s;
           if (assignment[id] !== v.vendor_id) return s;
-          const lineTotal = num(l.to_procure) * priceForLine(l, v.vendor_id);
+          const lineTotal = num(l.to_procure) * effRate(l, v.vendor_id);
           return s + (lineTotal * num(l.tax_pct)) / 100;
         }, 0);
 
@@ -579,6 +615,15 @@ const PoVendorRecoverModal = ({
           l.hsn_code != null && String(l.hsn_code).trim() !== ""
             ? String(l.hsn_code).trim()
             : undefined,
+        // Rate override → send in ₹ (the operator typed it in the vendor's
+        // currency; convert back with the vendor's stored foreign-per-₹1 rate).
+        // Omitted when untouched so the backend keeps its price-list fallback.
+        unit_price: (() => {
+          const ov = rateOverride[l.purchase_order_line_id];
+          if (ov == null || String(ov) === "") return undefined;
+          const sr = storedRateFor(assignment[l.purchase_order_line_id]) || 1;
+          return String(Math.round(((Number(ov) || 0) / sr) * 100) / 100);
+        })(),
       }));
     if (assignments.length === 0) {
       // Nothing left to buy — either everything is in stock, or no rows kept.
@@ -767,7 +812,7 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 90 }} className="text-end">
                       {t("To Procure")}
                     </th>
-                    <th style={{ minWidth: 240 }}>{t("Vendor")} (₹)</th>
+                    <th style={{ minWidth: 240 }}>{t("Vendor")}</th>
                     <th style={{ width: 100 }} className="text-end">
                       {t("Rate")}
                     </th>
@@ -775,7 +820,7 @@ const PoVendorRecoverModal = ({
                       {t("GST")} %
                     </th>
                     <th className="text-end" style={{ width: 110 }}>
-                      {t("GST Amt")} (₹)
+                      {t("GST Amt")}
                     </th>
                     <th style={{ width: 70 }} className="text-center">
                       {t("Action")}
@@ -791,7 +836,20 @@ const PoVendorRecoverModal = ({
                     const pickedOpt = vendorOpts.find(
                       (o) => o.value === picked
                     );
-                    const rate = priceForLine(l, picked);
+                    const rate = effRate(l, picked);
+                    // Value shown in the Rate input (vendor currency): the raw
+                    // override as typed, else the price-list rate × display rate.
+                    const rateOv = rateOverride[l.purchase_order_line_id];
+                    const rateInputVal =
+                      rateOv != null && String(rateOv) !== ""
+                        ? rateOv
+                        : priceForLine(l, picked) > 0
+                        ? String(
+                            Math.round(
+                              priceForLine(l, picked) * storedRateFor(picked) * 10000
+                            ) / 10000
+                          )
+                        : "";
                     const noVendor = vendorOpts.length === 0;
                     // Fully covered from on-hand stock → no Vendor PO needed.
                     const fromStock = num(l.to_procure) <= 0;
@@ -800,6 +858,12 @@ const PoVendorRecoverModal = ({
                     const lineGstApplies = gstAppliesFor(
                       assignment[l.purchase_order_line_id]
                     );
+                    // Display currency follows the line's assigned vendor's POV
+                    // currency: rate/amounts are stored in ₹, shown as
+                    // ₹value × (foreign-per-₹1). Falls back to ₹ (rate 1) when
+                    // no vendor is picked yet — same maths as the vendor card.
+                    const lineSym = symFor(picked);
+                    const lineRate = storedRateFor(picked);
                     return (
                       <tr
                         key={l.purchase_order_line_id}
@@ -931,8 +995,32 @@ const PoVendorRecoverModal = ({
                             />
                           )}
                         </td>
-                        <td className="text-end">
-                          {rate > 0 ? `₹${fmt(rate)}` : "-"}
+                        <td className="text-end" style={{ minWidth: 120 }}>
+                          {fromStock || noVendor || isDropped || !picked ? (
+                            <span>
+                              {rate > 0 ? `${lineSym}${fmt(rate * lineRate)}` : "-"}
+                            </span>
+                          ) : (
+                            <div className="d-flex align-items-center justify-content-end">
+                              <span className="me-50 text-muted">{lineSym}</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                bsSize="sm"
+                                className="text-end"
+                                style={{ width: 84 }}
+                                value={rateInputVal}
+                                title={t("Vendor rate (in the vendor's currency)")}
+                                onChange={(e) =>
+                                  handleRateChange(
+                                    l.purchase_order_line_id,
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                          )}
                         </td>
                         <td className="text-end" style={{ minWidth: 90 }}>
                           {fromStock || noVendor || isDropped ? (
@@ -969,12 +1057,12 @@ const PoVendorRecoverModal = ({
                             <span className="text-muted">-</span>
                           ) : (
                             <span>
-                              ₹
+                              {lineSym}
                               {fmt(
-                                lineGstApplies
+                                (lineGstApplies
                                   ? (num(l.to_procure) * rate * num(l.tax_pct)) /
                                       100
-                                  : 0
+                                  : 0) * lineRate
                               )}
                             </span>
                           )}
