@@ -12,7 +12,7 @@ import {
 } from "../store";
 import { getVendorDropdown } from "../../vendors/store";
 import { getProductDropdown } from "../../products/store";
-import { getCurrencyDropdown } from "../../currencies/store";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { startLoading, stopLoading } from "../../loadingstore";
 
 // ** Reactstrap
@@ -64,7 +64,6 @@ const PriceListForm = () => {
   const store = useSelector((state) => state.priceList);
   const vendorStore = useSelector((state) => state.vendor);
   const productStore = useSelector((state) => state.product);
-  const currencyStore = useSelector((state) => state.currency);
   const isEditMode = !!id;
 
   const schema = useMemo(
@@ -72,7 +71,6 @@ const PriceListForm = () => {
       yup.object().shape({
         vendor_id: yup.string().required(t("Vendor is required")),
         product_id: yup.string().required(t("Product is required")),
-        currency_id: yup.string().required(t("Currency is required")),
         unit_price: yup
           .string()
           .trim()
@@ -111,7 +109,6 @@ const PriceListForm = () => {
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
-    dispatch(getCurrencyDropdown());
     if (isEditMode) {
       dispatch(getPriceList(id));
     } else {
@@ -119,16 +116,6 @@ const PriceListForm = () => {
     }
   }, [id]);
 
-  // On create, pre-select the company's default currency (matches the row
-  // flagged is_default in the Currency module).
-  useEffect(() => {
-    if (isEditMode) return;
-    const list = currencyStore?.currencyDropdown || [];
-    if (!list.length) return;
-    if (watch("currency_id")) return;
-    const def = list.find((c) => c.is_default);
-    if (def?._id) setValue("currency_id", def._id, { shouldDirty: false });
-  }, [currencyStore?.currencyDropdown, isEditMode]);
 
   // On create, pre-select the vendor when arriving from /vendors/view/:id
   // (URL carries ?vendor_id=<id>).
@@ -168,7 +155,7 @@ const PriceListForm = () => {
     const payload = {
       vendor_id: data.vendor_id,
       product_id: data.product_id,
-      currency_id: data.currency_id,
+      // Currency is not sent — the backend uses the vendor's currency.
       unit_price: String(data.unit_price),
       effective_date: data.effective_date,
     };
@@ -249,14 +236,6 @@ const PriceListForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productOptions]);
 
-  const currencyOptions = useMemo(
-    () =>
-      (currencyStore?.currencyDropdown || []).map((c) => ({
-        value: c._id,
-        label: `${c.code} - ${c.name}`,
-      })),
-    [currencyStore?.currencyDropdown]
-  );
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());
@@ -364,11 +343,6 @@ const PriceListForm = () => {
                               shouldValidate: true,
                             });
                           }
-                          if (p.currency_id && !watch("currency_id")) {
-                            setValue("currency_id", p.currency_id, {
-                              shouldDirty: true,
-                            });
-                          }
                         }}
                         menuPortalTarget={document.body}
                         styles={{
@@ -399,31 +373,17 @@ const PriceListForm = () => {
                 </Col>
 
                 <Col md="4" className="mb-2">
-                  <Label className="form-label">
-                    {t("Currency")} <span className="text-danger">*</span>
-                  </Label>
-                  <Controller
-                    name="currency_id"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        classNamePrefix="select"
-                        options={currencyOptions}
-                        value={currencyOptions.find((o) => o.value === field.value) || null}
-                        placeholder={t("Select currency")}
-                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
-                        menuPortalTarget={document.body}
-                        styles={{
-                          menuPortal: (b) => ({ ...b, zIndex: 9999 }),
-                        }}
-                      />
-                    )}
-                  />
-                  {errors.currency_id && (
-                    <FormFeedback className="d-block">
-                      {errors.currency_id.message}
-                    </FormFeedback>
-                  )}
+                  <Label className="form-label">{t("Currency")}</Label>
+                  <div className="form-control-plaintext fw-semibold">
+                    {selectedVendor?.currency_code
+                      ? `${
+                          getCurrencySymbol(selectedVendor.currency_code) || ""
+                        } ${selectedVendor.currency_code}`
+                      : "—"}
+                  </div>
+                  <small className="text-muted">
+                    {t("Follows the vendor's currency")}
+                  </small>
                 </Col>
               </Row>
 

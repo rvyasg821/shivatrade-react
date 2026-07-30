@@ -191,7 +191,10 @@ const VendorForm = () => {
           .notRequired(),
         payment_terms: yup.string().nullable().notRequired(),
         incoterms: yup.string().nullable().notRequired(),
-        currency_code: yup.string().nullable().notRequired(),
+        currency_code: yup
+          .string()
+          .required(t("Currency is required"))
+          .typeError(t("Currency is required")),
         status: yup
           .string()
           .oneOf(["active", "inactive"])
@@ -855,7 +858,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="currency_code">
-                        {t("Currency")}
+                        {t("Currency")} <span className="text-danger">*</span>
                       </Label>
                       <Controller
                         name="currency_code"
@@ -863,7 +866,6 @@ const VendorForm = () => {
                         render={({ field }) => (
                           <Select
                             inputId="currency_code"
-                            isClearable
                             classNamePrefix="select"
                             options={currencyCodeOptions}
                             value={selectedCurrency}
@@ -874,8 +876,15 @@ const VendorForm = () => {
                           />
                         )}
                       />
+                      {errors.currency_code && (
+                        <FormFeedback className="d-block">
+                          {errors.currency_code.message}
+                        </FormFeedback>
+                      )}
                       <small className="text-muted">
-                        {t("Auto-selected on this vendor's Vendor POs.")}
+                        {t(
+                          "Used for this vendor's price list & Vendor POs."
+                        )}
                       </small>
                     </Col>
                   </Row>

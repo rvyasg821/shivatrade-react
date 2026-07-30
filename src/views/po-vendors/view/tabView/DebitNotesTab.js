@@ -205,9 +205,9 @@ const DebitNotesTab = ({ registerActions }) => {
                       : "-"}
                   </td>
                   <td className="text-end text-nowrap">
-                    {/* Stored in INR; show in the DN's currency (× rate). */}
+                    {/* Native model: amount is stored in the DN's own currency. */}
                     {getCurrencySymbol(d.currency_code) || ""}
-                    {fmtMoney(num(d.total_amount) * (Number(d.exchange_rate) || 1))}
+                    {fmtMoney(num(d.total_amount))}
                   </td>
                   <td className="text-center">
                     <span

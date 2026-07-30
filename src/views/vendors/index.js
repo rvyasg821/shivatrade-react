@@ -11,6 +11,7 @@ import {
   cleanVendorMessage,
 } from "./store";
 import instance from "@src/utility/AxiosConfig";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -287,6 +288,22 @@ const VendorList = () => {
               </div>
             )}
           </div>
+        );
+      },
+    },
+    {
+      name: t("Currency"),
+      sortable: false,
+      center: true,
+      width: "110px",
+      selector: (row) => {
+        const code = row?.currency_code || "INR";
+        const sym = getCurrencySymbol(code) || "";
+        return (
+          <span className="text-nowrap fw-semibold">
+            {sym ? `${sym} ` : ""}
+            {code}
+          </span>
         );
       },
     },

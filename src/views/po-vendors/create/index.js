@@ -7,7 +7,7 @@
 //     coverage). Mirrors the old "Create POV" popup, now as a page modelled
 //     on the Generate Sales Order page.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -101,8 +101,6 @@ const CreatePoVendor = () => {
   // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
   // e.g. 0.012). Seed the display from the stored value while unfocused; store
   // 1/X on edit. Mirrors the quotation exchange-rate field.
-  const [rateDisplay, setRateDisplay] = useState("1");
-  const rateFocused = useRef(false);
 
   // Standalone manual lines.
   const [lines, setLines] = useState([newRow()]);
@@ -316,8 +314,12 @@ const CreatePoVendor = () => {
       return;
     }
     let cancelled = false;
+    // Pair-aware: (currency → INR) = ₹ per 1 unit, stored directly as the POV's
+    // exchange_rate (INR-per-unit, native model). (Multi-currency §6.1.)
     instance
-      .get(API_ENDPOINTS.currencies.currentRate, { params: { to: currencyCode } })
+      .get(API_ENDPOINTS.currencies.currentRate, {
+        params: { from: currencyCode, to: "INR" },
+      })
       .then((resp) => {
         if (cancelled) return;
         const rate = resp?.data?.data?.rate;
@@ -329,18 +331,6 @@ const CreatePoVendor = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currencyCode]);
-
-  // Keep the displayed ₹-per-foreign value in sync with the stored rate while
-  // the field is not being edited.
-  useEffect(() => {
-    if (rateFocused.current) return;
-    if (currencyCode === "INR") {
-      setRateDisplay("1");
-      return;
-    }
-    const r = Number(exchangeRate);
-    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
-  }, [exchangeRate, currencyCode]);
 
   // PO line _id → vendor_id, to filter coverage lines by the chosen vendor.
   const vendorByLineId = useMemo(() => {
@@ -535,21 +525,20 @@ const CreatePoVendor = () => {
   const lineGst = (qty, price, taxPct) =>
     (num(qty) * num(price) * num(taxPct)) / 100;
 
-  // Display currency: all line maths stay in ₹; the tables render them in the
-  // POV currency (₹ value × foreign-per-₹1 rate) with the matching symbol.
-  // `exchangeRate` already STORES foreign-per-₹1 (see the header comment); INR
-  // resolves to identity so home-currency POVs are unchanged.
+  // NATIVE model (plan §6.3): POV line amounts are stored in the POV's own
+  // currency, so the tables render them AS-IS — no conversion. dispRate is 1;
+  // toDisp / rateToInr are identity. (exchange_rate is now INR-per-unit, used
+  // only for INR stock/books valuation, frozen server-side.)
   const sym = getCurrencySymbol(currencyCode) || "₹";
-  const dispRate = currencyCode !== "INR" ? Number(exchangeRate) || 1 : 1;
-  const toDisp = (inr) => num(inr) * dispRate;
-  const dispStr = (inr) => round2(toDisp(inr)).toLocaleString();
-  // Editable Rate input helpers — value shown in the POV currency (no commas),
-  // stored back as ₹.
-  const rateInputVal = (inr) =>
-    inr === "" || inr == null
+  const dispRate = 1;
+  const toDisp = (native) => num(native);
+  const dispStr = (native) => round2(toDisp(native)).toLocaleString();
+  // Editable Rate input helpers — value shown/stored directly in the POV currency.
+  const rateInputVal = (native) =>
+    native === "" || native == null
       ? ""
-      : String(Math.round(toDisp(num(inr)) * 10000) / 10000);
-  const rateToInr = (disp) => (disp === "" ? "" : String(num(disp) / dispRate));
+      : String(Math.round(num(native) * 10000) / 10000);
+  const rateToInr = (disp) => (disp === "" ? "" : String(num(disp)));
 
   const goodsGst = useMemo(() => {
     if (!gstApplies) return 0;
@@ -739,13 +728,9 @@ const CreatePoVendor = () => {
           return;
         }
         const advanceAmt = num(advance.amount);
-        // The advance is entered in the POV currency, but payments are STORED
-        // in INR. Convert back (INR = foreign / exchange_rate) before sending.
-        const advRate = Number(exchangeRate) || 1;
-        const advanceAmtInr =
-          currencyCode && currencyCode !== "INR" && advRate > 0
-            ? round2(advanceAmt / advRate)
-            : advanceAmt;
+        // Native model: the advance (a vendor payment) is recorded in the POV's
+        // own currency and stored as-is — no INR conversion.
+        const advanceAmtInr = round2(advanceAmt);
         result = await dispatch(
           createPoVendorStandalone({
             vendor_id: vendorId,
@@ -875,17 +860,8 @@ const CreatePoVendor = () => {
                   step="any"
                   min="0"
                   disabled={currencyCode === "INR"}
-                  value={rateDisplay}
-                  onFocus={() => (rateFocused.current = true)}
-                  onBlur={() => (rateFocused.current = false)}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    setRateDisplay(text);
-                    const inrPerForeign = Number(text);
-                    setExchangeRate(
-                      inrPerForeign > 0 ? String(1 / inrPerForeign) : ""
-                    );
-                  }}
+                  value={currencyCode === "INR" ? "1" : exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
                 />
               </div>
             </div>
@@ -1334,11 +1310,13 @@ const CreatePoVendor = () => {
                     <tr>
                       <td colSpan={2} className="text-end text-muted small">
                         ≈ ₹
-                        {round2(grandTotal).toLocaleString(undefined, {
+                        {round2(
+                          num(grandTotal) * (Number(exchangeRate) || 1)
+                        ).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}{" "}
-                        (₹{rateDisplay} {t("per 1")} {currencyCode})
+                        (₹{exchangeRate} {t("per 1")} {currencyCode})
                       </td>
                     </tr>
                   )}
@@ -1441,12 +1419,12 @@ const CreatePoVendor = () => {
                         <small className="text-muted">
                           ≈ ₹
                           {round2(
-                            num(advance.amount) / (Number(exchangeRate) || 1)
+                            num(advance.amount) * (Number(exchangeRate) || 1)
                           ).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}{" "}
-                          {t("recorded")}
+                          {t("in ₹")}
                         </small>
                       ) : null}
                     </div>

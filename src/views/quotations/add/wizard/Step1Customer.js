@@ -2,7 +2,7 @@
 // Captures: customer, bill-to, dates, currency + rate, payment & delivery
 // terms, lead reference banner.
 
-import { useEffect, useRef, useState } from "react";
+// (react hooks import removed — no local rate state on this step anymore)
 import { Controller, useFormContext } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
@@ -15,13 +15,11 @@ import {
   PAYMENT_TERMS_OPTIONS,
 } from "@constant/options";
 import DateInput from "@components/date-input";
-import { getCurrencySymbol } from "@src/utility/currency";
 
 const required = <span className="text-danger">*</span>;
 
 const Step1Customer = ({
   isLocked,
-  rateMeta,
   customerOptions,
   customerAddressOptions,
   consigneeAddressOptions = [],
@@ -38,35 +36,7 @@ const Step1Customer = ({
   } = useFormContext();
   const watchedCustomer = watch("customer_id");
   const watchedLeadId = watch("lead_id");
-  const watchedRate = watch("exchange_rate");
   const sameAsBuyer = watch("consignee_same_as_buyer") !== false;
-
-  // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
-  // — while the form still STORES "foreign per ₹1" (system convention, e.g.
-  // 0.012). Same pattern as the Step 2 costing banner: local input state,
-  // seeded from the stored value while unfocused; store 1/X on edit.
-  const sameCurrency = !!rateMeta?.same;
-  const [rateDisplay, setRateDisplay] = useState("");
-  const rateFocused = useRef(false);
-  useEffect(() => {
-    if (rateFocused.current) return;
-    if (sameCurrency) {
-      setRateDisplay("1");
-      return;
-    }
-    const r = Number(watchedRate);
-    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
-  }, [watchedRate, sameCurrency]);
-
-  const onRateDisplayChange = (text) => {
-    setRateDisplay(text);
-    const inrPerForeign = Number(text);
-    setValue(
-      "exchange_rate",
-      inrPerForeign > 0 ? String(1 / inrPerForeign) : "",
-      { shouldDirty: true }
-    );
-  };
 
   return (
     <Row>
@@ -312,85 +282,9 @@ const Step1Customer = ({
         )}
       </Col>
 
-      <Col md="3" className="mb-2">
-        <Label className="form-label">
-          {t("Exchange Rate")}
-          {rateMeta?.toCode && !sameCurrency ? (
-            <small className="text-muted">
-              {" "}
-              (₹ {t("per 1")} {rateMeta.toCode})
-            </small>
-          ) : null}
-        </Label>
-        <Controller
-          name="exchange_rate"
-          control={control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              disabled={isLocked || sameCurrency}
-              name={field.name}
-              innerRef={field.ref}
-              value={rateDisplay}
-              onFocus={() => (rateFocused.current = true)}
-              onBlur={() => {
-                rateFocused.current = false;
-                field.onBlur();
-              }}
-              onChange={(e) => onRateDisplayChange(e.target.value)}
-            />
-          )}
-        />
-        <small className="text-muted d-block">
-          {rateMeta?.same ? (
-            t("Same currency - rate fixed at 1.")
-          ) : rateMeta?.rate ? (
-            (() => {
-              const liveRate = Number(watchedRate);
-              const effRate = Number.isFinite(liveRate) && liveRate > 0
-                ? liveRate
-                : Number(rateMeta.rate);
-              const modified =
-                Number.isFinite(liveRate) &&
-                liveRate > 0 &&
-                liveRate !== Number(rateMeta.rate);
-              return (
-                <>
-                  {modified
-                    ? t("Custom rate for this quotation")
-                    : t("Auto-filled from Currency master")}
-                  {!modified && rateMeta.effective_date
-                    ? ` (${t("as of")} ${rateMeta.effective_date})`
-                    : ""}
-                  {modified ? <br /> : ". "}
-                  <span>
-                    {getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode}1 ={" "}
-                    {getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}
-                    {Number(effRate).toLocaleString(undefined, {
-                      maximumFractionDigits: 6,
-                    })}
-                    {effRate > 0
-                      ? ` · ${getCurrencySymbol(rateMeta.toCode) || rateMeta.toCode}1 = ${
-                          getCurrencySymbol(rateMeta.fromCode) || rateMeta.fromCode
-                        }${(1 / effRate).toLocaleString(undefined, {
-                          maximumFractionDigits: 4,
-                        })}`
-                      : ""}
-                  </span>
-                </>
-              );
-            })()
-          ) : rateMeta?.missing ? (
-            <span className="text-warning">
-              {t("No rate set in Currency master - enter manually.")}
-            </span>
-          ) : (
-            t("INR × rate = customer-currency amount.")
-          )}
-        </small>
-      </Col>
+      {/* Exchange Rate field removed — the sale currency conversion now happens
+          per vendor→customer on Step 2 (Line Items). The customer→INR rate is
+          still auto-set on the header behind the scenes for INR reporting. */}
 
       <Col md="4" className="mb-2">
         <Label className="form-label">{t("Payment Terms")}</Label>

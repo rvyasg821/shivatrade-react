@@ -280,15 +280,15 @@ const ViewInvoice = () => {
 
   const lines = inv?.lines || [];
 
-  // Line items live in INR. Subtotal is the sum of line totals (INR);
-  // the doc-currency value is INR × exchange_rate, matching the add /
-  // edit form's "₹X × rate = $Y" presentation.
-  const subtotalInr = useMemo(
+  // Multi-currency: line_total is ALREADY in the document currency (each cost
+  // was converted source→doc in recompute), so the subtotal is the plain sum —
+  // NO × exchange_rate. `exchangeRate` (doc-per-₹1) is used only for the INR
+  // roll-up (grandInr) below.
+  const subtotalDoc = useMemo(
     () => lines.reduce((sum, l) => sum + num(l?.line_total), 0),
     [lines],
   );
   const exchangeRate = num(inv?.exchange_rate) || 1;
-  const subtotalDoc = subtotalInr * exchangeRate;
   // Charges & Totals fields are typed in the document currency. We
   // recompute the chain on the FE so KPI tiles + Costing card show
   // proper doc-currency values instead of the legacy INR-mixed numbers

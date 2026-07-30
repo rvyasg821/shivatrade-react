@@ -1155,28 +1155,30 @@ const InvoiceAddEdit = () => {
   const isLut = form.gst_route === "lut_zero_rated";
 
   const totals = useMemo(() => {
-    let subtotalInr = 0;
-    let igstInr = 0;
+    // Multi-currency (D-7 = A): convert each line's cost source→document
+    // currency FIRST (× cost_exchange_rate), then build in the document
+    // currency. So the sums below are in the DOCUMENT currency; the INR
+    // versions are derived by ÷ exchange_rate (doc-per-₹1) for the ₹ grid.
+    let subtotalDoc = 0;
+    let igstDoc = 0;
     for (const l of lines) {
-      // MUST mirror the backend recompute() + Quotation engine. SEQUENTIAL:
-      //   taxable = qty × price × (1 − disc/100)
-      //   + expenses (on taxable) → − rebates (on after-expense / FOB value)
-      //   → + margin (on after-rebate)
+      const priceDoc = num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
       const taxable =
-        num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
+        num(l.qty) * priceDoc * (1 - num(l.discount_pct) / 100);
       const expensesTotal = sumExpenses(l.product_expenses_snapshot, taxable);
       const afterExpense = taxable + expensesTotal;
       const rebatesTotal = sumRebates(l.product_rebates_snapshot, afterExpense);
       const afterRebate = afterExpense - rebatesTotal;
       const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
       const lineNet = round2(afterRebate + marginAmt);
-      subtotalInr = round2(subtotalInr + lineNet);
+      subtotalDoc = round2(subtotalDoc + lineNet);
       if (!isLut) {
-        igstInr = round2(igstInr + (lineNet * num(l.igst_rate_pct)) / 100);
+        igstDoc = round2(igstDoc + (lineNet * num(l.igst_rate_pct)) / 100);
       }
     }
     const rate = num(form.exchange_rate) || 1;
-    const subtotal = round2(subtotalInr * rate); // in doc currency
+    const subtotal = round2(subtotalDoc); // already document currency
+    const subtotalInr = rate > 0 ? round2(subtotalDoc / rate) : subtotalDoc;
     const fob = round2(subtotal - num(form.discount_total));
     // Whole-number customer-currency grand total, mirroring the backend
     // invoice recompute (Math.round) so the preview matches what's saved.
@@ -1191,11 +1193,9 @@ const InvoiceAddEdit = () => {
     // tax is refunded to the exporter, so it is not part of what the customer
     // pays — it is shown for information (and for GSTR-1) only. Folding it into
     // the Grand Total would overstate the invoice's headline figure.
-    const igst = round2(igstInr * rate);
-    // Both currencies exposed, same as the subtotal: the line-items grid shows
-    // IGST per line in ₹, so its footer sum must also be ₹ or the column would
-    // not add up to its own total. The Total IGST row below shows the doc
-    // currency, which is what the customer's invoice is denominated in.
+    const igst = round2(igstDoc); // document-currency IGST
+    // ₹ version for the per-line grid footer (grid shows IGST per line in ₹).
+    const igstInr = rate > 0 ? round2(igstDoc / rate) : igstDoc;
     return { subtotalInr, subtotal, fob, igstInr, igst, grand, balance };
   }, [
     lines,

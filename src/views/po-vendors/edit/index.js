@@ -17,7 +17,7 @@
 // it and the PDF derives the tax from `tax_pct` at render time, so writing the
 // rate is all that is needed — nothing downstream can fall out of sync.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -108,8 +108,6 @@ const EditPoVendor = () => {
   // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
   // e.g. 0.012). Seed the display from the stored value while unfocused; store
   // 1/X on edit. Mirrors the create page's exchange-rate field.
-  const [rateDisplay, setRateDisplay] = useState("1");
-  const rateFocused = useRef(false);
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
@@ -203,8 +201,12 @@ const EditPoVendor = () => {
       return;
     }
     let cancelled = false;
+    // Pair-aware: fetch (currency → INR) = ₹ per 1 unit, stored directly as the
+    // POV's exchange_rate (INR-per-unit, native model). (Multi-currency §6.1.)
     instance
-      .get(API_ENDPOINTS.currencies.currentRate, { params: { to: currencyCode } })
+      .get(API_ENDPOINTS.currencies.currentRate, {
+        params: { from: currencyCode, to: "INR" },
+      })
       .then((resp) => {
         if (cancelled) return;
         const rate = resp?.data?.data?.rate;
@@ -216,18 +218,6 @@ const EditPoVendor = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currencyCode]);
-
-  // Keep the displayed ₹-per-foreign value in sync with the stored rate while
-  // the field is not being edited.
-  useEffect(() => {
-    if (rateFocused.current) return;
-    if (currencyCode === "INR") {
-      setRateDisplay("1");
-      return;
-    }
-    const r = Number(exchangeRate);
-    setRateDisplay(r > 0 ? String(Math.round((1 / r) * 100) / 100) : "");
-  }, [exchangeRate, currencyCode]);
 
   // Home INR (excluded from the exchange-rate options, which list only foreign
   // targets) + every foreign currency that has a rate configured. Unlike an
@@ -252,12 +242,13 @@ const EditPoVendor = () => {
   const lineGst = (l) =>
     gstApplies ? round2((lineTotal(l) * num(taxByLine[l._id])) / 100) : 0;
 
-  // Display currency: all line maths stay in ₹; the table renders them in the
-  // POV currency (₹ value × foreign-per-₹1 rate) with the matching symbol.
-  // `exchangeRate` already STORES foreign-per-₹1 (see the header comment).
+  // NATIVE model (plan §6.3): POV line amounts are stored in the POV's own
+  // currency, so the table renders them AS-IS — no conversion. dispRate is 1;
+  // toDisp is identity. (exchange_rate is now INR-per-unit, frozen server-side
+  // from the currency master for INR stock/books valuation only.)
   const sym = getCurrencySymbol(currencyCode) || "₹";
-  const dispRate = currencyCode !== "INR" ? Number(exchangeRate) || 1 : 1;
-  const toDisp = (inr) => num(inr) * dispRate;
+  const dispRate = 1;
+  const toDisp = (native) => num(native);
   // Value for the editable Rate input, shown in the POV currency (no commas).
   const rateInputVal = (l) => {
     const v = rateByLine[l._id];
@@ -324,8 +315,9 @@ const EditPoVendor = () => {
       data.dispatched_through = dispatchedThrough?.trim() || "";
       data.payment_terms = paymentTerms?.trim() || "";
       data.delivery_terms = deliveryTerms?.trim() || "";
-      // Display currency — draft-only server-side (rejected otherwise). Line
-      // prices stay in INR; exchange_rate (foreign-per-₹1) only for non-home.
+      // NATIVE model: line prices are stored in the POV currency. currency_code
+      // + exchange_rate (INR per 1 unit, operator-editable, master-seeded) are
+      // sent for non-home currencies; the backend freezes/validates it.
       data.currency_code = currencyCode || undefined;
       data.exchange_rate =
         currencyCode && currencyCode !== "INR"
@@ -750,17 +742,8 @@ const EditPoVendor = () => {
                   step="any"
                   min="0"
                   disabled={currencyCode === "INR"}
-                  value={rateDisplay}
-                  onFocus={() => (rateFocused.current = true)}
-                  onBlur={() => (rateFocused.current = false)}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    setRateDisplay(text);
-                    const inrPerForeign = Number(text);
-                    setExchangeRate(
-                      inrPerForeign > 0 ? String(1 / inrPerForeign) : ""
-                    );
-                  }}
+                  value={currencyCode === "INR" ? "1" : exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
                 />
               </Col>
             )}

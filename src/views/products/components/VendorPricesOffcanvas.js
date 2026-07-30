@@ -161,7 +161,7 @@ const VendorPricesOffcanvas = ({ open, toggle, product }) => {
                       <td className="align-middle">
                         <div className="fw-semibold text-capitalize">
                           {r?.vendor_name || "-"}
-                          {idx === 0 ? (
+                          {idx === 0 && r?.inr_rate_available ? (
                             <span
                               className="badge rounded-pill ms-1 text-nowrap"
                               ref={(el) => {
@@ -186,6 +186,25 @@ const VendorPricesOffcanvas = ({ open, toggle, product }) => {
                       </td>
                       <td className="text-end align-middle fw-bold">
                         {money(r?.unit_price, sym)}
+                        {/* Foreign price → show the ₹ equivalent used for the
+                            "Best" comparison. INR rows need no conversion. */}
+                        {(r?.currency_code || "").toUpperCase() !== "INR" &&
+                        r?.inr_rate_available &&
+                        r?.unit_price_inr != null ? (
+                          <div className="small text-muted fw-normal">
+                            ≈ {money(r.unit_price_inr, "₹")}
+                          </div>
+                        ) : null}
+                        {r?.inr_rate_available === false ? (
+                          <div
+                            className="small text-warning fw-normal"
+                            style={{ maxWidth: 160 }}
+                          >
+                            {t(
+                              "Exchange rate not available for this vendor's currency"
+                            )}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="align-middle small text-nowrap">
                         <div>
