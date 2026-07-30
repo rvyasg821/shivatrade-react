@@ -29,9 +29,10 @@ const PoVendorTotalsPanel = () => {
   const p = poVendorItem || {};
   const lines = p?.lines || [];
   const sym = p?.currency_symbol || "₹";
-  // VPO money is stored in INR; POV header carries the foreign-per-₹1 rate.
-  const rate = Number(p?.exchange_rate) || 1;
-  const fmtCcy = (v) => fmt(num(v) * rate);
+  // NATIVE model (plan §6.3): POV money is stored in the POV's own currency, so
+  // totals display AS-IS — no conversion (exchange_rate is INR-per-unit, used
+  // only for INR stock/books valuation).
+  const fmtCcy = (v) => fmt(num(v));
   // GST is an Indian (INR) tax — never applies to a foreign-currency POV.
   const gstApplies = (p?.currency_code || "INR") === "INR";
 

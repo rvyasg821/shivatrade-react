@@ -55,23 +55,24 @@ import { ArrowLeft, Plus, Edit, Trash2, Check, X, Clock } from "react-feather";
 // ** Constants
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { initCurrencyItem } from "@constant/reduxConstant";
-import { STATUS_OPTIONS, EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
+import { STATUS_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
 // Effective dates were rendering as the raw ISO slice ("2026-06-18").
 import { formatDate } from "@src/utility/dateFormat";
 
-// Exchange rates are STORED as "{to} units per 1 {from}" (e.g. USD per INR =
-// 0.01) — the system-wide convention. The UI shows/enters the intuitive
-// inverse "1 {to} = X {from}" (1 USD = 100 INR). Convert at the edge, rounding
-// the stored value to the 6 dp the backend allows.
+// Exchange rates are STORED as "{to} units per 1 {from}" (e.g. 1 USD = 0.88 EUR
+// stores 0.88 on the USD page) — this reads plainly "1 FROM = rate TO", where
+// FROM is the currency being edited and TO is the one picked. NO inversion, NO
+// direction flip — the value entered IS the value stored. We only round to the
+// 6 dp the backend allows. (Multi-currency plan §6.1 — pair-aware, direct.)
 const round6 = (n) => Math.round((Number(n) + Number.EPSILON) * 1e6) / 1e6;
-const toStoredRate = (intuitive) => {
-  const x = Number(intuitive);
-  return x > 0 ? String(round6(1 / x)) : "";
+const toStoredRate = (entered) => {
+  const x = Number(entered);
+  return x > 0 ? String(round6(x)) : "";
 };
 const toIntuitiveRate = (stored) => {
   const x = Number(stored);
-  return x > 0 ? String(round6(1 / x)) : "";
+  return x > 0 ? String(round6(x)) : "";
 };
 
 const CurrencyForm = () => {
@@ -215,8 +216,8 @@ const CurrencyForm = () => {
         currencyId: id,
         data: {
           to_currency_code: rateFormState.to_currency_code,
-          // User enters the intuitive "1 {to} = X {from}" (e.g. 1 USD = 100
-          // INR); the system stores the inverse "{to} per 1 {from}" (0.01).
+          // Direct: user enters "1 {from} = X {to}" (e.g. on the USD page,
+          // 1 USD = 0.88 EUR) and X is stored as-is.
           rate: toStoredRate(entered),
           effective_date: rateFormState.effective_date,
         },
@@ -224,25 +225,19 @@ const CurrencyForm = () => {
     );
   };
 
-  // Filter the constant list:
-  //   - exclude the currency we're editing (FROM side - no INR→INR rate)
-  //   - exclude any code that already exists as a real currency row (a managed
-  //     currency shouldn't appear as a "rate-target only" option)
-  const currentCode = store?.currencyItem?.code;
-  const existingCodes = useMemo(
-    () =>
-      new Set(
-        (store?.currencyDropdown || [])
-          .map((c) => (c.code || "").toUpperCase())
-          .filter(Boolean)
-      ),
-    [store?.currencyDropdown]
-  );
+  // TO options = every OTHER managed currency (pair-aware). A rate can now be
+  // added between any two managed currencies (USD→EUR, EUR→USD…), not just from
+  // the default INR — so the target list is the currency master itself, minus
+  // the currency we're editing (no self→self rate). (Multi-currency plan §6.1.)
+  const currentCode = (store?.currencyItem?.code || "").toUpperCase();
   const otherCurrencyOptions = useMemo(() => {
-    return EXCHANGE_TO_CURRENCY_OPTIONS.filter(
-      (o) => o.value !== currentCode && !existingCodes.has(o.value)
-    );
-  }, [currentCode, existingCodes]);
+    return (store?.currencyDropdown || [])
+      .map((c) => {
+        const code = (c.code || "").toUpperCase();
+        return { value: code, label: c.name ? `${code} - ${c.name}` : code };
+      })
+      .filter((o) => o.value && o.value !== currentCode);
+  }, [store?.currencyDropdown, currentCode]);
 
   const selectedTo = otherCurrencyOptions.find(
     (o) => o.value === rateFormState.to_currency_code
@@ -546,15 +541,15 @@ const CurrencyForm = () => {
                       {selectedTo ? (
                         <span className="text-muted">
                           {" "}
-                          (1 {selectedTo.value} = ? {currentCode || "INR"})
+                          (1 {currentCode || "INR"} = ? {selectedTo.value})
                         </span>
                       ) : null}
                     </Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.000001"
                       min="0"
-                      placeholder="100"
+                      placeholder="0.88"
                       value={rateFormState.rate}
                       onChange={(e) =>
                         setRateFormState((s) => ({ ...s, rate: e.target.value }))
@@ -608,14 +603,13 @@ const CurrencyForm = () => {
                       const isEditing = editingRateId === r._id;
                       return (
                         <tr key={r._id}>
-                          {/* Displayed in the intuitive direction "1 {to} =
-                              X {from}", so From = the foreign (to_currency),
-                              To = the default (from_currency). */}
+                          {/* Direct direction "1 {from} = rate {to}": From is
+                              the currency being edited, To is the picked one. */}
                           <td className="text-uppercase">
-                            {r.to_currency_code || "-"}
+                            {r.from_currency_code || currentCode || "-"}
                           </td>
                           <td className="text-uppercase">
-                            {r.from_currency_code || "-"}
+                            {r.to_currency_code || "-"}
                           </td>
                           <td>
                             {isEditing ? (
@@ -751,7 +745,7 @@ const CurrencyForm = () => {
             {historyCode ? (
               <span className="text-muted">
                 {" "}
-                — 1 {historyCode} = ? {currentCode || "INR"}
+                — 1 {currentCode || "INR"} = ? {historyCode}
               </span>
             ) : null}
           </ModalHeader>
@@ -766,7 +760,7 @@ const CurrencyForm = () => {
                   {historyRows.map((r, i) => (
                     <tr key={r._id}>
                       <td className="fw-semibold text-nowrap">
-                        {toIntuitiveRate(r.rate)} {currentCode || "INR"}
+                        {toIntuitiveRate(r.rate)} {r.to_currency_code || historyCode}
                       </td>
                       <td className="text-nowrap">
                         {formatDate(r.effective_date)}

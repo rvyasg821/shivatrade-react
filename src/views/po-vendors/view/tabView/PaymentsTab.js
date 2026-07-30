@@ -99,17 +99,12 @@ const PaymentsTab = ({ registerActions }) => {
   const p = poVendorItem || {};
   const id = p?._id;
   const sym = p?.currency_symbol || "₹";
-  // All POV payment money is stored in INR; multiply by the POV's exchange
-  // rate (foreign-per-₹1, 1 for INR) to display read-only amounts in the POV's
-  // currency. `fmtCcy` = INR → displayed currency; `fmt` stays raw INR for the
-  // Record Payment input (amounts are entered/stored in INR).
-  const rate = Number(p?.exchange_rate) || 1;
-  const fmtCcy = (vInr) => fmt(num(vInr) * rate);
-  // The Record Payment modal now works in the POV currency (enter USD, see the
-  // USD balance) even though payments are STORED in INR. `toInr` converts an
-  // entered POV-currency amount back to INR for the payload; `toCcy` the way in.
-  const toInr = (vCcy) => (rate > 0 ? num(vCcy) / rate : num(vCcy));
-  const toCcy = (vInr) => num(vInr) * rate;
+  // NATIVE model (plan §6.3): POV payments are recorded and stored in the POV's
+  // own currency, so every amount displays AS-IS — no conversion. The Record
+  // Payment modal enters the native amount directly; `toInr`/`toCcy` are identity.
+  const fmtCcy = (vNative) => fmt(num(vNative));
+  const toInr = (vCcy) => num(vCcy);
+  const toCcy = (vNative) => num(vNative);
   const statusLower = (p?.status || "").toLowerCase();
 
   const isAdmin = isAdminUser(authUserItem);

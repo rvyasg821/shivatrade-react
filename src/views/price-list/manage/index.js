@@ -5,7 +5,7 @@
 // inserted as a NEW VERSION (POST /price-list/bulk) — the prior price
 // auto-expires via the effective_date logic. History per vendor is on demand.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,6 +16,8 @@ import {
   Button,
   Table,
   Input,
+  InputGroup,
+  InputGroupText,
   Spinner,
   Badge,
 } from "reactstrap";
@@ -68,7 +70,7 @@ const ManageVendorPricing = () => {
   const [historyByVendor, setHistoryByVendor] = useState({});
   const [expanded, setExpanded] = useState({});
 
-  // Base currency — INR. Locked (single-currency app).
+  // Fallback (default) currency — used when a vendor has no currency set.
   const currency = useMemo(() => {
     const list = currencyStore?.currencyDropdown || [];
     return (
@@ -78,6 +80,39 @@ const ManageVendorPricing = () => {
       null
     );
   }, [currencyStore?.currencyDropdown]);
+
+  // Multi-currency: each vendor prices in ITS OWN currency (vendor.currency_code).
+  // Map code→currency row and vendor→code so every grid line resolves its own
+  // currency id + symbol; fall back to the default currency. (Plan §6.2.)
+  const currencyByCode = useMemo(() => {
+    const m = {};
+    for (const c of currencyStore?.currencyDropdown || []) {
+      if (c.code) m[(c.code || "").toUpperCase()] = c;
+    }
+    return m;
+  }, [currencyStore?.currencyDropdown]);
+
+  const vendorCurrencyCodeById = useMemo(() => {
+    const m = {};
+    for (const v of vendorStore?.vendorDropdown || []) {
+      if (v._id) m[v._id] = (v.currency_code || "").toUpperCase();
+    }
+    return m;
+  }, [vendorStore?.vendorDropdown]);
+
+  const rowCurrency = useCallback(
+    (r) => {
+      // Existing rows keep the currency their price was stored in; new rows
+      // default to the vendor's currency. Fall back to the app default.
+      const code = (
+        r?.currency_code ||
+        vendorCurrencyCodeById[r?.vendor_id] ||
+        ""
+      ).toUpperCase();
+      return (code && currencyByCode[code]) || currency;
+    },
+    [vendorCurrencyCodeById, currencyByCode, currency]
+  );
 
   const vendorOptions = useMemo(
     () =>
@@ -117,6 +152,9 @@ const ManageVendorPricing = () => {
             vendor_id: r.vendor_id,
             vendor_name: r.vendor_name,
             vendor_code: r.vendor_code,
+            // Currency this row's price is stored in (kept on edit).
+            currency_code: r.currency_code,
+            currency_symbol: r.currency_symbol,
             unit_price: r.unit_price ?? "",
             lead_time_days: r.lead_time_days ?? "",
             effective_date: (r.effective_date || "").slice(0, 10),
@@ -239,7 +277,8 @@ const ManageVendorPricing = () => {
     const items = dirtyRows.map((r) => ({
       vendor_id: r.vendor_id,
       product_id: productId,
-      currency_id: currency._id,
+      // Price is native to the VENDOR's currency (falls back to default).
+      currency_id: (rowCurrency(r) || currency)._id,
       unit_price: Number(r.unit_price).toFixed(2),
       lead_time_days:
         r.lead_time_days !== "" ? Number(r.lead_time_days) : undefined,
@@ -269,10 +308,10 @@ const ManageVendorPricing = () => {
 
   const sym = currency?.symbol || "₹";
 
-  const money2 = (v) =>
+  const money2 = (v, symArg = sym) =>
     v === "" || v === null || v === undefined || Number.isNaN(Number(v))
       ? "-"
-      : `${sym}${Number(v).toLocaleString("en-IN", {
+      : `${symArg}${Number(v).toLocaleString("en-IN", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`;
@@ -343,7 +382,7 @@ const ManageVendorPricing = () => {
                       </span>
                     ) : null}
                     <Badge color="light-primary" className="text-nowrap">
-                      {sym} {currency?.code || "INR"}
+                      {t("Each price is in the vendor's currency")}
                     </Badge>
                   </div>
                 </Col>
@@ -395,8 +434,8 @@ const ManageVendorPricing = () => {
                     <tr>
                       <th style={{ width: 28 }} />
                       <th style={{ minWidth: 200 }}>{t("Vendor")}</th>
-                      <th className="text-end" style={{ width: 150 }}>
-                        {t("Unit Price")} ({sym})
+                      <th className="text-end" style={{ width: 170 }}>
+                        {t("Unit Price")}
                       </th>
                       <th className="text-end" style={{ width: 110 }}>
                         {t("Lead (days)")}
@@ -409,6 +448,8 @@ const ManageVendorPricing = () => {
                     {rows.map((r) => {
                       const dirty = isDirty(r);
                       const vid = r.vendor_id;
+                      const rc = rowCurrency(r);
+                      const rcSym = rc?.symbol || sym;
                       const hist = historyByVendor[vid] || [];
                       const hasHistory = hist.length > 0;
                       const open = !!expanded[vid];
@@ -492,34 +533,42 @@ const ManageVendorPricing = () => {
                               ) : null}
                             </td>
                             <td>
-                              <Input
-                                bsSize="sm"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                inputMode="decimal"
-                                className="text-end"
-                                value={r.unit_price}
-                                onChange={(e) =>
-                                  setField(r._key, "unit_price", e.target.value)
-                                }
-                                onBlur={(e) => {
-                                  const v = e.target.value;
-                                  if (v !== "" && !Number.isNaN(Number(v)))
-                                    setField(
-                                      r._key,
-                                      "unit_price",
-                                      Number(v).toFixed(2)
-                                    );
-                                }}
-                              />
+                              <InputGroup size="sm">
+                                <InputGroupText
+                                  className="px-50 text-uppercase"
+                                  title={rc?.code || ""}
+                                >
+                                  {rcSym}
+                                </InputGroupText>
+                                <Input
+                                  bsSize="sm"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  inputMode="decimal"
+                                  className="text-end"
+                                  value={r.unit_price}
+                                  onChange={(e) =>
+                                    setField(r._key, "unit_price", e.target.value)
+                                  }
+                                  onBlur={(e) => {
+                                    const v = e.target.value;
+                                    if (v !== "" && !Number.isNaN(Number(v)))
+                                      setField(
+                                        r._key,
+                                        "unit_price",
+                                        Number(v).toFixed(2)
+                                      );
+                                  }}
+                                />
+                              </InputGroup>
                               {dirty &&
                               !r._isNew &&
                               r._original?.unit_price !== "" &&
                               `${r.unit_price}` !==
                                 `${r._original?.unit_price}` ? (
                                 <small className="text-muted">
-                                  {t("was")} {money2(r._original.unit_price)}
+                                  {t("was")} {money2(r._original.unit_price, rcSym)}
                                 </small>
                               ) : null}
                             </td>
@@ -573,7 +622,7 @@ const ManageVendorPricing = () => {
                                     {t("History")}
                                   </td>
                                   <td className="text-end small fw-semibold">
-                                    {money2(h.unit_price)}
+                                    {money2(h.unit_price, rcSym)}
                                   </td>
                                   <td className="text-end small">
                                     {h.lead_time_days ?? "-"}

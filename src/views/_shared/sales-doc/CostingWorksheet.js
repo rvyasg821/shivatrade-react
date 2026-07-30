@@ -10,7 +10,7 @@
 // Writes to the same react-hook-form `lines` array + line shape the existing
 // save mapping reads, so the backend is unchanged.
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useWatch, useFormState } from "react-hook-form";
 import {
   Table,
@@ -151,26 +151,6 @@ const CostingWorksheet = ({
   // Per-line validation errors — drives the red highlight on required fields
   // (e.g. Qty) so the user can fix them inline instead of just seeing a toast.
   const { errors } = useFormState({ control });
-  // Stored exchange_rate = "foreign per 1 INR" (e.g. 0.01). The banner lets the
-  // user enter the intuitive inverse "1 {foreign} = X INR" (e.g. 100) and we
-  // store 1/X. Local input state, seeded from the stored value while unfocused.
-  const rawRate = useWatch({ control, name: "exchange_rate" });
-  const [rateInput, setRateInput] = useState("");
-  const rateFocused = useRef(false);
-  useEffect(() => {
-    if (rateFocused.current) return;
-    const r = num(rawRate);
-    setRateInput(r > 0 ? String(round2(1 / r)) : "");
-  }, [rawRate]);
-  const onRateInput = (v) => {
-    setRateInput(v);
-    const inrPerForeign = Number(v);
-    setValue(
-      "exchange_rate",
-      inrPerForeign > 0 ? String(1 / inrPerForeign) : "",
-      { shouldDirty: true }
-    );
-  };
 
   // Shipment freight for a CNF quote — one figure in the DOCUMENT currency,
   // typed directly (like the rate). Split by qty across lines below; sits
@@ -213,6 +193,86 @@ const CostingWorksheet = ({
     docCurrencyCode.toUpperCase() !== baseCurrencyCode.toUpperCase();
   const rate = num(exchangeRate) || 1;
 
+  // ── Multi-currency: per-source-currency exchange-rate boxes ─────────────
+  // The document is priced in the customer's currency. Each line's cost is in
+  // its VENDOR's currency (source); we convert cost → document currency with a
+  // rate PER DISTINCT source currency (auto-filled from the master, editable).
+  // INR is just another currency. A source == the document currency needs no
+  // box (rate 1). (Multi-currency plan §6.5, D-8.)
+  const docCur = (docCurrencyCode || "INR").toUpperCase();
+  const distinctSources = useMemo(() => {
+    const set = new Set();
+    for (const l of liveLines) {
+      // Only a line with a CHOSEN vendor has a real source currency. An empty
+      // "Select product" row must not add a spurious box. With the
+      // one-currency-per-document rule this yields at most one box. A vendor
+      // whose currency == the document currency still gets a box (shown
+      // disabled at rate 1) so the rate is always visible.
+      if (!l?.vendor_id) continue;
+      const sc = (l?.source_currency_code || "INR").toUpperCase();
+      if (sc) set.add(sc);
+    }
+    return Array.from(set).sort();
+  }, [liveLines, docCur]);
+
+  // { [sourceCode]: { rate: string, available: boolean } }
+  const [sourceRates, setSourceRates] = useState({});
+  const sourcesKey = distinctSources.join("|");
+  useEffect(() => {
+    let cancelled = false;
+    distinctSources.forEach((src) => {
+      if (src === docCur) return; // same currency → fixed rate 1, no fetch
+      if (sourceRates[src]) return; // fetched or user-edited already
+      instance
+        .get(API_ENDPOINTS.currencies.currentRate, {
+          params: { from: src, to: docCur },
+        })
+        .then((resp) => {
+          if (cancelled) return;
+          const r = Number(resp?.data?.data?.rate);
+          setSourceRates((m) => ({
+            ...m,
+            [src]:
+              r > 0
+                ? { rate: String(r), available: true }
+                : { rate: "1", available: false },
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSourceRates((m) => ({
+            ...m,
+            [src]: { rate: "1", available: false },
+          }));
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourcesKey, docCur]);
+
+  const setSourceRate = (src, value) =>
+    setSourceRates((m) => ({
+      ...m,
+      [src]: { rate: value, available: Number(value) > 0 },
+    }));
+
+  // Push each line's frozen cost_exchange_rate = its source→doc rate (1 same).
+  useEffect(() => {
+    liveLines.forEach((l, idx) => {
+      if (!l?.vendor_id) return; // vendorless row has no cost to convert
+      const sc = (l?.source_currency_code || "INR").toUpperCase();
+      const want = sc === docCur ? "1" : sourceRates[sc]?.rate || "1";
+      if (String(l?.cost_exchange_rate ?? "") !== String(want)) {
+        setValue(`lines.${idx}.cost_exchange_rate`, want, {
+          shouldDirty: false,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveLines, sourceRates, docCur]);
+
   const fetchVendors = (idx, productId, autoSelect = false) => {
     if (!productId) return;
     setLoadingByProduct((m) => ({ ...m, [productId]: true }));
@@ -225,8 +285,8 @@ const CostingWorksheet = ({
           .map((r) => ({
             value: r.vendor_id,
             label: r.vendor_code
-              ? `${r.vendor_name} [${r.vendor_code}] — ₹${fmt(r.unit_price)}`
-              : `${r.vendor_name} — ₹${fmt(r.unit_price)}`,
+              ? `${r.vendor_name} [${r.vendor_code}] — ${currencySymbol(r.currency_code) || "₹"}${fmt(r.unit_price)}`
+              : `${r.vendor_name} — ${currencySymbol(r.currency_code) || "₹"}${fmt(r.unit_price)}`,
             raw: r,
           }));
         setVendorsByProduct((m) => ({ ...m, [productId]: rows }));
@@ -284,8 +344,8 @@ const CostingWorksheet = ({
               .map((r) => ({
                 value: r.vendor_id,
                 label: r.vendor_code
-                  ? `${r.vendor_name} [${r.vendor_code}] — ₹${fmt(r.unit_price)}`
-                  : `${r.vendor_name} — ₹${fmt(r.unit_price)}`,
+                  ? `${r.vendor_name} [${r.vendor_code}] — ${currencySymbol(r.currency_code) || "₹"}${fmt(r.unit_price)}`
+                  : `${r.vendor_name} — ${currencySymbol(r.currency_code) || "₹"}${fmt(r.unit_price)}`,
                 raw: r,
               }));
           });
@@ -509,9 +569,38 @@ const CostingWorksheet = ({
         return;
       }
     }
+
+    // ── One-currency-per-document rule ──────────────────────────────────
+    // Every vendor on a quotation/SO/invoice must share ONE currency. If any
+    // other line already has a vendor, this new vendor must match its currency.
+    const newVendorCur = (r.currency_code || "INR").toUpperCase();
+    const existingCur = allLines
+      .map((l, i) =>
+        i !== idx && l?.vendor_id
+          ? (l?.source_currency_code || "INR").toUpperCase()
+          : null
+      )
+      .find(Boolean);
+    if (existingCur && newVendorCur !== existingCur) {
+      Notification(
+        "Validation",
+        t(
+          "All vendors on one document must use the same currency ({{cur}}). This vendor is in {{other}} — pick a {{cur}} vendor."
+        )
+          .replace("{{cur}}", existingCur)
+          .replace("{{other}}", newVendorCur),
+        "warning"
+      );
+      return;
+    }
     setValue(`lines.${idx}.vendor_id`, newVendorId);
     setValue(`lines.${idx}.vendor_name`, r.vendor_name || "");
     setValue(`lines.${idx}.vendor_code`, r.vendor_code || "");
+    // Multi-currency: the line's cost is in the VENDOR's currency (source).
+    setValue(
+      `lines.${idx}.source_currency_code`,
+      (r.currency_code || "INR").toUpperCase()
+    );
     if (opt && r.unit_price != null) {
       setValue(`lines.${idx}.unit_price`, String(r.unit_price));
     }
@@ -561,17 +650,18 @@ const CostingWorksheet = ({
       packages: 0,
     }
   );
-  // exchange_rate is stored as "foreign units per 1 INR" (system convention),
-  // so convert INR → quote currency by MULTIPLYING.
-  const grandDoc = isForeign ? totals.grand * rate : totals.grand;
+  // Multi-currency: `totals` already come from computeLineCosting, which
+  // converts each line's cost source→document currency. So every figure is
+  // ALREADY in the document currency — NO header × rate here.
+  const grandDoc = totals.grand;
   // Per-line freight (document currency), qty-split; residual folded into the
   // last line so Σ == freightTotal. Keyed by absolute line index.
   const lineFreights = splitFreightByQty(liveLines, freightTotal);
   const cnfTotal = round2(grandDoc + freightTotal);
   const cnfRateTotal = totals.qty ? round2(cnfTotal / totals.qty) : 0;
-  const money = (v) => `₹${fmt(v)}`;
-  // Quote-currency symbol for the Rate/Amt columns (e.g. $ for USD).
-  const docSym = isForeign ? currencySymbol(docCurrencyCode) : "₹";
+  // Everything is shown in the DOCUMENT currency now (₹ for an INR document).
+  const docSym = currencySymbol(docCurrencyCode) || "₹";
+  const money = (v) => `${docSym}${fmt(v)}`;
   const moneyDoc = (v) => `${docSym}${fmt(v)}`;
 
   // Fixed column widths (px) so every value fits on one line.
@@ -619,30 +709,47 @@ const CostingWorksheet = ({
 
   return (
     <Fragment>
-      {/* Exchange-rate banner — editable rate (INR per 1 unit of the quote
-          currency). Writes to the form's exchange_rate; all customer-currency
-          columns recompute from it. */}
+      {/* Exchange-rate boxes — one per distinct VENDOR (source) currency that
+          differs from the document currency: converts each line's cost into the
+          document currency (1 {source} = rate {doc}). Auto-filled from the
+          currency master, editable. INR is just another currency. With the
+          one-currency-per-document rule there is at most one box. */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
         <div className="d-flex align-items-center gap-1 flex-wrap">
-          {isForeign ? (
-            <div className="d-flex align-items-center gap-50 ws-rate-box">
-              <span className="fw-bold">1 {docCurrencyCode} =</span>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                bsSize="sm"
-                className="text-end ws-rate-input"
-                disabled={readOnly}
-                value={rateInput}
-                onFocus={() => (rateFocused.current = true)}
-                onBlur={() => (rateFocused.current = false)}
-                onChange={(e) => onRateInput(e.target.value)}
-              />
-              <span className="fw-bold">{baseCurrencyCode}</span>
-            </div>
+          {distinctSources.length > 0 ? (
+            distinctSources.map((src) => {
+              // Same currency as the document → fixed rate 1, box disabled.
+              const same = src === docCur;
+              const sr = same
+                ? { rate: "1", available: true }
+                : sourceRates[src] || { rate: "", available: true };
+              return (
+                <div
+                  key={src}
+                  className="d-flex align-items-center gap-50 ws-rate-box"
+                >
+                  <span className="fw-bold">1 {src} =</span>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    bsSize="sm"
+                    className="text-end ws-rate-input"
+                    disabled={readOnly || same}
+                    value={sr.rate}
+                    onChange={(e) => setSourceRate(src, e.target.value)}
+                  />
+                  <span className="fw-bold">{docCur}</span>
+                  {sr.available === false ? (
+                    <span className="text-warning small ms-25">
+                      {t("exchange rate not available")}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })
           ) : (
-            <Badge color="light-secondary">{baseCurrencyCode}</Badge>
+            <Badge color="light-secondary">{docCur}</Badge>
           )}
           {/* Shipment freight (document currency) — split by qty across lines
               into the Freight / CNF Amount / CNF Rate columns. */}
@@ -732,7 +839,9 @@ const CostingWorksheet = ({
               <th>{t("HSN")}</th>
               <th className="text-end">{t("Qty")}</th>
               <th className="text-center">{t("UOM")}</th>
-              <th className="text-end">{t("Rate")}</th>
+              <th className="text-end">
+                {t("Rate")} {docSym}
+              </th>
               <th className="text-end">{t("Disc%")}</th>
               <th className="text-end">{t("Price/Disc")}</th>
               <th className="text-end">{t("Value")}</th>
@@ -740,15 +849,17 @@ const CostingWorksheet = ({
               <th className="text-end">{t("Total+Exp")}</th>
               <th className="text-end">{t("Rebate")}</th>
               <th className="text-end">{t("Margin%")}</th>
-              <th className="text-end">{t("Margin")} ₹</th>
+              <th className="text-end">
+                {t("Margin")} {docSym}
+              </th>
               <th className="text-end">{t("Grand Total")}</th>
               {isForeign && (
                 <th className="text-end">
-                  {t("Rate")} {docCurrencyCode}
+                  {t("Rate")} {docCur}
                 </th>
               )}
               <th className="text-end">
-                {t("Amt")} {isForeign ? docCurrencyCode : "₹"}
+                {t("Amt")} {docCur}
               </th>
               <th className="text-end">{t("Freight")}</th>
               <th className="text-end">{t("CNF Amount")}</th>
@@ -770,12 +881,19 @@ const CostingWorksheet = ({
               pagedFields.map(({ row, idx }) => {
                 const l = liveLines[idx] || {};
                 const c = computeLineCosting(l, { excludeGst: true });
+                // Price/Disc in the DOCUMENT currency = converted cost − disc,
+                // consistent with Value/Expense/… below (all doc currency).
+                const costDoc =
+                  num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
                 const priceAfterDisc = round2(
-                  num(l.unit_price) * (1 - num(l.discount_pct) / 100)
+                  costDoc * (1 - num(l.discount_pct) / 100)
                 );
                 const totalAfterExp = round2(c.taxable + c.expenses);
+                // computeLineCosting already converted the cost source→document
+                // currency, so the line total is ALREADY in the doc currency —
+                // no × rate here.
                 const grandInr = c.lineTotal;
-                const amtDoc = isForeign ? grandInr * rate : grandInr;
+                const amtDoc = grandInr;
                 const rateDoc = num(l.qty) ? amtDoc / num(l.qty) : 0;
                 // CNF = FOB (amtDoc) + this line's qty-share of freight.
                 const lineFreight = lineFreights[idx] || 0;

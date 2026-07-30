@@ -517,13 +517,12 @@ const PoVendorView = () => {
         // detail "POV Total" card); fall back to goods-only if not present.
         const orderValue = num(row?.order_value);
         const amount = orderValue > 0 ? orderValue : goods;
-        // Amounts are stored in INR; a foreign POV carries exchange_rate
-        // (foreign-per-₹1) + currency_code, so render in the POV currency.
-        const rate = Number(row?.exchange_rate) || 1;
+        // NATIVE model (plan §6.3): POV amounts are stored in the POV's own
+        // currency, so render them AS-IS with that currency.
         const code = row?.currency_code || "INR";
         return (
           <span className="fw-bold text-nowrap">
-            {formatMoney(amount * rate, code)}
+            {formatMoney(amount, code)}
           </span>
         );
       },

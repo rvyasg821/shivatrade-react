@@ -108,10 +108,12 @@ const ViewPoVendor = () => {
   const authUserItem = authStore?.authUserItem || null;
   const p = store?.poVendorItem || {};
   const sym = p?.currency_symbol || "₹";
-  // All POV money is stored in INR; multiply by the POV's exchange rate
-  // (foreign-per-₹1, 1 for INR) to display in the POV's currency.
-  const rate = Number(p?.exchange_rate) || 1;
-  const fmtCcy = (vInr) => fmtMoney(num(vInr) * rate);
+  // NATIVE model (plan §6.3): POV money is stored in the POV's own currency, so
+  // it displays AS-IS — no conversion. `inrRate` = ₹ per 1 unit (INR-per-foreign,
+  // the frozen exchange_rate) is shown only as an informational reference.
+  const rate = 1;
+  const inrRate = Number(p?.exchange_rate) || 1;
+  const fmtCcy = (vNative) => fmtMoney(num(vNative) * rate);
 
   // Right-side Event Timeline height tracks ONLY the Line Items ("overview")
   // tab so it doesn't balloon on the taller GRN / Debit Note / Expense tabs.
@@ -530,8 +532,8 @@ const ViewPoVendor = () => {
       {p?.currency_code ? (
         <span className="text-muted">
           · {sym} {p.currency_code}
-          {rate > 0 && rate !== 1
-            ? ` · ₹${(1 / rate).toLocaleString(undefined, {
+          {p.currency_code !== "INR" && inrRate > 0
+            ? ` · ₹${inrRate.toLocaleString(undefined, {
                 maximumFractionDigits: 4,
               })} ${t("per 1")} ${p.currency_code}`
             : ""}

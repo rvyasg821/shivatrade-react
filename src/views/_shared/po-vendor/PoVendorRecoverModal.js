@@ -8,8 +8,10 @@
 // Also doubles as the "recover" flow — when a POV is cancelled its lines go
 // back to pending and reappear here.
 //
-// Currency note: vendor costs are stored in INR (₹) — that's what the
-// per-line rate / per-vendor totals + charges show.
+// Currency note (native model, plan §6.3): vendor costs are stored in the
+// VENDOR's own currency — the per-line rate / per-vendor totals + charges show
+// that native value as-is. exchange_rate (₹ per 1 unit) is frozen per POV only
+// for the INR stock/books valuation.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -88,7 +90,7 @@ const PoVendorRecoverModal = ({
   const [qtyEdited, setQtyEdited] = useState({});
   // rateOverride[purchase_order_line_id] = raw string the operator typed in the
   // Rate column, in the assigned vendor's currency. Blank/absent → use the
-  // vendor's price-list rate. Converted back to ₹ by effRate / on submit.
+  // vendor's price-list rate. Native (vendor currency) — no conversion.
   const [rateOverride, setRateOverride] = useState({});
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
@@ -144,7 +146,7 @@ const PoVendorRecoverModal = ({
   // Per-vendor display currency + rate. One POV is created per vendor, so each
   // can be in its own currency. Shape: { [vid]: { currency_code, rate_display } }
   // where rate_display = ₹ per 1 foreign unit (what the operator sees/edits).
-  // Prices stay entered in INR; this only sets how each SAVED POV renders.
+  // Prices are entered/stored NATIVE (vendor currency); rate_display freezes the POV rate.
   const [vendorCurrencies, setVendorCurrencies] = useState({});
 
   // ── Expense master (loaded once when modal opens) ──
@@ -189,15 +191,16 @@ const PoVendorRecoverModal = ({
   const vcFor = (vid) =>
     vendorCurrencies[vid] || { currency_code: "INR", rate_display: "1" };
   const gstAppliesFor = (vid) => vcFor(vid).currency_code === "INR";
-  // Stored foreign-per-₹1 rate for a vendor (INR → 1). rate_display is ₹/foreign.
-  const storedRateFor = (vid) => {
+  // NATIVE model: prices are already in the vendor's currency, so previews show
+  // them AS-IS (no conversion). `inrRateFor` = ₹ per 1 unit (rate_display) and is
+  // used ONLY to freeze the POV's exchange_rate for INR stock/books. (Plan §6.3.)
+  const inrRateFor = (vid) => {
     const vc = vcFor(vid);
     if (vc.currency_code === "INR") return 1;
     const disp = Number(vc.rate_display);
-    return disp > 0 ? 1 / disp : 1;
+    return disp > 0 ? disp : 1;
   };
-  // Vendor's currency symbol; multiply an INR amount by storedRateFor to show it
-  // in that vendor's currency (all card previews are INR-sourced).
+  // Vendor's currency symbol (prices are native to that currency).
   const symFor = (vid) => getCurrencySymbol(vcFor(vid).currency_code) || "₹";
   const setVendorRateDisplay = (vid, text) =>
     setVendorCurrencies((curr) => ({
@@ -213,8 +216,11 @@ const PoVendorRecoverModal = ({
       },
     }));
     if (code && code !== "INR") {
+      // Pair-aware: (code → INR) is ₹ per 1 unit, used directly as rate_display.
       instance
-        .get(API_ENDPOINTS.currencies.currentRate, { params: { to: code } })
+        .get(API_ENDPOINTS.currencies.currentRate, {
+          params: { from: code, to: "INR" },
+        })
         .then((resp) => {
           const r = Number(resp?.data?.data?.rate);
           if (r > 0)
@@ -222,7 +228,7 @@ const PoVendorRecoverModal = ({
               ...curr,
               [vid]: {
                 currency_code: code,
-                rate_display: String(Math.round((1 / r) * 100) / 100),
+                rate_display: String(Math.round(r * 100) / 100),
               },
             }));
         })
@@ -368,12 +374,25 @@ const PoVendorRecoverModal = ({
   const vendorOptionsForLine = (l) => {
     const cands = l.candidate_vendors || [];
     if (cands.length) {
-      const cheapestId = cands[0]?.vendor_id;
-      return cands.map((c) => ({
-        value: c.vendor_id,
-        label: `${c.vendor_name} · ₹${fmt(c.unit_price)}`,
-        isCheapest: c.vendor_id === cheapestId,
-      }));
+      // Cheapest = lowest ₹-equivalent among vendors we CAN convert. If none is
+      // convertible, no vendor is marked cheapest. (Backend sorts by ₹ already.)
+      const cheapestId = cands.find((c) => c.inr_rate_available)?.vendor_id;
+      return cands.map((c) => {
+        const sym = getCurrencySymbol(c.currency_code) || "";
+        const native = `${sym}${fmt(c.unit_price)}`;
+        const foreign =
+          (c.currency_code || "").toUpperCase() !== "INR";
+        const inrEq =
+          foreign && c.inr_rate_available && c.unit_price_inr != null
+            ? ` (≈ ₹${fmt(c.unit_price_inr)})`
+            : "";
+        const noRate = c.inr_rate_available === false ? " · no ₹ rate" : "";
+        return {
+          value: c.vendor_id,
+          label: `${c.vendor_name} · ${native}${inrEq}${noRate}`,
+          isCheapest: c.vendor_id === cheapestId,
+        };
+      });
     }
     return activeVendors.map((v) => ({
       value: v.vendor_id,
@@ -396,8 +415,8 @@ const PoVendorRecoverModal = ({
   const effRate = (l, vendorId) => {
     const ov = rateOverride[l.purchase_order_line_id];
     if (ov != null && String(ov) !== "") {
-      const sr = storedRateFor(vendorId) || 1;
-      return Math.round(((Number(ov) || 0) / sr) * 100) / 100;
+      // Native: the operator types the price in the vendor's own currency.
+      return Math.round((Number(ov) || 0) * 100) / 100;
     }
     return priceForLine(l, vendorId);
   };
@@ -429,7 +448,7 @@ const PoVendorRecoverModal = ({
     return Array.from(map.values()).sort((a, b) =>
       (a.vendor_name || "").localeCompare(b.vendor_name || "")
     );
-    // effRate reads rateOverride + storedRateFor(vendorCurrencies), so the
+    // effRate reads rateOverride + vendorCurrencies (native), so the
     // per-vendor goods total recomputes when either changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewLines, assignment, dropped, activeVendors, rateOverride, vendorCurrencies]);
@@ -626,14 +645,13 @@ const PoVendorRecoverModal = ({
           l.hsn_code != null && String(l.hsn_code).trim() !== ""
             ? String(l.hsn_code).trim()
             : undefined,
-        // Rate override → send in ₹ (the operator typed it in the vendor's
-        // currency; convert back with the vendor's stored foreign-per-₹1 rate).
-        // Omitted when untouched so the backend keeps its price-list fallback.
+        // Native: the operator typed the price in the vendor's own currency, so
+        // it is sent as-is. Omitted when untouched (backend keeps its price-list
+        // fallback, also native).
         unit_price: (() => {
           const ov = rateOverride[l.purchase_order_line_id];
           if (ov == null || String(ov) === "") return undefined;
-          const sr = storedRateFor(assignment[l.purchase_order_line_id]) || 1;
-          return String(Math.round(((Number(ov) || 0) / sr) * 100) / 100);
+          return String(Math.round((Number(ov) || 0) * 100) / 100);
         })(),
       }));
     if (assignments.length === 0) {
@@ -678,7 +696,9 @@ const PoVendorRecoverModal = ({
       // not inherit the SO currency on the backend.
       trimmedCurrencies[vid] = {
         currency_code: vc.currency_code || "INR",
-        exchange_rate: isForeign ? String(storedRateFor(vid)) : "1",
+        // Native model: exchange_rate = ₹ per 1 unit (INR-per-foreign) for the
+        // POV's INR stock/books valuation.
+        exchange_rate: isForeign ? String(inrRateFor(vid)) : "1",
       };
     }
 
@@ -697,18 +717,16 @@ const PoVendorRecoverModal = ({
       }
     }
 
-    // Per-vendor advances with a positive amount only. The advance is entered
-    // in the vendor's currency, but payments are STORED in INR — convert back
-    // (INR = foreign / storedRate, where storedRate is foreign-per-₹1).
+    // Per-vendor advances with a positive amount only. Native model: the advance
+    // (a vendor payment) is recorded in the vendor's own currency and stored
+    // as-is — no conversion.
     const trimmedAdvances = {};
     for (const [vid, adv] of Object.entries(vendorAdvances)) {
       if (num(adv?.amount) > 0) {
-        const sr = storedRateFor(vid) || 1;
-        const amountInr = Math.round((num(adv.amount) / sr) * 100) / 100;
         trimmedAdvances[vid] = {
           payment_date:
             adv.payment_date || new Date().toISOString().slice(0, 10),
-          amount: String(amountInr),
+          amount: String(Math.round(num(adv.amount) * 100) / 100),
           invoice_number: adv.invoice_number?.trim() || undefined,
           notes: adv.notes?.trim() || undefined,
         };
@@ -848,17 +866,15 @@ const PoVendorRecoverModal = ({
                       (o) => o.value === picked
                     );
                     const rate = effRate(l, picked);
-                    // Value shown in the Rate input (vendor currency): the raw
-                    // override as typed, else the price-list rate × display rate.
+                    // Value shown in the Rate input — native (vendor currency):
+                    // the raw override as typed, else the price-list rate as-is.
                     const rateOv = rateOverride[l.purchase_order_line_id];
                     const rateInputVal =
                       rateOv != null && String(rateOv) !== ""
                         ? rateOv
                         : priceForLine(l, picked) > 0
                         ? String(
-                            Math.round(
-                              priceForLine(l, picked) * storedRateFor(picked) * 10000
-                            ) / 10000
+                            Math.round(priceForLine(l, picked) * 10000) / 10000
                           )
                         : "";
                     const noVendor = vendorOpts.length === 0;
@@ -869,12 +885,11 @@ const PoVendorRecoverModal = ({
                     const lineGstApplies = gstAppliesFor(
                       assignment[l.purchase_order_line_id]
                     );
-                    // Display currency follows the line's assigned vendor's POV
-                    // currency: rate/amounts are stored in ₹, shown as
-                    // ₹value × (foreign-per-₹1). Falls back to ₹ (rate 1) when
-                    // no vendor is picked yet — same maths as the vendor card.
+                    // Native model: rate/amounts are already in the vendor's POV
+                    // currency, shown as-is. lineRate is 1 (no conversion); lineSym
+                    // is just the currency symbol.
                     const lineSym = symFor(picked);
-                    const lineRate = storedRateFor(picked);
+                    const lineRate = 1;
                     return (
                       <tr
                         key={l.purchase_order_line_id}
@@ -1203,10 +1218,10 @@ const PoVendorRecoverModal = ({
                     ? goodsGst + chargeGst
                     : 0;
                   const grandTotal = v.total + chargesTotal + gstTotal;
-                  // Preview totals are INR-sourced; show them in the vendor's
-                  // chosen currency (× rate) with its symbol.
+                  // Native model: preview totals are already in the vendor's
+                  // chosen currency, shown as-is with its symbol (vRate = 1).
                   const vSym = symFor(v.vendor_id);
-                  const vRate = storedRateFor(v.vendor_id);
+                  const vRate = 1;
                   return (
                     <div key={v.vendor_id} className="po-gen-card mb-2">
                       <div className="po-gen-head justify-content-between">

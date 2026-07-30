@@ -51,7 +51,10 @@ export const computeLineCosting = (line, opts = {}) => {
   const l = line || {};
   const excludeGst = !!opts.excludeGst;
   const qty = num(l.qty);
-  const price = num(l.unit_price);
+  // Multi-currency (D-7 = A): convert the vendor COST from its source currency
+  // to the DOCUMENT currency FIRST (× cost_exchange_rate; 1 for a domestic /
+  // same-currency line), then build the sell price in the document currency.
+  const price = num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
   const disc = num(l.discount_pct);
   const gross = round2(qty * price);
   const discountAmt = round2((gross * disc) / 100);
@@ -144,7 +147,8 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
 
   (lines || []).forEach((l) => {
     const qty = num(l?.qty);
-    const price = num(l?.unit_price);
+    // Convert the vendor cost source→document currency first (1 = no convert).
+    const price = num(l?.unit_price) * (num(l?.cost_exchange_rate) || 1);
     const disc = num(l?.discount_pct);
     const taxPct = num(l?.tax_pct);
     const lineGross = qty * price;
@@ -218,19 +222,20 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     : net > 0
     ? (margin_amount / net) * 100
     : 0;
-  const grand_inr_raw = net + margin_amount + tax_total;
+  // Multi-currency: every line was already converted source→document currency,
+  // so the sums (net/margin/tax) are in the DOCUMENT currency. The grand total
+  // is that sum — NO header × rate. `rate` (doc-per-₹1) only yields the INR
+  // figure for the books/reports roll-up. For an INR document rate = 1.
+  const grand_doc_raw = net + margin_amount + tax_total;
   const rate = num(exchangeRate) || 1;
-  // INR is the internal base — keep it un-rounded (2 dp). Round-off is applied
-  // to the CUSTOMER-currency grand total (the figure the customer pays): the
-  // raw foreign amount is rounded to a whole unit and the difference shown as
-  // a round-off line. For an INR document rate = 1, so this rounds INR — same
-  // standard whole-unit behaviour.
-  const grand_inr = round2(grand_inr_raw);
-  const grand_currency_raw = round2(grand_inr_raw * rate);
-  // Round the customer total to a whole unit (displayed with 2 decimals as
-  // .00); the difference shows as a round-off line.
+  // Customer (document) currency total — round to a whole unit; the difference
+  // shows as a round-off line.
+  const grand_currency_raw = round2(grand_doc_raw);
   const grand_currency = Math.round(grand_currency_raw);
   const round_off = round2(grand_currency - grand_currency_raw);
+  // INR equivalent for the roll-up (doc ÷ doc-per-₹1).
+  const grand_inr_raw = rate > 0 ? grand_doc_raw / rate : grand_doc_raw;
+  const grand_inr = round2(grand_inr_raw);
 
   return {
     gross_total,

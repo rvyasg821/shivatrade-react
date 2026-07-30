@@ -65,9 +65,10 @@ const OverviewTab = () => {
   const p = purchaseOrderItem || {};
   const lines = p?.lines || [];
   const sym = p?.currency_symbol || "₹";
-  const rate = Number(p?.exchange_rate) || 1;
+  // Native model: line amounts are already stored in the document currency
+  // (each cost was converted source→doc in recompute) — display AS-IS.
   const toCcy = (v) =>
-    v === null || v === undefined || v === "" ? v : Number(v) * rate;
+    v === null || v === undefined || v === "" ? v : Number(v);
 
   useEffect(() => {
     if (!companyItem?._id) dispatch(getCompanyDetails());

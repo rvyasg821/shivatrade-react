@@ -25,7 +25,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess, vendorId }) => {
           ? t("A row is skipped if its product_code or unit_price is missing or not found")
           : t("A row is skipped if its vendor_code, product_code or unit_price is missing or not found")}
       </li>
-      <li>{t("Currency: blank or unknown code falls back to your company's default currency")}</li>
+      <li>{t("Currency is taken from the vendor automatically — there is no currency column")}</li>
       <li>{t("Effective Date: blank defaults to today. Use DD/MM/YY (e.g. 14/05/26) or YYYY-MM-DD")}</li>
       <li>{t("If Valid Until is set, Effective Date must be provided — otherwise the row is skipped")}</li>
       <li>{t("A matching vendor + product + effective date updates the existing entry; otherwise a new one is created")}</li>
