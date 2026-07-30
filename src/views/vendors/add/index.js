@@ -178,7 +178,12 @@ const VendorForm = () => {
           .nullable()
           .notRequired()
           .max(15, t("GSTIN must be at most 15 characters")),
-        category_ids: yup.array().of(yup.string()).nullable().notRequired(),
+        category_ids: yup
+          .array()
+          .of(yup.string())
+          .max(1, t("A vendor can have only one vendor category"))
+          .nullable()
+          .notRequired(),
         product_category_ids: yup
           .array()
           .of(yup.string())
@@ -306,7 +311,8 @@ const VendorForm = () => {
           twitter: v.social_media?.twitter || "",
           other: v.social_media?.other || "",
         },
-        category_ids: (v.categories || []).map((c) => c._id),
+        // One vendor category only — collapse any legacy multi-value to the first.
+        category_ids: (v.categories || []).slice(0, 1).map((c) => c._id),
         product_category_ids: (v.product_categories || []).map((c) => c._id),
         gstin: v.gstin || "",
         pan: v.pan || "",
@@ -405,9 +411,11 @@ const VendorForm = () => {
       .catch(() => setProductCategoryOptions([]));
   }, []);
 
-  const selectedCategories = useMemo(() => {
+  // A vendor has exactly ONE vendor category — single-select. category_ids is
+  // kept as an array (0 or 1 id) so the backend contract stays unchanged.
+  const selectedCategory = useMemo(() => {
     const ids = watch("category_ids") || [];
-    return vendorCategoryOptions.filter((o) => ids.includes(o.value));
+    return vendorCategoryOptions.find((o) => ids.includes(o.value)) || null;
   }, [vendorCategoryOptions, watch("category_ids")]);
 
   const selectedProductCategories = useMemo(() => {
@@ -707,7 +715,7 @@ const VendorForm = () => {
 
                     <Col md="6" className="mb-2">
                       <Label className="form-label" for="category_ids">
-                        {t("Vendor Categories")}
+                        {t("Vendor Category")}
                       </Label>
                       <Controller
                         name="category_ids"
@@ -715,16 +723,13 @@ const VendorForm = () => {
                         render={({ field }) => (
                           <Select
                             inputId="category_ids"
-                            isMulti
                             isClearable
                             classNamePrefix="select"
                             options={vendorCategoryOptions}
-                            value={selectedCategories}
-                            placeholder={t(
-                              "Select one or more vendor categories"
-                            )}
-                            onChange={(opts) =>
-                              field.onChange((opts || []).map((o) => o.value))
+                            value={selectedCategory}
+                            placeholder={t("Select a vendor category")}
+                            onChange={(opt) =>
+                              field.onChange(opt ? [opt.value] : [])
                             }
                           />
                         )}
