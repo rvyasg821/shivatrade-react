@@ -4,8 +4,9 @@
 // they reflect the listing's active filters (the parent re-fetches stats
 // whenever a filter changes).
 //
-//   • Stock Value (₹)   — current on-hand valuation (net qty × wavg received price)
-//   • Stock Lines       — receipt lines in the filtered set
+//   • Stock Value      — current on-hand valuation, PER CURRENCY (native,
+//                        never summed across currencies)
+//   • Currencies       — distinct purchase currencies in stock
 //   • Distinct Products — SKUs in stock
 //   • Vendors           — vendors supplying the current stock
 
@@ -14,6 +15,7 @@ import { DollarSign, Layers, Package, Truck } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { formatIndianMoney } from "@src/utility/indianMoney";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const PALETTE = {
   success: { iconBg: "#d9f5e3", iconFg: "#28c76f" },
@@ -91,20 +93,48 @@ const InventoryStatsCards = ({ stats }) => {
     return Number.isFinite(n) ? n : 0;
   };
 
+  // Per-currency stock values — native, never summed. Rendered stacked inside
+  // the first tile so each currency reads as its own figure.
+  const byCurrency = stats?.by_currency || [];
+  const stockValueNode =
+    byCurrency.length === 0 ? (
+      formatIndianMoney(0)
+    ) : (
+      <div className="d-flex flex-column" style={{ gap: "0.1rem" }}>
+        {byCurrency.map((c) => (
+          <div
+            key={c.currency_code}
+            style={{ fontSize: byCurrency.length > 1 ? "1.05rem" : "1.5rem" }}
+          >
+            <span
+              className="text-muted me-25"
+              style={{ fontSize: "0.7rem" }}
+            >
+              {c.currency_code}
+            </span>
+            {formatIndianMoney(
+              num(c.stock_value),
+              getCurrencySymbol(c.currency_code) || c.currency_code
+            )}
+          </div>
+        ))}
+      </div>
+    );
+
   return (
     <Row className="g-2 mb-1">
       <Tile
         icon={DollarSign}
         color="success"
         label="Current Stock Value"
-        value={formatIndianMoney(num(stats?.stock_value))}
-        subtitle="On-hand stock (INR)"
+        value={stockValueNode}
+        subtitle="On-hand stock (per currency, native)"
       />
       <Tile
         icon={Layers}
         color="info"
-        label="Stock Lines"
-        value={num(stats?.line_count).toLocaleString("en-IN")}
+        label="Currencies"
+        value={byCurrency.length.toLocaleString("en-IN")}
       />
       <Tile
         icon={Package}
