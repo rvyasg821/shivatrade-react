@@ -281,8 +281,12 @@ const PoVendorRecoverModal = ({
         const seedA = {};
         const seedD = {};
         for (const l of lines) {
+          // Prefer the vendor CHOSEN on the sales order's costing worksheet
+          // (current_vendor_id). Only fall back to the cheapest price-list pick
+          // (suggested_vendor_id) when the SO line has no vendor assigned — the
+          // operator picked that vendor (and its currency) deliberately.
           seedA[l.purchase_order_line_id] =
-            l.suggested_vendor_id || l.current_vendor_id || "";
+            l.current_vendor_id || l.suggested_vendor_id || "";
           if (l.fully_covered) seedD[l.purchase_order_line_id] = true;
         }
         setAssignment(seedA);
@@ -300,6 +304,33 @@ const PoVendorRecoverModal = ({
   }, [isOpen, poId]);
 
   const handleVendorChange = (lineId, vendorId) => {
+    // One-currency rule (mirrors the costing worksheet): reject picking a
+    // vendor whose currency differs from the one already used by another
+    // assigned line — blocked immediately, not just at Create.
+    if (vendorId) {
+      const ccyOf = (vid) =>
+        (
+          activeVendors.find((av) => av.vendor_id === vid)?.currency_code ||
+          vendorCurrencies[vid]?.currency_code ||
+          "INR"
+        ).toUpperCase();
+      const newCcy = ccyOf(vendorId);
+      const existingCcy = Object.entries(assignment)
+        .filter(([lid, vid]) => lid !== lineId && vid && !dropped[lid])
+        .map(([, vid]) => ccyOf(vid))
+        .find(Boolean);
+      if (existingCcy && newCcy !== existingCcy) {
+        Notification(
+          "Validation",
+          t(
+            "All vendors must use the same currency ({{cur}}). This vendor is in {{other}} — pick a {{cur}} vendor.",
+            { cur: existingCcy, other: newCcy }
+          ),
+          "warning"
+        );
+        return;
+      }
+    }
     setAssignment((s) => ({ ...s, [lineId]: vendorId }));
     // A new vendor has its own price-list rate — drop any rate the operator
     // typed for the previous vendor so the new default shows through.
@@ -688,17 +719,36 @@ const PoVendorRecoverModal = ({
       trimmedLocations[vid] = vendorLocations[vid];
     }
 
+    // One-currency rule (mirrors the costing worksheet): every vendor in this
+    // POV batch must share ONE currency. Reassigning a line to a different-
+    // currency vendor is blocked so the generated POVs stay single-currency.
+    const distinctCcy = [
+      ...new Set(
+        submittingVendorIds.map((vid) =>
+          (vcFor(vid).currency_code || "INR").toUpperCase()
+        )
+      ),
+    ];
+    if (distinctCcy.length > 1) {
+      Notification(
+        "Validation",
+        t(
+          "All vendors must use the same currency ({{list}}). Reassign lines so every vendor is in one currency.",
+          { list: distinctCcy.join(", ") }
+        ),
+        "warning"
+      );
+      return;
+    }
+
     const trimmedCurrencies = {};
     for (const vid of submittingVendorIds) {
       const vc = vcFor(vid);
-      const isForeign = vc.currency_code && vc.currency_code !== "INR";
-      // Send every vendor explicitly so an INR vendor under a foreign SO does
-      // not inherit the SO currency on the backend.
+      // Send only the vendor's OWN currency (auto-resolved from the vendor) so
+      // an INR vendor under a foreign SO isn't given the SO currency. No
+      // exchange_rate — a POV is native to the vendor's currency.
       trimmedCurrencies[vid] = {
         currency_code: vc.currency_code || "INR",
-        // Native model: exchange_rate = ₹ per 1 unit (INR-per-foreign) for the
-        // POV's INR stock/books valuation.
-        exchange_rate: isForeign ? String(inrRateFor(vid)) : "1",
       };
     }
 
@@ -807,7 +857,7 @@ const PoVendorRecoverModal = ({
           <>
             <p className="text-muted small mb-2">
               {t(
-                "Each line is pre-picked to the cheapest price-list vendor. Change the vendor to re-assign, or skip a line. One POV is created per unique vendor."
+                "Each line is pre-picked to the vendor chosen on the sales order (or the cheapest price-list vendor if none). Change the vendor to re-assign, or skip a line. One POV is created per unique vendor."
               )}
             </p>
 
@@ -1270,61 +1320,10 @@ const PoVendorRecoverModal = ({
                         </Button>
                       </div>
                       <div className="p-1">
-                        {/* Per-vendor display currency + exchange rate. Vendor
-                            prices are entered in INR (₹) above — this only sets
-                            how this vendor's SAVED POV renders (detail + PDF).
-                            Defaults to the source Sales Order's currency.
-                            exchange_rate is stored foreign-per-₹1. */}
-                        <Row className="mb-1">
-                          <Col md="3" sm="6">
-                            <Label className="form-label small fw-semibold mb-25">
-                              {t("Currency")}
-                            </Label>
-                            <Select
-                              classNamePrefix="select"
-                              options={currencyOptions}
-                              value={
-                                currencyOptions.find(
-                                  (o) => o.value === vcFor(v.vendor_id).currency_code
-                                ) || {
-                                  value: vcFor(v.vendor_id).currency_code,
-                                  label: vcFor(v.vendor_id).currency_code,
-                                }
-                              }
-                              onChange={(opt) =>
-                                setVendorCurrency(v.vendor_id, opt?.value || "INR")
-                              }
-                              isClearable={false}
-                              menuPortalTarget={document.body}
-                              menuPosition="fixed"
-                              styles={{
-                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                              }}
-                            />
-                          </Col>
-                          <Col md="3" sm="6">
-                            <Label className="form-label small fw-semibold mb-25">
-                              {t("Exchange Rate")}
-                              {vcFor(v.vendor_id).currency_code !== "INR" && (
-                                <span className="text-muted">
-                                  {" "}
-                                  (₹ {t("per 1")} {vcFor(v.vendor_id).currency_code})
-                                </span>
-                              )}
-                            </Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="any"
-                              bsSize="sm"
-                              value={vcFor(v.vendor_id).rate_display}
-                              disabled={vcFor(v.vendor_id).currency_code === "INR"}
-                              onChange={(e) =>
-                                setVendorRateDisplay(v.vendor_id, e.target.value)
-                              }
-                            />
-                          </Col>
-                        </Row>
+                        {/* Currency + Exchange Rate fields removed — a POV is
+                            native to the vendor's OWN currency (auto-resolved,
+                            shown in the ₹/$ symbols above) and inventory values
+                            stock per-currency, so no rate is needed here. */}
                         {/* Deliver-to location (ShivaTrade's receiving
                             location). Required — auto-filled to the default;
                             sets the POV's delivery_address_id → stock ledger. */}

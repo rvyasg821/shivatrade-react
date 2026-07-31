@@ -45,12 +45,15 @@ const SalesDocCostingCard = ({
     !!currencyCode && currencyCode.toUpperCase() !== "INR";
   const curLabel = currencySym || (currencyCode ? `${currencyCode} ` : "");
 
-  // `view.mode === 'doc'` flips every breakdown line into the doc currency.
+  // Multi-currency: `totals` are already in the DOCUMENT currency (each line's
+  // cost was converted source→doc before summing). So breakdown rows render in
+  // the doc symbol with NO extra conversion — base mode uses the doc currency
+  // symbol (was a hard-coded ₹). The detail-page `docView` toggle keeps its own.
   const docView = currencyView && currencyView.mode === "doc";
   const viewRate = docView ? num(currencyView.rate) || 1 : 1;
-  const viewSym = docView ? currencyView.sym || currencySym || "" : "₹";
-  // `money` replaces the old `inr` for breakdown rows: identity in base
-  // mode (so output is byte-for-byte the same), × rate in doc mode.
+  const viewSym = docView
+    ? currencyView.sym || currencySym || ""
+    : currencySym || "₹";
   const money = (v) => `${viewSym}${fmt(num(v) * viewRate)}`;
 
   const Wrapper = bare ? Fragment : Card;
@@ -216,46 +219,27 @@ const SalesDocCostingCard = ({
           </>
         ) : (
           <>
-            {/* INR is the internal base (un-rounded); round-off is applied to
-                the customer-currency total below. */}
-            <div className="d-flex justify-content-between align-items-baseline mb-1 gap-2">
-              <span className="fw-bold">{t("Grand Total (INR)")}</span>
-              <strong className="text-nowrap text-end">
-                ₹ {fmt(totals.grand_inr)}
-              </strong>
-            </div>
-            {isForeign && (
-              <>
-                <div className="d-flex justify-content-between mb-1 text-muted">
-                  <span>
-                    {num(totals.rate) > 0
-                      ? `1 ${currencyCode} = ${fmt(1 / num(totals.rate))} INR`
-                      : t("Rate")}
-                  </span>
-                  <span>
-                    {curLabel} {fmt(totals.grand_currency_raw)}
-                  </span>
-                </div>
-                {num(totals.round_off) !== 0 && (
-                  <div className="d-flex justify-content-between mb-1 text-muted">
-                    <span>{t("Round Off")}</span>
-                    <span>
-                      {num(totals.round_off) >= 0 ? "+ " : "− "}
-                      {curLabel} {fmt(Math.abs(num(totals.round_off)))}
-                    </span>
-                  </div>
-                )}
-              </>
+            {/* Values above are already in the document currency; the grand
+                total is their sum (NO header × rate). Round-off is applied to
+                the doc-currency total. The <hr> above is the only divider. */}
+            {num(totals.round_off) !== 0 && (
+              <div className="d-flex justify-content-between align-items-baseline mb-1 text-muted gap-2">
+                <span>{t("Round Off")}</span>
+                <span>
+                  {num(totals.round_off) >= 0 ? "+ " : "− "}
+                  {viewSym}
+                  {fmt(Math.abs(num(totals.round_off)))}
+                </span>
+              </div>
             )}
-            <div className="d-flex justify-content-between align-items-center pt-2 mt-1 border-top fw-bold">
+            <div className="d-flex justify-content-between align-items-center fw-bold">
               <span>
                 {t("Grand Total")}
-                {isForeign && curLabel ? ` (${curLabel.trim()})` : ""}
+                {curLabel ? ` (${curLabel.trim()})` : ""}
               </span>
-              <span>
-                {isForeign
-                  ? `${curLabel}${fmt(totals.grand_currency)}`
-                  : `₹ ${fmt(totals.grand_currency)}`}
+              <span className="text-nowrap text-end">
+                {viewSym}
+                {fmt(totals.grand_currency)}
               </span>
             </div>
           </>
