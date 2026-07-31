@@ -63,11 +63,11 @@ const DebitNoteView = () => {
   const [draftDn, setDraftDn] = useState(null);
   const [saving, setSaving] = useState(false);
   const dn = isCreate ? draftDn : store?.debitNoteItem;
-  // Amounts are STORED in INR; a foreign-currency Debit Note (inherited from the
-  // POV) carries exchange_rate (foreign-per-₹1) + code. The form works in the
-  // POV currency: `edits` hold POV-currency unit prices (seeded × rate) and are
-  // converted back to INR at save. `sym` is the currency symbol for display.
-  const rate = Number(dn?.exchange_rate) || 1;
+  // NATIVE model: amounts are stored in the POV's own currency (the return is
+  // settled in that currency), so there is NO INR conversion — `rate` is fixed
+  // at 1 and every historical × rate / ÷ rate below is now a no-op. `sym` is the
+  // POV currency symbol for display.
+  const rate = 1;
   const sym = getCurrencySymbol(dn?.currency_code) || "₹";
 
   // Editable line map keyed by debit-note line id.

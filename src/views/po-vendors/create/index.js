@@ -93,14 +93,9 @@ const CreatePoVendor = () => {
   const [deliveryTerms, setDeliveryTerms] = useState("");
 
   // Currency the SAVED POV renders in. Line prices stay in INR (₹); this only
-  // sets how the stored POV's detail view + PDF present amounts. exchange_rate
-  // is foreign-per-₹1 (e.g. USD ≈ 0.012).
+  // sets how the stored POV's detail view + PDF present amounts (all native to
+  // the vendor's currency — no INR conversion rate on the POV anymore).
   const [currencyCode, setCurrencyCode] = useState("INR");
-  const [exchangeRate, setExchangeRate] = useState("1");
-  // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
-  // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
-  // e.g. 0.012). Seed the display from the stored value while unfocused; store
-  // 1/X on edit. Mirrors the quotation exchange-rate field.
 
   // Standalone manual lines.
   const [lines, setLines] = useState([newRow()]);
@@ -301,36 +296,8 @@ const CreatePoVendor = () => {
   useEffect(() => {
     if (linkedMode && poFromStore?._id === pickedSoId && poFromStore?.currency_code) {
       setCurrencyCode(poFromStore.currency_code);
-      setExchangeRate(String(poFromStore.exchange_rate ?? 1));
     }
   }, [linkedMode, poFromStore, pickedSoId]);
-
-  // Rate auto-fetch: pull the current master rate whenever the currency CHANGES.
-  // Only currencyCode is in the deps so a rate the user just typed is not
-  // clobbered on every keystroke. Home currency (INR) is always exactly 1.
-  useEffect(() => {
-    if (currencyCode === "INR") {
-      setExchangeRate("1");
-      return;
-    }
-    let cancelled = false;
-    // Pair-aware: (currency → INR) = ₹ per 1 unit, stored directly as the POV's
-    // exchange_rate (INR-per-unit, native model). (Multi-currency §6.1.)
-    instance
-      .get(API_ENDPOINTS.currencies.currentRate, {
-        params: { from: currencyCode, to: "INR" },
-      })
-      .then((resp) => {
-        if (cancelled) return;
-        const rate = resp?.data?.data?.rate;
-        if (rate != null) setExchangeRate(String(Number(rate)));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode]);
 
   // PO line _id → vendor_id, to filter coverage lines by the chosen vendor.
   const vendorByLineId = useMemo(() => {
@@ -676,10 +643,6 @@ const CreatePoVendor = () => {
               delivery_terms: deliveryTerms?.trim() || undefined,
               expenses: expensesPayload.length ? expensesPayload : undefined,
               currency_code: currencyCode || undefined,
-              exchange_rate:
-                currencyCode && currencyCode !== "INR"
-                  ? String(Number(exchangeRate) || 1)
-                  : undefined,
             },
           })
         ).unwrap();
@@ -742,10 +705,6 @@ const CreatePoVendor = () => {
             delivery_terms: deliveryTerms?.trim() || undefined,
             expenses: expensesPayload.length ? expensesPayload : undefined,
             currency_code: currencyCode || undefined,
-            exchange_rate:
-              currencyCode && currencyCode !== "INR"
-                ? String(Number(exchangeRate) || 1)
-                : undefined,
             advance:
               advanceAmt > 0
                 ? {
@@ -793,6 +752,21 @@ const CreatePoVendor = () => {
           </CardHeader>
           <CardBody>
             <div className="row g-2 mb-2">
+              {/* Delivery address — first field; auto-selects the company's
+                  default location (is_default, else first). In linked mode the
+                  SO's deliver-to still wins (set once the source SO loads). */}
+              <div className="col-md-3">
+                <Label className="form-label">
+                  {t("Deliver To")}{" "}
+                  {!linkedMode && <span className="text-danger">*</span>}
+                </Label>
+                <LocationSelect
+                  value={deliveryAddressId}
+                  onChange={setDeliveryAddressId}
+                  autoSelectDefault={true}
+                />
+              </div>
+
               {/* Vendor */}
               <div className="col-md-3">
                 <Label className="form-label">
@@ -816,19 +790,6 @@ const CreatePoVendor = () => {
                 />
               </div>
 
-              {/* Delivery address */}
-              <div className="col-md-3">
-                <Label className="form-label">
-                  {t("Deliver To")}{" "}
-                  {!linkedMode && <span className="text-danger">*</span>}
-                </Label>
-                <LocationSelect
-                  value={deliveryAddressId}
-                  onChange={setDeliveryAddressId}
-                  autoSelectDefault={false}
-                />
-              </div>
-
               {/* Currency the SAVED POV renders in (lines stay in ₹). */}
               <div className="col-md-3">
                 <Label className="form-label">{t("Currency")}</Label>
@@ -843,27 +804,9 @@ const CreatePoVendor = () => {
                 />
               </div>
 
-              {/* Exchange rate — shown as ₹ per 1 foreign unit (e.g. 83.33);
-                  stored as foreign per ₹1. Locked at 1 for home currency. */}
-              <div className="col-md-3">
-                <Label className="form-label">
-                  {t("Exchange Rate")}
-                  {currencyCode !== "INR" && (
-                    <small className="text-muted">
-                      {" "}
-                      (₹ {t("per 1")} {currencyCode})
-                    </small>
-                  )}
-                </Label>
-                <Input
-                  type="number"
-                  step="any"
-                  min="0"
-                  disabled={currencyCode === "INR"}
-                  value={currencyCode === "INR" ? "1" : exchangeRate}
-                  onChange={(e) => setExchangeRate(e.target.value)}
-                />
-              </div>
+              {/* Exchange Rate field removed — a Vendor PO is settled in the
+                  vendor's own currency (native), and inventory now values stock
+                  per-currency, so no INR conversion rate is needed here. */}
             </div>
 
             {/* Lines */}
@@ -1306,20 +1249,6 @@ const CreatePoVendor = () => {
                       {dispStr(grandTotal)}
                     </td>
                   </tr>
-                  {currencyCode !== "INR" && (
-                    <tr>
-                      <td colSpan={2} className="text-end text-muted small">
-                        ≈ ₹
-                        {round2(
-                          num(grandTotal) * (Number(exchangeRate) || 1)
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        (₹{exchangeRate} {t("per 1")} {currencyCode})
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </Table>
             )}
@@ -1413,20 +1342,6 @@ const CreatePoVendor = () => {
                           setAdvance((s) => ({ ...s, amount: e.target.value }))
                         }
                       />
-                      {currencyCode !== "INR" &&
-                      num(advance.amount) > 0 &&
-                      (Number(exchangeRate) || 0) > 0 ? (
-                        <small className="text-muted">
-                          ≈ ₹
-                          {round2(
-                            num(advance.amount) * (Number(exchangeRate) || 1)
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {t("in ₹")}
-                        </small>
-                      ) : null}
                     </div>
                     <div className="col-md-4">
                       <Label className="form-label">{t("Invoice Number")}</Label>

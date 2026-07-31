@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { deleteUom, getUomList, cleanUomMessage } from "./store";
+import { deleteUom, deleteManyUom, getUomList, cleanUomMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -35,6 +35,7 @@ import { Edit, Trash2, PlusCircle } from "react-feather";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportExportButtons from "@src/views/_shared/import/ImportExportButtons";
 import ImportModal from "./components/ImportModal";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 
 // ** Constants
 import {
@@ -165,6 +166,12 @@ const UomList = () => {
   const canAdd = isAdmin || perms?.can_add;
   const canEdit = isAdmin || perms?.can_update;
   const canDelete = isAdmin || perms?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "units",
+    deleteFn: (ids) => dispatch(deleteManyUom(ids)).unwrap(),
+    onDone: () => handleUomLists(),
+  });
 
   const columns = [
     {
@@ -344,6 +351,16 @@ const UomList = () => {
               </Col>
               <Col sm="5" md="5">
                 <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+                  {canDelete && bulk.selectedRows.length > 0 && (
+                    <Button
+                      color="danger"
+                      outline
+                      onClick={bulk.confirmBulkDelete}
+                      disabled={bulk.deleting}
+                    >
+                      {t("Delete Selected")} ({bulk.selectedRows.length})
+                    </Button>
+                  )}
                   <ImportExportButtons
                     exportUrl={API_ENDPOINTS.uom.export}
                     filenamePrefix="uom"
@@ -374,6 +391,9 @@ const UomList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

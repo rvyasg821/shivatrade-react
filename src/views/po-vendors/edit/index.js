@@ -100,14 +100,9 @@ const EditPoVendor = () => {
   // print on the vendor PDF, so they must not move once the document is out.
   const [hsnByLine, setHsnByLine] = useState({});
   const [partByLine, setPartByLine] = useState({});
-  // Display currency — draft-only, like GST%/terms. Line prices stay in INR;
-  // this only sets how the saved POV renders. exchange_rate is foreign-per-₹1.
+  // Display currency — draft-only, like GST%/terms. Amounts render native to
+  // the vendor's currency; no INR conversion rate on the POV anymore.
   const [currencyCode, setCurrencyCode] = useState("INR");
-  const [exchangeRate, setExchangeRate] = useState("1");
-  // The field shows the intuitive inverse — ₹ per 1 foreign unit (e.g. 83.33)
-  // — while `exchangeRate` still STORES "foreign per ₹1" (system convention,
-  // e.g. 0.012). Seed the display from the stored value while unfocused; store
-  // 1/X on edit. Mirrors the create page's exchange-rate field.
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
@@ -139,9 +134,8 @@ const EditPoVendor = () => {
     );
     setPaymentTerms(p.payment_terms || co?.pov_default_payment_terms || "");
     setDeliveryTerms(p.delivery_terms || co?.pov_default_delivery_terms || "");
-    // Display currency + rate — seeded once from the loaded POV.
+    // Display currency — seeded once from the loaded POV.
     setCurrencyCode(p.currency_code || "INR");
-    setExchangeRate(String(p.exchange_rate ?? 1));
     // Keyed by the POV line's OWN `_id`, never `purchase_order_line_id` — that
     // column is NULL on a standalone POV, which would collapse every row onto
     // one key and make editing one line edit them all.
@@ -191,33 +185,6 @@ const EditPoVendor = () => {
     if (store?.success || store?.error) dispatch(cleanPoVendorMessage());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.success, store?.error]);
-
-  // Rate auto-fetch: pull the current master rate whenever the currency CHANGES.
-  // Only currencyCode is in the deps so a rate the user just typed is not
-  // clobbered on every keystroke. Home currency (INR) is always exactly 1.
-  useEffect(() => {
-    if (currencyCode === "INR") {
-      setExchangeRate("1");
-      return;
-    }
-    let cancelled = false;
-    // Pair-aware: fetch (currency → INR) = ₹ per 1 unit, stored directly as the
-    // POV's exchange_rate (INR-per-unit, native model). (Multi-currency §6.1.)
-    instance
-      .get(API_ENDPOINTS.currencies.currentRate, {
-        params: { from: currencyCode, to: "INR" },
-      })
-      .then((resp) => {
-        if (cancelled) return;
-        const rate = resp?.data?.data?.rate;
-        if (rate != null) setExchangeRate(String(Number(rate)));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode]);
 
   // Home INR (excluded from the exchange-rate options, which list only foreign
   // targets) + every foreign currency that has a rate configured. Unlike an
@@ -315,14 +282,9 @@ const EditPoVendor = () => {
       data.dispatched_through = dispatchedThrough?.trim() || "";
       data.payment_terms = paymentTerms?.trim() || "";
       data.delivery_terms = deliveryTerms?.trim() || "";
-      // NATIVE model: line prices are stored in the POV currency. currency_code
-      // + exchange_rate (INR per 1 unit, operator-editable, master-seeded) are
-      // sent for non-home currencies; the backend freezes/validates it.
+      // NATIVE model: line prices are stored in the POV currency. Only the
+      // currency is sent — the POV carries no INR conversion rate anymore.
       data.currency_code = currencyCode || undefined;
-      data.exchange_rate =
-        currencyCode && currencyCode !== "INR"
-          ? String(Number(exchangeRate) || 1)
-          : undefined;
     }
 
     // Quantity is editable in draft — block a save that would send 0 / blank,
@@ -726,27 +688,9 @@ const EditPoVendor = () => {
                 </div>
               )}
             </Col>
-            {isDraft && (
-              <Col md="6" className="mb-1">
-                <Label className="form-label">
-                  {t("Exchange Rate")}
-                  {currencyCode !== "INR" && (
-                    <small className="text-muted">
-                      {" "}
-                      (₹ {t("per 1")} {currencyCode})
-                    </small>
-                  )}
-                </Label>
-                <Input
-                  type="number"
-                  step="any"
-                  min="0"
-                  disabled={currencyCode === "INR"}
-                  value={currencyCode === "INR" ? "1" : exchangeRate}
-                  onChange={(e) => setExchangeRate(e.target.value)}
-                />
-              </Col>
-            )}
+            {/* Exchange Rate field removed — the POV is native to the vendor's
+                currency and inventory values stock per-currency, so no INR
+                conversion rate is needed. */}
           </Row>
 
           {/* Vendor-side terms printed on this POV's PDF. */}

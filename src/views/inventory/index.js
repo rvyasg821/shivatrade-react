@@ -25,6 +25,7 @@ import {
 } from "./store";
 import { getVendorDropdown } from "../vendors/store";
 import { getCategoryDropdown } from "../categories/store";
+import { getCurrencyDropdown } from "../currencies/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 import {
@@ -43,7 +44,7 @@ import Select from "react-select";
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
-import { formatDate } from "@src/utility/dateFormat";
+import { getCurrencySymbol } from "@src/utility/currency";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
@@ -64,21 +65,25 @@ const fmtQty = (v) => {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
 
-// Weighted-average rate → ₹ with 2 decimals.
-const fmtRate = (v) => {
+// Multi-currency inventory: money is NATIVE to each row's purchase currency —
+// the symbol comes from the row's currency_code, never a fixed ₹.
+const sym = (code) => getCurrencySymbol(code) || code || "₹";
+
+// Weighted-average rate → native symbol with 2 decimals. Zero reads "-".
+const fmtRate = (v, code) => {
   const n = Number(v);
   if (!Number.isFinite(n) || n === 0) return "-";
-  return `₹${n.toLocaleString("en-IN", {
+  return `${sym(code)}${n.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 };
 
-// Money → ₹ with 2 decimals. Unlike fmtRate, always renders (incl. ₹0.00 and
-// negatives) so a value column reads/sums cleanly.
-const fmtMoney = (v) => {
+// Money → native symbol with 2 decimals. Unlike fmtRate, always renders (incl.
+// 0.00 and negatives) so a value column reads cleanly.
+const fmtMoney = (v, code) => {
   const n = Number(v) || 0;
-  return `₹${n.toLocaleString("en-IN", {
+  return `${sym(code)}${n.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -91,6 +96,7 @@ const InventoryView = () => {
   const store = useSelector((s) => s.inventory);
   const vendorStore = useSelector((s) => s.vendor);
   const categoryStore = useSelector((s) => s.category);
+  const currencyStore = useSelector((s) => s.currency);
 
   // In-page deliver-to location filter (top-level, scopes BOTH tabs). Empty
   // string = All Locations. Options come from the Locations master; the value
@@ -120,6 +126,9 @@ const InventoryView = () => {
   const [searchInput, setSearchInput] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
+  // Purchase-currency filter. "" = All (every currency, stacked in the table +
+  // a per-currency total each). Picking one shows only that currency's stock.
+  const [currencyFilter, setCurrencyFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -136,8 +145,8 @@ const InventoryView = () => {
       to = dateTo
     ) => {
       const p = {
-        orderBy: "arrival_date",
-        orderDirection: "desc",
+        orderBy: "product_name",
+        orderDirection: "asc",
         page,
         perPage,
         search,
@@ -147,6 +156,7 @@ const InventoryView = () => {
       if (selectedLocationId) p.location_id = selectedLocationId;
       if (from) p.date_from = from;
       if (to) p.date_to = to;
+      if (currencyFilter) p.currency_code = currencyFilter;
       if (inStockOnly) p.in_stock_only = true;
       dispatch(getInventoryList(p));
     },
@@ -159,6 +169,7 @@ const InventoryView = () => {
       selectedLocationId,
       dateFrom,
       dateTo,
+      currencyFilter,
       inStockOnly,
       dispatch,
     ]
@@ -179,6 +190,7 @@ const InventoryView = () => {
       if (selectedLocationId) params.location_id = selectedLocationId;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
+      if (currencyFilter) params.currency_code = currencyFilter;
       if (inStockOnly) params.in_stock_only = true;
 
       const resp = await instance.get(API_ENDPOINTS.inventory.export, {
@@ -219,6 +231,7 @@ const InventoryView = () => {
       if (selectedLocationId) p.location_id = selectedLocationId;
       if (from) p.date_from = from;
       if (to) p.date_to = to;
+      if (currencyFilter) p.currency_code = currencyFilter;
       if (inStockOnly) p.in_stock_only = true;
       dispatch(getInventoryStats(p));
     },
@@ -229,6 +242,7 @@ const InventoryView = () => {
       selectedLocationId,
       dateFrom,
       dateTo,
+      currencyFilter,
       inStockOnly,
       dispatch,
     ]
@@ -252,6 +266,7 @@ const InventoryView = () => {
   useLayoutEffect(() => {
     dispatch(getVendorDropdown());
     dispatch(getCategoryDropdown());
+    dispatch(getCurrencyDropdown());
     instance
       .get(`${API_ENDPOINTS.locations.list}`, {
         params: { status: "ACTIVE", dropdown: "yes" },
@@ -284,6 +299,7 @@ const InventoryView = () => {
     selectedLocationId,
     dateFrom,
     dateTo,
+    currencyFilter,
     inStockOnly,
   ]);
 
@@ -320,6 +336,18 @@ const InventoryView = () => {
         label: c.name,
       })),
     [categoryStore?.categoryDropdown]
+  );
+
+  // Currency filter: "All" + every managed currency (code + symbol).
+  const currencyOptions = useMemo(
+    () => [
+      { value: "", label: t("All Currencies") },
+      ...(currencyStore?.currencyDropdown || []).map((c) => ({
+        value: c.code,
+        label: `${c.code} (${c.symbol || getCurrencySymbol(c.code) || c.code})`,
+      })),
+    ],
+    [currencyStore?.currencyDropdown, t]
   );
 
   const rows = store?.inventoryItems || [];
@@ -363,6 +391,18 @@ const InventoryView = () => {
             ) : null}
           </div>
         </div>
+      ),
+    },
+    {
+      // The purchase currency this stock row is valued in. A product bought in
+      // two currencies appears as two rows (one per currency).
+      name: t("Currency"),
+      center: true,
+      minWidth: "92px",
+      selector: (row) => (
+        <Badge className="doc-badge doc-badge-gray text-nowrap">
+          {row?.currency_code || "INR"} {sym(row?.currency_code)}
+        </Badge>
       ),
     },
     // Stock summary over the Received From/To period (from the ledger).
@@ -418,7 +458,7 @@ const InventoryView = () => {
       // "-", which made the two columns disagree on the same fact.
       selector: (row) => (
         <span className="text-nowrap fw-semibold">
-          {fmtMoney(row?.closing_value)}
+          {fmtMoney(row?.closing_value, row?.currency_code)}
         </span>
       ),
     },
@@ -446,9 +486,11 @@ const InventoryView = () => {
       center: true,
       hide: "md",
       minWidth: "100px",
-      // Weighted-average received unit price (₹/unit).
+      // Weighted-average surviving unit price (native/unit).
       selector: (row) => (
-        <span className="text-nowrap">{fmtRate(row?.avg_rate)}</span>
+        <span className="text-nowrap">
+          {fmtRate(row?.avg_rate, row?.currency_code)}
+        </span>
       ),
     },
     {
@@ -466,21 +508,10 @@ const InventoryView = () => {
             className="text-nowrap fw-semibold"
             style={{ color: val < 0 ? "#ea5455" : undefined }}
           >
-            {fmtMoney(val)}
+            {fmtMoney(val, row?.currency_code)}
           </span>
         );
       },
-    },
-    {
-      name: t("Receipt Date"),
-      hide: "md", // hidden on small screens (≤ md ≈ 959px)
-      center: true,
-      minWidth: "112px",
-      selector: (row) => (
-        <span className="text-nowrap">
-          {row?.arrival_date ? formatDate(row.arrival_date) : "-"}
-        </span>
-      ),
     },
     {
       name: t("Action"),
@@ -589,6 +620,25 @@ const InventoryView = () => {
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
                     />
                   </Col>
+                  {/* Purchase-currency filter — All (every currency, stacked)
+                      or a single currency's stock. */}
+                  <Col sm="6" md className="mb-2 mb-md-0">
+                    <Select
+                      classNamePrefix="select"
+                      placeholder={t("All Currencies")}
+                      options={currencyOptions}
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                      }}
+                      value={
+                        currencyOptions.find(
+                          (o) => o.value === currencyFilter
+                        ) || currencyOptions[0]
+                      }
+                      onChange={(opt) => setCurrencyFilter(opt ? opt.value : "")}
+                    />
+                  </Col>
                   <Col sm="6" md className="mb-2 mb-md-0">
                     <DateInput
                       id="inv-date-from"
@@ -654,19 +704,6 @@ const InventoryView = () => {
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
                 />
-
-                {/* Grand total across ALL filtered products (not just this
-                    page) — the exact figure the KPI "Current Stock Value" card
-                    abbreviates (e.g. "₹8.1 K"). Lets the client verify by
-                    summing the Stock Value column. */}
-                <div className="d-flex justify-content-end align-items-center flex-wrap border-top pt-1 mt-1">
-                  <span className="text-muted me-1">
-                    {t("Total Stock Value")} ({t("all products")}):
-                  </span>
-                  <span className="fw-bold fs-5">
-                    {fmtMoney(store?.stats?.stock_value)}
-                  </span>
-                </div>
               </Col>
             </Row>
           </CardBody>

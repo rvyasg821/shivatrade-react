@@ -104,7 +104,7 @@ const CustomerForm = () => {
   const currencyOptions = useMemo(() => {
     const metaByCode = {};
     for (const o of EXCHANGE_TO_CURRENCY_OPTIONS) metaByCode[o.value] = o;
-    return (currencyStore?.exchangeOptions || []).map((c) => {
+    const opts = (currencyStore?.exchangeOptions || []).map((c) => {
       const code = c.code || c.value;
       const meta = metaByCode[code] || {};
       const symbol = c.symbol || meta.symbol || "";
@@ -114,6 +114,12 @@ const CustomerForm = () => {
         label: `${symbol} ${label}`.trim(),
       };
     });
+    // INR (home currency) is excluded from exchange-rate targets, but a domestic
+    // customer settles in ₹ — surface it at the top of the list.
+    if (!opts.some((o) => o.value === "INR")) {
+      opts.unshift({ value: "INR", label: "₹ INR - Indian Rupee" });
+    }
+    return opts;
   }, [currencyStore?.exchangeOptions]);
   const isEditMode = !!id;
 

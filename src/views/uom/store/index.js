@@ -217,6 +217,22 @@ export const deleteUom = createAsyncThunk("appUom/deleteUom", async (id) => {
   }
 });
 
+// Bulk delete — mirrors the shared useBulkDelete contract: resolves to
+// { deleted, skipped } so the hook reports deleted-vs-skipped (in-use) counts.
+export const deleteManyUom = createAsyncThunk(
+  "appUom/deleteManyUom",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.uom.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || "Delete failed"
+      );
+    }
+  }
+);
+
 // ─── Slice ──────────────────────────────────────────────────────────────
 
 export const appUomSlice = createSlice({

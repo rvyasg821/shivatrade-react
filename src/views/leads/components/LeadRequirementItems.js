@@ -7,13 +7,15 @@
 // on the line object (defaulted from initLineItem) and auto-fill later — they
 // just aren't entered here, since a lead line is only a requirement.
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
-import { Table, Input, Button } from "reactstrap";
+import { Table, Input, Button, Badge } from "reactstrap";
 import Select from "react-select";
 import ReactPaginate from "react-paginate";
 import { Plus, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
+
+import { getCurrencySymbol } from "@src/utility/currency";
 
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import Notification from "@components/toast/notification";
@@ -34,34 +36,96 @@ const LeadRequirementItems = ({
   const { t } = useTranslation();
   const lineFA = useFieldArray({ control, name: "lines" });
 
-  // Amount and Value are in INR (the company's books / vendor price basis).
-  // Live values so the per-row "Value" recomputes as the operator types.
+  // Multi-currency (per-line, mirrors the quotation costing worksheet):
+  //   unit_price          = NATIVE vendor price (source currency)
+  //   source_currency_code = the vendor/source currency of that price
+  //   cost_exchange_rate  = frozen source→lead-currency rate (1 if same)
+  //   RATE (lead)  = unit_price × cost_exchange_rate
+  //   VALUE (lead) = qty × RATE
   const watchedLines = useWatch({ control, name: "lines" });
+  const leadCur = (currencyCode || "INR").toUpperCase();
+  const leadSym = getCurrencySymbol(leadCur) || currencySymbol || "₹";
+
+  // Distinct source currencies across lines with a chosen vendor. Each gets one
+  // fetched source→lead rate (same currency → fixed 1). Mirrors the worksheet.
+  const distinctSources = useMemo(() => {
+    const set = new Set();
+    for (const l of watchedLines || []) {
+      if (!l?.vendor_id) continue;
+      set.add((l?.source_currency_code || "INR").toUpperCase());
+    }
+    return Array.from(set).sort();
+  }, [watchedLines]);
+
+  const [sourceRates, setSourceRates] = useState({}); // { CODE: rate }
+  const sourcesKey = distinctSources.join("|");
+  useEffect(() => {
+    let cancelled = false;
+    distinctSources.forEach((src) => {
+      if (src === leadCur) return;
+      if (sourceRates[src] != null) return;
+      instance
+        .get(API_ENDPOINTS.currencies.currentRate, {
+          params: { from: src, to: leadCur },
+        })
+        .then((resp) => {
+          if (cancelled) return;
+          const r = Number(resp?.data?.data?.rate);
+          setSourceRates((m) => ({ ...m, [src]: r > 0 ? r : 1 }));
+        })
+        .catch(() => {
+          if (!cancelled) setSourceRates((m) => ({ ...m, [src]: 1 }));
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourcesKey, leadCur]);
+
+  // Source→lead rate for a line (1 when same currency / no vendor).
+  const rateFor = (l) => {
+    const sc = (l?.source_currency_code || "INR").toUpperCase();
+    if (!l?.vendor_id || sc === leadCur) return 1;
+    return Number(sourceRates[sc]) || 1;
+  };
+
+  // Freeze each line's cost_exchange_rate onto the form (carried to the quote).
+  useEffect(() => {
+    (watchedLines || []).forEach((l, idx) => {
+      const want = String(rateFor(l));
+      if (String(l?.cost_exchange_rate ?? "") !== want) {
+        setValue(`lines.${idx}.cost_exchange_rate`, want, {
+          shouldDirty: false,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedLines, sourceRates, leadCur]);
+
+  // Per-line converted rate + value, in the lead currency.
+  const lineRateDoc = (idx) => {
+    const l = watchedLines?.[idx] || {};
+    return (Number(l.unit_price) || 0) * rateFor(l);
+  };
   const lineValue = (idx) => {
     const l = watchedLines?.[idx] || {};
-    const v = (Number(l.qty) || 0) * (Number(l.unit_price) || 0);
-    return Number.isFinite(v) ? v : 0;
+    return (Number(l.qty) || 0) * lineRateDoc(idx);
   };
-  const fmtInr = (v) =>
-    `₹${(Number(v) || 0).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+
   const fmtNum = (v) =>
     (Number(v) || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  const fmtDoc = (v) => `${leadSym}${fmtNum(v)}`;
 
-  // Footer totals: Σ(qty × amount) in INR, then the lead-currency value.
-  const inrTotal = (watchedLines || []).reduce(
-    (s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0),
+  // Footer: single lead-currency total (Σ converted line values). Currencies are
+  // never summed raw — every line is converted to the lead currency first.
+  const docTotal = (watchedLines || []).reduce(
+    (s, _l, i) => s + lineValue(i),
     0
   );
-  const docRate = Number(rate) || 1;
-  const docTotal = inrTotal * docRate;
-  const isForeign =
-    currencyCode && String(currencyCode).toUpperCase() !== "INR";
 
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
@@ -134,6 +198,8 @@ const LeadRequirementItems = ({
     // price list for this product.
     if (!opt?.value) {
       setValue(`lines.${idx}.unit_price`, "");
+      setValue(`lines.${idx}.source_currency_code`, "INR");
+      setValue(`lines.${idx}.cost_exchange_rate`, "1");
       setValue(`lines.${idx}.vendor_id`, "");
       setValue(`lines.${idx}.vendor_code`, "");
       setValue(`lines.${idx}.vendor_name`, "");
@@ -144,15 +210,29 @@ const LeadRequirementItems = ({
         `${API_ENDPOINTS.priceList.byProduct}/${opt.value}`
       );
       const rows = resp?.data?.data || [];
-      const cheapest = [...rows].sort(
-        (a, b) => num(a?.unit_price) - num(b?.unit_price)
-      )[0];
+      // byProduct returns rows sorted cheapest-first BY ₹-equivalent (native ×
+      // currency→₹), so a fair cross-currency pick. Fall back to that ordering
+      // explicitly (unit_price_inr, unconvertible last) to be safe.
+      const cheapest = [...rows].sort((a, b) => {
+        const ai = a?.unit_price_inr,
+          bi = b?.unit_price_inr;
+        if (ai == null && bi == null) return 0;
+        if (ai == null) return 1;
+        if (bi == null) return -1;
+        return num(ai) - num(bi);
+      })[0];
       if (cheapest) {
+        // Store the NATIVE vendor price + its source currency; RATE/VALUE in the
+        // lead currency are derived from these + the fetched pair rate.
         setValue(
           `lines.${idx}.unit_price`,
           cheapest.unit_price != null
             ? Number(cheapest.unit_price).toFixed(2)
             : ""
+        );
+        setValue(
+          `lines.${idx}.source_currency_code`,
+          (cheapest.currency_code || "INR").toUpperCase()
         );
         setValue(`lines.${idx}.vendor_id`, cheapest.vendor_id || "");
         setValue(`lines.${idx}.vendor_code`, cheapest.vendor_code || "");
@@ -160,9 +240,13 @@ const LeadRequirementItems = ({
       } else {
         // No price-list entry — leave the Rate blank for manual entry.
         setValue(`lines.${idx}.unit_price`, "");
+        setValue(`lines.${idx}.source_currency_code`, "INR");
+        setValue(`lines.${idx}.cost_exchange_rate`, "1");
       }
     } catch {
       setValue(`lines.${idx}.unit_price`, "");
+      setValue(`lines.${idx}.source_currency_code`, "INR");
+      setValue(`lines.${idx}.cost_exchange_rate`, "1");
     }
   };
 
@@ -198,11 +282,17 @@ const LeadRequirementItems = ({
               <th className="text-end" style={{ minWidth: 120 }}>
                 {t("Qty")}
               </th>
-              <th className="text-end" style={{ minWidth: 140 }}>
-                {t("Rate")} (₹)
+              <th className="text-end" style={{ minWidth: 130 }}>
+                {t("Src Rate")}
+              </th>
+              <th className="text-center" style={{ width: 80 }}>
+                {t("Ccy")}
+              </th>
+              <th className="text-end" style={{ minWidth: 120 }}>
+                {t("Rate")} ({leadSym})
               </th>
               <th className="text-end" style={{ width: 130 }}>
-                {t("Value")} (₹)
+                {t("Value")} ({leadSym})
               </th>
               <th style={{ minWidth: 150 }}>{t("Customer Ref")}</th>
               <th style={{ minWidth: 200 }}>{t("Description")}</th>
@@ -212,7 +302,7 @@ const LeadRequirementItems = ({
           <tbody>
             {lineFA.fields.length === 0 ? (
               <tr>
-                <td colSpan={11} className="text-center text-muted py-3">
+                <td colSpan={13} className="text-center text-muted py-3">
                   {t('No requirement items yet — click "Add Row".')}
                 </td>
               </tr>
@@ -298,6 +388,7 @@ const LeadRequirementItems = ({
                     />
                   </td>
                   <td>
+                    {/* Native vendor price (source currency), editable. */}
                     <Controller
                       name={`lines.${idx}.unit_price`}
                       control={control}
@@ -315,8 +406,24 @@ const LeadRequirementItems = ({
                       )}
                     />
                   </td>
+                  <td className="text-center align-middle">
+                    {(() => {
+                      const sc = (
+                        watchedLines?.[idx]?.source_currency_code || "INR"
+                      ).toUpperCase();
+                      return (
+                        <Badge className="doc-badge doc-badge-gray text-nowrap">
+                          {sc}
+                        </Badge>
+                      );
+                    })()}
+                  </td>
+                  <td className="text-end align-middle">
+                    {/* Rate converted to the lead currency (native × pair rate). */}
+                    {fmtDoc(lineRateDoc(idx))}
+                  </td>
                   <td className="text-end align-middle fw-semibold">
-                    {fmtInr(lineValue(idx))}
+                    {fmtDoc(lineValue(idx))}
                   </td>
                   <td>
                     <Controller
@@ -408,32 +515,11 @@ const LeadRequirementItems = ({
           <Table size="sm" borderless className="w-auto mb-0">
             <tbody>
               <tr>
-                <td className="text-muted pe-3 py-25">{t("INR Total")}</td>
-                <td className="text-end fw-semibold py-25">
-                  {fmtInr(inrTotal)}
+                <td className="text-muted pe-3 py-25">
+                  {leadCur} {t("Total")}
                 </td>
+                <td className="text-end fw-bold py-25">{fmtDoc(docTotal)}</td>
               </tr>
-              {isForeign && (
-                <Fragment>
-                  <tr>
-                    <td className="text-muted pe-3 py-25">
-                      {t("Exchange Rate")}
-                    </td>
-                    <td className="text-end py-25">
-                      {currencySymbol}1 = ₹{fmtNum(1 / docRate)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted pe-3 py-25">
-                      {currencyCode} {t("Value")}
-                    </td>
-                    <td className="text-end fw-bold py-25">
-                      {currencySymbol}
-                      {fmtNum(docTotal)}
-                    </td>
-                  </tr>
-                </Fragment>
-              )}
             </tbody>
           </Table>
         </div>

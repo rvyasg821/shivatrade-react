@@ -261,6 +261,24 @@ async function deleteEmployeeRequest(id) {
     .catch((error) => error);
 }
 
+// Bulk delete — mirrors the shared useBulkDelete contract: resolves to
+// { deleted, skipped } so the hook reports deleted-vs-skipped counts.
+export const deleteManyEmployees = createAsyncThunk(
+  "appEmployee/deleteManyEmployees",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.employees.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || "Delete failed"
+      );
+    }
+  }
+);
+
 export const deleteEmployee = createAsyncThunk(
   "appEmployee/deleteEmployee",
   async (id) => {

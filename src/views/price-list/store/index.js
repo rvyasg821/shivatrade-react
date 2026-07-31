@@ -198,6 +198,24 @@ export const deletePriceList = createAsyncThunk(
   }
 );
 
+// Bulk delete — mirrors the shared useBulkDelete contract: resolves to
+// { deleted, skipped } so the hook can report deleted-vs-skipped counts.
+export const deleteManyPriceList = createAsyncThunk(
+  "appPriceList/deleteManyPriceList",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.priceList.deleteMany, {
+        ids,
+      });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || "Delete failed"
+      );
+    }
+  }
+);
+
 export const appPriceListSlice = createSlice({
   name: "appPriceList",
   initialState: {

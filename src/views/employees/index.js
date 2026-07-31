@@ -10,7 +10,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 // ** Store & Actions
 import { useDispatch, useSelector } from "react-redux";
-import { deleteEmployee, getEmployeeList, cleanEmployeeMessage } from "./store";
+import {
+  deleteEmployee,
+  deleteManyEmployees,
+  getEmployeeList,
+  cleanEmployeeMessage,
+} from "./store";
 import { getLocationList } from "../locations/store";
 import { startLoading, stopLoading } from "../loadingstore";
 
@@ -41,6 +46,7 @@ import { Edit, Trash2, PlusCircle, Eye, Download, Upload, LogIn } from "react-fe
 import { impersonateEmployee } from "@src/views/auth/store";
 import ImportModal from "./components/ImportModal";
 import EmployeeStatsCards from "./EmployeeStatsCards";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { formatPhoneNumber } from "@src/views/auth/profile/formatPhoneNumber";
@@ -268,6 +274,12 @@ const EmployeeList = () => {
 
   const canDeleteEmployeeGlobal =
     isSystemAdmin || authUserItem?.role?.permissions?.employee?.can_delete;
+
+  const bulk = useBulkDelete({
+    entityLabel: "employees",
+    deleteFn: (ids) => dispatch(deleteManyEmployees(ids)).unwrap(),
+    onDone: () => handleEmployeeLists(),
+  });
 
   // Columns
   const columns = [
@@ -531,6 +543,17 @@ const EmployeeList = () => {
                 */}
               </div>
               <div className="d-flex align-items-center gap-1 flex-wrap listing-toolbar-actions">
+                {canDeleteEmployeeGlobal && bulk.selectedRows.length > 0 && (
+                  <Button
+                    color="danger"
+                    outline
+                    size="sm"
+                    onClick={bulk.confirmBulkDelete}
+                    disabled={bulk.deleting}
+                  >
+                    {t("Delete Selected")} ({bulk.selectedRows.length})
+                  </Button>
+                )}
                 <Button color="outline-secondary" size="sm" onClick={handleExport}>
                   <Download size={14} className="me-50" />{t("Export")}
                 </Button>
@@ -561,6 +584,9 @@ const EmployeeList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDeleteEmployeeGlobal}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>
