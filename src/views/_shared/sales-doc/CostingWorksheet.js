@@ -12,6 +12,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useWatch, useFormState } from "react-hook-form";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Table,
   Input,
@@ -37,6 +38,7 @@ import {
   splitFreightByQty,
 } from "@src/views/_shared/sales-doc/_helpers";
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
+import { getVendorDropdown } from "@src/views/vendors/store";
 import Notification from "@components/toast/notification";
 
 // Weights are stored at 3-decimal precision (matches the line entity's
@@ -146,8 +148,46 @@ const CostingWorksheet = ({
   docType = "quotation",
 }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
+
+  // A line's source currency = the VENDOR's currency (the pricelist follows the
+  // vendor). The by-product rows can carry a stale row currency, so resolve the
+  // TRUE currency from the vendor dropdown (loaded here if empty) and prefer it.
+  const vendorDropdown = useSelector((s) => s.vendor?.vendorDropdown || []);
+  useEffect(() => {
+    if (!vendorDropdown.length) dispatch(getVendorDropdown());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const vendorCcyById = useMemo(() => {
+    const m = {};
+    for (const v of vendorDropdown) {
+      if (v?._id) m[v._id] = (v.currency_code || "INR").toUpperCase();
+    }
+    return m;
+  }, [vendorDropdown]);
+  // Vendor's true currency for a picked row (fallback: the row's own currency).
+  const vendorCurOf = (vendorId, rowCcy) =>
+    (vendorCcyById[vendorId] || rowCcy || "INR").toUpperCase();
+
+  // Reconcile every line's source currency to its vendor's TRUE currency once
+  // the dropdown is loaded — fixes the auto-pick race (dropdown may arrive after
+  // the initial auto-select) and any stale source_currency_code on an edited doc.
+  useEffect(() => {
+    liveLines.forEach((l, idx) => {
+      const vid = l?.vendor_id;
+      if (!vid) return;
+      const known = vendorCcyById[vid];
+      if (!known) return;
+      if ((l?.source_currency_code || "").toUpperCase() !== known) {
+        setValue(`lines.${idx}.source_currency_code`, known, {
+          shouldDirty: false,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorCcyById, liveLines]);
   // Per-line validation errors — drives the red highlight on required fields
   // (e.g. Qty) so the user can fix them inline instead of just seeing a toast.
   const { errors } = useFormState({ control });
@@ -573,7 +613,9 @@ const CostingWorksheet = ({
     // ── One-currency-per-document rule ──────────────────────────────────
     // Every vendor on a quotation/SO/invoice must share ONE currency. If any
     // other line already has a vendor, this new vendor must match its currency.
-    const newVendorCur = (r.currency_code || "INR").toUpperCase();
+    // Source currency = the VENDOR's currency (authoritative), not the price
+    // row's (which can be stale).
+    const newVendorCur = vendorCurOf(newVendorId, r.currency_code);
     const existingCur = allLines
       .map((l, i) =>
         i !== idx && l?.vendor_id
@@ -599,7 +641,7 @@ const CostingWorksheet = ({
     // Multi-currency: the line's cost is in the VENDOR's currency (source).
     setValue(
       `lines.${idx}.source_currency_code`,
-      (r.currency_code || "INR").toUpperCase()
+      vendorCurOf(newVendorId, r.currency_code)
     );
     if (opt && r.unit_price != null) {
       setValue(`lines.${idx}.unit_price`, String(r.unit_price));
@@ -663,6 +705,11 @@ const CostingWorksheet = ({
   const docSym = currencySymbol(docCurrencyCode) || "₹";
   const money = (v) => `${docSym}${fmt(v)}`;
   const moneyDoc = (v) => `${docSym}${fmt(v)}`;
+  // The Rate column is the editable VENDOR price — native to the vendor's
+  // (source) currency, which may differ from the document currency (e.g. a USD
+  // vendor on a EUR quote). One-currency-per-document → a single source symbol.
+  const srcCur = distinctSources.find(Boolean) || docCurrencyCode;
+  const srcSym = currencySymbol(srcCur) || docSym;
 
   // Fixed column widths (px) so every value fits on one line.
   const W = {
@@ -840,10 +887,12 @@ const CostingWorksheet = ({
               <th className="text-end">{t("Qty")}</th>
               <th className="text-center">{t("UOM")}</th>
               <th className="text-end">
-                {t("Rate")} {docSym}
+                {t("Rate")} {srcSym}
               </th>
               <th className="text-end">{t("Disc%")}</th>
-              <th className="text-end">{t("Price/Disc")}</th>
+              <th className="text-end">
+                {t("Price/Disc")} {docSym}
+              </th>
               <th className="text-end">{t("Value")}</th>
               <th className="text-end">{t("Expense")}</th>
               <th className="text-end">{t("Total+Exp")}</th>

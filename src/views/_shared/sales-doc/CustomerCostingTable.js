@@ -30,19 +30,18 @@ const CustomerCostingTable = ({
     (productOptions || []).map((o) => [o.value, o.raw || {}])
   );
 
-  const isForeign =
-    docCurrencyCode &&
-    baseCurrencyCode &&
-    docCurrencyCode.toUpperCase() !== baseCurrencyCode.toUpperCase();
-  const rate = num(exchangeRate) || 1;
-  const sym = isForeign ? currencySymbol(docCurrencyCode) : "₹";
+  // Multi-currency: computeLineCosting converts each line to the DOCUMENT
+  // currency (unit_price × cost_exchange_rate), so its lineTotal is ALREADY in
+  // the doc currency — the customer rate/amount are that value, with NO extra
+  // header × rate (that was the retired convert-at-end model). Symbol is the
+  // doc currency's (₹ when the doc is INR).
+  const sym = currencySymbol(docCurrencyCode) || "₹";
   const money = (v) => `${sym}${fmt(v)}`;
 
   const rows = (lines || [])
     .filter((l) => l && l.product_id)
     .map((l) => {
-      const grandInr = computeLineCosting(l, { excludeGst: true }).lineTotal;
-      const amt = isForeign ? grandInr * rate : grandInr;
+      const amt = computeLineCosting(l, { excludeGst: true }).lineTotal;
       const qty = num(l.qty);
       const m = prodById.get(l.product_id) || {};
       return {

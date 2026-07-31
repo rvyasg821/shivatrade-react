@@ -1,5 +1,5 @@
 // RFQ detail — vendor price comparison grid (lines × vendors), select best.
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -50,6 +50,7 @@ import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { getCurrencySymbol } from "@src/utility/currency";
 import { openPdfViewer } from "@src/utility/pdf";
 import { appsRoot } from "@constant/defaultValues";
 import RfqImportModal from "./RfqImportModal";
@@ -265,6 +266,65 @@ const RfqView = () => {
   // The RFQ is single-vendor. The active vendor is the one selected in the
   // dropdown, defaulting to the RFQ's saved vendor.
   const activeVendorId = addVendorId || vendors[0]?.vendor_id || "";
+
+  // ── Multi-currency: each vendor quotes in ITS OWN currency ──
+  // vendor_id → currency_code (from the vendor dropdown; RFQ vendor row is a
+  // fallback). Prices/totals render in that vendor's symbol; the comparison
+  // matrix picks the lowest by ₹-equivalent (native × currency→INR rate).
+  const vendorCcyById = useMemo(() => {
+    const m = {};
+    for (const v of vendorStore?.vendorDropdown || []) {
+      if (v?._id) m[v._id] = (v.currency_code || "INR").toUpperCase();
+    }
+    for (const v of vendors) {
+      const id = v?.vendor_id;
+      if (id && !m[id])
+        m[id] = (v.currency_code || "INR").toUpperCase();
+    }
+    return m;
+  }, [vendorStore?.vendorDropdown, vendors]);
+  const ccyOf = (vendorId) => vendorCcyById[vendorId] || "INR";
+  const symOf = (vendorId) => getCurrencySymbol(ccyOf(vendorId)) || "₹";
+  const activeVendorSym = symOf(activeVendorId);
+
+  // currency_code → (→INR) rate, for a fair cross-currency "lowest" comparison.
+  const [ccyInrRates, setCcyInrRates] = useState({}); // { CODE: number }
+  const distinctVendorCcys = useMemo(() => {
+    const set = new Set();
+    for (const v of vendors) set.add(ccyOf(v.vendor_id));
+    return Array.from(set).sort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendors, vendorCcyById]);
+  const ccyKey = distinctVendorCcys.join("|");
+  useEffect(() => {
+    let cancelled = false;
+    distinctVendorCcys.forEach((code) => {
+      if (code === "INR" || ccyInrRates[code] != null) return;
+      instance
+        .get(API_ENDPOINTS.currencies.currentRate, {
+          params: { from: code, to: "INR" },
+        })
+        .then((resp) => {
+          if (cancelled) return;
+          const r = Number(resp?.data?.data?.rate);
+          setCcyInrRates((m) => ({ ...m, [code]: r > 0 ? r : null }));
+        })
+        .catch(() => {
+          if (!cancelled) setCcyInrRates((m) => ({ ...m, [code]: null }));
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ccyKey]);
+  // ₹-equivalent of a native price for vendor comparison (null if no rate).
+  const toInr = (vendorId, native) => {
+    const code = ccyOf(vendorId);
+    if (code === "INR") return native;
+    const r = ccyInrRates[code];
+    return r > 0 ? native * r : null;
+  };
 
   // On a saved RFQ, default the active column to the first vendor so its saved
   // checks show on land. Re-default when the current selection isn't part of
@@ -1104,9 +1164,11 @@ const RfqView = () => {
                     </th>
                     <th className="text-end" style={{ width: 120 }}>
                       {t("Price")}
+                      {activeVendorId ? ` (${activeVendorSym})` : ""}
                     </th>
                     <th className="text-end" style={{ width: 130 }}>
                       {t("Total")}
+                      {activeVendorId ? ` (${activeVendorSym})` : ""}
                     </th>
                   </tr>
                 </thead>
@@ -1175,7 +1237,9 @@ const RfqView = () => {
                           />
                         </td>
                         <td className="text-end align-top fw-bold">
-                          {hasPrice ? `₹${total.toFixed(2)}` : "-"}
+                          {hasPrice
+                            ? `${activeVendorSym}${total.toFixed(2)}`
+                            : "-"}
                         </td>
                       </tr>
                     );
@@ -1271,7 +1335,7 @@ const RfqView = () => {
                 {t("Price Comparison")}
               </CardTitle>
               <span className="text-muted small">
-                {t("Lowest price per item is highlighted")}
+                {t("Lowest price per item is highlighted (compared in ₹)")}
               </span>
             </CardHeader>
             <CardBody className="p-0">
@@ -1288,15 +1352,25 @@ const RfqView = () => {
                 </thead>
                 <tbody>
                   {cmpLines.map((l) => {
+                    // Each vendor's price is NATIVE to its own currency. Keep the
+                    // native value for display + the ₹-equivalent for a fair
+                    // "lowest" comparison across currencies.
                     const cells = vendors.map((v) => {
                       const p = num(priceMap[key(l._id, v.vendor_id)]);
                       const eff = p > 0 ? p : null;
-                      return { vid: v.vendor_id, eff };
+                      return {
+                        vid: v.vendor_id,
+                        eff,
+                        ccy: ccyOf(v.vendor_id),
+                        inr: eff != null ? toInr(v.vendor_id, eff) : null,
+                      };
                     });
-                    const valid = cells
-                      .filter((c) => c.eff != null)
-                      .map((c) => c.eff);
-                    const min = valid.length ? Math.min(...valid) : null;
+                    const validInr = cells
+                      .filter((c) => c.inr != null)
+                      .map((c) => c.inr);
+                    const minInr = validInr.length
+                      ? Math.min(...validInr)
+                      : null;
                     return (
                       <tr key={l._id}>
                         <td className="text-wrap" style={{ minWidth: 200 }}>
@@ -1305,21 +1379,43 @@ const RfqView = () => {
                             .join(" - ") || "-"}
                         </td>
                         {cells.map((c) => {
-                          const isMin = c.eff != null && c.eff === min;
+                          const isMin =
+                            c.inr != null && minInr != null && c.inr === minInr;
+                          const sym = getCurrencySymbol(c.ccy) || "₹";
                           const txt =
                             c.eff != null
-                              ? `₹${c.eff.toLocaleString("en-IN", {
+                              ? `${sym}${c.eff.toLocaleString("en-IN", {
                                   maximumFractionDigits: 2,
                                 })}`
                               : "—";
+                          // ₹-equivalent hint for foreign quotes (what the
+                          // comparison uses); "no ₹ rate" when unconvertible.
+                          const inrHint =
+                            c.eff != null && c.ccy !== "INR"
+                              ? c.inr != null
+                                ? `≈ ₹${c.inr.toLocaleString("en-IN", {
+                                    maximumFractionDigits: 2,
+                                  })}`
+                                : t("no ₹ rate")
+                              : "";
                           return (
                             <td key={c.vid} className="text-end">
                               {isMin ? (
                                 <Badge color="light-success">{txt}</Badge>
                               ) : (
-                                <span className={c.eff == null ? "text-muted" : ""}>
+                                <span
+                                  className={c.eff == null ? "text-muted" : ""}
+                                >
                                   {txt}
                                 </span>
+                              )}
+                              {inrHint && (
+                                <div
+                                  className="text-muted"
+                                  style={{ fontSize: "0.7rem" }}
+                                >
+                                  {inrHint}
+                                </div>
                               )}
                             </td>
                           );

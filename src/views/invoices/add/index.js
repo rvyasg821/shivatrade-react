@@ -378,6 +378,41 @@ const InvoiceAddEdit = () => {
     onF("exchange_rate", inrPerForeign > 0 ? String(1 / inrPerForeign) : "");
   };
 
+  // ── Source→document rate box (mirrors the costing worksheet) ──────────
+  // The line cost is native to the VENDOR (source) currency; the invoice is in
+  // the customer (document) currency. One-currency-per-document → a single
+  // source currency. The box shows "1 {src} = {rate} {doc}" and is DISABLED at
+  // 1 when the two match (e.g. USD vendor → USD customer, no conversion).
+  // Editing it re-freezes every line's cost_exchange_rate.
+  const docCur = (form.currency_code || "INR").toUpperCase();
+  const srcCur = (
+    lines.find((l) => l.source_currency_code)?.source_currency_code || docCur
+  ).toUpperCase();
+  const costRateSame = srcCur === docCur;
+  const costRateVal = costRateSame
+    ? "1"
+    : String(
+        lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
+      );
+  const onCostRateChange = (text) => {
+    setLines((prev) =>
+      prev.map((l) => ({ ...l, cost_exchange_rate: text }))
+    );
+  };
+
+  // GST route defaults by currency: a FOREIGN (export) invoice defaults to
+  // LUT / zero-rated → IGST 0 (the usual merchant-exporter case, and matching
+  // how the quotation/SO drop GST on non-INR); a domestic (INR) invoice keeps
+  // igst_paid (GST charged). An explicit operator pick is never overridden.
+  const gstRouteTouched = useRef(false);
+  useEffect(() => {
+    if (gstRouteTouched.current || !form.currency_code) return;
+    const foreign = String(form.currency_code).toUpperCase() !== "INR";
+    const want = foreign ? "lut_zero_rated" : "igst_paid";
+    if (form.gst_route !== want) onF("gst_route", want);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.currency_code]);
+
   // ── Packing totals: auto-sum from line items, editable override ──────
   // Header Total Packages / Net / Gross default to the sum of the per-line
   // packing fields and keep tracking the lines — until the operator edits a
@@ -697,21 +732,24 @@ const InvoiceAddEdit = () => {
             : s.advance_received,
       }));
 
-      // Map PO lines → invoice lines. qty defaults to dispatched-but-not-
-      // yet-invoiced when coverage is available, falling back to PO ordered.
-      // Mirrors the BE guard so users can hit Save without surprise rejects.
+      // Map PO lines → invoice lines. qty defaults to the coverage's
+      // INVOICEABLE qty (= dispatched + from-stock − already-invoiced), NOT just
+      // `dispatched`. A line fulfilled partly from stock (e.g. 3 procured + 7
+      // from inventory of an ordered 10) is fully invoiceable = 10 — using
+      // `dispatched` alone under-billed it to 3. Falls back to PO ordered when
+      // no coverage. Mirrors the BE invoice ceiling so Save doesn't reject.
       const dispatchedAvailByLine = new Map();
       for (const cl of coverage?.lines || []) {
-        // pending in PO coverage = ordered − dispatched (i.e. yet to dispatch)
-        // dispatched = qty actually moved; we want dispatched here.
-        const dispatched = Number(cl.dispatched || 0);
+        const invoiceable = Number(
+          cl.invoiceable ?? cl.dispatched ?? 0
+        );
         dispatchedAvailByLine.set(
           (cl.purchase_order_line_id || "").toString(),
-          dispatched
+          invoiceable
         );
       }
-      // Auto-drop lines with no dispatched qty — operator can re-add them
-      // on a later invoice once vendor dispatches more. When coverage is
+      // Auto-drop lines with nothing invoiceable yet — operator can re-add them
+      // on a later invoice once more is dispatched / stocked. When coverage is
       // unavailable, fall back to all PO lines at ordered qty (legacy).
       const haveCoverage = !!coverage;
       const filteredPoLines = haveCoverage
@@ -750,6 +788,19 @@ const InvoiceAddEdit = () => {
           uqc_code: uqcFor(l.unit || "Nos"),
           qty: String(cap),
           unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+          // Multi-currency: carry the vendor (source) currency + frozen
+          // source→doc rate from the SO line so the invoice converts each line
+          // the same way (native × cost_exchange_rate). 1 for a same-currency
+          // line (e.g. USD vendor → USD customer).
+          source_currency_code: (
+            l.source_currency_code ||
+            form.currency_code ||
+            "INR"
+          ).toUpperCase(),
+          cost_exchange_rate:
+            l.cost_exchange_rate != null && l.cost_exchange_rate !== ""
+              ? String(l.cost_exchange_rate)
+              : "1",
           // Carry the full costing from the SO line so the invoice total
           // equals the SO total (was hardcoded 0 / margin dropped).
           discount_pct: String(l.discount_pct || 0),
@@ -1115,6 +1166,16 @@ const InvoiceAddEdit = () => {
         uqc_code: l.uqc_code,
         qty: l.qty,
         unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+        // Multi-currency: preserve the source currency + frozen source→doc rate.
+        source_currency_code: (
+          l.source_currency_code ||
+          inv.currency_code ||
+          "INR"
+        ).toUpperCase(),
+        cost_exchange_rate:
+          l.cost_exchange_rate != null && l.cost_exchange_rate !== ""
+            ? String(l.cost_exchange_rate)
+            : "1",
         discount_pct: l.discount_pct,
         margin_pct: l.margin_pct,
         tax_pct: l.tax_pct,
@@ -1213,6 +1274,12 @@ const InvoiceAddEdit = () => {
   const sym = useMemo(
     () => getCurrencySymbol(form.currency_code) || form.currency_symbol || "",
     [form.currency_code, form.currency_symbol]
+  );
+  // Unit Price is NATIVE to the vendor (source) currency, which may differ from
+  // the invoice (document) currency — label that column with the source symbol.
+  const srcSym = useMemo(
+    () => getCurrencySymbol(srcCur) || sym || "₹",
+    [srcCur, sym]
   );
 
   // ── UQC back-fill ───────────────────────────────────────────────────
@@ -1470,6 +1537,8 @@ const InvoiceAddEdit = () => {
             unit: l.unit,
             uqc_code: l.uqc_code,
             unit_price: l.unit_price,
+            source_currency_code: l.source_currency_code,
+            cost_exchange_rate: l.cost_exchange_rate,
             discount_pct: l.discount_pct,
             margin_pct: l.margin_pct,
             igst_rate_pct: l.igst_rate_pct,
@@ -1563,6 +1632,11 @@ const InvoiceAddEdit = () => {
             _id: undefined,
             seq: next.length,
             tax_pct: "0",
+            // A product added via import isn't tied to an SO vendor line, so
+            // default it to the invoice currency at rate 1 (native, no
+            // conversion). Existing lines keep their frozen source rate above.
+            source_currency_code: (form.currency_code || "INR").toUpperCase(),
+            cost_exchange_rate: "1",
             ...patch,
           });
           if (codeKey) idxByProductCode.set(codeKey, next.length - 1);
@@ -1735,6 +1809,14 @@ const InvoiceAddEdit = () => {
       uqc_code: l.uqc_code,
       qty: String(l.qty),
       unit_price: String(l.unit_price),
+      // Multi-currency: persist the source currency + frozen source→doc rate so
+      // the backend recompute converts each line the same way.
+      source_currency_code: (l.source_currency_code || "INR").toUpperCase(),
+      cost_exchange_rate: String(
+        l.cost_exchange_rate != null && l.cost_exchange_rate !== ""
+          ? l.cost_exchange_rate
+          : 1
+      ),
       discount_pct: String(l.discount_pct || 0),
       margin_pct: String(l.margin_pct || 0),
       tax_pct: String(l.tax_pct || 0),
@@ -2473,27 +2555,25 @@ const InvoiceAddEdit = () => {
               <small className="text-muted">{t("Pulled from SO")}</small>
             </Col>
             <Col md="4" className="mb-2">
-              <Label className="form-label">
-                {t("Exchange Rate")}
-                {!rateSameCurrency && form.currency_code ? (
-                  <small className="text-muted">
-                    {" "}
-                    (₹ {t("per 1")} {form.currency_code})
-                  </small>
-                ) : null}
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                disabled={rateSameCurrency}
-                value={rateDisplay}
-                onFocus={() => (rateFocused.current = true)}
-                onBlur={() => (rateFocused.current = false)}
-                onChange={(e) => onRateDisplayChange(e.target.value)}
-              />
+              <Label className="form-label">{t("Exchange Rate")}</Label>
+              {/* Source→document rate (vendor currency → invoice currency),
+                  like the costing worksheet. Disabled at 1 for same currency. */}
+              <div className="d-flex align-items-center gap-1">
+                <span className="text-nowrap small">1 {srcCur} =</span>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  disabled={costRateSame}
+                  value={costRateVal}
+                  onChange={(e) => onCostRateChange(e.target.value)}
+                />
+                <span className="text-nowrap small">{docCur}</span>
+              </div>
               <small className="text-muted">
-                {t("₹ per 1 unit of the invoice currency.")}
+                {costRateSame
+                  ? t("Same currency — no conversion.")
+                  : t("Vendor → invoice currency, per unit.")}
               </small>
             </Col>
             <Col md="4" className="mb-2">
@@ -2605,16 +2685,16 @@ const InvoiceAddEdit = () => {
                   </th>
                   <th style={{ width: 100 }}>{t("UQC")}</th>
                   <th style={{ width: 110 }} className="text-end">
-                    {t("Unit Price")}
+                    {t("Unit Price")} {srcSym}
                   </th>
                   <th style={{ width: 80 }} className="text-end">
                     {t("IGST %")}
                   </th>
                   <th style={{ width: 110 }} className="text-end">
-                    {t("IGST Amt")}
+                    {t("IGST Amt")} {sym}
                   </th>
                   <th style={{ width: 110 }} className="text-end">
-                    {t("Line Total")}
+                    {t("Line Total")} {sym}
                   </th>
                   <th style={{ width: 70 }} className="text-center">
                     {t("Action")}
@@ -2638,8 +2718,13 @@ const InvoiceAddEdit = () => {
                   //   + expenses (on taxable) → − rebates (on after-expense / FOB)
                   //   margin  = (taxable + expenses − rebates) × margin/100
                   //   lineTotal = taxable + expenses − rebates + margin
+                  // Multi-currency: convert the native price to the DOCUMENT
+                  // currency FIRST (× cost_exchange_rate; 1 for same-currency),
+                  // so every figure below is in the invoice currency.
+                  const priceDoc =
+                    num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
                   const taxable =
-                    num(l.qty) * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
+                    num(l.qty) * priceDoc * (1 - num(l.discount_pct) / 100);
                   const expensesTotal = sumExpenses(
                     l.product_expenses_snapshot,
                     taxable,
@@ -2773,11 +2858,14 @@ const InvoiceAddEdit = () => {
                         />
                       </td>
                       <td>
+                        {/* Zero-rated under LUT → the rate reads 0 and locks;
+                            switch the GST route to IGST-paid to charge it. */}
                         <Input
                           type="number"
                           step="any"
-                                    className="text-end"
-                          value={l.igst_rate_pct}
+                          className="text-end"
+                          disabled={isLut}
+                          value={isLut ? "0" : l.igst_rate_pct}
                           onChange={(e) =>
                             updateLine(i, { igst_rate_pct: e.target.value })
                           }
@@ -2789,11 +2877,11 @@ const InvoiceAddEdit = () => {
                             —
                           </span>
                         ) : (
-                          <span>₹{fmt(lineIgst)}</span>
+                          <span>{sym}{fmt(lineIgst)}</span>
                         )}
                       </td>
                       <td className="text-end fw-semibold">
-                        ₹{fmt(lineTotal)}
+                        {sym}{fmt(lineTotal)}
                         {(rebateCount > 0 ||
                           expenseCount > 0 ||
                           num(l.discount_pct) > 0 ||
@@ -2826,7 +2914,7 @@ const InvoiceAddEdit = () => {
                                   )
                                   .join(" · ")}
                               >
-                                {t("Expenses")} +₹{fmt(expensesTotal)}
+                                {t("Expenses")} +{sym}{fmt(expensesTotal)}
                               </span>
                             )}
                             {rebateCount > 0 && (
@@ -2843,7 +2931,7 @@ const InvoiceAddEdit = () => {
                                   )
                                   .join(" · ")}
                               >
-                                {t("Rebates")} −₹{fmt(rebatesTotal)}
+                                {t("Rebates")} −{sym}{fmt(rebatesTotal)}
                               </span>
                             )}
                           </div>
@@ -2899,10 +2987,8 @@ const InvoiceAddEdit = () => {
                   <td colSpan="8" className="text-end fw-bold">
                     {t("Subtotal")}
                   </td>
-                  {/* Sum of the IGST column. Always in ₹ — the per-line IGST
-                      amounts above are in INR, so converting only the total
-                      would make the column and its own sum disagree. The doc
-                      -currency figure lives in the Total IGST row below. */}
+                  {/* IGST column sum — in the DOCUMENT currency (each line's
+                      IGST above is now doc-currency). */}
                   <td className="text-end fw-bold">
                     {isLut ? (
                       <span
@@ -2913,46 +2999,16 @@ const InvoiceAddEdit = () => {
                       </span>
                     ) : (
                       <span style={{ color: "#1a2238" }}>
-                        ₹{fmt(totals.igstInr)}
+                        {sym}{fmt(totals.igst)}
                       </span>
                     )}
                   </td>
+                  {/* Subtotal in the DOCUMENT currency — the line totals are
+                      already converted per-line, so no header × rate. */}
                   <td className="text-end fw-bold">
-                    {sym && sym !== "₹" ? (
-                      <span
-                        className="d-inline-flex align-items-center"
-                        style={{
-                          whiteSpace: "nowrap",
-                          justifyContent: "flex-end",
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        <span style={{ color: "#1a2238" }}>
-                          ₹{fmt(totals.subtotalInr)}
-                        </span>
-                        <span
-                          className="text-muted fw-normal mx-1"
-                          style={{ fontSize: "0.72rem" }}
-                        >
-                          × {fmt(num(form.exchange_rate) || 1, 4)} =
-                        </span>
-                        <span
-                          style={{
-                            color: "#1a2238",
-                            background: "#eef0f3",
-                            padding: "1px 6px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          {sym}
-                          {fmt(totals.subtotal)}
-                        </span>
-                      </span>
-                    ) : (
-                      <span style={{ color: "#1a2238" }}>
-                        ₹{fmt(totals.subtotalInr)}
-                      </span>
-                    )}
+                    <span style={{ color: "#1a2238" }}>
+                      {sym}{fmt(totals.subtotal)}
+                    </span>
                   </td>
                   <td />
                 </tr>
@@ -3415,7 +3471,10 @@ const InvoiceAddEdit = () => {
                       id={`gst-${opt.value}`}
                       name="gst_route"
                       checked={form.gst_route === opt.value}
-                      onChange={() => onF("gst_route", opt.value)}
+                      onChange={() => {
+                        gstRouteTouched.current = true;
+                        onF("gst_route", opt.value);
+                      }}
                     />
                     <Label
                       className="form-check-label ms-25"
