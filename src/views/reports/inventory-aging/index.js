@@ -31,6 +31,7 @@ import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { defaultPerPageRow, perPageRowItems } from "@constant/defaultValues";
+import BreakdownDrawer from "./BreakdownDrawer";
 
 // 2-dp grouping, e.g. 1,23,456.00.
 const grp = (v) =>
@@ -97,6 +98,8 @@ const InventoryAging = () => {
     totals: {},
     pagination: { total: 0, perPage: defaultPerPageRow },
   });
+  // Product whose closing-inventory breakdown drawer is open (click a row).
+  const [bdProductId, setBdProductId] = useState(null);
 
   const baseParams = useCallback(
     () => ({
@@ -383,7 +386,15 @@ const InventoryAging = () => {
                                 className={slow ? "table-warning" : ""}
                               >
                                 <td style={{ minWidth: 220 }}>
-                                  <div className="fw-semibold text-wrap">
+                                  <div
+                                    className="fw-semibold text-wrap"
+                                    role="button"
+                                    style={{ cursor: "pointer", color: "#09418B" }}
+                                    title={t(
+                                      "View the purchases & sales behind this closing stock"
+                                    )}
+                                    onClick={() => setBdProductId(r.product_id)}
+                                  >
                                     {r.product_name || <Dash />}
                                   </div>
                                   {r.product_code ? (
@@ -515,6 +526,13 @@ const InventoryAging = () => {
           </CardBody>
         </Card>
       </div>
+
+      <BreakdownDrawer
+        isOpen={!!bdProductId}
+        productId={bdProductId}
+        asOf={asOf || undefined}
+        toggle={() => setBdProductId(null)}
+      />
     </Fragment>
   );
 };

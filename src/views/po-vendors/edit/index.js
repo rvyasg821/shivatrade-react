@@ -93,6 +93,8 @@ const EditPoVendor = () => {
   const [deliveryTerms, setDeliveryTerms] = useState("");
   const [rateByLine, setRateByLine] = useState({});
   const [taxByLine, setTaxByLine] = useState({});
+  // Per-line vendor discount % — editable under the same rule as the rate.
+  const [discByLine, setDiscByLine] = useState({});
   // Ordered qty per line — draft-only, like GST%. Editable so a POV's quantity
   // can be corrected before it goes to the vendor.
   const [qtyByLine, setQtyByLine] = useState({});
@@ -141,18 +143,21 @@ const EditPoVendor = () => {
     // one key and make editing one line edit them all.
     const rates = {};
     const taxes = {};
+    const discs = {};
     const hsns = {};
     const parts = {};
     const qtys = {};
     for (const l of p.lines || []) {
       rates[l._id] = String(num(l.unit_price));
       taxes[l._id] = String(num(l.tax_pct));
+      discs[l._id] = String(num(l.discount_pct));
       hsns[l._id] = l.hsn_code || "";
       parts[l._id] = l.part_no || "";
       qtys[l._id] = String(num(l.ordered_qty));
     }
     setRateByLine(rates);
     setTaxByLine(taxes);
+    setDiscByLine(discs);
     setHsnByLine(hsns);
     setPartByLine(parts);
     setQtyByLine(qtys);
@@ -204,7 +209,10 @@ const EditPoVendor = () => {
   // Edited qty when present, else the stored ordered_qty (read-only statuses).
   const lineQty = (l) =>
     qtyByLine[l._id] !== undefined ? num(qtyByLine[l._id]) : num(l.ordered_qty);
-  const lineTotal = (l) => round2(lineQty(l) * lineRate(l));
+  // Per-line vendor discount % reduces the line total before GST.
+  const lineDisc = (l) => num(discByLine[l._id]);
+  const lineTotal = (l) =>
+    round2(lineQty(l) * lineRate(l) * (1 - lineDisc(l) / 100));
   // GST is an Indian INR tax — 0 on a foreign-currency POV.
   const lineGst = (l) =>
     gstApplies ? round2((lineTotal(l) * num(taxByLine[l._id])) / 100) : 0;
@@ -242,11 +250,18 @@ const EditPoVendor = () => {
       delta: round2(goods - wasGoods),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [povLines, rateByLine, taxByLine, qtyByLine, gstApplies]);
+  }, [povLines, rateByLine, taxByLine, qtyByLine, discByLine, gstApplies]);
 
   const setRate = (lineId, v) => {
     if (v === "") return setRateByLine((s) => ({ ...s, [lineId]: "" }));
     setRateByLine((s) => ({ ...s, [lineId]: String(Math.max(0, num(v))) }));
+  };
+  const setDisc = (lineId, v) => {
+    if (v === "") return setDiscByLine((s) => ({ ...s, [lineId]: "" }));
+    setDiscByLine((s) => ({
+      ...s,
+      [lineId]: String(Math.min(100, Math.max(0, num(v)))),
+    }));
   };
   const setQty = (lineId, v) => {
     if (v === "") return setQtyByLine((s) => ({ ...s, [lineId]: "" }));
@@ -314,6 +329,8 @@ const EditPoVendor = () => {
         // Quantity is draft-only, same gate as GST.
         ...(canEditGst ? { ordered_qty: String(num(qtyByLine[l._id])) } : {}),
         ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
+        // Discount rides the same rule as the rate.
+        ...(canEditRate ? { discount_pct: String(num(discByLine[l._id])) } : {}),
         // Sent as "" (not undefined) when cleared, so emptying a wrong HSN
         // actually persists instead of silently keeping the old one.
         ...(canEditGst
@@ -423,6 +440,9 @@ const EditPoVendor = () => {
                           Rate ×qty → Taxable ×% → GST Value + → Total. */}
                       <th style={{ width: 130 }} className="text-end">
                         {t("Rate")} ({sym})
+                      </th>
+                      <th style={{ width: 90 }} className="text-end">
+                        {t("Disc")} %
                       </th>
                       <th style={{ width: 130 }} className="text-end">
                         {t("Taxable")} ({sym})
@@ -548,6 +568,25 @@ const EditPoVendor = () => {
                               </small>
                             )}
                           </td>
+                          {/* Discount % — editable under the same rule as Rate. */}
+                          <td>
+                            {canEditRate ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                value={discByLine[l._id] ?? ""}
+                                onChange={(e) => setDisc(l._id, e.target.value)}
+                              />
+                            ) : (
+                              <div className="text-end text-muted">
+                                {lineDisc(l) > 0 ? `${lineDisc(l)}%` : "-"}
+                              </div>
+                            )}
+                          </td>
                           <td className="text-end">
                             {sym}
                             {fmt(toDisp(lineTotal(l)))}
@@ -588,7 +627,10 @@ const EditPoVendor = () => {
                         the detail page, so this must not read as the POV's
                         grand total. */}
                     <tr className="table-light fw-bold">
-                      <td colSpan="5" className="text-end">
+                      {/* Span # · Product · HSN · Part No · Unit · Qty · Rate ·
+                          Disc% (8) so goods lands under Taxable, gst under GST
+                          Value, grand under Total. */}
+                      <td colSpan="8" className="text-end">
                         {t("Goods Totals")}
                       </td>
                       <td className="text-end">

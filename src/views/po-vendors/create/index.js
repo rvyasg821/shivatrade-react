@@ -61,6 +61,7 @@ const newRow = () => ({
   tax_pct: "0",
   qty: "",
   unit_price: "",
+  discount: "",
 });
 const newCharge = () => ({
   key: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
@@ -109,6 +110,7 @@ const CreatePoVendor = () => {
   const [coverage, setCoverage] = useState(null);
   const [coverByLine, setCoverByLine] = useState({});
   const [priceByLine, setPriceByLine] = useState({});
+  const [discountByLine, setDiscountByLine] = useState({});
 
   // Optional advance paid to the vendor (standalone only).
   const [advance, setAdvance] = useState({
@@ -268,6 +270,7 @@ const CreatePoVendor = () => {
       setCoverage(null);
       setCoverByLine({});
       setPriceByLine({});
+      setDiscountByLine({});
       return;
     }
     setVendorId("");
@@ -461,8 +464,14 @@ const CreatePoVendor = () => {
     if (vendorId) dispatch(getVendor(vendorId));
   }, [vendorId, dispatch]);
 
+  // Per-line vendor discount reduces the taxable base (before GST).
+  const discFactor = (disc) => 1 - num(disc) / 100;
   const standaloneTotal = useMemo(
-    () => lines.reduce((s, r) => s + num(r.qty) * num(r.unit_price), 0),
+    () =>
+      lines.reduce(
+        (s, r) => s + num(r.qty) * num(r.unit_price) * discFactor(r.discount),
+        0
+      ),
     [lines]
   );
   const linkedTotal = useMemo(
@@ -471,10 +480,11 @@ const CreatePoVendor = () => {
         (s, l) =>
           s +
           num(coverByLine[l.purchase_order_line_id]) *
-            num(priceByLine[l.purchase_order_line_id]),
+            num(priceByLine[l.purchase_order_line_id]) *
+            discFactor(discountByLine[l.purchase_order_line_id]),
         0
       ),
-    [filteredCoverLines, coverByLine, priceByLine]
+    [filteredCoverLines, coverByLine, priceByLine, discountByLine]
   );
 
   // ── GST (live) ───────────────────────────────────────────────────────
@@ -489,8 +499,8 @@ const CreatePoVendor = () => {
   // Charges carry their own `gst_pct` on the PDF, but this form has no field for
   // it (newCharge() has no gst_pct), so charge GST is 0 here — same as what gets
   // saved. Add the field and this must gain a charge-GST term too.
-  const lineGst = (qty, price, taxPct) =>
-    (num(qty) * num(price) * num(taxPct)) / 100;
+  const lineGst = (qty, price, taxPct, disc) =>
+    (num(qty) * num(price) * discFactor(disc) * num(taxPct)) / 100;
 
   // NATIVE model (plan §6.3): POV line amounts are stored in the POV's own
   // currency, so the tables render them AS-IS — no conversion. dispRate is 1;
@@ -513,15 +523,16 @@ const CreatePoVendor = () => {
       return filteredCoverLines.reduce((s, l) => {
         const id = l.purchase_order_line_id;
         return (
-          s + lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+          s +
+          lineGst(coverByLine[id], priceByLine[id], l.tax_pct, discountByLine[id])
         );
       }, 0);
     }
     return lines.reduce(
-      (s, r) => s + lineGst(r.qty, r.unit_price, r.tax_pct),
+      (s, r) => s + lineGst(r.qty, r.unit_price, r.tax_pct, r.discount),
       0
     );
-  }, [gstApplies, linkedMode, filteredCoverLines, coverByLine, priceByLine, lines]);
+  }, [gstApplies, linkedMode, filteredCoverLines, coverByLine, priceByLine, discountByLine, lines]);
 
   // GST state code = first two digits of the GSTIN (the GST convention the PDF
   // uses). Both sides must be known — guessing the split would print CGST/SGST
@@ -576,6 +587,15 @@ const CreatePoVendor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [charges, goodsTotal, gstApplies]
   );
+  // Expenses NET of their own GST (the "Without GST" figure in the summary).
+  const expensesBase = useMemo(
+    () => charges.reduce((s, c) => s + chargeTaxable(c), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [charges, goodsTotal]
+  );
+  // Total GST shown on the summary = goods GST + the charges' own GST.
+  const chargeGst = chargesTotal - expensesBase;
+  const totalGst = goodsGst + chargeGst;
   // charges (incl. their own GST) + goods + goods GST. Matches the PDF.
   const grandTotal = goodsTotal + goodsGst + chargesTotal;
 
@@ -620,6 +640,9 @@ const CreatePoVendor = () => {
             purchase_order_line_id: l.purchase_order_line_id,
             ordered_qty: String(q),
             unit_price: String(num(priceByLine[l.purchase_order_line_id])),
+            discount_pct: String(
+              num(discountByLine[l.purchase_order_line_id])
+            ),
           });
         }
         if (!poLines.length) {
@@ -671,6 +694,7 @@ const CreatePoVendor = () => {
             product_id: r.product_id,
             ordered_qty: String(num(r.qty)),
             unit_price: String(num(r.unit_price)),
+            discount_pct: String(num(r.discount)),
             description: r.product_name || undefined,
             part_no: r.part_no || undefined,
             hsn_code: r.hsn_code || undefined,
@@ -853,6 +877,9 @@ const CreatePoVendor = () => {
                       <th style={{ width: 130 }} className="text-end">
                         {t("Rate")} ({sym})
                       </th>
+                      <th style={{ width: 80 }} className="text-end">
+                        {t("Disc")} %
+                      </th>
                       <th style={{ width: 70 }} className="text-end">
                         {t("GST")} %
                       </th>
@@ -867,7 +894,7 @@ const CreatePoVendor = () => {
                   <tbody>
                     {filteredCoverLines.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="text-center text-muted py-2">
+                        <td colSpan={10} className="text-center text-muted py-2">
                           {vendorId
                             ? t("No pending lines for this vendor.")
                             : t("Pick a vendor to load lines.")}
@@ -929,8 +956,24 @@ const CreatePoVendor = () => {
                                 }
                               />
                             </td>
-                            {/* Rate is read-only in linked mode — it is the PO
-                                line's snapshot, carried by the coverage API. */}
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                disabled={max <= 1e-6}
+                                value={discountByLine[id] ?? ""}
+                                onChange={(e) =>
+                                  setDiscountByLine((s) => ({
+                                    ...s,
+                                    [id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            </td>
                             <td className="text-end text-muted">
                               {gstApplies ? num(l.tax_pct) || 0 : 0}
                             </td>
@@ -938,13 +981,18 @@ const CreatePoVendor = () => {
                               {sym}
                               {dispStr(
                                 gstApplies
-                                  ? lineGst(coverByLine[id], priceByLine[id], l.tax_pct)
+                                  ? lineGst(
+                                      coverByLine[id],
+                                      priceByLine[id],
+                                      l.tax_pct,
+                                      discountByLine[id]
+                                    )
                                   : 0
                               )}
                             </td>
                             <td className="text-end fw-bold">
                               {sym}
-                              {dispStr(q * price)}
+                              {dispStr(q * price * discFactor(discountByLine[id]))}
                             </td>
                           </tr>
                         );
@@ -953,9 +1001,9 @@ const CreatePoVendor = () => {
                   </tbody>
                   <tfoot>
                     <tr className="table-light fw-bold">
-                      {/* 6 = # · Product · UOM · Pending · Qty · Rate. The two
-                          cells after it land under GST Amt and Amount. */}
-                      <td colSpan={6} className="text-end">
+                      {/* 7 = # · Product · UOM · Pending · Qty · Rate · Disc%. The
+                          two cells after it land under GST Amt and Amount. */}
+                      <td colSpan={7} className="text-end">
                         {t("Total")}
                       </td>
                       <td className="text-end">
@@ -988,13 +1036,19 @@ const CreatePoVendor = () => {
                       {t("Rate")} ({sym}) <span className="text-danger">*</span>
                     </th>
                     <th style={{ width: 80 }} className="text-end">
+                      {t("Disc")} %
+                    </th>
+                    <th style={{ width: 120 }} className="text-end">
+                      {t("Taxable")} ({sym})
+                    </th>
+                    <th style={{ width: 80 }} className="text-end">
                       {t("GST")} %
                     </th>
                     <th style={{ width: 110 }} className="text-end">
                       {t("GST Amt")} ({sym})
                     </th>
-                    <th style={{ width: 110 }} className="text-end">
-                      {t("Amount")} ({sym})
+                    <th style={{ width: 120 }} className="text-end">
+                      {t("Total")} ({sym})
                     </th>
                     <th style={{ width: 40 }} />
                   </tr>
@@ -1078,6 +1132,28 @@ const CreatePoVendor = () => {
                         <Input
                           type="number"
                           min="0"
+                          max="100"
+                          step="0.01"
+                          bsSize="sm"
+                          className="text-end"
+                          disabled={!r.product_id}
+                          value={r.discount ?? ""}
+                          onChange={(e) =>
+                            setRow(r.key, { discount: e.target.value })
+                          }
+                        />
+                      </td>
+                      {/* Taxable = Qty × Rate − Disc (auto). */}
+                      <td className="text-end">
+                        {sym}
+                        {dispStr(
+                          num(r.qty) * num(r.unit_price) * discFactor(r.discount)
+                        )}
+                      </td>
+                      <td>
+                        <Input
+                          type="number"
+                          min="0"
                           step="0.01"
                           bsSize="sm"
                           className="text-end"
@@ -1091,12 +1167,27 @@ const CreatePoVendor = () => {
                       <td className="text-end">
                         {sym}
                         {dispStr(
-                          gstApplies ? lineGst(r.qty, r.unit_price, r.tax_pct) : 0
+                          gstApplies
+                            ? lineGst(r.qty, r.unit_price, r.tax_pct, r.discount)
+                            : 0
                         )}
                       </td>
+                      {/* Total = Taxable + GST (auto, final line amount). */}
                       <td className="text-end fw-bold">
                         {sym}
-                        {dispStr(num(r.qty) * num(r.unit_price))}
+                        {dispStr(
+                          num(r.qty) *
+                            num(r.unit_price) *
+                            discFactor(r.discount) +
+                            (gstApplies
+                              ? lineGst(
+                                  r.qty,
+                                  r.unit_price,
+                                  r.tax_pct,
+                                  r.discount
+                                )
+                              : 0)
+                        )}
                       </td>
                       <td className="text-center">
                         {lines.length > 1 && (
@@ -1114,18 +1205,24 @@ const CreatePoVendor = () => {
                 </tbody>
                 <tfoot>
                   <tr className="table-light fw-bold">
-                    {/* 8 = # · Product · Part No · HSN · UOM · Qty · Rate · GST%.
-                        The two cells after it land under GST Amt and Amount. */}
+                    {/* 8 = # · Product · Part No · HSN · UOM · Qty · Rate · Disc%.
+                        The cells after it land under Taxable · (GST%) · GST Amt ·
+                        Total. */}
                     <td colSpan={8} className="text-end">
-                      {t("Total")}
+                      {t("Totals")}
                     </td>
+                    <td className="text-end">
+                      {sym}
+                      {dispStr(standaloneTotal)}
+                    </td>
+                    <td />
                     <td className="text-end">
                       {sym}
                       {dispStr(goodsGst)}
                     </td>
                     <td className="text-end">
                       {sym}
-                      {dispStr(standaloneTotal)}
+                      {dispStr(standaloneTotal + goodsGst)}
                     </td>
                     <td />
                   </tr>
@@ -1191,57 +1288,48 @@ const CreatePoVendor = () => {
                 style={{ maxWidth: 360 }}
               >
                 <tbody>
-                  {charges.length > 0 && (
-                    <tr className="fw-bold">
-                      <td className="text-end">{t("Charges Total")}</td>
-                      <td className="text-end" style={{ width: 130 }}>
-                        {sym}
-                        {dispStr(chargesTotal)}
-                      </td>
-                    </tr>
-                  )}
-                  {goodsGst > 0 &&
-                    (gstSplitKnown ? (
-                      interState ? (
-                        <tr>
-                          <td className="text-end">{t("Input IGST")}</td>
-                          <td className="text-end">
-                            {sym}
-                            {dispStr(igst)}
-                          </td>
-                        </tr>
-                      ) : (
-                        <Fragment>
-                          <tr>
-                            <td className="text-end">{t("Input CGST")}</td>
-                            <td className="text-end">
-                              {sym}
-                              {dispStr(cgst)}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="text-end">{t("Input SGST")}</td>
-                            <td className="text-end">
-                              {sym}
-                              {dispStr(sgst)}
-                            </td>
-                          </tr>
-                        </Fragment>
-                      )
-                    ) : (
-                      <tr>
-                        <td className="text-end">
-                          {t("GST")}
-                          <small className="text-muted ms-50 fw-normal">
-                            ({t("CGST/SGST vs IGST needs both GSTINs")})
-                          </small>
-                        </td>
-                        <td className="text-end">
-                          {sym}
-                          {dispStr(goodsGst)}
-                        </td>
-                      </tr>
-                    ))}
+                  {/* Clean 4-line breakdown: goods (ex-GST) → expenses (ex-GST)
+                      → total GST (goods GST + any charge GST) → grand total. */}
+                  <tr>
+                    <td className="text-end">
+                      {t("Goods Total")}{" "}
+                      <small className="text-muted fw-normal">
+                        ({t("Without GST")})
+                      </small>
+                    </td>
+                    <td className="text-end" style={{ width: 130 }}>
+                      {sym}
+                      {dispStr(goodsTotal)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-end">
+                      {t("Expenses")}{" "}
+                      <small className="text-muted fw-normal">
+                        ({t("Without GST")})
+                      </small>
+                    </td>
+                    <td className="text-end">
+                      {sym}
+                      {dispStr(expensesBase)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-end">
+                      {t("GST")}
+                      {chargeGst > 0 && (
+                        <small className="text-muted ms-50 fw-normal">
+                          ({sym}
+                          {dispStr(goodsGst)} + {sym}
+                          {dispStr(chargeGst)})
+                        </small>
+                      )}
+                    </td>
+                    <td className="text-end">
+                      {sym}
+                      {dispStr(totalGst)}
+                    </td>
+                  </tr>
                   <tr className="table-light fw-bold">
                     <td className="text-end">{t("Grand Total")} ({sym})</td>
                     <td className="text-end">
