@@ -696,11 +696,43 @@ const CostingWorksheet = ({
   // converts each line's cost source→document currency. So every figure is
   // ALREADY in the document currency — NO header × rate here.
   const grandDoc = totals.grand;
-  // Per-line freight (document currency), qty-split; residual folded into the
-  // last line so Σ == freightTotal. Keyed by absolute line index.
-  const lineFreights = splitFreightByQty(liveLines, freightTotal);
-  const cnfTotal = round2(grandDoc + freightTotal);
+  // Per-line freight (document currency). AUTO-SPLIT by qty is the default, but
+  // any line the operator types into is an OVERRIDE (freight_manual = true) and
+  // keeps its value; the REMAINING freight (freight_total − Σ overrides) then
+  // splits across the untouched lines by qty. So Σ line freights == freight_total.
+  // A line with a NON-EMPTY `freight` is a manual override; empty = auto-split.
+  const isFreightManual = (l) =>
+    l?.freight != null && String(l.freight).trim() !== "";
+  const lineFreights = (() => {
+    const manualSum = liveLines.reduce(
+      (s, l) => s + (isFreightManual(l) ? num(l.freight) : 0),
+      0
+    );
+    const remaining = Math.max(0, round2(freightTotal - manualSum));
+    // Split the remainder across the NON-overridden lines by qty (a manual line
+    // is forced to 0 qty so it gets nothing, keeping the indexes aligned).
+    const autoShares = splitFreightByQty(
+      liveLines.map((l) => (isFreightManual(l) ? { ...l, qty: 0 } : l)),
+      remaining
+    );
+    return liveLines.map((l, i) =>
+      isFreightManual(l) ? num(l.freight) : num(autoShares[i]) || 0
+    );
+  })();
+  const freightSum = round2(lineFreights.reduce((s, v) => s + v, 0));
+  const cnfTotal = round2(grandDoc + freightSum);
   const cnfRateTotal = totals.qty ? round2(cnfTotal / totals.qty) : 0;
+  // Keep the persisted header freight_total equal to the actual per-line sum —
+  // so an override that pushes past the entered total (Σ overrides > total)
+  // still flows the correct freight to grand_total + the PDF. Guarded so it
+  // only fires on a real divergence (no render loop; equal → no-op).
+  useEffect(() => {
+    if (readOnly) return;
+    if (Math.abs(freightSum - freightTotal) > 0.005) {
+      setValue("freight_total", String(freightSum), { shouldDirty: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freightSum, freightTotal, readOnly]);
   // Everything is shown in the DOCUMENT currency now (₹ for an INR document).
   const docSym = currencySymbol(docCurrencyCode) || "₹";
   const money = (v) => `${docSym}${fmt(v)}`;
@@ -1143,7 +1175,33 @@ const CostingWorksheet = ({
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(amtDoc)}
                     </td>
-                    <td className="text-end ws-calc">{moneyDoc(lineFreight)}</td>
+                    <td className="p-0">
+                      {/* Editable per-line freight. Auto-split by qty is the
+                          default; typing here overrides just this line and the
+                          rest re-splits. Clear it to revert to auto. */}
+                      <EditableCell
+                        value={lineFreight}
+                        display={moneyDoc(lineFreight)}
+                        readOnly={readOnly}
+                        onCommit={(v) => {
+                          const s = String(v ?? "").trim();
+                          // Empty → clear the override (back to qty auto-split).
+                          if (s === "") {
+                            setField(idx, "freight", "");
+                            return;
+                          }
+                          // Committing the SAME auto value shouldn't lock an
+                          // auto line as manual — only a real change overrides.
+                          if (
+                            !isFreightManual(l) &&
+                            Math.abs(num(s) - num(lineFreight)) < 0.005
+                          ) {
+                            return;
+                          }
+                          setField(idx, "freight", s);
+                        }}
+                      />
+                    </td>
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(cnfAmt)}
                     </td>
@@ -1228,7 +1286,7 @@ const CostingWorksheet = ({
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}
                 </td>
-                <td className="text-end">{moneyDoc(freightTotal)}</td>
+                <td className="text-end">{moneyDoc(freightSum)}</td>
                 <td className="text-end ws-foot-grand">{moneyDoc(cnfTotal)}</td>
                 <td className="text-end">{moneyDoc(cnfRateTotal)}</td>
                 <td className="text-end">{fmt(totals.netWt)}</td>

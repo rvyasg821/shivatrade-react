@@ -230,6 +230,7 @@ const VendorForm = () => {
 
   const {
     control,
+    register,
     handleSubmit,
     reset,
     setValue,
@@ -323,6 +324,10 @@ const VendorForm = () => {
         payment_terms: v.payment_terms || "",
         incoterms: v.incoterms || "",
         currency_code: v.currency_code || "",
+        opening_balance:
+          v.opening_balance != null ? String(v.opening_balance) : "",
+        opening_balance_type: v.opening_balance_type || "credit",
+        opening_balance_date: v.opening_balance_date || "",
         status: v.status || (v.is_active ? "active" : "inactive"),
         is_active: v.is_active,
         contacts:
@@ -488,6 +493,10 @@ const VendorForm = () => {
       payment_terms: optStr(data.payment_terms),
       incoterms: optStr(data.incoterms),
       currency_code: optStr(data.currency_code),
+      // Migration opening balance (ledger).
+      opening_balance: optStr(data.opening_balance),
+      opening_balance_type: optStr(data.opening_balance_type) || "credit",
+      opening_balance_date: optStr(data.opening_balance_date),
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
@@ -886,6 +895,53 @@ const VendorForm = () => {
                           "Used for this vendor's price list & Vendor POs."
                         )}
                       </small>
+                    </Col>
+                  </Row>
+
+                  {/* ── Opening Balance (ledger migration) ── */}
+                  <Row>
+                    <Col md="4" className="mb-2">
+                      <Label className="form-label" for="opening_balance">
+                        {t("Opening Balance")}
+                      </Label>
+                      <Input
+                        id="opening_balance"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        {...register("opening_balance")}
+                      />
+                      <small className="text-muted">
+                        {t("Balance carried over at migration.")}
+                      </small>
+                    </Col>
+                    <Col md="4" className="mb-2">
+                      <Label className="form-label" for="opening_balance_type">
+                        {t("Balance Type")}
+                      </Label>
+                      <Input
+                        id="opening_balance_type"
+                        type="select"
+                        {...register("opening_balance_type")}
+                      >
+                        <option value="credit">
+                          {t("Credit — we owe the vendor")}
+                        </option>
+                        <option value="debit">
+                          {t("Debit — advance with the vendor")}
+                        </option>
+                      </Input>
+                    </Col>
+                    <Col md="4" className="mb-2">
+                      <Label className="form-label" for="opening_balance_date">
+                        {t("As of Date")}
+                      </Label>
+                      <Input
+                        id="opening_balance_date"
+                        type="date"
+                        {...register("opening_balance_date")}
+                      />
                     </Col>
                   </Row>
 
