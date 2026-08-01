@@ -46,6 +46,7 @@ import {
   recordInvoicePayment,
   voidInvoicePayment,
 } from "@src/views/invoices/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import AddInvoiceEventModal from "@src/views/invoices/components/AddInvoiceEventModal";
 import ShipmentEditModal from "@src/views/invoices/components/ShipmentEditModal";
 import { Input, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
@@ -100,6 +101,25 @@ const ViewInvoice = () => {
   const store = useSelector((s) => s.invoice);
   const inv = store?.invoiceItem || {};
 
+  // Company bank accounts → the "Received in Bank" dropdown on a receipt.
+  const companyStore = useSelector((s) => s.company);
+  useEffect(() => {
+    dispatch(getCompanyDetails());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const bankOptions = useMemo(
+    () =>
+      (companyStore?.companyItem?.bank_accounts || [])
+        .filter((b) => b?.is_active !== false)
+        .map((b) => ({
+          value: b._id,
+          label: `${b.bank_name}${
+            b.account_number ? ` — A/c ${b.account_number}` : ""
+          }${b.is_default ? " (default)" : ""}`,
+        })),
+    [companyStore?.companyItem]
+  );
+
   const authUserItem = useSelector((s) => s.auth?.authUserItem);
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions?.invoices;
@@ -123,8 +143,17 @@ const ViewInvoice = () => {
     method: "bank_transfer",
     reference: "",
     notes: "",
+    company_bank_account_id: "",
   });
   const [payErrors, setPayErrors] = useState({});
+
+  // Default company bank account (the "Received in Bank" pre-selection).
+  const defaultBankId = useMemo(() => {
+    const banks = (companyStore?.companyItem?.bank_accounts || []).filter(
+      (b) => b?.is_active !== false
+    );
+    return (banks.find((b) => b.is_default) || banks[0])?._id || "";
+  }, [companyStore?.companyItem]);
 
   const openPaymentModal = () => {
     setPayForm({
@@ -134,10 +163,22 @@ const ViewInvoice = () => {
       method: "bank_transfer",
       reference: "",
       notes: "",
+      company_bank_account_id: defaultBankId,
     });
     setPayErrors({});
     setPayOpen(true);
   };
+
+  // Banks load async — back-fill the default once they arrive if the modal is
+  // open and no bank has been picked yet.
+  useEffect(() => {
+    if (!payOpen || !defaultBankId) return;
+    setPayForm((s) =>
+      s.company_bank_account_id
+        ? s
+        : { ...s, company_bank_account_id: defaultBankId }
+    );
+  }, [payOpen, defaultBankId]);
 
   const submitPayment = () => {
     const e = {};
@@ -1247,6 +1288,7 @@ const ViewInvoice = () => {
                           <tr>
                             <th>{t("Date")}</th>
                             <th>{t("Method")}</th>
+                            <th>{t("Bank")}</th>
                             <th>{t("Reference")}</th>
                             <th>{t("Notes")}</th>
                             <th>{t("Receipt")}</th>
@@ -1269,6 +1311,7 @@ const ViewInvoice = () => {
                                 <td className="text-capitalize">
                                   {(p.method || "-").replace(/_/g, " ")}
                                 </td>
+                                <td>{p.bank_name || "-"}</td>
                                 <td>{p.reference || "-"}</td>
                                 <td>{p.notes || "-"}</td>
                                 <td>
@@ -1686,6 +1729,30 @@ const ViewInvoice = () => {
                 }
                 onChange={(opt) =>
                   setPayForm((s) => ({ ...s, method: opt ? opt.value : "" }))
+                }
+              />
+            </Col>
+            <Col md="6" className="mb-2">
+              <Label className="form-label">{t("Received in Bank")}</Label>
+              <Select
+                classNamePrefix="select"
+                isClearable
+                options={bankOptions}
+                value={
+                  bankOptions.find(
+                    (o) => o.value === payForm.company_bank_account_id
+                  ) || null
+                }
+                placeholder={
+                  bankOptions.length
+                    ? t("Select bank account")
+                    : t("No bank accounts — add one in Company settings")
+                }
+                onChange={(opt) =>
+                  setPayForm((s) => ({
+                    ...s,
+                    company_bank_account_id: opt ? opt.value : "",
+                  }))
                 }
               />
             </Col>
