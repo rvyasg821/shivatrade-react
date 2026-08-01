@@ -19,8 +19,12 @@ const OverviewTab = () => {
 
   // Same roll-up the wizard's final step uses - built from the saved lines.
   const totals = useMemo(
-    () => computeDocTotals(lines, q?.exchange_rate, { excludeGst: true }),
-    [lines, q?.exchange_rate]
+    () =>
+      computeDocTotals(lines, q?.exchange_rate, {
+        excludeGst: true,
+        freightTotal: q?.freight_total,
+      }),
+    [lines, q?.exchange_rate, q?.freight_total]
   );
 
   return (

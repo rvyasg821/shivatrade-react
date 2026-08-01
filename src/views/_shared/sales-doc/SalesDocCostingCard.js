@@ -177,6 +177,12 @@ const SalesDocCostingCard = ({
                 ))}
           </>
         )}
+        {num(totals.freight_total) > 0 && (
+          <div className="d-flex justify-content-between mb-1">
+            <span>+ {t("Freight")}</span>
+            <strong>{money(totals.freight_total)}</strong>
+          </div>
+        )}
         <hr className="my-2" />
         {docView ? (
           <>

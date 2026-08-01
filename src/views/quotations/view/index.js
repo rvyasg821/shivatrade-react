@@ -87,10 +87,14 @@ const daysUntil = (iso) => {
 // Right-column costing card. Rendered as a child of the currency provider so
 // `useQuotationCurrency()` resolves the page-level View: USD⇄INR toggle, keeping
 // the breakdown in lock-step with the table + KPI strip.
-const CostingPanelBody = ({ lines, exchangeRate, currencyCode }) => {
+const CostingPanelBody = ({ lines, exchangeRate, currencyCode, freightTotal }) => {
   const totals = useMemo(
-    () => computeDocTotals(lines || [], exchangeRate, { excludeGst: true }),
-    [lines, exchangeRate]
+    () =>
+      computeDocTotals(lines || [], exchangeRate, {
+        excludeGst: true,
+        freightTotal,
+      }),
+    [lines, exchangeRate, freightTotal]
   );
   // Same layout as the Step-3 review card: full INR breakdown → 1 {ccy} = X INR
   // → round-off on the quote currency → Grand Total ({ccy}). No doc-view toggle.
@@ -424,8 +428,12 @@ const ViewQuotation = () => {
   // stored doc-currency grand_total back to INR via /rate amplifies the
   // 2-decimal rounding of the doc value into a visible ₹ discrepancy.)
   const headerTotals = useMemo(
-    () => computeDocTotals(q?.lines || [], q?.exchange_rate, { excludeGst: true }),
-    [q?.lines, q?.exchange_rate]
+    () =>
+      computeDocTotals(q?.lines || [], q?.exchange_rate, {
+        excludeGst: true,
+        freightTotal: q?.freight_total,
+      }),
+    [q?.lines, q?.exchange_rate, q?.freight_total]
   );
 
   const kpiItems = [
@@ -672,6 +680,7 @@ const ViewQuotation = () => {
                 lines={q?.lines}
                 exchangeRate={q?.exchange_rate}
                 currencyCode={q?.currency_code}
+                freightTotal={q?.freight_total}
               />
             </DetailPanel>
           }

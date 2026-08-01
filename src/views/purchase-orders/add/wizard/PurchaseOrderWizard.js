@@ -591,9 +591,14 @@ const PurchaseOrderWizard = () => {
   const liveExchangeRate = useWatch({ control, name: "exchange_rate" });
   const exchangeRate = Number(liveExchangeRate) || 1;
   const liveLines = useWatch({ control, name: "lines" }) || [];
+  const liveFreight = useWatch({ control, name: "freight_total" });
   const totals = useMemo(
-    () => computeDocTotals(liveLines, exchangeRate, { excludeGst: true }),
-    [liveLines, exchangeRate]
+    () =>
+      computeDocTotals(liveLines, exchangeRate, {
+        excludeGst: true,
+        freightTotal: liveFreight,
+      }),
+    [liveLines, exchangeRate, liveFreight]
   );
 
   const vendorProductOptions = useMemo(() => {

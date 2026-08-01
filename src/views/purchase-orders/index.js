@@ -295,8 +295,10 @@ const PurchaseOrderView = () => {
   const formatTotal = (row) => {
     const lines = row?.lines || [];
     const amount = lines.length
-      ? computeDocTotals(lines, row?.exchange_rate, { excludeGst: true })
-          .grand_currency
+      ? computeDocTotals(lines, row?.exchange_rate, {
+          excludeGst: true,
+          freightTotal: row?.freight_total,
+        }).grand_currency
       : row?.grand_total;
     return formatMoney(amount, row?.currency_code);
   };
