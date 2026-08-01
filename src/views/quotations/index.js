@@ -49,6 +49,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportModal from "./components/ImportModal";
 import { formatMoney } from "@src/utility/currency";
+import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import { formatDate } from "@src/utility/dateFormat";
 import { openPdfViewer } from "@src/utility/pdf";
 
@@ -282,12 +283,20 @@ const QuotationView = () => {
     [customerStore?.customerDropdown]
   );
 
-  // Match the detail page: customer total rounded to a whole unit, shown 2 dp.
-  const formatTotal = (row) =>
-    formatMoney(
-      Math.round(Number(row?.grand_total) || 0),
-      row?.currency_code
-    );
+  // Match the detail page: recompute from the lines with the same helper the
+  // costing card uses, so freight (CNF/CFR) is included and old docs — whose
+  // stored grand_total predates the freight-inclusive change — show the right
+  // figure without a re-save. Falls back to the stored total if lines absent.
+  const formatTotal = (row) => {
+    const lines = row?.lines || [];
+    const amount = lines.length
+      ? computeDocTotals(lines, row?.exchange_rate, {
+          excludeGst: true,
+          freightTotal: row?.freight_total,
+        }).grand_currency
+      : Math.round(Number(row?.grand_total) || 0);
+    return formatMoney(amount, row?.currency_code);
+  };
 
   const columns = [
     {

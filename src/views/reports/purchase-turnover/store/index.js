@@ -28,23 +28,14 @@ export const getPurchaseTurnover = createAsyncThunk(
   }
 );
 
-const emptyTotals = {
-  pov_count: 0,
-  taxable_inr: 0,
-  gst_inr: 0,
-  order_value_inr: 0,
-  paid_inr: 0,
-  outstanding_inr: 0,
-};
-
 export const purchaseTurnoverSlice = createSlice({
   name: "purchaseTurnover",
   initialState: {
-    rows: [],
-    totals: emptyTotals,
+    groups: [],
+    available_currencies: [],
+    overall_pov_count: 0,
     period_label: "",
     group_by: "month",
-    pagination: { total: 0, perPage: 25, orderBy: "month" },
     loading: false,
     error: "",
   },
@@ -60,17 +51,19 @@ export const purchaseTurnoverSlice = createSlice({
       })
       .addCase(getPurchaseTurnover.fulfilled, (state, action) => {
         state.loading = false;
-        state.rows = action.payload?.rows || [];
-        state.totals = action.payload?.totals || emptyTotals;
+        state.groups = action.payload?.groups || [];
+        state.available_currencies =
+          action.payload?.available_currencies || [];
+        state.overall_pov_count = action.payload?.overall_pov_count || 0;
         state.period_label = action.payload?.period_label || "";
         state.group_by = action.payload?.group_by || "month";
-        state.pagination = action.payload?.pagination || state.pagination;
         state.error = "";
       })
       .addCase(getPurchaseTurnover.rejected, (state, action) => {
         state.loading = false;
-        state.rows = [];
-        state.totals = emptyTotals;
+        state.groups = [];
+        state.available_currencies = [];
+        state.overall_pov_count = 0;
         state.error = action.payload || "";
       });
   },

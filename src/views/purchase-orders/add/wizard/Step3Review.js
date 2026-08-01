@@ -31,7 +31,11 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
   const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
   const exchangeRate = useWatch({ control, name: "exchange_rate" });
   const rate = Number(exchangeRate) || 1;
-  const totals = computeDocTotals(lines, rate, { excludeGst: true });
+  const freightTotal = useWatch({ control, name: "freight_total" });
+  const totals = computeDocTotals(lines, rate, {
+    excludeGst: true,
+    freightTotal,
+  });
   const currentStatus = useWatch({ control, name: "status" }) || "draft";
 
   // Current status + only its legal next statuses (matches the BE matrix).

@@ -137,8 +137,12 @@ const ViewPurchaseOrder = () => {
   // costing breakdown card uses, so the header KPI matches it exactly
   // (the stored grand_total carries a 2-decimal rounding drift).
   const headerTotals = useMemo(
-    () => computeDocTotals(p?.lines || [], p?.exchange_rate, { excludeGst: true }),
-    [p?.lines, p?.exchange_rate]
+    () =>
+      computeDocTotals(p?.lines || [], p?.exchange_rate, {
+        excludeGst: true,
+        freightTotal: p?.freight_total,
+      }),
+    [p?.lines, p?.exchange_rate, p?.freight_total]
   );
 
   const kpiItems = [

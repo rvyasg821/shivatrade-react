@@ -226,7 +226,11 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
   // so the sums (net/margin/tax) are in the DOCUMENT currency. The grand total
   // is that sum — NO header × rate. `rate` (doc-per-₹1) only yields the INR
   // figure for the books/reports roll-up. For an INR document rate = 1.
-  const grand_doc_raw = net + margin_amount + tax_total;
+  // CNF/CFR: the shipment freight is part of the price the customer pays, so it
+  // is folded into the grand total (matches the persisted header grand_total =
+  // FOB + freight, and the Invoice). Header-level figure, not split into lines.
+  const freight_total = num(opts.freightTotal);
+  const grand_doc_raw = net + margin_amount + tax_total + freight_total;
   const rate = num(exchangeRate) || 1;
   // Customer (document) currency total — round to a whole unit; the difference
   // shows as a round-off line.
@@ -248,6 +252,7 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     rebates_pct_total,
     rebates_fixed_total,
     net,
+    freight_total,
     margin_amount,
     margin_pct,
     margin_uniform,

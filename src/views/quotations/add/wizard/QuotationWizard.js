@@ -206,6 +206,7 @@ const QuotationWizard = () => {
   const liveLines = useWatch({ control, name: "lines" }) || [];
   const liveMargin = useWatch({ control, name: "margin_pct" });
   const liveRate = useWatch({ control, name: "exchange_rate" });
+  const liveFreight = useWatch({ control, name: "freight_total" });
   const liveCurrencyCode = useWatch({ control, name: "currency_code" });
   const liveStatus = useWatch({ control, name: "status" });
 
@@ -797,8 +798,12 @@ const QuotationWizard = () => {
 
   // ── Costing engine (mirrors backend recompute) ──────────────────────
   const totals = useMemo(
-    () => computeDocTotals(liveLines, liveRate, { excludeGst: true }),
-    [liveLines, liveMargin, liveRate]
+    () =>
+      computeDocTotals(liveLines, liveRate, {
+        excludeGst: true,
+        freightTotal: liveFreight,
+      }),
+    [liveLines, liveMargin, liveRate, liveFreight]
   );
 
   // ── Submit (full) ───────────────────────────────────────────────────
