@@ -729,6 +729,11 @@ const PurchaseOrderWizard = () => {
         unit_price: String(l.unit_price || "0"),
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
+        // Per-line freight override (CNF): non-empty = manual, empty = auto.
+        freight:
+          l.freight != null && String(l.freight).trim() !== ""
+            ? String(l.freight)
+            : "",
         // Costing worksheet — margin + expense/rebate heads. Were dropped here,
         // so the SO recompute saw margin_pct = 0 and the entered margin never
         // persisted. Amounts are recomputed server-side from these inputs.

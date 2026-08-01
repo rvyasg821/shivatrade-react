@@ -32,6 +32,7 @@ import RecentActivity from './RecentActivity';
 import DashboardCharts from './DashboardCharts';
 import CompanyQuickList from './CompanyQuickList';
 import ErpDashboard, { hasErpAccess } from './ErpDashboard';
+import DateInput from '@components/date-input';
 
 // Styles
 import './SubscriptionCard.scss';
@@ -484,6 +485,9 @@ const Dashboard = () => {
     // "Financial Year". Only the ERP dashboard reads it (superadmin dashboard
     // is unaffected), so the toggle shows only when an ERP dashboard renders.
     const [erpPeriod, setErpPeriod] = useState('fy');
+    // Custom date range (only used when erpPeriod === 'custom').
+    const [customFrom, setCustomFrom] = useState('');
+    const [customTo, setCustomTo] = useState('');
     const showErpDashboard =
         !isSuperAdmin &&
         (isCompanyAdmin ||
@@ -582,7 +586,7 @@ const Dashboard = () => {
         if (isCompanyAdmin) {
             return (
                 <div className="company-admin-dashboard">
-                    <ErpDashboard period={erpPeriod} />
+                    <ErpDashboard period={erpPeriod} customFrom={customFrom} customTo={customTo} />
                 </div>
             );
         }
@@ -590,7 +594,7 @@ const Dashboard = () => {
         if (isLocationAdmin) {
             return (
                 <div className="location-admin-dashboard">
-                    <ErpDashboard period={erpPeriod} />
+                    <ErpDashboard period={erpPeriod} customFrom={customFrom} customTo={customTo} />
                 </div>
             );
         }
@@ -606,7 +610,7 @@ const Dashboard = () => {
                     <h5 className="text-muted fw-bolder mb-1 pt-1 border-top">
                         {t("Business Overview")}
                     </h5>
-                    <ErpDashboard period={erpPeriod} />
+                    <ErpDashboard period={erpPeriod} customFrom={customFrom} customTo={customTo} />
                 </Fragment>
             );
         }
@@ -618,22 +622,48 @@ const Dashboard = () => {
             <div className="d-flex align-items-center justify-content-between mb-2">
                 <h3 className='mb-0'>{t("Dashboard")}</h3>
                 {showErpDashboard && (
-                    <ButtonGroup size="sm">
-                        <Button
-                            color="primary"
-                            outline={erpPeriod !== 'month'}
-                            onClick={() => setErpPeriod('month')}
-                        >
-                            {t("This Month")}
-                        </Button>
-                        <Button
-                            color="primary"
-                            outline={erpPeriod !== 'fy'}
-                            onClick={() => setErpPeriod('fy')}
-                        >
-                            {t("Financial Year")}
-                        </Button>
-                    </ButtonGroup>
+                    <div className="d-flex align-items-center flex-wrap gap-1">
+                        {erpPeriod === 'custom' && (
+                            <div className="d-flex align-items-center gap-1">
+                                <DateInput
+                                    id="dash-from"
+                                    value={customFrom}
+                                    onChange={(d, str, iso) => setCustomFrom(iso || '')}
+                                    placeholder={t("From")}
+                                />
+                                <span className="text-muted">–</span>
+                                <DateInput
+                                    id="dash-to"
+                                    value={customTo}
+                                    onChange={(d, str, iso) => setCustomTo(iso || '')}
+                                    placeholder={t("To")}
+                                />
+                            </div>
+                        )}
+                        <ButtonGroup size="sm">
+                            <Button
+                                color="primary"
+                                outline={erpPeriod !== 'month'}
+                                onClick={() => setErpPeriod('month')}
+                            >
+                                {t("This Month")}
+                            </Button>
+                            <Button
+                                color="primary"
+                                outline={erpPeriod !== 'fy'}
+                                onClick={() => setErpPeriod('fy')}
+                            >
+                                {t("Financial Year")}
+                            </Button>
+                            <Button
+                                color="primary"
+                                outline={erpPeriod !== 'custom'}
+                                onClick={() => setErpPeriod('custom')}
+                            >
+                                {t("Custom")}
+                            </Button>
+                        </ButtonGroup>
+                    </div>
                 )}
             </div>
             {renderContent()}

@@ -94,28 +94,40 @@ const LedgerStatement = ({ kind, partyId }) => {
           ignore the from/to filter below. */}
       {summary && (
         <Row className="g-1 mb-2">
-          {[
-            [
-              kind === "vendor" ? t("Total Billed") : t("Total Invoiced"),
-              summary.total_billed,
-              "",
-            ],
-            [
-              kind === "vendor" ? t("Total Paid") : t("Total Received"),
-              summary.total_paid,
-              "",
-            ],
-            [t("Outstanding"), summary.outstanding, "text-warning"],
-          ].map(([label, value, cls]) => (
-            <Col md="4" key={label}>
-              <div className="border rounded p-1 h-100">
-                <div className="text-muted small">{label}</div>
-                <h4 className={`mb-0 mt-25 fw-bolder ${cls}`}>
-                  {money(value)}
-                </h4>
-              </div>
-            </Col>
-          ))}
+          {(() => {
+            const cards = [
+              [
+                kind === "vendor" ? t("Total Billed") : t("Total Invoiced"),
+                summary.total_billed,
+                "",
+              ],
+              [
+                kind === "vendor" ? t("Total Paid") : t("Total Received"),
+                summary.total_paid,
+                "",
+              ],
+            ];
+            // Migration opening balance — only when one was set.
+            if (Number(summary.opening_balance || 0) !== 0) {
+              cards.push([
+                t("Opening Balance"),
+                summary.opening_balance,
+                "text-info",
+              ]);
+            }
+            cards.push([t("Outstanding"), summary.outstanding, "text-warning"]);
+            const md = Math.floor(12 / cards.length) || 3;
+            return cards.map(([label, value, cls]) => (
+              <Col md={md} key={label}>
+                <div className="border rounded p-1 h-100">
+                  <div className="text-muted small">{label}</div>
+                  <h4 className={`mb-0 mt-25 fw-bolder ${cls}`}>
+                    {money(value)}
+                  </h4>
+                </div>
+              </Col>
+            ));
+          })()}
           <Col md="12">
             <div className="text-muted small mt-25">
               {kind === "vendor"

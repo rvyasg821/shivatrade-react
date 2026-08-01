@@ -856,6 +856,10 @@ const QuotationWizard = () => {
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
         margin_pct: String(l.margin_pct || "0"),
+        // Per-line freight override (CNF): non-empty = manual, empty = auto.
+        freight: l.freight != null && String(l.freight).trim() !== ""
+          ? String(l.freight)
+          : "",
         product_rebates_snapshot: (l.product_rebates_snapshot || []).map(
           (r) => ({
             rebate_id: r.rebate_id || null,

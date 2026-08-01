@@ -177,6 +177,7 @@ const CustomerForm = () => {
 
   const {
     control,
+    register,
     handleSubmit,
     reset,
     setValue,
@@ -259,6 +260,10 @@ const CustomerForm = () => {
         pan: c.pan || "",
         iec: c.iec || "",
         currency: c.currency || "",
+        opening_balance:
+          c.opening_balance != null ? String(c.opening_balance) : "",
+        opening_balance_type: c.opening_balance_type || "debit",
+        opening_balance_date: c.opening_balance_date || "",
         status: c.status || (c.is_active ? "active" : "inactive"),
         is_active: c.is_active,
         contacts:
@@ -330,6 +335,10 @@ const CustomerForm = () => {
       pan: optStr(data.pan),
       iec: optStr(data.iec),
       currency: optStr(data.currency),
+      // Migration opening balance (ledger).
+      opening_balance: optStr(data.opening_balance),
+      opening_balance_type: optStr(data.opening_balance_type) || "debit",
+      opening_balance_date: optStr(data.opening_balance_date),
       status: data.status,
       is_active: data.status === "active",
       contacts: (data.contacts || []).map((c) => ({
@@ -500,6 +509,48 @@ const CustomerForm = () => {
                         classNamePrefix="select"
                       />
                     )}
+                  />
+                </Col>
+
+                {/* ── Opening Balance (ledger migration) ── */}
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="opening_balance">
+                    {t("Opening Balance")}
+                  </Label>
+                  <Input
+                    id="opening_balance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...register("opening_balance")}
+                  />
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="opening_balance_type">
+                    {t("Balance Type")}
+                  </Label>
+                  <Input
+                    id="opening_balance_type"
+                    type="select"
+                    {...register("opening_balance_type")}
+                  >
+                    <option value="debit">
+                      {t("Debit — customer owes us")}
+                    </option>
+                    <option value="credit">
+                      {t("Credit — advance from customer")}
+                    </option>
+                  </Input>
+                </Col>
+                <Col md="3" className="mb-2">
+                  <Label className="form-label" for="opening_balance_date">
+                    {t("As of Date")}
+                  </Label>
+                  <Input
+                    id="opening_balance_date"
+                    type="date"
+                    {...register("opening_balance_date")}
                   />
                 </Col>
 

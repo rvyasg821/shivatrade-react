@@ -86,20 +86,26 @@ const countOf = (url, params) =>
     .then((r) => Number(r?.data?.pagination?.total ?? (r?.data?.data || []).length) || 0)
     .catch(() => 0);
 
-const ErpDashboard = ({ period = "fy" }) => {
+const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
   // Period window for the time-based figures. "month" = 1st of the current
-  // month → today; "fy" = 1 Apr (Indian FY) → today. Only revenue/leaderboard
-  // and the "created in range" KPI counts use it; current-state cards (Stock
-  // Value, Needs attention, entity counts) ignore it and stay live.
+  // month → today; "fy" = 1 Apr (Indian FY) → today; "custom" = the operator's
+  // picked from/to range. Only revenue/leaderboard and the "created in range"
+  // KPI counts use it; current-state cards (Stock Value, Needs attention,
+  // entity counts) ignore it and stay live.
   const dateParams = useMemo(() => {
     const now = new Date();
     const iso = (dt) =>
       `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
         dt.getDate()
       ).padStart(2, "0")}`;
+    // Custom range: only once BOTH ends are set (else fall back to FY so the
+    // dashboard never queries a half-open window).
+    if (period === "custom" && customFrom && customTo) {
+      return { date_from: customFrom, date_to: customTo };
+    }
     const date_to = iso(now);
     let date_from;
     if (period === "month") {
@@ -109,7 +115,7 @@ const ErpDashboard = ({ period = "fy" }) => {
       date_from = `${fyStartYear}-04-01`;
     }
     return { date_from, date_to };
-  }, [period]);
+  }, [period, customFrom, customTo]);
 
   const authUserItem = useSelector((s) => s.auth?.authUserItem) || null;
   const isAdmin = isAdminUser(authUserItem);
@@ -196,7 +202,7 @@ const ErpDashboard = ({ period = "fy" }) => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anyVisible, authUserItem?._id, period]);
+  }, [anyVisible, authUserItem?._id, period, customFrom, customTo]);
 
   if (!anyVisible) return null;
 
