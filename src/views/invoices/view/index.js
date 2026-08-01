@@ -770,10 +770,10 @@ const ViewInvoice = () => {
     inv?.exchange_rate && {
       icon: Percent,
       label: t("Exchange Rate"),
-      // exchange_rate is stored as foreign-per-₹1 (e.g. 0.0120). Invert it to
-      // show the rupee value of one foreign unit, matching the PDF:
-      // "$1 = ₹83.33", not the raw "$1 = ₹0.0120".
-      value: `${sym}1 = ₹${fmt(exchangeRate > 0 ? 1 / exchangeRate : 0, 2)}`,
+      // Multi-currency plan: exchange_rate is stored doc-per-₹1 (e.g. 0.012 for
+      // USD). Show it directly in the plan's "1 INR = <rate> <doc>" form — the
+      // same format the costing worksheet / Step-2 box uses.
+      value: `1 INR = ${fmt(exchangeRate, 4)} ${inv.currency_code || ""}`.trim(),
     },
   ].filter(Boolean);
 
