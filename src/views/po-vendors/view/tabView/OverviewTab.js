@@ -108,6 +108,9 @@ const OverviewTab = ({ registerActions }) => {
                   <th style={{ width: 100 }} className="text-end text-nowrap">
                     {t("Price")}
                   </th>
+                  <th style={{ width: 64 }} className="text-end text-nowrap">
+                    {t("Disc")} %
+                  </th>
                   <th style={{ width: 84 }} className="text-end text-nowrap">
                     {t("Dispatched")}
                   </th>
@@ -163,6 +166,11 @@ const OverviewTab = ({ registerActions }) => {
                     <td className="text-end text-nowrap">
                       {money(l?.unit_price)}
                     </td>
+                    <td className="text-end text-nowrap">
+                      {num(l?.discount_pct) > 0
+                        ? `${num(l.discount_pct)}%`
+                        : "-"}
+                    </td>
                     <td className="text-end">
                       {num(l?.dispatched_qty).toLocaleString()}
                     </td>
@@ -193,6 +201,7 @@ const OverviewTab = ({ registerActions }) => {
                   <td className="text-end">
                     {totals.ordered.toLocaleString()}
                   </td>
+                  <td />
                   <td />
                   <td className="text-end">
                     {totals.dispatched.toLocaleString()}

@@ -144,6 +144,27 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
                           {m.source_type || "-"}
                         </span>
                       )}
+                      {/* GRN receipt → the Vendor PO it came from + its vendor. */}
+                      {m.source_type === "grn" && m.pov_voucher_no ? (
+                        <div className="small mt-25">
+                          {m.pov_id ? (
+                            <Link
+                              to={`${appsRoot}/po-vendors/view/${m.pov_id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="d-inline-flex align-items-center"
+                            >
+                              {m.pov_voucher_no}
+                              <ExternalLink size={10} className="ms-50" />
+                            </Link>
+                          ) : (
+                            m.pov_voucher_no
+                          )}
+                          {m.vendor_name ? (
+                            <div className="text-muted">{m.vendor_name}</div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td
                       className={`text-end fw-bold text-nowrap ${

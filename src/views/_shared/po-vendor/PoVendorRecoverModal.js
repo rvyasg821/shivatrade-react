@@ -92,6 +92,9 @@ const PoVendorRecoverModal = ({
   // Rate column, in the assigned vendor's currency. Blank/absent → use the
   // vendor's price-list rate. Native (vendor currency) — no conversion.
   const [rateOverride, setRateOverride] = useState({});
+  // discountOverride[purchase_order_line_id] = vendor discount % typed in the
+  // Disc column (applied before GST). Blank/absent → 0.
+  const [discountOverride, setDiscountOverride] = useState({});
   // Per-vendor expense picks. Shape: { [vendor_id]: [{ expense_id, type, value }] }.
   const [vendorExpenses, setVendorExpenses] = useState({});
   // Per-vendor optional advance paid. Shape:
@@ -266,6 +269,8 @@ const PoVendorRecoverModal = ({
     setAssignment({});
     setDropped({});
     setQtyEdited({});
+    setRateOverride({});
+    setDiscountOverride({});
     setVendorExpenses({});
     setVendorAdvances({});
     setVendorLocations({});
@@ -451,6 +456,10 @@ const PoVendorRecoverModal = ({
     }
     return priceForLine(l, vendorId);
   };
+  // Per-line vendor discount % (before GST) → factor applied to every goods
+  // total, preview and payload so an edited discount flows through consistently.
+  const discFactorFor = (l) =>
+    1 - num(discountOverride[l.purchase_order_line_id]) / 100;
 
   // Group active assignments by vendor → "N POVs" preview + goods total (₹).
   const vendorSummary = useMemo(() => {
@@ -473,7 +482,7 @@ const PoVendorRecoverModal = ({
         total: 0,
       };
       existing.lines += 1;
-      existing.total += num(l.to_procure) * effRate(l, vid);
+      existing.total += num(l.to_procure) * effRate(l, vid) * discFactorFor(l);
       map.set(vid, existing);
     }
     return Array.from(map.values()).sort((a, b) =>
@@ -482,7 +491,7 @@ const PoVendorRecoverModal = ({
     // effRate reads rateOverride + vendorCurrencies (native), so the
     // per-vendor goods total recomputes when either changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewLines, assignment, dropped, activeVendors, rateOverride, vendorCurrencies]);
+  }, [previewLines, assignment, dropped, activeVendors, rateOverride, discountOverride, vendorCurrencies]);
 
   // Default each vendor's currency to INR once vendors are known. Blank-only,
   // so an operator's explicit per-vendor pick is never clobbered. (The vendor
@@ -597,7 +606,8 @@ const PoVendorRecoverModal = ({
           if (dropped[id]) return s;
           if (num(l.to_procure) <= 0) return s;
           if (assignment[id] !== v.vendor_id) return s;
-          const lineTotal = num(l.to_procure) * effRate(l, v.vendor_id);
+          const lineTotal =
+            num(l.to_procure) * effRate(l, v.vendor_id) * discFactorFor(l);
           return s + (lineTotal * num(l.tax_pct)) / 100;
         }, 0);
 
@@ -683,6 +693,13 @@ const PoVendorRecoverModal = ({
           const ov = rateOverride[l.purchase_order_line_id];
           if (ov == null || String(ov) === "") return undefined;
           return String(Math.round((Number(ov) || 0) * 100) / 100);
+        })(),
+        // Per-line vendor discount % (applied before GST). Omitted when blank
+        // so the backend keeps 0.
+        discount_pct: (() => {
+          const ov = discountOverride[l.purchase_order_line_id];
+          if (ov == null || String(ov) === "") return undefined;
+          return String(num(ov));
         })(),
       }));
     if (assignments.length === 0) {
@@ -875,7 +892,7 @@ const PoVendorRecoverModal = ({
                 <thead className="table-light">
                   <tr>
                     <th style={{ width: 30 }}>#</th>
-                    <th>{t("Product")}</th>
+                    <th style={{ minWidth: 220 }}>{t("Product")}</th>
                     <th style={{ width: 100 }}>{t("Part No")}</th>
                     <th style={{ width: 80 }}>{t("HSN")}</th>
                     <th style={{ width: 70 }}>{t("Unit")}</th>
@@ -895,11 +912,20 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 100 }} className="text-end">
                       {t("Rate")}
                     </th>
+                    <th style={{ width: 70 }} className="text-end">
+                      {t("Disc")} %
+                    </th>
+                    <th style={{ width: 110 }} className="text-end">
+                      {t("Taxable")}
+                    </th>
                     <th style={{ width: 60 }} className="text-end">
                       {t("GST")} %
                     </th>
                     <th className="text-end" style={{ width: 110 }}>
                       {t("GST Amt")}
+                    </th>
+                    <th className="text-end" style={{ width: 120 }}>
+                      {t("Total")}
                     </th>
                     <th style={{ width: 70 }} className="text-center">
                       {t("Action")}
@@ -1099,6 +1125,54 @@ const PoVendorRecoverModal = ({
                           )}
                         </td>
                         <td className="text-end" style={{ minWidth: 90 }}>
+                          {fromStock || noVendor || isDropped || !picked ? (
+                            <span className="text-muted">
+                              {num(discountOverride[l.purchase_order_line_id]) > 0
+                                ? `${num(
+                                    discountOverride[l.purchase_order_line_id]
+                                  )}%`
+                                : "-"}
+                            </span>
+                          ) : (
+                            <div className="d-flex align-items-center justify-content-end">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                bsSize="sm"
+                                className="text-end"
+                                style={{ width: 66 }}
+                                value={
+                                  discountOverride[l.purchase_order_line_id] ?? ""
+                                }
+                                onChange={(e) =>
+                                  setDiscountOverride((s) => ({
+                                    ...s,
+                                    [l.purchase_order_line_id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          )}
+                        </td>
+                        {/* Taxable = To Procure × Rate − Disc (native, auto). */}
+                        <td className="text-end">
+                          {fromStock || noVendor || isDropped || !picked ? (
+                            <span className="text-muted">-</span>
+                          ) : (
+                            <span>
+                              {lineSym}
+                              {fmt(
+                                num(l.to_procure) *
+                                  rate *
+                                  discFactorFor(l) *
+                                  lineRate
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-end" style={{ minWidth: 90 }}>
                           {fromStock || noVendor || isDropped ? (
                             <span className="text-muted">
                               {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
@@ -1121,7 +1195,6 @@ const PoVendorRecoverModal = ({
                                   )
                                 }
                               />
-                              <span className="ms-1 text-muted">%</span>
                             </div>
                           )}
                         </td>
@@ -1136,9 +1209,35 @@ const PoVendorRecoverModal = ({
                               {lineSym}
                               {fmt(
                                 (lineGstApplies
-                                  ? (num(l.to_procure) * rate * num(l.tax_pct)) /
+                                  ? (num(l.to_procure) *
+                                      rate *
+                                      discFactorFor(l) *
+                                      num(l.tax_pct)) /
                                       100
                                   : 0) * lineRate
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        {/* Total = Taxable + GST (native, final line amount). */}
+                        <td className="text-end fw-bold">
+                          {fromStock || noVendor || isDropped || !picked ? (
+                            <span className="text-muted">-</span>
+                          ) : (
+                            <span>
+                              {lineSym}
+                              {fmt(
+                                (num(l.to_procure) *
+                                  rate *
+                                  discFactorFor(l) +
+                                  (lineGstApplies
+                                    ? (num(l.to_procure) *
+                                        rate *
+                                        discFactorFor(l) *
+                                        num(l.tax_pct)) /
+                                        100
+                                    : 0)) *
+                                  lineRate
                               )}
                             </span>
                           )}
