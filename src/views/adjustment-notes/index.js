@@ -29,6 +29,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import Notification from "@components/toast/notification";
 import { defaultPerPageRow, isAdminUser, appsRoot } from "@constant/defaultValues";
 import { currencySymbol } from "@src/views/_shared/sales-doc/_helpers";
@@ -101,6 +102,7 @@ const SOURCE_LABELS = {
 const AdjustmentNotes = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const booksClosedUpto = useBooksClosedUpto();
   const mySwal = withReactContent(Swal);
   const store = useSelector((s) => s.adjustmentNote);
   const authStore = useSelector((s) => s.auth);
@@ -312,6 +314,9 @@ const AdjustmentNotes = () => {
   const submit = () => {
     const e = {};
     if (!form.party_id) e.party_id = t("Select a party");
+    if (!form.note_date) e.note_date = t("Date required");
+    else if (isClosedPeriod(form.note_date, booksClosedUpto))
+      e.note_date = closedPeriodMessage(booksClosedUpto, t("note date"));
     if (!(num(form.amount) > 0)) e.amount = t("Amount must be greater than 0");
     if (!form.reason?.trim()) e.reason = t("Reason is required");
     // Mirror the server guard so the user sees it before the round-trip: a
@@ -752,7 +757,15 @@ const AdjustmentNotes = () => {
                 onChange={(_d, _s, iso) =>
                   setForm((s) => ({ ...s, note_date: iso || "" }))
                 }
+                invalid={!!errors.note_date || isClosedPeriod(form.note_date, booksClosedUpto)}
               />
+              {errors.note_date ? (
+                <FormFeedback className="d-block">{errors.note_date}</FormFeedback>
+              ) : isClosedPeriod(form.note_date, booksClosedUpto) ? (
+                <FormFeedback className="d-block">
+                  {closedPeriodMessage(booksClosedUpto, t("note date"))}
+                </FormFeedback>
+              ) : null}
             </Col>
             <Col md="6" className="mb-2">
               <Label className="form-label">

@@ -27,6 +27,7 @@ import ReactPaginate from "react-paginate";
 
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import {
   getPoVendor,
   dispatchPoVendor,
@@ -44,6 +45,7 @@ const DispatchPoVendor = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const booksClosedUpto = useBooksClosedUpto();
 
   const { poVendorItem } = useSelector((s) => s.poVendor);
   const p = poVendorItem || {};
@@ -146,6 +148,10 @@ const DispatchPoVendor = () => {
       Notification("Validation", t("Dispatch date is required."), "warning");
       return;
     }
+    if (isClosedPeriod(dispatchDate, booksClosedUpto)) {
+      Notification("Validation", closedPeriodMessage(booksClosedUpto, t("dispatch date")), "warning");
+      return;
+    }
     if (overLineCount > 0) {
       Notification(
         "Validation",
@@ -246,7 +252,13 @@ const DispatchPoVendor = () => {
                 value={dispatchDate}
                 onChange={(d, str, iso) => setDispatchDate(iso || "")}
                 placeholder={t("YYYY-MM-DD")}
+                invalid={isClosedPeriod(dispatchDate, booksClosedUpto)}
               />
+              {isClosedPeriod(dispatchDate, booksClosedUpto) && (
+                <div className="text-danger small">
+                  {closedPeriodMessage(booksClosedUpto, t("dispatch date"))}
+                </div>
+              )}
             </Col>
             <Col md="6" className="mb-1">
               <Label className="form-label">{t("Expected Arrival")}</Label>

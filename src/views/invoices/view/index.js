@@ -52,6 +52,7 @@ import ShipmentEditModal from "@src/views/invoices/components/ShipmentEditModal"
 import { Input, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
 import Select from "react-select";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -96,6 +97,7 @@ const ViewInvoice = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const booksClosedUpto = useBooksClosedUpto();
   const mySwal = withReactContent(Swal);
 
   const store = useSelector((s) => s.invoice);
@@ -183,6 +185,8 @@ const ViewInvoice = () => {
   const submitPayment = () => {
     const e = {};
     if (!payForm.payment_date) e.payment_date = "Date required";
+    else if (isClosedPeriod(payForm.payment_date, booksClosedUpto))
+      e.payment_date = closedPeriodMessage(booksClosedUpto, "receipt date");
     const amt = Number(payForm.amount || 0);
     if (!(amt > 0)) e.amount = "Amount > 0";
     // Validate against the document-currency balance due.
@@ -1686,10 +1690,15 @@ const ViewInvoice = () => {
                 onChange={(_d, _s, iso) =>
                   setPayForm((s) => ({ ...s, payment_date: iso || "" }))
                 }
+                invalid={!!payErrors.payment_date || isClosedPeriod(payForm.payment_date, booksClosedUpto)}
               />
-              {payErrors.payment_date && (
+              {payErrors.payment_date ? (
                 <div className="text-danger small">{payErrors.payment_date}</div>
-              )}
+              ) : isClosedPeriod(payForm.payment_date, booksClosedUpto) ? (
+                <div className="text-danger small">
+                  {closedPeriodMessage(booksClosedUpto, "receipt date")}
+                </div>
+              ) : null}
             </Col>
             <Col md="6" className="mb-2">
               <Label className="form-label">

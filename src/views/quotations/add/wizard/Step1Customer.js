@@ -15,6 +15,7 @@ import {
   PAYMENT_TERMS_OPTIONS,
 } from "@constant/options";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 
 const required = <span className="text-danger">*</span>;
 
@@ -28,6 +29,7 @@ const Step1Customer = ({
   vendorStore,
 }) => {
   const { t } = useTranslation();
+  const booksClosedUpto = useBooksClosedUpto();
   const {
     control,
     setValue,
@@ -206,13 +208,20 @@ const Step1Customer = ({
           name="quotation_date"
           control={control}
           render={({ field }) => (
-            <DateInput
-              id="quotation_date"
-              value={field.value || ""}
-              invalid={!!errors.quotation_date}
-              disabled={isLocked}
-              onChange={(dates, str, iso) => field.onChange(iso)}
-            />
+            <>
+              <DateInput
+                id="quotation_date"
+                value={field.value || ""}
+                invalid={!!errors.quotation_date || isClosedPeriod(field.value, booksClosedUpto)}
+                disabled={isLocked}
+                onChange={(dates, str, iso) => field.onChange(iso)}
+              />
+              {!errors.quotation_date && isClosedPeriod(field.value, booksClosedUpto) && (
+                <FormFeedback className="d-block">
+                  {closedPeriodMessage(booksClosedUpto, t("quotation date"))}
+                </FormFeedback>
+              )}
+            </>
           )}
         />
         {errors.quotation_date && (

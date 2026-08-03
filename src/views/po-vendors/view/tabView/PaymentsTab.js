@@ -27,6 +27,7 @@ import withReactContent from "sweetalert2-react-content";
 
 import { openPdfViewer } from "@src/utility/pdf";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import Notification from "@components/toast/notification";
 import { isAdminUser } from "@constant/defaultValues";
 import {
@@ -71,6 +72,7 @@ const STATUS_PILL = {
 const PaymentsTab = ({ registerActions }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const booksClosedUpto = useBooksClosedUpto();
   const mySwal = withReactContent(Swal);
 
   const { poVendorItem } = useSelector((s) => s.poVendor);
@@ -183,6 +185,8 @@ const PaymentsTab = ({ registerActions }) => {
   const submit = () => {
     const e = {};
     if (!form.payment_date) e.payment_date = t("Date required");
+    else if (isClosedPeriod(form.payment_date, booksClosedUpto))
+      e.payment_date = closedPeriodMessage(booksClosedUpto, t("payment date"));
     const amt = num(form.amount);
     if (!(amt > 0)) e.amount = t("Amount must be greater than 0");
     if (tdsAmt > amt) e.tds = t("TDS cannot exceed the gross amount");
@@ -472,10 +476,15 @@ const PaymentsTab = ({ registerActions }) => {
                 onChange={(_d, _s, iso) =>
                   setForm((s) => ({ ...s, payment_date: iso || "" }))
                 }
+                invalid={!!errors.payment_date || isClosedPeriod(form.payment_date, booksClosedUpto)}
               />
-              {errors.payment_date && (
+              {errors.payment_date ? (
                 <div className="text-danger small">{errors.payment_date}</div>
-              )}
+              ) : isClosedPeriod(form.payment_date, booksClosedUpto) ? (
+                <div className="text-danger small">
+                  {closedPeriodMessage(booksClosedUpto, t("payment date"))}
+                </div>
+              ) : null}
             </Col>
             <Col md="6" className="mb-2">
               <Label className="form-label">
