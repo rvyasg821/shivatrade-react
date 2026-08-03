@@ -287,6 +287,16 @@ const VendorTrackingTab = () => {
                         >
                           {p.voucher_no}
                         </Link>
+                        {String(p.purchase_order_id || "") !== String(poId) ? (
+                          <Badge
+                            className="doc-badge doc-badge-gray ms-50"
+                            title={t(
+                              "Linked for reference — does not cover this SO"
+                            )}
+                          >
+                            {t("Linked")}
+                          </Badge>
+                        ) : null}
                       </td>
                       <td>
                         <Badge

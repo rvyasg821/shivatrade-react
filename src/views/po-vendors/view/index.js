@@ -529,6 +529,25 @@ const ViewPoVendor = () => {
             : ""}
         </a>
       ) : null}
+      {Array.isArray(p?.linked_sales_orders) &&
+      p.linked_sales_orders.length ? (
+        <span className="d-inline-flex align-items-center flex-wrap gap-1">
+          <ExternalLink size={12} className="me-25" />
+          {t("Linked SO")}:{" "}
+          {p.linked_sales_orders.map((so, i) => (
+            <a
+              key={so.id}
+              href={`${appsRoot}/purchase-orders/view/${so.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-reset text-decoration-none"
+            >
+              {so.voucher_no || so.id}
+              {i < p.linked_sales_orders.length - 1 ? "," : ""}
+            </a>
+          ))}
+        </span>
+      ) : null}
       {p?.currency_code ? (
         <span className="text-muted">
           · {sym} {p.currency_code}
