@@ -58,6 +58,7 @@ const ExpenseGrid = ({
           <tr>
             <th style={{ width: 30 }}>#</th>
             <th style={{ minWidth: 180 }}>{t("Expense")}</th>
+            <th style={{ width: 90 }}>{t("HSN")}</th>
             <th style={{ width: 140 }}>{t("Type")}</th>
             <th style={{ width: 90 }}>{t("Value")}</th>
             <th style={{ width: 90 }}>{t("GST (%)")}</th>
@@ -98,6 +99,7 @@ const ExpenseGrid = ({
                             expense_id: "",
                             code: "",
                             name: "",
+                            hsn_code: "",
                           });
                           return;
                         }
@@ -105,6 +107,7 @@ const ExpenseGrid = ({
                           expense_id: opt.value,
                           code: opt.raw?.code || "",
                           name: opt.raw?.name || "",
+                          hsn_code: opt.raw?.hsn_code || "",
                           type: opt.raw?.type || r.type,
                           value:
                             opt.raw?.value != null
@@ -120,6 +123,10 @@ const ExpenseGrid = ({
                       styles={selectStyles}
                     />
                   )}
+                </td>
+                <td className="text-muted">
+                  {/* Expense HSN/SAC — master-derived, not editable per POV. */}
+                  {r.hsn_code || "-"}
                 </td>
                 <td>
                   {readOnly ? (

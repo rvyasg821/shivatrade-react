@@ -36,6 +36,7 @@ const ExpenseForm = () => {
       yup.object().shape({
         name: yup.string().trim().required(t("Name is required")).max(150),
         code: yup.string().trim().required(t("Code is required")).max(30),
+        hsn_code: yup.string().trim().max(20, t("Up to 20 characters")),
         type: yup.string().required(t("Type is required")),
         value: yup
           .number()
@@ -121,11 +122,18 @@ const ExpenseForm = () => {
                     render={({ field }) => <Input id="name" invalid={!!errors.name} {...field} />} />
                   {errors.name && <FormFeedback>{errors.name.message}</FormFeedback>}
                 </Col>
-                <Col md="6" className="mb-2">
+                <Col md="3" className="mb-2">
                   <Label className="form-label" for="code">{t("Code")} {required}</Label>
                   <Controller name="code" control={control}
                     render={({ field }) => <Input id="code" placeholder="PKG / TRN / CHA" invalid={!!errors.code} {...field} />} />
                   {errors.code && <FormFeedback>{errors.code.message}</FormFeedback>}
+                </Col>
+                <Col md="3" className="mb-2">
+                  {/* Expense HSN/SAC — independent of any product HSN. */}
+                  <Label className="form-label" for="hsn_code">{t("HSN Code")}</Label>
+                  <Controller name="hsn_code" control={control}
+                    render={({ field }) => <Input id="hsn_code" placeholder={t("e.g. 996511")} invalid={!!errors.hsn_code} {...field} />} />
+                  {errors.hsn_code && <FormFeedback>{errors.hsn_code.message}</FormFeedback>}
                 </Col>
                 <Col md="4" className="mb-2">
                   <Label className="form-label" for="type">{t("Type")} {required}</Label>

@@ -11,7 +11,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
   const instructions = (
     <ol className="mb-0 mt-1">
       <li>{t("Download the sample Excel to see the required format")}</li>
-      <li>{t("Required columns: code, name, value. Optional: type, status")}</li>
+      <li>{t("Required columns: code, name, value. Optional: hsn_code, type, status")}</li>
       <li>{t("Type must be 'percent' or 'fixed' (defaults to percent if left blank)")}</li>
       <li>{t("Status must be 'active' or 'inactive' (defaults to active if left blank)")}</li>
       <li>{t("Rows are matched by code — a matching code updates that expense, a new code creates one")}</li>
