@@ -108,6 +108,12 @@ const EditPoVendor = () => {
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
+  // Sales-Order traceability links (soft, reference only). Options are the
+  // company's confirmed / in-process Sales Orders; value is an array of ids.
+  const [soOptions, setSoOptions] = useState([]);
+  const [soLoading, setSoLoading] = useState(false);
+  const [pickedSoIds, setPickedSoIds] = useState([]);
+
   // GST is an Indian (INR) tax — it does not apply on a foreign-currency POV.
   // When the POV is in a foreign currency the GST is treated as 0 and the GST%
   // inputs are disabled/blanked.
@@ -118,6 +124,34 @@ const EditPoVendor = () => {
     dispatch(getCompanyDetails());
     dispatch(getExchangeRateOptions());
   }, [id, dispatch]);
+
+  // Load Sales-Order options for the traceability multi-select (confirmed /
+  // in-process only), mirroring the create form.
+  useEffect(() => {
+    let mounted = true;
+    setSoLoading(true);
+    instance
+      .get(API_ENDPOINTS.purchaseOrders.list, {
+        params: { orderBy: "createdAt", orderDirection: "desc", page: 1, perPage: 300 },
+      })
+      .then((resp) => {
+        if (!mounted) return;
+        const items = (resp?.data?.data || []).filter((p2) =>
+          ["confirmed", "in_process"].includes(p2?.status)
+        );
+        setSoOptions(
+          items.map((p2) => ({
+            value: p2._id,
+            label: [p2.voucher_no, p2.customer_name].filter(Boolean).join(" — "),
+          }))
+        );
+      })
+      .catch(() => mounted && setSoOptions([]))
+      .finally(() => mounted && setSoLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Seed once the POV lands, so typing isn't clobbered by a later refetch.
   useEffect(() => {
@@ -161,6 +195,12 @@ const EditPoVendor = () => {
     setHsnByLine(hsns);
     setPartByLine(parts);
     setQtyByLine(qtys);
+    // Seed the Sales-Order traceability links from the loaded POV snapshot.
+    setPickedSoIds(
+      Array.isArray(p.linked_sales_orders)
+        ? p.linked_sales_orders.map((s) => s.id).filter(Boolean)
+        : []
+    );
     setSeeded(true);
   }, [loaded, seeded, p, co]);
 
@@ -301,6 +341,10 @@ const EditPoVendor = () => {
       // currency is sent — the POV carries no INR conversion rate anymore.
       data.currency_code = currencyCode || undefined;
     }
+
+    // Sales-Order traceability links — always editable (a reference field), so
+    // sent regardless of status. Empty array clears the links.
+    data.linked_sales_order_ids = pickedSoIds;
 
     // Quantity is editable in draft — block a save that would send 0 / blank,
     // which the backend rejects anyway (ordered_qty must be > 0).
@@ -729,6 +773,24 @@ const EditPoVendor = () => {
                   {getCurrencySymbol(currencyCode) || ""} {currencyCode}
                 </div>
               )}
+            </Col>
+            {/* Optional Sales-Order traceability links — reference only, so
+                editable at any status (not gated on isDraft). */}
+            <Col md="6" className="mb-1">
+              <Label className="form-label">{t("Link Sales Order(s)")}</Label>
+              <Select
+                isMulti
+                isClearable
+                classNamePrefix="select"
+                options={soOptions}
+                value={soOptions.filter((o) => pickedSoIds.includes(o.value))}
+                onChange={(opts) =>
+                  setPickedSoIds((opts || []).map((o) => o.value))
+                }
+                isLoading={soLoading}
+                placeholder={t("Select sales order(s)")}
+                noOptionsMessage={() => t("No sales orders")}
+              />
             </Col>
             {/* Exchange Rate field removed — the POV is native to the vendor's
                 currency and inventory values stock per-currency, so no INR

@@ -107,6 +107,9 @@ const CreatePoVendor = () => {
   const [soOptions, setSoOptions] = useState([]);
   const [soLoading, setSoLoading] = useState(false);
   const [pickedSoId, setPickedSoId] = useState("");
+  // Standalone: optional soft links to one or more Sales Orders (traceability
+  // only — does not switch the form into linked/coverage mode). Array of SO ids.
+  const [pickedSoIds, setPickedSoIds] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [coverByLine, setCoverByLine] = useState({});
   const [priceByLine, setPriceByLine] = useState({});
@@ -729,6 +732,7 @@ const CreatePoVendor = () => {
             delivery_terms: deliveryTerms?.trim() || undefined,
             expenses: expensesPayload.length ? expensesPayload : undefined,
             currency_code: currencyCode || undefined,
+            linked_sales_order_ids: pickedSoIds.length ? pickedSoIds : undefined,
             advance:
               advanceAmt > 0
                 ? {
@@ -831,6 +835,28 @@ const CreatePoVendor = () => {
               {/* Exchange Rate field removed — a Vendor PO is settled in the
                   vendor's own currency (native), and inventory now values stock
                   per-currency, so no INR conversion rate is needed here. */}
+
+              {/* Optional: soft-link one or more Sales Orders for traceability.
+                  Reference only — does not pull SO lines or switch to linked
+                  mode. Options are confirmed / in-process Sales Orders. */}
+              {!linkedMode && (
+                <div className="col-md-3">
+                  <Label className="form-label">{t("Link Sales Order(s)")}</Label>
+                  <Select
+                    isMulti
+                    isClearable
+                    classNamePrefix="select"
+                    options={soOptions}
+                    value={soOptions.filter((o) => pickedSoIds.includes(o.value))}
+                    onChange={(opts) =>
+                      setPickedSoIds((opts || []).map((o) => o.value))
+                    }
+                    isLoading={soLoading}
+                    placeholder={t("Select sales order(s)")}
+                    noOptionsMessage={() => t("No sales orders")}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Lines */}
