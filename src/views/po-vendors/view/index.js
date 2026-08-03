@@ -515,6 +515,11 @@ const ViewPoVendor = () => {
 
   const meta = (
     <span className="d-inline-flex align-items-center flex-wrap gap-1">
+      {p?.invoice_number ? (
+        <span className="text-muted">
+          {t("Invoice No")}: {p.invoice_number}
+        </span>
+      ) : null}
       {p?.purchase_order_id ? (
         <a
           href={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}

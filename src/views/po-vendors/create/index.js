@@ -85,6 +85,8 @@ const CreatePoVendor = () => {
 
   const [creating, setCreating] = useState(false);
   const [vendorId, setVendorId] = useState("");
+  // Vendor's invoice number — required free text on the POV header.
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [notes, setNotes] = useState("");
   // Vendor-side terms printed on the POV PDF. Free text, typed per POV — the
@@ -610,6 +612,10 @@ const CreatePoVendor = () => {
       Notification("Validation", t("Pick a vendor for this POV."), "warning");
       return;
     }
+    if (!invoiceNumber.trim()) {
+      Notification("Validation", t("Invoice number is required."), "warning");
+      return;
+    }
 
     const expensesPayload = charges
       .filter((c) => c.expense_id)
@@ -661,6 +667,7 @@ const CreatePoVendor = () => {
             purchase_order_id: pickedSoId,
             payload: {
               vendor_id: vendorId,
+              invoice_number: invoiceNumber.trim(),
               lines: poLines,
               delivery_address_id: deliveryAddressId || undefined,
               notes: notes?.trim() || undefined,
@@ -724,6 +731,7 @@ const CreatePoVendor = () => {
         result = await dispatch(
           createPoVendorStandalone({
             vendor_id: vendorId,
+            invoice_number: invoiceNumber.trim(),
             lines: payloadLines,
             delivery_address_id: deliveryAddressId || undefined,
             notes: notes?.trim() || undefined,
@@ -1366,6 +1374,21 @@ const CreatePoVendor = () => {
                 </tbody>
               </Table>
             )}
+
+            {/* Vendor's invoice number — required header field. */}
+            <Row className="mt-2">
+              <Col md="6" className="mb-1">
+                <Label className="form-label">
+                  {t("Invoice Number")} <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  maxLength={120}
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder={t("Vendor's invoice number")}
+                />
+              </Col>
+            </Row>
 
             {/* Vendor-side terms printed on the POV PDF. */}
             <Row className="mt-2">

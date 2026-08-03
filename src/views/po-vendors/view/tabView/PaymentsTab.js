@@ -115,6 +115,10 @@ const PaymentsTab = ({ registerActions }) => {
   // Payments run independently of dispatch — allowed in any non-cancelled
   // status (incl. draft); blocked only once the POV is cancelled.
   const canPay = canUpdate && statusLower !== "cancelled";
+  // Payments are blocked until goods are received (a GRN exists) — UNLESS the
+  // POV already has an advance/payment (amount_paid > 0), in which case the
+  // advance flow has started and further payments are free.
+  const paymentsUnlocked = !!p?.has_grn || num(p?.amount_paid) > 0;
 
   const orderValue = num(p?.order_value);
   const paidToDate = num(p?.amount_paid);
@@ -170,7 +174,8 @@ const PaymentsTab = ({ registerActions }) => {
     const def = pickDefaultBank(bankOptions);
     setForm({
       payment_date: new Date().toISOString().slice(0, 10),
-      invoice_number: "",
+      // Auto-fill from the POV's vendor invoice number (editable if needed).
+      invoice_number: p.invoice_number || "",
       // Pre-fill the balance in the POV currency (the field is entered in it).
       amount: balance > 0 ? toCcy(balance).toFixed(2) : "",
       company_bank_account_id: def?.value || "",
@@ -187,6 +192,8 @@ const PaymentsTab = ({ registerActions }) => {
     if (!form.payment_date) e.payment_date = t("Date required");
     else if (isClosedPeriod(form.payment_date, booksClosedUpto))
       e.payment_date = closedPeriodMessage(booksClosedUpto, t("payment date"));
+    if (!form.invoice_number || !form.invoice_number.trim())
+      e.invoice_number = t("Invoice number is required");
     const amt = num(form.amount);
     if (!(amt > 0)) e.amount = t("Amount must be greater than 0");
     if (tdsAmt > amt) e.tds = t("TDS cannot exceed the gross amount");
@@ -283,18 +290,36 @@ const PaymentsTab = ({ registerActions }) => {
     if (!registerActions) return undefined;
     registerActions(
       canPay ? (
-        <Button color="success" size="sm" onClick={openModal}>
+        <Button
+          color="success"
+          size="sm"
+          onClick={openModal}
+          disabled={!paymentsUnlocked}
+          title={
+            paymentsUnlocked
+              ? undefined
+              : t("Record a GRN (goods receipt) before recording a payment.")
+          }
+        >
           <DollarSign size={14} className="me-50" /> {t("Record Payment")}
         </Button>
       ) : null
     );
     return () => registerActions(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canPay, balance]);
+  }, [canPay, balance, paymentsUnlocked]);
 
   return (
     <Fragment>
-      {/* Money position summary */}
+      {canPay && !paymentsUnlocked ? (
+        <div className="alert alert-warning py-1 px-2 small mb-2" role="alert">
+          {t(
+            "Payments are locked until a GRN (goods receipt) is recorded for this POV. Advances paid before goods are added when the POV is created."
+          )}
+        </div>
+      ) : null}
+      {/* Money position summary — hidden until payments unlock (a GRN exists). */}
+      {paymentsUnlocked && (
       <Row className="g-1 mb-2">
         <Col md="3" sm="6">
           <div className="border rounded p-1 h-100">
@@ -354,6 +379,7 @@ const PaymentsTab = ({ registerActions }) => {
           </div>
         </Col>
       </Row>
+      )}
 
       {payments.length === 0 ? (
         <div className="text-muted text-center py-3">
@@ -550,15 +576,21 @@ const PaymentsTab = ({ registerActions }) => {
               />
             </Col>
             <Col md="6" className="mb-2">
-              <Label className="form-label">{t("Invoice Number")}</Label>
+              <Label className="form-label">
+                {t("Invoice Number")} <span className="text-danger">*</span>
+              </Label>
               <Input
                 value={form.invoice_number}
                 maxLength={120}
+                invalid={!!errors.invoice_number}
                 placeholder={t("Vendor's invoice number")}
                 onChange={(e) =>
                   setForm((s) => ({ ...s, invoice_number: e.target.value }))
                 }
               />
+              {errors.invoice_number && (
+                <div className="text-danger small">{errors.invoice_number}</div>
+              )}
             </Col>
 
             {/* TDS (#7): Gross → TDS → Net paid. Optional. */}

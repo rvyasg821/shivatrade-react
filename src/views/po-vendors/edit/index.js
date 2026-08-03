@@ -87,6 +87,7 @@ const EditPoVendor = () => {
 
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [expectedArrival, setExpectedArrival] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [dispatchedThrough, setDispatchedThrough] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
@@ -162,6 +163,7 @@ const EditPoVendor = () => {
     // has none. Seeding from it means saving pins the default onto this POV —
     // the same thing the create page does.
     setNotes(p.notes || p.effective_remarks || "");
+    setInvoiceNumber(p.invoice_number || "");
     // Company defaults fill a term this POV never set. Applied here too (not
     // only in the effect below) because the company may already have landed —
     // otherwise this seed would blank out what that effect just filled.
@@ -328,6 +330,11 @@ const EditPoVendor = () => {
         Notification("Validation", t("Pick a delivery address."), "warning");
         return;
       }
+      if (!invoiceNumber.trim()) {
+        Notification("Validation", t("Invoice number is required."), "warning");
+        return;
+      }
+      data.invoice_number = invoiceNumber.trim();
       data.delivery_address_id = deliveryAddressId;
       // Omitted when blank — the DTO validates it as a date string, so ""
       // would 400. A set date can be changed but not cleared here.
@@ -795,6 +802,22 @@ const EditPoVendor = () => {
             {/* Exchange Rate field removed — the POV is native to the vendor's
                 currency and inventory values stock per-currency, so no INR
                 conversion rate is needed. */}
+          </Row>
+
+          {/* Vendor's invoice number — required (draft-only edit). */}
+          <Row>
+            <Col md="6" className="mb-1">
+              <Label className="form-label">
+                {t("Invoice Number")} <span className="text-danger">*</span>
+              </Label>
+              <Input
+                maxLength={120}
+                disabled={!isDraft}
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder={t("Vendor's invoice number")}
+              />
+            </Col>
           </Row>
 
           {/* Vendor-side terms printed on this POV's PDF. */}

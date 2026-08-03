@@ -359,6 +359,7 @@ const GrnView = () => {
               )}
               <div className="text-muted small d-flex flex-wrap gap-1">
                 {chip(t("VPO"), grn.po_vendor_voucher_no)}
+                {chip(t("Invoice No"), grn.po_vendor_invoice_number)}
                 {chip(t("SO"), grn.purchase_order_voucher_no)}
                 {chip(t("Customer PO"), grn.customer_po_number)}
                 {chip(t("Date"), grn.grn_date ? formatDate(grn.grn_date) : null)}
