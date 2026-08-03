@@ -358,6 +358,7 @@ const GrnView = () => {
                 </div>
               )}
               <div className="text-muted small d-flex flex-wrap gap-1">
+                {chip(t("Vendor Code"), grn.vendor_code)}
                 {chip(t("VPO"), grn.po_vendor_voucher_no)}
                 {chip(t("Invoice No"), grn.po_vendor_invoice_number)}
                 {chip(t("SO"), grn.purchase_order_voucher_no)}
