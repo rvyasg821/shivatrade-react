@@ -288,6 +288,7 @@ const DebitNoteView = () => {
               <div className="text-muted small d-flex flex-wrap gap-1">
                 {chip(t("GRN"), dn.grn_voucher_no)}
                 {chip(t("VPO"), dn.po_vendor_voucher_no)}
+                {chip(t("Invoice No"), dn.po_vendor_invoice_number)}
                 {chip(t("SO"), dn.purchase_order_voucher_no)}
                 {chip(t("Date"), dn.dn_date ? formatDate(dn.dn_date) : null)}
               </div>

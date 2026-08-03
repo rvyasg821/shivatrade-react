@@ -57,6 +57,17 @@ const fmt = (v) =>
     ? "-"
     : Number(v).toLocaleString();
 
+// TDS section presets (India) for the advance — mirrors the Payments tab.
+// Picking one auto-fills the rate; still editable.
+const TDS_SECTIONS = [
+  { value: "194C", label: "194C — Contractor / Sub-contractor (1–2%)", rate: 2 },
+  { value: "194J", label: "194J — Professional / Technical fees (10%)", rate: 10 },
+  { value: "194I", label: "194I — Rent, land & building (10%)", rate: 10 },
+  { value: "194H", label: "194H — Commission / Brokerage (5%)", rate: 5 },
+  { value: "194Q", label: "194Q — Purchase of goods > ₹50L (0.1%)", rate: 0.1 },
+  { value: "194A", label: "194A — Interest, non-securities (10%)", rate: 10 },
+];
+
 /**
  * Props:
  *   isOpen, toggle
@@ -260,6 +271,20 @@ const PoVendorRecoverModal = ({
     if (isOpen && !companyDefaults?._id) dispatch(getCompanyDetails());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Company bank accounts — the advance's "Paid From" dropdown.
+  const bankOptions = useMemo(
+    () =>
+      (companyDefaults?.bank_accounts || [])
+        .filter((b) => b?.is_active !== false)
+        .map((b) => ({
+          value: b._id,
+          label: `${b.bank_name}${
+            b.account_number ? ` — A/c ${b.account_number}` : ""
+          }${b.is_default ? " (default)" : ""}`,
+        })),
+    [companyDefaults]
+  );
 
   useEffect(() => {
     if (!isOpen || !poId) return;
@@ -758,6 +783,34 @@ const PoVendorRecoverModal = ({
       return;
     }
 
+    // Invoice number is required for every vendor's spawned POV.
+    const missingInvoice = submittingVendorIds.find(
+      (vid) => !(vendorTerms[vid]?.invoice_number || "").trim()
+    );
+    if (missingInvoice) {
+      Notification(
+        "Validation",
+        t("Invoice number is required for every vendor's POV."),
+        "warning"
+      );
+      return;
+    }
+
+    // Advance: when an amount is entered, its date + paid-from bank are required.
+    const badAdvance = Object.values(vendorAdvances).find(
+      (adv) =>
+        num(adv?.amount) > 0 &&
+        (!adv?.payment_date || !adv?.company_bank_account_id)
+    );
+    if (badAdvance) {
+      Notification(
+        "Validation",
+        t("For an advance, enter the payment date and paid-from bank."),
+        "warning"
+      );
+      return;
+    }
+
     const trimmedCurrencies = {};
     for (const vid of submittingVendorIds) {
       const vc = vcFor(vid);
@@ -790,25 +843,33 @@ const PoVendorRecoverModal = ({
     const trimmedAdvances = {};
     for (const [vid, adv] of Object.entries(vendorAdvances)) {
       if (num(adv?.amount) > 0) {
+        const advAmt = Math.round(num(adv.amount) * 100) / 100;
+        const tdsRate = num(adv.tds_rate_pct);
+        const tdsAmt = Math.round(((advAmt * tdsRate) / 100) * 100) / 100;
         trimmedAdvances[vid] = {
           payment_date:
             adv.payment_date || new Date().toISOString().slice(0, 10),
-          amount: String(Math.round(num(adv.amount) * 100) / 100),
-          invoice_number: adv.invoice_number?.trim() || undefined,
+          amount: String(advAmt),
+          company_bank_account_id: adv.company_bank_account_id || undefined,
+          tds_section: adv.tds_section || undefined,
+          tds_rate_pct: tdsRate > 0 ? String(tdsRate) : undefined,
+          tds_amount: tdsAmt > 0 ? String(tdsAmt) : undefined,
           notes: adv.notes?.trim() || undefined,
         };
       }
     }
 
-    // Per-vendor terms — only vendors with at least one non-empty field.
+    // Per-vendor terms — sent for EVERY generated vendor (invoice_number is
+    // required); the other terms are optional free text.
     const trimmedTerms = {};
-    for (const [vid, tv] of Object.entries(vendorTerms)) {
-      const cleaned = {
-        dispatched_through: tv?.dispatched_through?.trim() || undefined,
-        payment_terms: tv?.payment_terms?.trim() || undefined,
-        delivery_terms: tv?.delivery_terms?.trim() || undefined,
+    for (const vid of submittingVendorIds) {
+      const tv = vendorTerms[vid] || {};
+      trimmedTerms[vid] = {
+        invoice_number: (tv.invoice_number || "").trim(),
+        dispatched_through: tv.dispatched_through?.trim() || undefined,
+        payment_terms: tv.payment_terms?.trim() || undefined,
+        delivery_terms: tv.delivery_terms?.trim() || undefined,
       };
-      if (Object.values(cleaned).some(Boolean)) trimmedTerms[vid] = cleaned;
     }
 
     setCreating(true);
@@ -1371,6 +1432,18 @@ const PoVendorRecoverModal = ({
                   // chosen currency, shown as-is with its symbol (vRate = 1).
                   const vSym = symFor(v.vendor_id);
                   const vRate = 1;
+                  // Advance-payment derived figures (live Gross → TDS → Net).
+                  const adv = vendorAdvances[v.vendor_id] || {};
+                  const advAmt = num(adv.amount);
+                  const advTds =
+                    Math.round(((advAmt * num(adv.tds_rate_pct)) / 100) * 100) /
+                    100;
+                  const advNet = Math.round((advAmt - advTds) * 100) / 100;
+                  const money2 = (n) =>
+                    Number(n).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
                   return (
                     <div key={v.vendor_id} className="po-gen-card mb-2">
                       <div className="po-gen-head justify-content-between">
@@ -1419,6 +1492,36 @@ const PoVendorRecoverModal = ({
                         </Button>
                       </div>
                       <div className="p-1">
+                        {/* Charges FIRST — price the POV (goods + charges) before
+                            filling delivery & terms. Add via the header button. */}
+                        <div className="text-uppercase text-muted fw-semibold mb-1" style={{ fontSize: 11, letterSpacing: 0.4 }}>
+                          {t("Charges")}
+                        </div>
+                        {rows.length === 0 && (
+                          <div className="text-muted small text-center border rounded py-2 mb-1" style={{ background: "#fafbfc" }}>
+                            {t(
+                              "No charges. Click Add Expense to include Packing, Transport, etc."
+                            )}
+                          </div>
+                        )}
+                        <ExpenseGrid
+                          rows={rows}
+                          expenseOptions={expenseOptions}
+                          typeOptions={expenseTypeOptions}
+                          percentBase={v.total}
+                          sym={vSym}
+                          rate={vRate}
+                          gstApplies={gstAppliesFor(v.vendor_id)}
+                          onUpdateRow={updateRow}
+                          onRemoveRow={removeRow}
+                        />
+
+                        <hr className="my-2" />
+
+                        {/* Delivery & Terms */}
+                        <div className="text-uppercase text-muted fw-semibold mb-1" style={{ fontSize: 11, letterSpacing: 0.4 }}>
+                          {t("Delivery & Terms")}
+                        </div>
                         {/* Currency + Exchange Rate fields removed — a POV is
                             native to the vendor's OWN currency (auto-resolved,
                             shown in the ₹/$ symbols above) and inventory values
@@ -1497,6 +1600,26 @@ const PoVendorRecoverModal = ({
                                 )
                               }
                             />
+                            {/* Vendor's invoice number — required per POV. */}
+                            <Label className="form-label small fw-semibold mb-25 mt-1">
+                              {t("Invoice Number")}{" "}
+                              <span className="text-danger">*</span>
+                            </Label>
+                            <Input
+                              bsSize="sm"
+                              maxLength={120}
+                              placeholder={t("Vendor's invoice number")}
+                              value={
+                                vendorTerms[v.vendor_id]?.invoice_number || ""
+                              }
+                              onChange={(e) =>
+                                setVendorTerm(
+                                  v.vendor_id,
+                                  "invoice_number",
+                                  e.target.value
+                                )
+                              }
+                            />
                           </Col>
                           <Col md="6">
                             <Label className="form-label small fw-semibold mb-25">
@@ -1523,87 +1646,204 @@ const PoVendorRecoverModal = ({
                             />
                           </Col>
                         </Row>
-                        {rows.length === 0 && (
-                          <div className="text-muted small text-center py-2">
-                            {t(
-                              "No charges. Click Add Expense to include Packing, Transport, etc."
-                            )}
-                          </div>
-                        )}
-                        <ExpenseGrid
-                          rows={rows}
-                          expenseOptions={expenseOptions}
-                          typeOptions={expenseTypeOptions}
-                          percentBase={v.total}
-                          sym={vSym}
-                          rate={vRate}
-                          gstApplies={gstAppliesFor(v.vendor_id)}
-                          onUpdateRow={updateRow}
-                          onRemoveRow={removeRow}
-                        />
                       </div>
                       {/* Optional advance paid to this vendor */}
                       <div className="px-1 pb-1">
-                        <div className="small fw-semibold mb-1">
-                          {t("Advance Paid")}{" "}
-                          <span className="text-muted">({t("optional")})</span>
-                        </div>
-                        <div className="row g-1">
-                          <div className="col-md-3">
-                            <DateInput
-                              id={`adv-date-${v.vendor_id}`}
-                              value={
-                                vendorAdvances[v.vendor_id]?.payment_date || ""
-                              }
-                              onChange={(_d, _s, iso) =>
-                                updateAdvance(v.vendor_id, {
-                                  payment_date: iso || "",
-                                })
-                              }
-                              placeholder={t("Date")}
-                            />
+                        <div className="border rounded p-1" style={{ background: "#fafbfc" }}>
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <span className="small fw-semibold text-body">
+                              {t("Advance Paid")}{" "}
+                              <span className="text-muted fw-normal">
+                                ({t("optional")})
+                              </span>
+                            </span>
+                            <span className="text-muted" style={{ fontSize: 11 }}>
+                              {t("Paid before goods are received")}
+                            </span>
                           </div>
-                          <div className="col-md-3">
-                            <Input
-                              type="number"
-                              bsSize="sm"
-                              min="0"
-                              step="any"
-                              placeholder={`${t("Amount")} ${vSym}`}
-                              value={vendorAdvances[v.vendor_id]?.amount || ""}
-                              onChange={(e) =>
-                                updateAdvance(v.vendor_id, {
-                                  amount: e.target.value,
-                                })
-                              }
-                            />
+
+                          {/* Payment */}
+                          <div className="row g-1">
+                            <div className="col-md-4">
+                              <Label
+                                className="form-label small text-muted mb-25"
+                                htmlFor={`adv-date-${v.vendor_id}`}
+                              >
+                                {t("Payment Date")}
+                              </Label>
+                              <DateInput
+                                id={`adv-date-${v.vendor_id}`}
+                                value={
+                                  vendorAdvances[v.vendor_id]?.payment_date || ""
+                                }
+                                onChange={(_d, _s, iso) =>
+                                  updateAdvance(v.vendor_id, {
+                                    payment_date: iso || "",
+                                  })
+                                }
+                                placeholder={t("DD-MM-YYYY")}
+                              />
+                            </div>
+                            <div className="col-md-4">
+                              <Label
+                                className="form-label small text-muted mb-25"
+                                htmlFor={`adv-amount-${v.vendor_id}`}
+                              >
+                                {t("Advance Amount")}
+                              </Label>
+                              <div className="input-group">
+                                <span className="input-group-text">{vSym}</span>
+                                <Input
+                                  id={`adv-amount-${v.vendor_id}`}
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  placeholder="0.00"
+                                  value={
+                                    vendorAdvances[v.vendor_id]?.amount || ""
+                                  }
+                                  onChange={(e) =>
+                                    updateAdvance(v.vendor_id, {
+                                      amount: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div className="col-md-4">
+                              <Label className="form-label small text-muted mb-25">
+                                {t("Paid From (Bank)")}
+                              </Label>
+                              <Select
+                                classNamePrefix="select"
+                                isClearable
+                                menuPortalTarget={document.body}
+                                styles={{
+                                  menuPortal: (base) => ({
+                                    ...base,
+                                    zIndex: 9999,
+                                  }),
+                                }}
+                                options={bankOptions}
+                                value={
+                                  bankOptions.find(
+                                    (o) =>
+                                      o.value ===
+                                      vendorAdvances[v.vendor_id]
+                                        ?.company_bank_account_id
+                                  ) || null
+                                }
+                                onChange={(opt) =>
+                                  updateAdvance(v.vendor_id, {
+                                    company_bank_account_id: opt
+                                      ? opt.value
+                                      : "",
+                                  })
+                                }
+                                placeholder={t("Select bank")}
+                                noOptionsMessage={() => t("No bank accounts")}
+                              />
+                            </div>
                           </div>
-                          <div className="col-md-3">
-                            <Input
-                              bsSize="sm"
-                              maxLength={120}
-                              placeholder={t("Invoice #")}
-                              value={
-                                vendorAdvances[v.vendor_id]?.invoice_number || ""
-                              }
-                              onChange={(e) =>
-                                updateAdvance(v.vendor_id, {
-                                  invoice_number: e.target.value,
-                                })
-                              }
-                            />
+
+                          {/* TDS — Gross → TDS → Net */}
+                          <div className="row g-1 mt-1">
+                            <div className="col-md-4">
+                              <Label className="form-label small text-muted mb-25">
+                                {t("TDS Section")}
+                              </Label>
+                              <Select
+                                classNamePrefix="select"
+                                isClearable
+                                menuPortalTarget={document.body}
+                                styles={{
+                                  menuPortal: (base) => ({
+                                    ...base,
+                                    zIndex: 9999,
+                                  }),
+                                }}
+                                options={TDS_SECTIONS}
+                                value={
+                                  TDS_SECTIONS.find(
+                                    (o) =>
+                                      o.value ===
+                                      vendorAdvances[v.vendor_id]?.tds_section
+                                  ) || null
+                                }
+                                onChange={(opt) =>
+                                  updateAdvance(v.vendor_id, {
+                                    tds_section: opt ? opt.value : "",
+                                    tds_rate_pct: opt ? String(opt.rate) : "",
+                                  })
+                                }
+                                placeholder={t("No TDS")}
+                              />
+                            </div>
+                            <div className="col-md-4">
+                              <Label
+                                className="form-label small text-muted mb-25"
+                                htmlFor={`adv-rate-${v.vendor_id}`}
+                              >
+                                {t("TDS Rate (%)")}
+                              </Label>
+                              <Input
+                                id={`adv-rate-${v.vendor_id}`}
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="0"
+                                value={
+                                  vendorAdvances[v.vendor_id]?.tds_rate_pct || ""
+                                }
+                                onChange={(e) =>
+                                  updateAdvance(v.vendor_id, {
+                                    tds_rate_pct: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="col-md-4">
+                              <Label className="form-label small text-muted mb-25">
+                                {t("Net Paid (after TDS)")}
+                              </Label>
+                              <div className="form-control bg-white d-flex align-items-center">
+
+                                {advAmt > 0 ? (
+                                  <span className="fw-semibold text-body">
+                                    {vSym} {money2(advNet)}
+                                    {advTds > 0 ? (
+                                      <span className="text-muted fw-normal ms-1">
+                                        · {t("TDS")} {vSym} {money2(advTds)}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted">—</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="col-md-3">
-                            <Input
-                              bsSize="sm"
-                              placeholder={t("Notes")}
-                              value={vendorAdvances[v.vendor_id]?.notes || ""}
-                              onChange={(e) =>
-                                updateAdvance(v.vendor_id, {
-                                  notes: e.target.value,
-                                })
-                              }
-                            />
+
+                          {/* Notes */}
+                          <div className="row g-1 mt-1">
+                            <div className="col-12">
+                              <Label
+                                className="form-label small text-muted mb-25"
+                                htmlFor={`adv-notes-${v.vendor_id}`}
+                              >
+                                {t("Notes")}
+                              </Label>
+                              <Input
+                                id={`adv-notes-${v.vendor_id}`}
+                                placeholder={t("e.g. UTR / reference")}
+                                value={vendorAdvances[v.vendor_id]?.notes || ""}
+                                onChange={(e) =>
+                                  updateAdvance(v.vendor_id, {
+                                    notes: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
