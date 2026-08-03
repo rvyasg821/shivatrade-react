@@ -53,6 +53,7 @@ import MultiSoPickerModal from "../components/MultiSoPickerModal";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import Notification from "@components/toast/notification";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 // Countries/states/cities come from the masters via the API — no static list.
@@ -150,6 +151,7 @@ const InvoiceAddEdit = () => {
   const queryPoId =
     new URLSearchParams(location.search).get("po_id") || "";
 
+  const booksClosedUpto = useBooksClosedUpto();
   const store = useSelector((s) => s.invoice);
   const poStore = useSelector((s) => s.purchaseOrder);
   const currencyStore = useSelector((s) => s.currency);
@@ -1669,6 +1671,8 @@ const InvoiceAddEdit = () => {
     header: () => {
       const e = {};
       if (!form.invoice_date) e.invoice_date = "Invoice date required";
+      else if (isClosedPeriod(form.invoice_date, booksClosedUpto))
+        e.invoice_date = closedPeriodMessage(booksClosedUpto, "invoice date");
       if (!form.currency_code) e.currency_code = "Currency required";
       return e;
     },
@@ -2460,13 +2464,17 @@ const InvoiceAddEdit = () => {
                 id="inv-invoice-date"
                 value={form.invoice_date}
                 onChange={(_d, _s, iso) => onF("invoice_date", iso || "")}
-                invalid={!!errors.invoice_date}
+                invalid={!!errors.invoice_date || isClosedPeriod(form.invoice_date, booksClosedUpto)}
               />
-              {errors.invoice_date && (
+              {errors.invoice_date ? (
                 <FormFeedback className="d-block">
                   {errors.invoice_date}
                 </FormFeedback>
-              )}
+              ) : isClosedPeriod(form.invoice_date, booksClosedUpto) ? (
+                <FormFeedback className="d-block">
+                  {closedPeriodMessage(booksClosedUpto, "invoice date")}
+                </FormFeedback>
+              ) : null}
             </Col>
             <Col md="4" className="mb-2">
               <Label className="form-label">{t("Due Date")}</Label>

@@ -13,6 +13,7 @@ import { appsRoot } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS, DISPATCH_MODE_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
+import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 
 const required = <span className="text-danger">*</span>;
 
@@ -28,6 +29,7 @@ const Step1Vendor = ({
   sourceQuotationId,
 }) => {
   const { t } = useTranslation();
+  const booksClosedUpto = useBooksClosedUpto();
   const {
     control,
     setValue,
@@ -183,13 +185,20 @@ const Step1Vendor = ({
           name="po_date"
           control={control}
           render={({ field }) => (
-            <DateInput
-              id="po_date"
-              value={field.value || ""}
-              invalid={!!errors.po_date}
-              disabled={isLocked}
-              onChange={(dates, str, iso) => field.onChange(iso)}
-            />
+            <>
+              <DateInput
+                id="po_date"
+                value={field.value || ""}
+                invalid={!!errors.po_date || isClosedPeriod(field.value, booksClosedUpto)}
+                disabled={isLocked}
+                onChange={(dates, str, iso) => field.onChange(iso)}
+              />
+              {!errors.po_date && isClosedPeriod(field.value, booksClosedUpto) && (
+                <FormFeedback className="d-block">
+                  {closedPeriodMessage(booksClosedUpto, t("SO date"))}
+                </FormFeedback>
+              )}
+            </>
           )}
         />
         {errors.po_date && <FormFeedback>{errors.po_date.message}</FormFeedback>}

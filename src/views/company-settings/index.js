@@ -19,6 +19,7 @@ import {
   clearNotificationSettingsFlag,
 } from './notificationStore'
 import Notification from '@components/toast/notification'
+import DateInput from '@components/date-input'
 import instance from '@src/utility/AxiosConfig'
 import { API_ENDPOINTS } from '@src/utility/ApiEndPoints'
 import SetupReturnBanner from '@src/components/SetupReturnBanner'
@@ -96,6 +97,8 @@ const CompanySettingsPage = () => {
     sales_order_voucher_prefix: '', invoice_voucher_prefix: '', po_vendor_voucher_prefix: '',
     grn_voucher_prefix: '', debit_note_voucher_prefix: '',
     payment_voucher_prefix: '', receipt_voucher_prefix: '',
+    // Financial year closure — books closed up to & incl. this date ('' = open).
+    books_closed_upto: '',
   }
   const [settingsData, setSettingsData] = useState(defaultSettings)
 
@@ -583,6 +586,44 @@ const CompanySettingsPage = () => {
                   </small>
                 </CardBody>
               </Card>
+
+              {/* Financial Year Closure — company-wide only (the lock reads the
+                  company defaults row, so it is not editable per-location). */}
+              {(!isLocationAdmin && !(settingsScope === 'location' && settingsLocationId)) && (
+                <Card className='mt-1'>
+                  <CardHeader className='border-bottom py-1'>
+                    <CardTitle tag='h5' className='mb-0'>Financial Year Closure</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <small className='text-muted d-block mb-1'>
+                      Close the books up to and including a date. Once set, invoices,
+                      receipts, vendor payments, adjustment notes, GRNs, debit notes
+                      and sales/purchase documents dated on or before this date can no
+                      longer be created or edited. Leave blank to keep all periods
+                      open. Applies company-wide.
+                    </small>
+                    <Row>
+                      <Col md='4'>
+                        <FormGroup>
+                          <Label className='form-label'>Books closed up to</Label>
+                          <DateInput
+                            id='fy-books-closed-upto'
+                            value={settingsData.books_closed_upto || ''}
+                            onChange={(_d, _s, iso) => handleChange('books_closed_upto', iso || '')} />
+                        </FormGroup>
+                      </Col>
+                      {settingsData.books_closed_upto ? (
+                        <Col md='5' className='d-flex align-items-start'>
+                          <Button color='outline-secondary' size='sm' style={{ marginTop: 28 }}
+                            onClick={() => handleChange('books_closed_upto', '')}>
+                            Clear (re-open all periods)
+                          </Button>
+                        </Col>
+                      ) : null}
+                    </Row>
+                  </CardBody>
+                </Card>
+              )}
             </TabPane>
 
             {/* -- SMTP TAB -- */}
