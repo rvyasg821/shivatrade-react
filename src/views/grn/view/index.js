@@ -186,13 +186,22 @@ const GrnView = () => {
     let dispatched = 0;
     let received = 0;
     let rejected = 0;
+    let pending = 0;
     for (const l of lines) {
-      dispatched += num(l.dispatched_qty);
+      // This GRN's share of dispatched = full dispatched − other GRNs' accounted.
+      const base = Math.max(
+        0,
+        num(l.dispatched_qty) - num(l.other_received_qty ?? 0)
+      );
       // "Received" column = good qty (stored as accepted_qty).
-      received += num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
-      rejected += num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
+      const acc = num(qc[l._id]?.accepted_qty ?? l.accepted_qty);
+      const rej = num(qc[l._id]?.rejected_qty ?? l.rejected_qty);
+      dispatched += base;
+      received += acc;
+      rejected += rej;
+      pending += Math.max(0, base - acc - rej);
     }
-    return { dispatched, received, rejected };
+    return { dispatched, received, rejected, pending };
   }, [lines, qc]);
 
   const setField = (lineId, field, value) =>
@@ -200,44 +209,41 @@ const GrnView = () => {
 
   const r4 = (n) => Math.round(num(n) * 10000) / 10000;
 
-  // Received (good) + Rejected always equal Dispatched — the whole dispatched
-  // qty is accounted as either received-good or rejected. Editing Received
-  // auto-fills Rejected = Dispatched − Received (and vice versa). The "Received"
-  // column is the good qty; we store it as accepted_qty, and received_qty
-  // (total accounted) = good + rejected = dispatched.
+  // Received (good) and Rejected are INDEPENDENT inputs — whatever isn't
+  // received-good or rejected stays Pending (= Dispatched − Received − Rejected),
+  // so a line can be partially received now and finished on a later GRN. The
+  // only limit is Received + Rejected ≤ Dispatched (no over-receipt). The
+  // "Received" column is the good qty, stored as accepted_qty.
+  const acceptedOf = (l) => r4(qc[l._id]?.accepted_qty ?? l.accepted_qty ?? 0);
+  const rejectedOf = (l) => r4(qc[l._id]?.rejected_qty ?? l.rejected_qty ?? 0);
+
+  // This GRN's share of the dispatched qty = full dispatched minus what OTHER
+  // GRNs of the same POV already accounted (received good + rejected). In
+  // create mode there are no other GRNs, so base = the seeded remaining.
+  const baseOf = (l) =>
+    Math.max(0, r4(num(l.dispatched_qty) - num(l.other_received_qty ?? 0)));
+
+  // Pending = base − Received(good) − Rejected. Never negative.
+  const pendingOf = (l) =>
+    Math.max(0, r4(baseOf(l) - acceptedOf(l) - rejectedOf(l)));
+
   const onReceivedChange = (l, raw) => {
-    const dispatched = r4(l.dispatched_qty);
+    const base = baseOf(l);
     let v = num(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
-    if (v > dispatched) v = dispatched;
-    const rejected = r4(dispatched - v);
-    setQc((m) => ({
-      ...m,
-      [l._id]: {
-        ...m[l._id],
-        accepted_qty: raw === "" ? "" : String(v),
-        rejected_qty: String(rejected),
-        received_qty: String(dispatched),
-      },
-    }));
+    // Cap so Received + Rejected can't exceed the base; the rest is Pending.
+    const maxReceived = r4(base - rejectedOf(l));
+    if (v > maxReceived) v = maxReceived;
+    setField(l._id, "accepted_qty", raw === "" ? "" : String(v));
   };
 
-  // Editing Rejected auto-fills Received (good) = Dispatched − Rejected.
   const onRejectedChange = (l, raw) => {
-    const dispatched = r4(l.dispatched_qty);
+    const base = baseOf(l);
     let v = num(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
-    if (v > dispatched) v = dispatched;
-    const accepted = r4(dispatched - v);
-    setQc((m) => ({
-      ...m,
-      [l._id]: {
-        ...m[l._id],
-        rejected_qty: raw === "" ? "" : String(v),
-        accepted_qty: String(accepted),
-        received_qty: String(dispatched),
-      },
-    }));
+    const maxRejected = r4(base - acceptedOf(l));
+    if (v > maxRejected) v = maxRejected;
+    setField(l._id, "rejected_qty", raw === "" ? "" : String(v));
   };
 
   const onSave = async (statusOverride) => {
@@ -482,6 +488,9 @@ const GrnView = () => {
                   <th className="text-end" style={{ width: 120 }}>
                     {t("Rejected")}
                   </th>
+                  <th className="text-end" style={{ width: 90 }}>
+                    {t("Pending")}
+                  </th>
                   <th style={{ width: 130 }}>{t("Batch")}</th>
                   <th style={{ minWidth: 150 }}>{t("Remarks")}</th>
                 </tr>
@@ -516,7 +525,7 @@ const GrnView = () => {
                         ) : null}
                       </td>
                       <td className="text-end text-nowrap">
-                        {num(l.dispatched_qty).toFixed(2)}
+                        {baseOf(l).toFixed(2)}
                         {l.unit ? (
                           <span className="text-muted"> {l.unit}</span>
                         ) : null}
@@ -528,7 +537,7 @@ const GrnView = () => {
                           className="text-end"
                           style={{ fontSize: "inherit" }}
                           min="0"
-                          max={num(l.dispatched_qty)}
+                          max={r4(baseOf(l) - rejectedOf(l))}
                           step="any"
                           disabled={isLocked}
                           value={qc[l._id]?.accepted_qty ?? ""}
@@ -544,7 +553,7 @@ const GrnView = () => {
                           className="text-end"
                           style={{ fontSize: "inherit" }}
                           min="0"
-                          max={num(l.dispatched_qty)}
+                          max={r4(baseOf(l) - acceptedOf(l))}
                           step="any"
                           disabled={isLocked}
                           value={qc[l._id]?.rejected_qty ?? ""}
@@ -552,6 +561,15 @@ const GrnView = () => {
                             onRejectedChange(l, e.target.value)
                           }
                         />
+                      </td>
+                      <td className="text-end text-nowrap">
+                        {/* Pending = Dispatched − Received − Rejected (auto). */}
+                        <span className={pendingOf(l) > 1e-6 ? "text-warning fw-semibold" : "text-muted"}>
+                          {pendingOf(l).toFixed(2)}
+                        </span>
+                        {l.unit ? (
+                          <span className="text-muted"> {l.unit}</span>
+                        ) : null}
                       </td>
                       <td>
                         <Input
@@ -589,6 +607,7 @@ const GrnView = () => {
                   <td className="text-end">{totals.dispatched.toFixed(2)}</td>
                   <td className="text-end">{totals.received.toFixed(2)}</td>
                   <td className="text-end">{totals.rejected.toFixed(2)}</td>
+                  <td className="text-end">{totals.pending.toFixed(2)}</td>
                   <td colSpan={2} />
                 </tr>
               </tfoot>
@@ -638,7 +657,7 @@ const GrnView = () => {
 
             <div className="small text-muted mt-1 px-1">
               {t(
-                "Received (good) + Rejected always equals Dispatched — adjusting one auto-fills the other. Save & Confirm finalises the quality check."
+                "Received (good) and Rejected are entered independently; anything left of the Dispatched qty stays Pending and can be received on a later GRN. Received + Rejected cannot exceed Dispatched. Save & Confirm finalises the quality check."
               )}
             </div>
           </div>
