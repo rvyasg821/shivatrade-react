@@ -924,6 +924,7 @@ const initExpenseItem = {
   _id: "",
   name: "",
   code: "",
+  hsn_code: "",
   type: "percent",
   value: "",
   is_active: true,
