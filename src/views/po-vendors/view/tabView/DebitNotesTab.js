@@ -4,14 +4,16 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, CornerUpLeft } from "react-feather";
+import { ExternalLink, Download, CornerUpLeft, RotateCcw } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
+import AdjustmentNoteModal from "@src/views/adjustment-notes/AdjustmentNoteModal";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { getCurrencySymbol } from "@src/utility/currency";
@@ -47,6 +49,22 @@ const DebitNotesTab = ({ registerActions }) => {
   // A confirmed GRN with rejected goods but no Debit Note yet — the "Create
   // Debit Note" action is published only when one exists.
   const [pendingGrn, setPendingGrn] = useState(null);
+
+  // This POV — for the vendor + Apply-to-POV pre-fill of the credit note.
+  const pov = useSelector((s) => s.poVendor?.poVendorItem) || {};
+  // "Raise Credit Note" (adjustment note) modal, pre-filled from a debit note.
+  const [anOpen, setAnOpen] = useState(false);
+  const [anPrefill, setAnPrefill] = useState(null);
+  const openCreditNote = (d) => {
+    setAnPrefill({
+      party_type: "vendor",
+      party_id: pov.vendor_id || "",
+      direction: "credit",
+      amount: d?.total_amount != null ? String(num(d.total_amount)) : "",
+      document_id: id, // Apply to this Vendor PO
+    });
+    setAnOpen(true);
+  };
 
   // Open a Debit Note's PDF in the in-app viewer (new tab, frontend origin) —
   // fetched via the authed API, shown there, with a correctly-named Download.
@@ -226,7 +244,20 @@ const DebitNotesTab = ({ registerActions }) => {
                       {d.status}
                     </span>
                   </td>
-                  <td className="text-center">
+                  <td className="text-center text-nowrap">
+                    {d.status !== "cancelled" ? (
+                      <Button
+                        color="flat-success"
+                        size="sm"
+                        className="p-25 me-25"
+                        title={t(
+                          "Raise Credit Note (vendor refunds for damaged goods)"
+                        )}
+                        onClick={() => openCreditNote(d)}
+                      >
+                        <RotateCcw size={15} />
+                      </Button>
+                    ) : null}
                     <Button
                       color="flat-secondary"
                       size="sm"
@@ -243,6 +274,13 @@ const DebitNotesTab = ({ registerActions }) => {
           </tbody>
         </Table>
       </div>
+
+      <AdjustmentNoteModal
+        isOpen={anOpen}
+        toggle={() => setAnOpen(false)}
+        prefill={anPrefill}
+        onPosted={() => load()}
+      />
     </Fragment>
   );
 };
