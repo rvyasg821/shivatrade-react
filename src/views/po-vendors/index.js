@@ -51,9 +51,6 @@ import {
   Trash2,
   X,
   ExternalLink,
-  User,
-  Mail,
-  Phone,
   Plus,
   Download,
   Upload,
@@ -418,37 +415,11 @@ const PoVendorView = () => {
               {row?.vendor_name || "-"}
             </span>
           )}
-          {row?.vendor_contact_name && (
-            <div className="d-flex align-items-center text-capitalize text-break mt-25 mb-25">
-              <User size={13} className="text-muted me-50 flex-shrink-0" />
-              <span style={{ overflowWrap: "anywhere" }}>
-                {row.vendor_contact_name}
-              </span>
+          {row?.vendor_code && (
+            <div className="small text-muted text-break mt-25">
+              {row.vendor_code}
             </div>
           )}
-          {row?.vendor_contact_email && (
-            <div className="d-none d-md-flex align-items-center small text-muted text-break mb-25">
-              <Mail size={13} className="me-50 flex-shrink-0" />
-              <span style={{ overflowWrap: "anywhere" }}>
-                {row.vendor_contact_email}
-              </span>
-            </div>
-          )}
-          {(() => {
-            const cc = row?.vendor_contact_country_code;
-            const phone =
-              cc?.formatted ||
-              (cc?.dial_code || cc?.dialCode
-                ? `${cc.dial_code || cc.dialCode} ${row?.vendor_contact_phone || ""}`.trim()
-                : row?.vendor_contact_phone) ||
-              "";
-            return phone ? (
-              <div className="d-none d-md-flex align-items-center small text-muted text-break">
-                <Phone size={13} className="me-50 flex-shrink-0" />
-                <span style={{ overflowWrap: "anywhere" }}>{phone}</span>
-              </div>
-            ) : null;
-          })()}
         </div>
       ),
     },

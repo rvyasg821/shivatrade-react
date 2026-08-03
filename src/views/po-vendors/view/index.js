@@ -28,6 +28,7 @@ import {
   ExternalLink,
   Activity,
   Briefcase,
+  Hash,
   Mail,
   Phone,
   Download,
@@ -490,12 +491,18 @@ const ViewPoVendor = () => {
     null;
 
   const contactLine =
-    p?.vendor_name || p?.vendor_contact_email || vendorPhone ? (
+    p?.vendor_name || p?.vendor_code || p?.vendor_contact_email || vendorPhone ? (
       <span className="d-inline-flex align-items-center flex-wrap gap-1">
         {p?.vendor_name ? (
           <span className="d-inline-flex align-items-center text-capitalize">
             <Briefcase size={13} className="me-25" />
             {p.vendor_name}
+          </span>
+        ) : null}
+        {p?.vendor_code ? (
+          <span className="d-inline-flex align-items-center">
+            <Hash size={13} className="me-25" />
+            {p.vendor_code}
           </span>
         ) : null}
         {p?.vendor_contact_email ? (
