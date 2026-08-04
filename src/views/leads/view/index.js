@@ -220,11 +220,10 @@ const ViewLead = () => {
   const sourceLabel = labelize(l?.source, LEAD_SOURCE_OPTIONS);
   const statusLabel = labelize(l?.status, LEAD_STATUS_OPTIONS);
 
+  // expected_value is stored NATIVE in the lead currency (store-native model,
+  // multi-currency Phase 4) — display it directly, do NOT convert from INR.
   const budget = l?.expected_value
-    ? formatMoney(
-        convertFromInr(l.expected_value, l?.currency, exchangeOptions),
-        l?.currency
-      )
+    ? formatMoney(Number(l.expected_value), l?.currency)
     : null;
 
   // Fallback when no manual Expected Value: a computed estimate from the
