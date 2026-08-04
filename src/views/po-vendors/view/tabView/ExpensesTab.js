@@ -186,11 +186,13 @@ const ExpensesTab = ({ registerActions }) => {
           typeOptions={TYPE_OPTIONS}
           percentBase={subtotal}
           sym={sym}
-          // Amount column always renders in the POV currency (× rate) so its
-          // symbol and value agree — the VALUE column stays the raw INR/percent
-          // entry. `percentBase` (subtotal) is INR, so a % charge computes in
-          // INR then converts, matching the POV Total card.
-          rate={Number(p?.exchange_rate) || 1}
+          // Multi-currency: POV amounts are stored NATIVE in the POV currency.
+          // `subtotal` (Σ line_total) and a fixed expense value are already in
+          // that currency, so the Amount column renders them AS-IS — rate = 1,
+          // NO conversion (matching the create form's dispRate and the POV
+          // Total card). Using the POV exchange_rate here (INR-per-unit) wrongly
+          // multiplied a $50 fixed charge to ₹4,766.
+          rate={1}
           // GST is an Indian (INR) tax — nil on a foreign-currency POV.
           gstApplies={(p?.currency_code || "INR") === "INR"}
           readOnly={!isDraft}
