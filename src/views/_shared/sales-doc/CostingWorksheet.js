@@ -26,6 +26,8 @@ import Select from "react-select";
 import { Plus, Trash2, X } from "react-feather";
 import { useTranslation } from "react-i18next";
 import ReactPaginate from "react-paginate";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -149,6 +151,7 @@ const CostingWorksheet = ({
 }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const mySwal = withReactContent(Swal);
   const lineFA = useFieldArray({ control, name: "lines" });
   const liveLines = useWatch({ control, name: "lines" }) || [];
 
@@ -167,6 +170,101 @@ const CostingWorksheet = ({
     }
     return m;
   }, [vendorDropdown]);
+
+  // ── Doc-level vendor (source) currency — one currency per document ──────
+  // Currency-first: the operator picks the vendor currency BEFORE any line
+  // vendor, so every vendor picker only offers matching-currency vendors
+  // (multi-currency rule). Stored on the doc header as `vendor_currency_code`.
+  const vendorCurrency = (
+    useWatch({ control, name: "vendor_currency_code" }) || ""
+  ).toUpperCase();
+  const vendorCurrencyOptions = useMemo(() => {
+    const set = new Set();
+    for (const v of vendorDropdown)
+      set.add((v.currency_code || "INR").toUpperCase());
+    if (!set.size) set.add("INR");
+    return [...set].sort().map((c) => ({ value: c, label: c }));
+  }, [vendorDropdown]);
+
+  // A line's vendor options, filtered to the chosen vendor currency. Empty
+  // until a currency is picked (currency-first).
+  const vendorOptsFor = (l) => {
+    const opts = vendorsByProduct[l?.product_id] || [];
+    if (!vendorCurrency) return [];
+    return opts.filter(
+      (o) => (o.raw?.currency_code || "INR").toUpperCase() === vendorCurrency
+    );
+  };
+
+  // Change the doc vendor currency. If lines already carry vendors, confirm;
+  // then re-select the CHEAPEST vendor in the new currency for each line (or
+  // clear the line when no vendor in that currency exists for its product).
+  const changeVendorCurrency = (opt) => {
+    const next = (opt?.value || "").toUpperCase();
+    if (next === vendorCurrency) return;
+    const withVendor = (liveLines || []).filter((l) => l?.vendor_id).length;
+    const apply = () => {
+      // 1) Clear every existing vendor pick FIRST so the per-pick currency
+      //    guard can't block re-selection mid-loop.
+      (liveLines || []).forEach((l, idx) => {
+        if (!l?.vendor_id) return;
+        setValue(`lines.${idx}.vendor_id`, "");
+        setValue(`lines.${idx}.vendor_name`, "");
+        setValue(`lines.${idx}.vendor_code`, "");
+        setValue(`lines.${idx}.source_currency_code`, next);
+        setValue(`lines.${idx}.cost_exchange_rate`, "1");
+      });
+      setValue("vendor_currency_code", next, { shouldDirty: true });
+      // 2) Auto-select the cheapest vendor in the NEW currency per line
+      //    (options are sorted cheapest-first). Leaves the line empty when the
+      //    product has no vendor in that currency.
+      (liveLines || []).forEach((l, idx) => {
+        if (!l?.product_id) return;
+        const match = (vendorsByProduct[l.product_id] || []).find(
+          (o) => (o.raw?.currency_code || "INR").toUpperCase() === next
+        );
+        if (match) onPickVendor(idx, match);
+      });
+    };
+    if (withVendor > 0 && vendorCurrency) {
+      mySwal
+        .fire({
+          title: t("Change vendor currency?"),
+          text: t(
+            "Vendors on {{n}} line(s) will switch to the cheapest {{cur}} vendor (or clear if none exists). Continue?",
+            { n: withVendor, cur: next }
+          ),
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: t("Yes, change"),
+          cancelButtonText: t("Cancel"),
+          customClass: {
+            confirmButton: "btn btn-warning",
+            cancelButton: "btn btn-outline-secondary ms-1",
+          },
+          buttonsStyling: false,
+        })
+        .then((res) => {
+          if (res.isConfirmed) apply();
+        });
+    } else {
+      apply();
+    }
+  };
+
+  // Hydrate the doc vendor currency from persisted lines when the header field
+  // isn't set yet (editing a doc saved before this field, or a fresh load).
+  useEffect(() => {
+    if (vendorCurrency) return;
+    const fromLine = (liveLines || [])
+      .map((l) =>
+        l?.vendor_id ? (l?.source_currency_code || "").toUpperCase() : ""
+      )
+      .find(Boolean);
+    if (fromLine)
+      setValue("vendor_currency_code", fromLine, { shouldDirty: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveLines, vendorCurrency]);
   // Vendor's true currency for a picked row (fallback: the row's own currency).
   const vendorCurOf = (vendorId, rowCcy) =>
     (vendorCcyById[vendorId] || rowCcy || "INR").toUpperCase();
@@ -330,10 +428,15 @@ const CostingWorksheet = ({
             raw: r,
           }));
         setVendorsByProduct((m) => ({ ...m, [productId]: rows }));
-        // On a fresh product pick, auto-select the cheapest vendor (rows are
-        // sorted cheapest-first) + its price.
-        if (autoSelect && rows.length) {
-          onPickVendor(idx, rows[0]);
+        // On a fresh product pick, auto-select the cheapest vendor IN THE
+        // chosen vendor currency (rows are sorted cheapest-first). With no
+        // currency picked yet, or no matching vendor, leave it empty.
+        if (autoSelect && rows.length && vendorCurrency) {
+          const match = rows.find(
+            (o) =>
+              (o.raw?.currency_code || "INR").toUpperCase() === vendorCurrency
+          );
+          if (match) onPickVendor(idx, match);
         }
       })
       .catch(() => setVendorsByProduct((m) => ({ ...m, [productId]: [] })))
@@ -795,6 +898,29 @@ const CostingWorksheet = ({
           one-currency-per-document rule there is at most one box. */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
         <div className="d-flex align-items-center gap-1 flex-wrap">
+          {/* Vendor (buy) currency — one per document. Picked FIRST; the line
+              vendor pickers only offer vendors in this currency. Distinct from
+              the selling-currency rate box that follows. */}
+          <div className="d-flex align-items-center gap-50 ws-rate-box">
+            <span className="fw-bold">{t("Vendor Currency")}</span>
+            <Select
+              classNamePrefix="select"
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+                container: (b) => ({ ...b, minWidth: 120 }),
+              }}
+              options={vendorCurrencyOptions}
+              value={
+                vendorCurrency
+                  ? { value: vendorCurrency, label: vendorCurrency }
+                  : null
+              }
+              isDisabled={readOnly}
+              onChange={changeVendorCurrency}
+              placeholder={t("Select…")}
+            />
+          </div>
           {distinctSources.length > 0 ? (
             distinctSources.map((src) => {
               // Same currency as the document → fixed rate 1, box disabled.
@@ -1006,19 +1132,23 @@ const CostingWorksheet = ({
                         classNamePrefix="select"
                         menuPortalTarget={document.body}
                         styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                        options={vendorsByProduct[l.product_id] || []}
+                        options={vendorOptsFor(l)}
                         isLoading={!!loadingByProduct[l.product_id]}
                         value={
-                          (vendorsByProduct[l.product_id] || []).find(
+                          vendorOptsFor(l).find(
                             (o) => o.value === l.vendor_id
                           ) ||
                           (l.vendor_id
                             ? { value: l.vendor_id, label: l.vendor_name || "—" }
                             : null)
                         }
-                        isDisabled={readOnly || !l.product_id}
+                        isDisabled={readOnly || !l.product_id || !vendorCurrency}
                         onChange={(opt) => onPickVendor(idx, opt)}
-                        placeholder={t("Pick vendor")}
+                        placeholder={
+                          !vendorCurrency
+                            ? t("Select vendor currency first")
+                            : t("Pick vendor")
+                        }
                       />
                     </td>
                     <td className="small text-muted text-truncate">

@@ -829,6 +829,9 @@ const QuotationWizard = () => {
       valid_until: values.valid_until || undefined,
       reference_no: values.reference_no?.trim() || undefined,
       currency_code: values.currency_code,
+      // Vendor (buy) currency — one per document (multi-currency rule). Drives
+      // the line-item vendor filter in the costing worksheet.
+      vendor_currency_code: values.vendor_currency_code || undefined,
       exchange_rate: values.exchange_rate || "1",
       // Shipment freight (document currency) for a CNF quote — split by qty
       // across lines in the costing worksheet.

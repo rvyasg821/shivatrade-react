@@ -707,6 +707,8 @@ const PurchaseOrderWizard = () => {
       internal_notes: values.internal_notes?.trim() || undefined,
       remarks: values.remarks != null ? values.remarks.trim() : undefined,
       currency_code: values.currency_code || "INR",
+      // Vendor (buy) currency — one per document (multi-currency rule).
+      vendor_currency_code: values.vendor_currency_code || undefined,
       exchange_rate: values.exchange_rate || "1",
       // Shipment freight (document currency) for a CNF order — split by qty
       // across lines in the costing worksheet.
