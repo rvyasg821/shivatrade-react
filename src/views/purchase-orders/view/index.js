@@ -33,6 +33,7 @@ import {
 } from "@src/views/purchase-orders/store";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
 import { PURCHASE_ORDER_STATUS_BADGE_COLOR } from "@constant/options";
@@ -413,6 +414,8 @@ const ViewPurchaseOrder = () => {
   // the authed API, shown there, with a correctly-named Download.
   const handleDownloadPdf = () =>
     openPdfViewer({ kind: "purchase_order", id, name: p?.voucher_no });
+  const handleDownloadExcel = () =>
+    downloadExcel({ kind: "purchase_order", id, name: p?.voucher_no });
 
   // Change Status dropdown — rendered left of the action buttons, mirroring
   // the RFQ / Quotation detail pages.
@@ -520,7 +523,17 @@ const ViewPurchaseOrder = () => {
                   onClick={() => handleDownloadPdf()}
                 >
                   <Download size={14} className="me-50" />
-                  {t("Download")}
+                  {t("PDF")}
+                </Button>
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() => handleDownloadExcel()}
+                >
+                  <Download size={14} className="me-50" />
+                  {t("Excel")}
                 </Button>
               </div>
             </div>

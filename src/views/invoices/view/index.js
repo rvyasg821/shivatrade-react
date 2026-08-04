@@ -49,13 +49,14 @@ import {
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import AddInvoiceEventModal from "@src/views/invoices/components/AddInvoiceEventModal";
 import ShipmentEditModal from "@src/views/invoices/components/ShipmentEditModal";
-import { Input, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
+import { Input, Label, Button, ButtonGroup, Modal, ModalHeader, ModalBody, ModalFooter, FormFeedback, Nav, NavItem, NavLink, TabContent, TabPane } from "reactstrap";
 import Select from "react-select";
 import DateInput from "@components/date-input";
 import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import Notification from "@components/toast/notification";
 import {
   appsRoot,
@@ -212,6 +213,16 @@ const ViewInvoice = () => {
       id,
       name: `${inv?.voucher_no || "invoice"}-${doc}`,
       params: { doc, ...extraParams },
+    });
+
+  // Download the matching Excel (mirrors the PDF) for the same doc variant.
+  const downloadInvoiceExcel = (doc, extraParams = {}) =>
+    downloadExcel({
+      kind: "invoice",
+      id,
+      name: `${inv?.voucher_no || "invoice"}-${doc}`,
+      doc,
+      ...extraParams,
     });
 
   const handleVoidPayment = (paymentId) => {
@@ -714,14 +725,17 @@ const ViewInvoice = () => {
       {
         label: t("Commercial Invoice"),
         onClick: () => openInvoicePdf("commercial"),
+        onExcel: () => downloadInvoiceExcel("commercial"),
       },
       {
         label: t("Export Invoice"),
         onClick: () => openInvoicePdf("export"),
+        onExcel: () => downloadInvoiceExcel("export"),
       },
       {
         label: t("Packing List"),
         onClick: () => openInvoicePdf("packing-list"),
+        onExcel: () => downloadInvoiceExcel("packing-list"),
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -906,15 +920,26 @@ const ViewInvoice = () => {
               {pdfActions.length ? (
                 <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end flex-shrink-0 dp-header-actions dp-header-actions-row">
                   {pdfActions.map((a, idx) => (
-                    <Button
-                      key={`inv-pdf-${idx}`}
-                      size="sm"
-                      className="d-flex align-items-center btn-brand-blue"
-                      onClick={a.onClick}
-                    >
-                      <Download size={14} className="me-50" />
-                      {a.label}
-                    </Button>
+                    <ButtonGroup key={`inv-doc-${idx}`} size="sm">
+                      <Button
+                        size="sm"
+                        className="d-flex align-items-center btn-brand-blue"
+                        onClick={a.onClick}
+                      >
+                        <Download size={14} className="me-50" />
+                        {a.label}
+                      </Button>
+                      <Button
+                        size="sm"
+                        color="secondary"
+                        outline
+                        className="d-flex align-items-center"
+                        title={`${a.label} — ${t("Excel")}`}
+                        onClick={a.onExcel}
+                      >
+                        {t("Excel")}
+                      </Button>
+                    </ButtonGroup>
                   ))}
                 </div>
               ) : null}
@@ -1320,20 +1345,35 @@ const ViewInvoice = () => {
                                 <td>{p.notes || "-"}</td>
                                 <td>
                                   {!voided && p.receipt_voucher_no ? (
-                                    <Button
-                                      size="sm"
-                                      color="link"
-                                      className="p-0"
-                                      title={t("Download Receipt")}
-                                      onClick={() =>
-                                        openInvoicePdf("receipt", {
-                                          paymentId: p._id,
-                                        })
-                                      }
-                                    >
-                                      <Download size={13} className="me-25" />
-                                      {p.receipt_voucher_no}
-                                    </Button>
+                                    <span className="d-inline-flex align-items-center gap-1">
+                                      <Button
+                                        size="sm"
+                                        color="link"
+                                        className="p-0"
+                                        title={t("Download Receipt")}
+                                        onClick={() =>
+                                          openInvoicePdf("receipt", {
+                                            paymentId: p._id,
+                                          })
+                                        }
+                                      >
+                                        <Download size={13} className="me-25" />
+                                        {p.receipt_voucher_no}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        color="link"
+                                        className="p-0"
+                                        title={`${t("Download Receipt")} — ${t("Excel")}`}
+                                        onClick={() =>
+                                          downloadInvoiceExcel("receipt", {
+                                            paymentId: p._id,
+                                          })
+                                        }
+                                      >
+                                        {t("Excel")}
+                                      </Button>
+                                    </span>
                                   ) : (
                                     <span className="text-muted">
                                       {p.receipt_voucher_no || "-"}

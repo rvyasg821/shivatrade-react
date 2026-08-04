@@ -8,12 +8,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, CornerUpLeft, Inbox } from "react-feather";
+import { ExternalLink, Download, CornerUpLeft, Inbox, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -100,6 +101,8 @@ const GrnsTab = ({ registerActions }) => {
   // via the authed API, shown there, with a correctly-named Download.
   const downloadGrnPdf = (g) =>
     openPdfViewer({ kind: "grn", id: g?._id, name: g?.voucher_no });
+  const downloadGrnExcel = (g) =>
+    downloadExcel({ kind: "grn", id: g?._id, name: g?.voucher_no });
 
   if (loading && !rows.length) {
     return (
@@ -225,6 +228,15 @@ const GrnsTab = ({ registerActions }) => {
                         onClick={() => downloadGrnPdf(g)}
                       >
                         <Download size={15} />
+                      </Button>
+                      <Button
+                        color="flat-secondary"
+                        size="sm"
+                        className="p-25"
+                        title={t("Download Excel")}
+                        onClick={() => downloadGrnExcel(g)}
+                      >
+                        <FileText size={15} />
                       </Button>
                     </div>
                   </td>

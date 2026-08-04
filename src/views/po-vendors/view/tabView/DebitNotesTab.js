@@ -7,12 +7,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Table, Spinner, Button } from "reactstrap";
 import { Link } from "react-router-dom";
-import { ExternalLink, Download, CornerUpLeft, RotateCcw } from "react-feather";
+import { ExternalLink, Download, CornerUpLeft, RotateCcw, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import AdjustmentNoteModal from "@src/views/adjustment-notes/AdjustmentNoteModal";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
@@ -70,6 +71,8 @@ const DebitNotesTab = ({ registerActions }) => {
   // fetched via the authed API, shown there, with a correctly-named Download.
   const downloadPdf = (d) =>
     openPdfViewer({ kind: "debit_note", id: d?._id, name: d?.voucher_no });
+  const downloadDebitExcel = (d) =>
+    downloadExcel({ kind: "debit_note", id: d?._id, name: d?.voucher_no });
 
   // Load the Debit Note list AND the POV's GRNs together, then derive whether
   // a Debit Note is "necessary": a confirmed GRN with rejected qty that isn't
@@ -266,6 +269,15 @@ const DebitNotesTab = ({ registerActions }) => {
                       onClick={() => downloadPdf(d)}
                     >
                       <Download size={15} />
+                    </Button>
+                    <Button
+                      color="flat-secondary"
+                      size="sm"
+                      className="p-25"
+                      title={t("Download Excel")}
+                      onClick={() => downloadDebitExcel(d)}
+                    >
+                      <FileText size={15} />
                     </Button>
                   </td>
                 </tr>
