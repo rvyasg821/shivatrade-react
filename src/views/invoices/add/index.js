@@ -380,6 +380,38 @@ const InvoiceAddEdit = () => {
     onF("exchange_rate", inrPerForeign > 0 ? String(1 / inrPerForeign) : "");
   };
 
+  // Auto-fetch the exchange rate from the currency MASTER when a currency is
+  // picked (mirrors the quotation Step-1). Writes the stored "foreign-per-₹1"
+  // value; the rateDisplay effect above then shows its ₹-per-unit inverse.
+  // Skips INR (rate = 1). On EDIT the ref is seeded on hydrate (below) so a
+  // saved invoice's FROZEN rate is never clobbered; a manual edit is preserved
+  // because it changes exchange_rate, not currency_code (this effect's dep).
+  const autoFilledForCurrency = useRef(null);
+  useEffect(() => {
+    const code = (form.currency_code || "").toUpperCase();
+    if (!code || code === "INR") {
+      if (code === "INR") autoFilledForCurrency.current = "INR";
+      return undefined;
+    }
+    if (autoFilledForCurrency.current === code) return undefined;
+    let cancelled = false;
+    instance
+      .get(API_ENDPOINTS.currencies.currentRate, { params: { to: code } })
+      .then((resp) => {
+        if (cancelled) return;
+        const data = resp?.data?.data;
+        if (data && Number(data.rate) > 0) {
+          autoFilledForCurrency.current = code;
+          onF("exchange_rate", String(Number(data.rate)));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.currency_code]);
+
   // ── Source→document rate box (mirrors the costing worksheet) ──────────
   // The line cost is native to the VENDOR (source) currency; the invoice is in
   // the customer (document) currency. One-currency-per-document → a single
@@ -1063,6 +1095,9 @@ const InvoiceAddEdit = () => {
     if (!isEdit) return;
     const inv = store?.invoiceItem;
     if (!inv?._id) return;
+    // Preserve the saved (frozen) rate: mark this currency as already filled so
+    // the master auto-fetch effect doesn't overwrite it on load.
+    autoFilledForCurrency.current = (inv.currency_code || "").toUpperCase();
     setForm((s) => ({
       ...s,
       invoice_date: inv.invoice_date?.slice(0, 10) || todayISO(),
