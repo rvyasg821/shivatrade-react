@@ -838,13 +838,28 @@ const CostingWorksheet = ({
   }, [freightSum, freightTotal, readOnly]);
   // Everything is shown in the DOCUMENT currency now (₹ for an INR document).
   const docSym = currencySymbol(docCurrencyCode) || "₹";
-  const money = (v) => `${docSym}${fmt(v)}`;
+  // Customer / document-currency amounts (Rate/Amt {docCur}, Freight, CNF).
   const moneyDoc = (v) => `${docSym}${fmt(v)}`;
   // The Rate column is the editable VENDOR price — native to the vendor's
   // (source) currency, which may differ from the document currency (e.g. a USD
   // vendor on a EUR quote). One-currency-per-document → a single source symbol.
   const srcCur = distinctSources.find(Boolean) || docCurrencyCode;
   const srcSym = currencySymbol(srcCur) || docSym;
+  // Cost columns (Price/Disc → Grand Total) are DISPLAYED in the vendor
+  // (source) currency: computeLineCosting works in the document currency, so we
+  // divide back by the frozen source→doc rate (`cost_exchange_rate`). One
+  // currency per document → a single rate; 1 when vendor == document currency.
+  // Storage + the customer selling price (Rate/Amt {docCur} columns) stay in the
+  // document currency — this is display-only.
+  const srcRate =
+    Number(
+      (
+        liveLines.find(
+          (l) => l?.source_currency_code && num(l?.cost_exchange_rate) > 0,
+        ) || {}
+      ).cost_exchange_rate,
+    ) || 1;
+  const moneySrc = (v) => `${srcSym}${fmt(srcRate ? v / srcRate : v)}`;
 
   // Fixed column widths (px) so every value fits on one line.
   const W = {
@@ -1049,7 +1064,7 @@ const CostingWorksheet = ({
               </th>
               <th className="text-end">{t("Disc%")}</th>
               <th className="text-end">
-                {t("Price/Disc")} {docSym}
+                {t("Price/Disc")} {srcSym}
               </th>
               <th className="text-end">{t("Value")}</th>
               <th className="text-end">{t("Expense")}</th>
@@ -1057,9 +1072,11 @@ const CostingWorksheet = ({
               <th className="text-end">{t("Rebate")}</th>
               <th className="text-end">{t("Margin%")}</th>
               <th className="text-end">
-                {t("Margin")} {docSym}
+                {t("Margin")} {srcSym}
               </th>
-              <th className="text-end">{t("Grand Total")}</th>
+              <th className="text-end">
+                {t("Grand Total")} {srcSym}
+              </th>
               {isForeign && (
                 <th className="text-end">
                   {t("Rate")} {docCur}
@@ -1211,9 +1228,11 @@ const CostingWorksheet = ({
                         onCommit={(v) => setField(idx, "discount_pct", v)}
                       />
                     </td>
-                    <td className="text-end ws-calc">{money(priceAfterDisc)}</td>
+                    <td className="text-end ws-calc">
+                      {moneySrc(priceAfterDisc)}
+                    </td>
                     <td className="text-end ws-calc fw-semibold">
-                      {money(c.taxable)}
+                      {moneySrc(c.taxable)}
                     </td>
                     <td className="text-end p-0">
                       <span
@@ -1228,7 +1247,7 @@ const CostingWorksheet = ({
                           )
                         }
                       >
-                        {money(c.expenses)}
+                        {moneySrc(c.expenses)}
                       </span>
                       <CostHeadsPopover
                         id={expId}
@@ -1250,7 +1269,9 @@ const CostingWorksheet = ({
                         t={t}
                       />
                     </td>
-                    <td className="text-end ws-calc">{money(totalAfterExp)}</td>
+                    <td className="text-end ws-calc">
+                      {moneySrc(totalAfterExp)}
+                    </td>
                     <td className="text-end p-0">
                       <span
                         id={rebId}
@@ -1264,7 +1285,7 @@ const CostingWorksheet = ({
                           )
                         }
                       >
-                        {money(c.rebates)}
+                        {moneySrc(c.rebates)}
                       </span>
                       <CostHeadsPopover
                         id={rebId}
@@ -1295,9 +1316,9 @@ const CostingWorksheet = ({
                         onCommit={(v) => setField(idx, "margin_pct", v)}
                       />
                     </td>
-                    <td className="text-end ws-calc">{money(c.margin)}</td>
+                    <td className="text-end ws-calc">{moneySrc(c.margin)}</td>
                     <td className="text-end ws-calc fw-bold">
-                      {money(grandInr)}
+                      {moneySrc(grandInr)}
                     </td>
                     {isForeign && (
                       <td className="text-end ws-calc">{moneyDoc(rateDoc)}</td>
@@ -1405,13 +1426,15 @@ const CostingWorksheet = ({
                 <td />
                 <td />
                 <td />
-                <td className="text-end">{money(totals.value)}</td>
-                <td className="text-end">{money(totals.expense)}</td>
-                <td className="text-end">{money(totals.totalAfterExp)}</td>
-                <td className="text-end">{money(totals.rebate)}</td>
+                <td className="text-end">{moneySrc(totals.value)}</td>
+                <td className="text-end">{moneySrc(totals.expense)}</td>
+                <td className="text-end">{moneySrc(totals.totalAfterExp)}</td>
+                <td className="text-end">{moneySrc(totals.rebate)}</td>
                 <td />
-                <td className="text-end">{money(totals.margin)}</td>
-                <td className="text-end ws-foot-grand">{money(totals.grand)}</td>
+                <td className="text-end">{moneySrc(totals.margin)}</td>
+                <td className="text-end ws-foot-grand">
+                  {moneySrc(totals.grand)}
+                </td>
                 {isForeign && <td />}
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}

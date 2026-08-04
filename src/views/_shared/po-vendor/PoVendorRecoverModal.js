@@ -783,18 +783,7 @@ const PoVendorRecoverModal = ({
       return;
     }
 
-    // Invoice number is required for every vendor's spawned POV.
-    const missingInvoice = submittingVendorIds.find(
-      (vid) => !(vendorTerms[vid]?.invoice_number || "").trim()
-    );
-    if (missingInvoice) {
-      Notification(
-        "Validation",
-        t("Invoice number is required for every vendor's POV."),
-        "warning"
-      );
-      return;
-    }
+    // Invoice number is OPTIONAL on the spawned POV — no validation.
 
     // Advance: when an amount is entered, its date + paid-from bank are required.
     const badAdvance = Object.values(vendorAdvances).find(
@@ -1600,10 +1589,9 @@ const PoVendorRecoverModal = ({
                                 )
                               }
                             />
-                            {/* Vendor's invoice number — required per POV. */}
+                            {/* Vendor's invoice number — optional per POV. */}
                             <Label className="form-label small fw-semibold mb-25 mt-1">
-                              {t("Invoice Number")}{" "}
-                              <span className="text-danger">*</span>
+                              {t("Invoice Number")}
                             </Label>
                             <Input
                               bsSize="sm"

@@ -193,8 +193,7 @@ const PaymentsTab = ({ registerActions }) => {
     if (!form.payment_date) e.payment_date = t("Date required");
     else if (isClosedPeriod(form.payment_date, booksClosedUpto))
       e.payment_date = closedPeriodMessage(booksClosedUpto, t("payment date"));
-    if (!form.invoice_number || !form.invoice_number.trim())
-      e.invoice_number = t("Invoice number is required");
+    // Invoice number is optional on a vendor payment.
     const amt = num(form.amount);
     if (!(amt > 0)) e.amount = t("Amount must be greater than 0");
     if (tdsAmt > amt) e.tds = t("TDS cannot exceed the gross amount");
@@ -608,9 +607,7 @@ const PaymentsTab = ({ registerActions }) => {
               />
             </Col>
             <Col md="6" className="mb-2">
-              <Label className="form-label">
-                {t("Invoice Number")} <span className="text-danger">*</span>
-              </Label>
+              <Label className="form-label">{t("Invoice Number")}</Label>
               <Input
                 value={form.invoice_number}
                 maxLength={120}
