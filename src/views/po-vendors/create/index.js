@@ -612,10 +612,6 @@ const CreatePoVendor = () => {
       Notification("Validation", t("Pick a vendor for this POV."), "warning");
       return;
     }
-    if (!invoiceNumber.trim()) {
-      Notification("Validation", t("Invoice number is required."), "warning");
-      return;
-    }
 
     const expensesPayload = charges
       .filter((c) => c.expense_id)
@@ -1375,12 +1371,10 @@ const CreatePoVendor = () => {
               </Table>
             )}
 
-            {/* Vendor's invoice number — required header field. */}
+            {/* Vendor's invoice number — optional header field. */}
             <Row className="mt-2">
               <Col md="6" className="mb-1">
-                <Label className="form-label">
-                  {t("Invoice Number")} <span className="text-danger">*</span>
-                </Label>
+                <Label className="form-label">{t("Invoice Number")}</Label>
                 <Input
                   maxLength={120}
                   value={invoiceNumber}
