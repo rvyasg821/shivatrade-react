@@ -35,6 +35,7 @@ import {
 import { getCurrencySymbol } from "@src/utility/currency";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import {
   QUOTATION_STATUS_OPTIONS,
@@ -481,6 +482,8 @@ const ViewQuotation = () => {
   // Download — so the backend host stays hidden and the saved filename is right.
   const downloadPdf = () =>
     openPdfViewer({ kind: "quotation", id, name: q?.voucher_no });
+  const downloadXlsx = () =>
+    downloadExcel({ kind: "quotation", id, name: q?.voucher_no });
 
   // ── Header actions ── (status transitions live in the dropdown below; the
   // header keeps only Edit + Back to stay uncluttered.)
@@ -655,7 +658,17 @@ const ViewQuotation = () => {
                   onClick={downloadPdf}
                 >
                   <Download size={14} className="me-50" />
-                  {t("Download")}
+                  {t("PDF")}
+                </Button>
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={downloadXlsx}
+                >
+                  <Download size={14} className="me-50" />
+                  {t("Excel")}
                 </Button>
               </div>
             </div>

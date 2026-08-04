@@ -28,6 +28,7 @@ import { getPoVendor } from "@src/views/po-vendors/store";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { getCurrencySymbol } from "@src/utility/currency";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
@@ -77,6 +78,8 @@ const DebitNoteView = () => {
   // fetched via the authed API, shown there, with a correctly-named Download.
   const downloadPdf = () =>
     openPdfViewer({ kind: "debit_note", id, name: dn?.voucher_no });
+  const downloadXlsx = () =>
+    downloadExcel({ kind: "debit_note", id, name: dn?.voucher_no });
 
   useEffect(() => {
     dispatch(stopLoading());
@@ -299,6 +302,11 @@ const DebitNoteView = () => {
             {!isCreate && (
               <Button color="secondary" outline size="sm" onClick={downloadPdf}>
                 <Download size={14} className="me-25" /> {t("PDF")}
+              </Button>
+            )}
+            {!isCreate && (
+              <Button color="secondary" outline size="sm" onClick={downloadXlsx}>
+                <Download size={14} className="me-25" /> {t("Excel")}
               </Button>
             )}
             <Button

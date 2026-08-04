@@ -33,6 +33,7 @@ import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -315,6 +316,8 @@ const GrnView = () => {
   // via the authed API, shown there, with a correctly-named Download.
   const downloadPdf = () =>
     openPdfViewer({ kind: "grn", id, name: grn?.voucher_no });
+  const downloadXlsx = () =>
+    downloadExcel({ kind: "grn", id, name: grn?.voucher_no });
 
   if (!grn) {
     return (
@@ -393,6 +396,11 @@ const GrnView = () => {
             {!isCreate && (
               <Button color="secondary" outline size="sm" onClick={downloadPdf}>
                 <Download size={14} className="me-25" /> {t("PDF")}
+              </Button>
+            )}
+            {!isCreate && (
+              <Button color="secondary" outline size="sm" onClick={downloadXlsx}>
+                <Download size={14} className="me-25" /> {t("Excel")}
               </Button>
             )}
             <Button

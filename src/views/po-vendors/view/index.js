@@ -50,6 +50,7 @@ import {
 } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
@@ -414,6 +415,8 @@ const ViewPoVendor = () => {
   // fetched via the authed API, shown there, with a correctly-named Download.
   const handleDownloadPdf = () =>
     openPdfViewer({ kind: "po_vendor", id, name: p?.voucher_no });
+  const handleDownloadExcel = () =>
+    downloadExcel({ kind: "po_vendor", id, name: p?.voucher_no });
 
 
   // ── Header actions (contextual to status) ──
@@ -605,7 +608,17 @@ const ViewPoVendor = () => {
                   onClick={() => handleDownloadPdf()}
                 >
                   <Download size={14} className="me-50" />
-                  {t("Download")}
+                  {t("PDF")}
+                </Button>
+                <Button
+                  size="sm"
+                  color="secondary"
+                  outline
+                  className="d-flex align-items-center"
+                  onClick={() => handleDownloadExcel()}
+                >
+                  <Download size={14} className="me-50" />
+                  {t("Excel")}
                 </Button>
               </div>
             </div>

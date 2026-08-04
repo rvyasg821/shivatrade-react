@@ -20,12 +20,13 @@ import {
   Table,
 } from "reactstrap";
 import Select from "react-select";
-import { AlertTriangle, DollarSign, Download } from "react-feather";
+import { AlertTriangle, DollarSign, Download, FileText } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
 import { openPdfViewer } from "@src/utility/pdf";
+import { downloadExcel } from "@src/utility/excel";
 import DateInput from "@components/date-input";
 import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import Notification from "@components/toast/notification";
@@ -285,6 +286,15 @@ const PaymentsTab = ({ registerActions }) => {
       params: { paymentId: payment?._id },
     });
 
+  // Download the Payment Voucher Excel (mirrors the PDF).
+  const downloadVoucherExcel = (payment) =>
+    downloadExcel({
+      kind: "po_vendor_payment",
+      id,
+      name: payment?.payment_voucher_no,
+      paymentId: payment?._id,
+    });
+
   // Publish the Record Payment button to the tab bar (right of the titles).
   useEffect(() => {
     if (!registerActions) return undefined;
@@ -396,7 +406,7 @@ const PaymentsTab = ({ registerActions }) => {
               <th className="text-end">{t("Gross")}</th>
               <th className="text-end">{t("TDS")}</th>
               <th className="text-end">{t("Net Paid")}</th>
-              <th></th>
+              <th className="text-nowrap text-start">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -411,13 +421,11 @@ const PaymentsTab = ({ registerActions }) => {
                   <td className="text-nowrap text-start">
                     {pay.payment_voucher_no ? (
                       <Button
-                        size="sm"
                         color="link"
                         className="p-0"
                         title={t("Download Voucher")}
                         onClick={() => openVoucherPdf(pay)}
                       >
-                        <Download size={13} className="me-25" />
                         {pay.payment_voucher_no}
                       </Button>
                     ) : (
@@ -457,21 +465,45 @@ const PaymentsTab = ({ registerActions }) => {
                     {sym}
                     {fmtCcy(num(pay.net_paid) || num(pay.amount))}
                   </td>
-                  <td className="text-end">
-                    {!voided && canPay ? (
-                      <Button
-                        size="sm"
-                        color="link"
-                        className="p-0 text-danger"
-                        onClick={() => handleVoid(pay._id)}
-                      >
-                        {t("Void")}
-                      </Button>
-                    ) : voided ? (
-                      <span className="badge bg-light text-muted">
-                        {t("voided")}
-                      </span>
-                    ) : null}
+                  <td className="text-nowrap text-start">
+                    <div className="d-flex align-items-center gap-1">
+                      {pay.payment_voucher_no ? (
+                        <>
+                          <Button
+                            color="flat-secondary"
+                            size="sm"
+                            className="p-25"
+                            title={t("Download PDF")}
+                            onClick={() => openVoucherPdf(pay)}
+                          >
+                            <Download size={15} />
+                          </Button>
+                          <Button
+                            color="flat-secondary"
+                            size="sm"
+                            className="p-25"
+                            title={t("Download Excel")}
+                            onClick={() => downloadVoucherExcel(pay)}
+                          >
+                            <FileText size={15} />
+                          </Button>
+                        </>
+                      ) : null}
+                      {!voided && canPay ? (
+                        <Button
+                          size="sm"
+                          color="link"
+                          className="p-0 text-danger"
+                          onClick={() => handleVoid(pay._id)}
+                        >
+                          {t("Void")}
+                        </Button>
+                      ) : voided ? (
+                        <span className="badge bg-light text-muted">
+                          {t("voided")}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               );
