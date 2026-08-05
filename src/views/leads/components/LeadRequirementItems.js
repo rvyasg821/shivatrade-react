@@ -10,7 +10,6 @@
 import { Fragment, useState, useMemo, useEffect } from "react";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { Table, Input, Button, Badge } from "reactstrap";
-import Select from "react-select";
 import ReactPaginate from "react-paginate";
 import { Plus, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
@@ -19,6 +18,7 @@ import { getCurrencySymbol } from "@src/utility/currency";
 
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import Notification from "@components/toast/notification";
+import EntitySearchSelect from "@components/entity-select";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
@@ -344,20 +344,29 @@ const LeadRequirementItems = ({
                       name={`lines.${idx}.product_id`}
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          classNamePrefix="select"
+                        <EntitySearchSelect
+                          kind="product"
+                          eager={false}
                           menuPortalTarget={document.body}
                           styles={{
                             menuPortal: (b) => ({ ...b, zIndex: 9999 }),
                           }}
-                          options={productOptions}
+                          isClearable={false}
                           value={
-                            productOptions.find(
-                              (o) => o.value === field.value
-                            ) || null
+                            field.value
+                              ? {
+                                  value: field.value,
+                                  label: watchedLines?.[idx]?.product_code
+                                    ? `${watchedLines[idx].product_code} - ${
+                                        watchedLines[idx].product_name || ""
+                                      }`
+                                    : watchedLines?.[idx]?.product_name ||
+                                      field.value,
+                                }
+                              : null
                           }
                           onChange={(opt) => onPickProduct(idx, opt)}
-                          placeholder={t("Select product")}
+                          placeholder={t("Search product")}
                         />
                       )}
                     />

@@ -13,7 +13,6 @@ import {
   Badge,
   Spinner,
 } from "reactstrap";
-import Select from "react-select";
 import ReactPaginate from "react-paginate";
 import {
   ArrowLeft,
@@ -45,7 +44,7 @@ import {
   cleanRfqMessage,
 } from "../store";
 import { getLead } from "@src/views/leads/store";
-import { getVendorDropdown } from "@src/views/vendors/store";
+import EntitySearchSelect from "@components/entity-select";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
@@ -111,7 +110,6 @@ const RfqView = () => {
   const leadIdParam = searchParams.get("lead_id");
 
   const store = useSelector((s) => s.rfq);
-  const vendorStore = useSelector((s) => s.vendor);
   const leadStore = useSelector((s) => s.lead);
   const rfq = store?.rfqItem;
   const draftLead = isDraft ? leadStore?.leadItem : null;
@@ -159,7 +157,6 @@ const RfqView = () => {
     // Clear any global overlay left on by the list page; the detail page
     // shows its own local spinner while the RFQ loads.
     dispatch(stopLoading());
-    dispatch(getVendorDropdown());
     if (isDraft) {
       if (leadIdParam) dispatch(getLead(leadIdParam));
     } else {
@@ -273,16 +270,14 @@ const RfqView = () => {
   // matrix picks the lowest by ₹-equivalent (native × currency→INR rate).
   const vendorCcyById = useMemo(() => {
     const m = {};
-    for (const v of vendorStore?.vendorDropdown || []) {
-      if (v?._id) m[v._id] = (v.currency_code || "INR").toUpperCase();
-    }
+    // Each RFQ vendor row carries its currency (backend for saved; stamped from
+    // the picker's raw for draft) — no full vendor list needed.
     for (const v of vendors) {
       const id = v?.vendor_id;
-      if (id && !m[id])
-        m[id] = (v.currency_code || "INR").toUpperCase();
+      if (id && !m[id]) m[id] = (v.currency_code || "INR").toUpperCase();
     }
     return m;
-  }, [vendorStore?.vendorDropdown, vendors]);
+  }, [vendors]);
   const ccyOf = (vendorId) => vendorCcyById[vendorId] || "INR";
   const symOf = (vendorId) => getCurrencySymbol(ccyOf(vendorId)) || "₹";
   const activeVendorSym = symOf(activeVendorId);
@@ -427,19 +422,14 @@ const RfqView = () => {
 
   // All active vendors (not filtered) — the active vendor stays selectable for
   // export even after it's been added as a comparison column.
-  const vendorOptions = (vendorStore?.vendorDropdown || []).map((v) => ({
-    value: v._id,
-    label: v.vendor_code
-      ? `${v.company_name} [${v.vendor_code}]`
-      : v.company_name,
-  }));
-
   const alreadyAdded = (vId) => vendors.some((rv) => rv.vendor_id === vId);
 
   // Multi-vendor RFQ: the Select is an "Add vendor" control. Each pick APPENDS
   // a vendor (deduped) and makes it the active one; a saved RFQ persists it
   // immediately via addRfqVendors, a draft holds it locally until Save.
-  const onSelectVendor = (vendorId) => {
+  // opt = the react-select option from <EntitySearchSelect> (.raw = vendor row).
+  const onSelectVendor = (opt) => {
+    const vendorId = opt?.value;
     if (!vendorId) return;
     if (alreadyAdded(vendorId)) {
       // Already present — just switch to it as the active column.
@@ -451,17 +441,16 @@ const RfqView = () => {
       dispatch(addRfqVendors({ id, data: { vendor_ids: [vendorId] } }));
       return;
     }
-    const raw = (vendorStore?.vendorDropdown || []).find(
-      (x) => x._id === vendorId
-    );
-    const opt = vendorOptions.find((o) => o.value === vendorId);
+    const raw = opt?.raw || {};
     setDraftVendors((prev) => [
       ...prev,
       {
         _id: vendorId,
         vendor_id: vendorId,
-        vendor_name: raw?.company_name || opt?.label || vendorId,
-        vendor_code: raw?.vendor_code || "",
+        vendor_name: raw.company_name || opt.label || vendorId,
+        vendor_code: raw.vendor_code || "",
+        // Stamp the currency so vendorCcyById resolves it without the full load.
+        currency_code: raw.currency_code || "INR",
       },
     ]);
     setDirty(true);
@@ -767,8 +756,10 @@ const RfqView = () => {
     setExporting(true);
     const sanitize = (s) =>
       (s || "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-    const vOpt = vendorOptions.find((o) => o.value === addVendorId);
-    const vName = sanitize(vOpt?.label || addVendorId.slice(0, 6));
+    const vRow = vendors.find((v) => v.vendor_id === addVendorId);
+    const vName = sanitize(
+      vRow?.vendor_name || vRow?.vendor_code || addVendorId.slice(0, 6)
+    );
     const base =
       sanitize(leadVoucher) ||
       (exportLeadId ? `LEAD-${exportLeadId.slice(0, 6)}` : "RFQ");
@@ -1004,13 +995,12 @@ const RfqView = () => {
           </div>
           <div className="d-flex align-items-center flex-wrap gap-50 listing-toolbar-actions listing-toolbar-filters">
             <div className="mb-50 mb-md-0" style={{ minWidth: 200 }}>
-              <Select
-                classNamePrefix="select"
-                options={vendorOptions}
+              <EntitySearchSelect
+                kind="vendor"
                 // "Add vendor" control — clears after each pick so the user can
                 // immediately add another vendor (the active one shows via chips).
                 value={null}
-                onChange={(opt) => onSelectVendor(opt?.value || "")}
+                onChange={(opt) => onSelectVendor(opt)}
                 placeholder={t("+ Add vendor")}
                 // Only lock while a mutation is in flight — both draft and saved
                 // RFQs now hold multiple vendors. Also locked once the RFQ is

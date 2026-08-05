@@ -22,7 +22,7 @@ import {
   Input,
   Badge,
 } from "reactstrap";
-import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import PropTypes from "prop-types";
@@ -51,7 +51,6 @@ const MultiSoPickerModal = ({
   const uqcFor = useUqcResolver();
   const { t } = useTranslation();
 
-  const [customerOptions, setCustomerOptions] = useState([]);
   const [customerId, setCustomerId] = useState(lockedCustomerId || "");
   const [rawGroups, setRawGroups] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -66,31 +65,6 @@ const MultiSoPickerModal = ({
     () => new Set((existingPoLineIds || []).map(String)),
     [existingPoLineIds]
   );
-
-  // Load customer dropdown only when the picker has to ask (listing flow).
-  useEffect(() => {
-    if (!isOpen || customerLocked) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await instance.get(API_ENDPOINTS.customers.dropdown);
-        const rows = resp?.data?.data || [];
-        if (!cancelled) {
-          setCustomerOptions(
-            rows.map((c) => ({
-              value: c._id,
-              label: c.company_name || c.name || c._id,
-            }))
-          );
-        }
-      } catch {
-        if (!cancelled) setCustomerOptions([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, customerLocked]);
 
   // Reset on open; honour the locked customer.
   useEffect(() => {
@@ -309,15 +283,12 @@ const MultiSoPickerModal = ({
         {!customerLocked && (
           <div className="mb-2">
             <label className="form-label">{t("Customer")}</label>
-            <Select
-              classNamePrefix="select"
+            <EntitySearchSelect
+              kind="customer"
               isClearable
-              options={customerOptions}
-              value={
-                customerOptions.find((o) => o.value === customerId) || null
-              }
+              value={customerId || null}
               onChange={(opt) => setCustomerId(opt ? opt.value : "")}
-              placeholder={t("Pick a customer")}
+              placeholder={t("Search & pick a customer")}
             />
           </div>
         )}

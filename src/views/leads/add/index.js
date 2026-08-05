@@ -16,7 +16,7 @@ import {
   updateLead,
   cleanLeadMessage,
 } from "../store";
-import { getCustomerDropdown, getCustomer } from "../../customers/store";
+import { getCustomer } from "../../customers/store";
 import { getProductDropdown } from "../../products/store";
 import { getExchangeRateOptions } from "../../currencies/store";
 import { getVendorDropdown } from "../../vendors/store";
@@ -41,6 +41,7 @@ import { useForm, Controller, useWatch } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 
 // ** Custom
 import Notification from "@components/toast/notification";
@@ -281,7 +282,6 @@ const LeadForm = () => {
   }, [isEditMode, store?.leadItem?._id]);
 
   useLayoutEffect(() => {
-    dispatch(getCustomerDropdown());
     dispatch(getProductDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getVendorDropdown());
@@ -502,11 +502,6 @@ const LeadForm = () => {
     }
   };
 
-  const customerOptions = (customerStore?.customerDropdown || []).map((c) => ({
-    value: c._id,
-    label: c.company_name,
-  }));
-
   // Option shapes for the shared SalesDocLineItems component (same as the
   // Quotation wizard). `raw` carries the full product/master record so the
   // component can auto-fill price (price list), HS code, weights, etc.
@@ -610,15 +605,10 @@ const LeadForm = () => {
                     name="customer_id"
                     control={control}
                     render={({ field }) => (
-                      <Select
-                        inputId="customer_id"
+                      <EntitySearchSelect
+                        kind="customer"
                         isClearable
-                        options={customerOptions}
-                        value={
-                          customerOptions.find(
-                            (o) => o.value === field.value
-                          ) || null
-                        }
+                        value={field.value || null}
                         onChange={(opt) => {
                           field.onChange(opt ? opt.value : "");
                           if (opt) {
@@ -644,7 +634,6 @@ const LeadForm = () => {
                           }
                         }}
                         placeholder={t("Link to repeat customer")}
-                        classNamePrefix="select"
                       />
                     )}
                   />

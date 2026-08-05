@@ -19,7 +19,7 @@ import {
 } from "../../store";
 import { getVendorDropdown, getVendor } from "../../../vendors/store";
 import { getProductDropdown } from "../../../products/store";
-import { getCustomerDropdown, getCustomer } from "../../../customers/store";
+import { getCustomer } from "../../../customers/store";
 import { getExpenseDropdown } from "../../../expenses/store";
 import { getRebateDropdown } from "../../../rebates/store";
 import {
@@ -71,6 +71,9 @@ const PurchaseOrderWizard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [vendorPriceList, setVendorPriceList] = useState([]);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  // customer _id → company name, cached from the same on-demand detail fetches
+  // used for addresses. Feeds the consignee snapshot name (no full customer list).
+  const [customerNameById, setCustomerNameById] = useState({});
   const [rateMeta, setRateMeta] = useState(null);
 
   const schema = useMemo(
@@ -191,7 +194,6 @@ const PurchaseOrderWizard = () => {
   useEffect(() => {
     dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
-    dispatch(getCustomerDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getCurrencyDropdown());
     dispatch(getCompanyDetails());
@@ -327,6 +329,17 @@ const PurchaseOrderWizard = () => {
     }
   }, [customerStore?.customerItem, watchedCustomer]);
 
+  // Cache the name of whichever customer the store is holding (buyer or
+  // consignee) so the consignee snapshot never needs the full customer list.
+  useEffect(() => {
+    const cust = customerStore?.customerItem;
+    if (cust?._id)
+      setCustomerNameById((m) => ({
+        ...m,
+        [cust._id]: cust.company_name || cust.name || "",
+      }));
+  }, [customerStore?.customerItem]);
+
   // ── Consignee (Ship-to) ──
   // "Same as Buyer" (default) → consignee mirrors the bill-to customer +
   // address and the dropdowns are locked. Uncheck to ship to a different
@@ -397,7 +410,15 @@ const PurchaseOrderWizard = () => {
     }
     instance
       .get(`${API_ENDPOINTS.customers.get}/${watchedConsignee}`)
-      .then((resp) => applyAddrs(resp?.data?.data?.addresses || []))
+      .then((resp) => {
+        const c = resp?.data?.data;
+        if (c?._id)
+          setCustomerNameById((m) => ({
+            ...m,
+            [c._id]: c.company_name || c.name || "",
+          }));
+        applyAddrs(c?.addresses || []);
+      })
       .catch(() => {
         if (!cancelled) setConsigneeAddressOptions([]);
       });
@@ -626,27 +647,6 @@ const PurchaseOrderWizard = () => {
     [vendorStore?.vendorDropdown]
   );
 
-  // Customer options - inject a synthetic option for the currently
-  // linked customer when it's missing from the dropdown (inactive /
-  // soft-deleted / not on current page). Ensures the Select still
-  // renders the correct label in edit mode.
-  const customerOptions = useMemo(() => {
-    const base = (customerStore?.customerDropdown || []).map((c) => ({
-      value: c._id,
-      label: c.company_name,
-    }));
-    const linkedId = store?.purchaseOrderItem?.customer_id;
-    const linkedName = store?.purchaseOrderItem?.customer_name;
-    if (linkedId && linkedName && !base.find((o) => o.value === linkedId)) {
-      return [{ value: linkedId, label: `${linkedName} (linked)` }, ...base];
-    }
-    return base;
-  }, [
-    customerStore?.customerDropdown,
-    store?.purchaseOrderItem?.customer_id,
-    store?.purchaseOrderItem?.customer_name,
-  ]);
-
   const currencyOptions = useMemo(
     () =>
       (currencyStore?.exchangeOptions || []).map((c) => ({
@@ -662,9 +662,9 @@ const PurchaseOrderWizard = () => {
     if (!addrId) return undefined;
     const a = consigneeAddressOptions.find((o) => o.value === addrId)?.raw;
     if (!a) return undefined;
-    const name = customerOptions.find(
-      (o) => o.value === form.getValues("consignee_id")
-    )?.label;
+    // Name from the per-customer detail cache (populated by the consignee
+    // address fetch) — no full customer list needed.
+    const name = customerNameById[form.getValues("consignee_id")];
     return {
       name: name || undefined,
       address_line1: a.address_line1 || undefined,
@@ -851,7 +851,6 @@ const PurchaseOrderWizard = () => {
     isEdit,
     isLocked,
     vendorOptions,
-    customerOptions,
     customerAddressOptions,
     consigneeAddressOptions,
     currencyOptions,

@@ -5,6 +5,7 @@
 import { Controller, useFormContext } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import { useTranslation } from "react-i18next";
 import { ExternalLink } from "react-feather";
 
@@ -19,7 +20,6 @@ const required = <span className="text-danger">*</span>;
 
 const Step1Vendor = ({
   isLocked,
-  customerOptions = [],
   customerAddressOptions = [],
   consigneeAddressOptions = [],
   currencyOptions = [],
@@ -53,15 +53,12 @@ const Step1Vendor = ({
             // would break traceability.
             const inheritedFromSource = !!(sourcePfiId || sourceQuotationId);
             return (
-              <Select
-                classNamePrefix="select"
+              <EntitySearchSelect
+                kind="customer"
                 isDisabled={isLocked || inheritedFromSource}
-                options={customerOptions}
-                value={
-                  customerOptions.find((o) => o.value === field.value) || null
-                }
+                value={field.value || null}
                 onChange={(opt) => field.onChange(opt ? opt.value : "")}
-                placeholder={t("Select customer")}
+                placeholder={t("Search & select customer")}
               />
             );
           }}
@@ -136,16 +133,13 @@ const Step1Vendor = ({
           name="consignee_id"
           control={control}
           render={({ field }) => (
-            <Select
-              classNamePrefix="select"
+            <EntitySearchSelect
+              kind="customer"
               isClearable
               isDisabled={isLocked || sameAsBuyer}
-              options={customerOptions}
-              value={
-                customerOptions.find((o) => o.value === field.value) || null
-              }
+              value={field.value || null}
               onChange={(opt) => field.onChange(opt ? opt.value : "")}
-              placeholder={t("Select consignee")}
+              placeholder={t("Search & select consignee")}
             />
           )}
         />

@@ -19,7 +19,7 @@ import {
   Input,
   Badge,
 } from "reactstrap";
-import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import ReactPaginate from "react-paginate";
 import { ArrowLeft } from "react-feather";
 import { useTranslation } from "react-i18next";
@@ -41,7 +41,6 @@ const SelectSoLines = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [customerOptions, setCustomerOptions] = useState([]);
   const [customerId, setCustomerId] = useState("");
   const [rawGroups, setRawGroups] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -50,29 +49,6 @@ const SelectSoLines = () => {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
 
-  // Customer dropdown.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await instance.get(API_ENDPOINTS.customers.dropdown);
-        const rows = resp?.data?.data || [];
-        if (!cancelled) {
-          setCustomerOptions(
-            rows.map((c) => ({
-              value: c._id,
-              label: c.company_name || c.name || c._id,
-            }))
-          );
-        }
-      } catch {
-        if (!cancelled) setCustomerOptions([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Fetch invoiceable SO groups for the chosen customer.
   useEffect(() => {
@@ -273,15 +249,12 @@ const SelectSoLines = () => {
           <CardBody>
             <div className="mb-2" style={{ maxWidth: 480 }}>
               <label className="form-label">{t("Customer")}</label>
-              <Select
-                classNamePrefix="select"
+              <EntitySearchSelect
+                kind="customer"
                 isClearable
-                options={customerOptions}
-                value={
-                  customerOptions.find((o) => o.value === customerId) || null
-                }
+                value={customerId || null}
                 onChange={(opt) => setCustomerId(opt ? opt.value : "")}
-                placeholder={t("Pick a customer")}
+                placeholder={t("Search & pick a customer")}
               />
             </div>
 
