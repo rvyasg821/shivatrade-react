@@ -29,6 +29,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import DateInput from "@components/date-input";
+import EntitySearchSelect from "@components/entity-select";
 import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 import Notification from "@components/toast/notification";
 import { defaultPerPageRow, isAdminUser, appsRoot } from "@constant/defaultValues";
@@ -128,19 +129,6 @@ const AdjustmentNotes = () => {
   const [partyIdFilter, setPartyIdFilter] = useState(
     searchParams.get("party_id") || ""
   );
-  const [customerOptions, setCustomerOptions] = useState([]);
-  const [vendorOptions, setVendorOptions] = useState([]);
-
-  const partyFilterOptions =
-    partyTypeFilter === "customer"
-      ? customerOptions
-      : partyTypeFilter === "vendor"
-      ? vendorOptions
-      : [];
-  const allPartyOption = {
-    value: "",
-    label: partyTypeFilter === "vendor" ? t("All vendors") : t("All customers"),
-  };
 
   const handleLists = useCallback(
     (page = currentPage, perPage = rowsPerPage) => {
@@ -184,23 +172,6 @@ const AdjustmentNotes = () => {
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput, partyTypeFilter, partyIdFilter, directionFilter]);
-
-  // Filter dropdown sources (loaded once).
-  useEffect(() => {
-    const map = (rows) =>
-      (rows || []).map((c) => ({
-        value: c._id || c.value,
-        label: c.company_name || c.name || c.label,
-      }));
-    instance
-      .get(API_ENDPOINTS.customers.dropdown)
-      .then((r) => setCustomerOptions(map(r?.data?.data)))
-      .catch(() => setCustomerOptions([]));
-    instance
-      .get(API_ENDPOINTS.vendors.dropdown)
-      .then((r) => setVendorOptions(map(r?.data?.data)))
-      .catch(() => setVendorOptions([]));
-  }, []);
 
   useEffect(() => {
     // Create (shared modal) and void (handleVoid) surface their own toasts +
@@ -465,19 +436,18 @@ const AdjustmentNotes = () => {
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
-                    <Select
-                      classNamePrefix="select"
+                    <EntitySearchSelect
+                      key={partyTypeFilter || "none"}
+                      kind={partyTypeFilter || "customer"}
                       isDisabled={!partyTypeFilter}
-                      // Only offer the ✕ once a specific party is picked —
-                      // clearing the "All" row would be a no-op.
                       isClearable={!!partyIdFilter}
-                      options={[allPartyOption, ...partyFilterOptions]}
-                      value={
-                        partyFilterOptions.find((o) => o.value === partyIdFilter) ||
-                        (partyTypeFilter ? allPartyOption : null)
-                      }
+                      value={partyIdFilter || null}
                       onChange={(s) => setPartyIdFilter(s ? s.value : "")}
-                      placeholder={t("Select party type first")}
+                      placeholder={
+                        partyTypeFilter
+                          ? t("Search & select party")
+                          : t("Select party type first")
+                      }
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">

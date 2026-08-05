@@ -30,6 +30,7 @@ import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
+import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -103,7 +104,6 @@ const SoInvoiceReconciliation = () => {
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [customerOptions, setCustomerOptions] = useState([]);
   // Invoice / Sales-Order dropdown sources come from the report response
   // itself — the backend returns the distinct docs in range (before the narrow),
   // so the options stay stable while you pick one.
@@ -171,17 +171,6 @@ const SoInvoiceReconciliation = () => {
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
-    instance
-      .get(API_ENDPOINTS.customers.dropdown)
-      .then((r) =>
-        setCustomerOptions(
-          (r?.data?.data || []).map((c) => ({
-            value: c._id || c.value,
-            label: c.company_name || c.name || c.label,
-          }))
-        )
-      )
-      .catch(() => setCustomerOptions([]));
   }, []);
 
   // Debounced search + immediate refetch on any other filter change (mirrors
@@ -305,13 +294,12 @@ const SoInvoiceReconciliation = () => {
               </Col>
               <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("Customer")}</Label>
-                <Select
+                <EntitySearchSelect
+                  kind="customer"
                   value={customer}
                   onChange={(sel) => setCustomer(sel)}
-                  options={customerOptions}
                   isClearable
                   placeholder={t("All customers")}
-                  classNamePrefix="select"
                 />
               </Col>
               <Col sm="6" md="2" className="mb-1">

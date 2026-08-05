@@ -23,6 +23,7 @@ import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
+import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -158,7 +159,6 @@ const PurchaseTurnover = () => {
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [byVendor, setByVendor] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [vendorOptions, setVendorOptions] = useState([]);
 
   const params = useCallback(
     (extra = {}) => ({
@@ -179,17 +179,6 @@ const PurchaseTurnover = () => {
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
-    instance
-      .get(API_ENDPOINTS.vendors.dropdown)
-      .then((r) =>
-        setVendorOptions(
-          (r?.data?.data || []).map((v) => ({
-            value: v._id || v.value,
-            label: v.company_name || v.name || v.label,
-          }))
-        )
-      )
-      .catch(() => setVendorOptions([]));
   }, []);
 
   // Any filter change refetches.
@@ -300,13 +289,12 @@ const PurchaseTurnover = () => {
               </Col>
               <Col sm="6" md="3" className="mb-1">
                 <Label className="form-label">{t("Vendor")}</Label>
-                <Select
+                <EntitySearchSelect
+                  kind="vendor"
                   value={vendor}
                   onChange={(sel) => setVendor(sel)}
-                  options={vendorOptions}
                   isClearable
                   placeholder={t("All vendors")}
-                  classNamePrefix="select"
                 />
               </Col>
               <Col sm="6" md="2" className="mb-1">

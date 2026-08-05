@@ -292,6 +292,11 @@ const initVendorItem = {
   incoterms: "",
   // New vendors default to the home currency (INR); user can change it.
   currency_code: "INR",
+  // Migration opening balance (ledger). MUST be anchored in defaultValues, or
+  // the wizard drops the typed values when the step unmounts on navigate/submit.
+  opening_balance: "",
+  opening_balance_type: "credit",
+  opening_balance_date: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initVendorContactItem, is_primary: true }],
@@ -904,6 +909,11 @@ const initCustomerItem = {
   pan: "",
   iec: "",
   currency: "",
+  // Migration opening balance (ledger). MUST be anchored in defaultValues, or
+  // the wizard drops the typed values when Step 0 unmounts on navigate/submit.
+  opening_balance: "",
+  opening_balance_type: "debit",
+  opening_balance_date: "",
   is_active: true,
   status: "active",
   contacts: [{ ...initCustomerContactItem, is_primary: true }],

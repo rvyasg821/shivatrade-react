@@ -180,7 +180,7 @@ const LedgerStatement = ({ kind, partyId }) => {
         <Table bordered size="sm" className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th style={{ width: 100 }}>{t("Date")}</th>
+              <th style={{ width: 110, whiteSpace: "nowrap" }}>{t("Date")}</th>
               <th>{t("Particulars")}</th>
               <th style={{ width: 190, whiteSpace: "nowrap" }}>{t("Voucher")}</th>
               <th className="text-end" style={{ width: 120 }}>{t("Debit")}</th>
@@ -204,7 +204,7 @@ const LedgerStatement = ({ kind, partyId }) => {
             ) : (
               rows.map((r, i) => (
                 <tr key={i}>
-                  <td>{fmtDate(r.date)}</td>
+                  <td className="text-nowrap">{fmtDate(r.date)}</td>
                   <td>{r.particulars}</td>
                   <td className="small text-muted text-nowrap">
                     {r.voucher_no || "-"}

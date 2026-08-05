@@ -20,6 +20,9 @@ import {
   Layers,
   CreditCard,
   Hash,
+  User,
+  Mail,
+  Phone,
   FileText,
   CheckCircle,
   XCircle,
@@ -730,7 +733,9 @@ const ViewInvoice = () => {
   // PDF downloads — shown on a second row, right-aligned, under the header
   // action buttons. Available once the invoice is no longer a draft.
   const pdfActions = useMemo(() => {
-    if (isDraft || isCancelled) return [];
+    // PDFs/Excel are available in every status except cancelled — including
+    // draft, so operators can preview the document before issuing it.
+    if (isCancelled) return [];
     return [
       {
         label: t("Commercial Invoice"),
@@ -902,17 +907,45 @@ const ViewInvoice = () => {
           avatarText="I"
           title={inv?.voucher_no || t("(Draft)")}
           subtitle={
-            [inv?.customer_snapshot?.name, inv?.customer_snapshot?.email]
-              .filter(Boolean)
-              .join(" · ") || null
-          }
-          meta={
-            inv?._id ? (
-              <span>
-                <Hash size={12} className="me-25" />
-                {inv._id.slice(-8).toUpperCase()}
+            inv?.customer_name || inv?.customer_snapshot?.name ? (
+              <span className="d-inline-flex align-items-center flex-wrap gap-1">
+                <span className="fw-semibold text-body">
+                  <User size={12} className="me-25" />
+                  {inv?.customer_name || inv?.customer_snapshot?.name}
+                </span>
+                {inv?.customer_contact_name ? (
+                  <span>· {inv.customer_contact_name}</span>
+                ) : null}
               </span>
             ) : null
+          }
+          meta={
+            <span className="d-inline-flex align-items-center flex-wrap gap-2">
+              {inv?._id ? (
+                <span>
+                  <Hash size={12} className="me-25" />
+                  {inv._id.slice(-8).toUpperCase()}
+                </span>
+              ) : null}
+              {inv?.customer_contact_email ? (
+                <span>
+                  <Mail size={12} className="me-25" />
+                  {inv.customer_contact_email}
+                </span>
+              ) : null}
+              {inv?.customer_contact_phone ? (
+                <span>
+                  <Phone size={12} className="me-25" />
+                  {inv.customer_contact_country_code
+                    ? `${inv.customer_contact_country_code} `
+                    : ""}
+                  {inv.customer_contact_phone}
+                </span>
+              ) : null}
+              {inv?.customer_gstin ? (
+                <span>{t("GSTIN")}: {inv.customer_gstin}</span>
+              ) : null}
+            </span>
           }
           badge={{
             label: statusLabel,

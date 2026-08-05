@@ -60,6 +60,9 @@ const DebitNotesTab = ({ registerActions }) => {
     setAnPrefill({
       party_type: "vendor",
       party_id: pov.vendor_id || "",
+      // Label for the searchable party picker (prefill row may not be in the
+      // first 10). Fall back to blank if the POV item lacks the name.
+      party_name: pov.vendor_name || pov.vendor?.company_name || "",
       direction: "credit",
       amount: d?.total_amount != null ? String(num(d.total_amount)) : "",
       document_id: id, // Apply to this Vendor PO
