@@ -66,6 +66,35 @@ export const createAdjustmentNote = createAsyncThunk(
   }
 );
 
+// Post several notes for one party in one shot (each line → its own note).
+export const createAdjustmentNotesBatch = createAsyncThunk(
+  "appAdjustmentNote/createBatch",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const response = await instance
+        .post(`${API_ENDPOINTS.adjustmentNotes.createBatch}`, payload)
+        .then((r) => r.data)
+        .catch((e) => e);
+      if (response?.statusCode && response?.data) {
+        return {
+          actionFlag: "AN_CRTD",
+          success: response?.message || "Adjustment notes posted.",
+          error: "",
+        };
+      }
+      return rejectWithValue(
+        response?.response?.data?.message ||
+          response.message ||
+          "Failed to post adjustment notes"
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 export const voidAdjustmentNote = createAsyncThunk(
   "appAdjustmentNote/void",
   async ({ id, reason }, { rejectWithValue }) => {

@@ -42,6 +42,8 @@ import {
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import { getVendorDropdown } from "@src/views/vendors/store";
 import Notification from "@components/toast/notification";
+import EntitySearchSelect from "@components/entity-select";
+import { resolveEntityByIds, ENTITY_KINDS } from "@src/utility/asyncSelect";
 
 // Weights are stored at 3-decimal precision (matches the line entity's
 // numeric(14,3)); used when auto-filling qty × per-unit weight.
@@ -453,6 +455,38 @@ const CostingWorksheet = ({
   const productIdsKey = liveLines
     .map((l) => l?.product_id || "")
     .join("|");
+
+  // Product master data for the lines' product_ids, resolved via ?ids= so the
+  // weight/HSN/part-no backfill below keeps working now that the product picker
+  // is a searchable dropdown (the parent no longer ships the whole catalog).
+  // Merged with any `productOptions` prop still passed in.
+  const [fetchedProductsById, setFetchedProductsById] = useState({});
+  useEffect(() => {
+    const known = new Set(productOptions.map((o) => String(o.value)));
+    const missing = Array.from(
+      new Set(
+        liveLines
+          .map((l) => l?.product_id)
+          .filter(
+            (pid) =>
+              pid && !known.has(String(pid)) && !fetchedProductsById[pid]
+          )
+      )
+    );
+    if (!missing.length) return;
+    resolveEntityByIds(ENTITY_KINDS.product, missing).then((opts) => {
+      if (!opts.length) return;
+      setFetchedProductsById((m) => {
+        const next = { ...m };
+        opts.forEach((o) => {
+          next[o.value] = o.raw || {};
+        });
+        return next;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productIdsKey, productOptions.length]);
+
   useEffect(() => {
     const missing = Array.from(
       new Set(
@@ -523,10 +557,15 @@ const CostingWorksheet = ({
   // never overwrites an existing value or a manual override, so saved figures
   // and edits are preserved.
   useEffect(() => {
-    if (readOnly || !productOptions.length) return;
+    if (readOnly) return;
     const byId = new Map(
       productOptions.map((o) => [String(o.value), o.raw || {}])
     );
+    // Merge in the ?ids=-resolved products (searchable-dropdown path).
+    Object.entries(fetchedProductsById).forEach(([id, raw]) => {
+      if (!byId.has(String(id))) byId.set(String(id), raw);
+    });
+    if (!byId.size) return;
     liveLines.forEach((l, idx) => {
       if (!l || !l.product_id || l._wt_seeded) return;
       const raw = byId.get(String(l.product_id));
@@ -573,7 +612,7 @@ const CostingWorksheet = ({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productIdsKey, productOptions.length, readOnly]);
+  }, [productIdsKey, productOptions.length, fetchedProductsById, readOnly]);
 
   const addRow = () => {
     // Jump to the page that will hold the appended row (its index = current
@@ -1129,19 +1168,25 @@ const CostingWorksheet = ({
                 return (
                   <tr key={row.id} className="text-nowrap">
                     <td className="ws-sticky-col">
-                      <Select
-                        classNamePrefix="select"
+                      <EntitySearchSelect
+                        kind="product"
+                        eager={false}
                         menuPortalTarget={document.body}
                         styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                        options={productOptions}
                         value={
-                          productOptions.find(
-                            (o) => o.value === l.product_id
-                          ) || null
+                          l.product_id
+                            ? {
+                                value: l.product_id,
+                                label: l.product_code
+                                  ? `${l.product_code} - ${l.product_name || ""}`
+                                  : l.product_name || l.product_id,
+                              }
+                            : null
                         }
+                        isClearable={false}
                         isDisabled={readOnly}
                         onChange={(opt) => onPickProduct(idx, opt)}
-                        placeholder={t("Select product")}
+                        placeholder={t("Search product")}
                       />
                     </td>
                     <td>

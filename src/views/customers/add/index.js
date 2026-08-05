@@ -33,6 +33,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 // ** Custom
 import Notification from "@components/toast/notification";
+import DateInput from "@components/date-input";
 import PhoneInputField from "@src/components/phone-input/PhoneInputField";
 
 // ** Third Party
@@ -517,40 +518,56 @@ const CustomerForm = () => {
                   <Label className="form-label" for="opening_balance">
                     {t("Opening Balance")}
                   </Label>
-                  <Input
-                    id="opening_balance"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    {...register("opening_balance")}
+                  <Controller
+                    name="opening_balance"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="opening_balance"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
                   />
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="opening_balance_type">
                     {t("Balance Type")}
                   </Label>
-                  <Input
-                    id="opening_balance_type"
-                    type="select"
-                    {...register("opening_balance_type")}
-                  >
-                    <option value="debit">
-                      {t("Debit — customer owes us")}
-                    </option>
-                    <option value="credit">
-                      {t("Credit — advance from customer")}
-                    </option>
-                  </Input>
+                  <Controller
+                    name="opening_balance_type"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="opening_balance_type"
+                        type="select"
+                        {...field}
+                        value={field.value || "debit"}
+                      >
+                        <option value="debit">
+                          {t("Debit — customer owes us")}
+                        </option>
+                        <option value="credit">
+                          {t("Credit — advance from customer")}
+                        </option>
+                      </Input>
+                    )}
+                  />
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="opening_balance_date">
                     {t("As of Date")}
                   </Label>
-                  <Input
-                    id="opening_balance_date"
-                    type="date"
-                    {...register("opening_balance_date")}
+                  <Controller
+                    name="opening_balance_date"
+                    control={control}
+                    render={({ field }) => (
+                      <DateInput id="opening_balance_date" field={field} />
+                    )}
                   />
                 </Col>
 

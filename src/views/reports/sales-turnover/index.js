@@ -22,6 +22,7 @@ import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
+import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -152,7 +153,6 @@ const SalesTurnover = () => {
   // one section, so the report finally has a single meaningful grand total.
   const [inInr, setInInr] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [customerOptions, setCustomerOptions] = useState([]);
 
   const params = useCallback(
     (extra = {}) => ({
@@ -174,17 +174,6 @@ const SalesTurnover = () => {
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
-    instance
-      .get(API_ENDPOINTS.customers.dropdown)
-      .then((r) =>
-        setCustomerOptions(
-          (r?.data?.data || []).map((c) => ({
-            value: c._id || c.value,
-            label: c.company_name || c.name || c.label,
-          }))
-        )
-      )
-      .catch(() => setCustomerOptions([]));
   }, []);
 
   // Any filter change refetches.
@@ -301,13 +290,12 @@ const SalesTurnover = () => {
               </Col>
               <Col sm="6" md="3" className="mb-1">
                 <Label className="form-label">{t("Customer")}</Label>
-                <Select
+                <EntitySearchSelect
+                  kind="customer"
                   value={customer}
                   onChange={(sel) => setCustomer(sel)}
-                  options={customerOptions}
                   isClearable
                   placeholder={t("All customers")}
-                  classNamePrefix="select"
                 />
               </Col>
               <Col sm="6" md="2" className="mb-1">

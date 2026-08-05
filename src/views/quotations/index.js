@@ -15,7 +15,7 @@ import {
   getQuotationList,
   cleanQuotationMessage,
 } from "./store";
-import { getCustomerDropdown } from "../customers/store";
+import EntitySearchSelect from "@components/entity-select";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -71,7 +71,6 @@ const QuotationView = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.quotation);
-  const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
   const creatorCtx = useSelector((state) => state.creatorContext);
   const selectedCreator = creatorCtx?.selectedCreator || "all";
@@ -166,7 +165,6 @@ const QuotationView = () => {
   const handleSearch = (value) => setSearchInput(value);
 
   useLayoutEffect(() => {
-    dispatch(getCustomerDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -274,14 +272,6 @@ const QuotationView = () => {
     pfiPerms?.can_all ||
     pfiPerms?.can_add;
 
-  const customerOptions = useMemo(
-    () =>
-      (customerStore?.customerDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.company_name,
-      })),
-    [customerStore?.customerDropdown]
-  );
 
   // Match the detail page: recompute from the lines with the same helper the
   // costing card uses, so freight (CNF/CFR) is included and old docs — whose
@@ -627,15 +617,11 @@ const QuotationView = () => {
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="customer"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Customer")}
-                      options={customerOptions}
-                      value={
-                        customerOptions.find((o) => o.value === customerFilter) ||
-                        null
-                      }
+                      value={customerFilter || null}
                       onChange={(opt) =>
                         setCustomerFilter(opt ? opt.value : "")
                       }

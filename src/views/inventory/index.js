@@ -23,7 +23,7 @@ import {
   getInventoryStats,
   cleanInventoryMessage,
 } from "./store";
-import { getVendorDropdown } from "../vendors/store";
+import EntitySearchSelect from "@components/entity-select";
 import { getCategoryDropdown } from "../categories/store";
 import { getCurrencyDropdown } from "../currencies/store";
 import { startLoading, stopLoading } from "../loadingstore";
@@ -94,7 +94,6 @@ const InventoryView = () => {
   const dispatch = useDispatch();
 
   const store = useSelector((s) => s.inventory);
-  const vendorStore = useSelector((s) => s.vendor);
   const categoryStore = useSelector((s) => s.category);
   const currencyStore = useSelector((s) => s.currency);
 
@@ -264,7 +263,6 @@ const InventoryView = () => {
   const handleSearch = (value) => setSearchInput(value);
 
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
     dispatch(getCategoryDropdown());
     dispatch(getCurrencyDropdown());
     instance
@@ -317,17 +315,6 @@ const InventoryView = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store?.loading]);
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => {
-        const name = v.company_name || v.name || "";
-        return {
-          value: v._id,
-          label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
-        };
-      }),
-    [vendorStore?.vendorDropdown]
-  );
 
   const categoryOptions = useMemo(
     () =>
@@ -604,19 +591,15 @@ const InventoryView = () => {
                     />
                   </Col>
                   <Col sm="6" md className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="vendor"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Vendor")}
-                      options={vendorOptions}
                       menuPortalTarget={document.body}
                       styles={{
                         menuPortal: (b) => ({ ...b, zIndex: 9999 }),
                       }}
-                      value={
-                        vendorOptions.find((o) => o.value === vendorFilter) ||
-                        null
-                      }
+                      value={vendorFilter || null}
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
                     />
                   </Col>

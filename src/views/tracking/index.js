@@ -28,7 +28,7 @@ import {
   getTrackingEventList,
   cleanTrackingEventMessage,
 } from "./store";
-import { getVendorDropdown } from "../vendors/store";
+import EntitySearchSelect from "@components/entity-select";
 import { startLoading, stopLoading } from "../loadingstore";
 
 import Notification from "@components/toast/notification";
@@ -43,7 +43,6 @@ const TrackingFeedView = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const store = useSelector((s) => s.trackingEvent);
-  const vendorStore = useSelector((s) => s.vendor);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
@@ -95,7 +94,6 @@ const TrackingFeedView = () => {
   };
 
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -140,17 +138,6 @@ const TrackingFeedView = () => {
     else dispatch(stopLoading());
   }, [store?.loading]);
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => {
-        const name = v.company_name || v.name || "";
-        return {
-          value: v._id,
-          label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
-        };
-      }),
-    [vendorStore?.vendorDropdown]
-  );
 
   const selectMenuPortalProps = {
     menuPortalTarget: typeof document !== "undefined" ? document.body : null,
@@ -353,15 +340,11 @@ const TrackingFeedView = () => {
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="vendor"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Vendor")}
-                      options={vendorOptions}
-                      value={
-                        vendorOptions.find((o) => o.value === vendorFilter) ||
-                        null
-                      }
+                      value={vendorFilter || null}
                       onChange={(opt) =>
                         setVendorFilter(opt ? opt.value : "")
                       }

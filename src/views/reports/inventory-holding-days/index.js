@@ -27,6 +27,7 @@ import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
+import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -78,7 +79,6 @@ const InventoryHoldingDays = () => {
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [categoryOptions, setCategoryOptions] = useState([]);
-  const [productOptions, setProductOptions] = useState([]);
   const [data, setData] = useState({
     period_label: "",
     rows: [],
@@ -140,17 +140,6 @@ const InventoryHoldingDays = () => {
         )
       )
       .catch(() => setCategoryOptions([]));
-    instance
-      .get(API_ENDPOINTS.products.dropdown)
-      .then((r) =>
-        setProductOptions(
-          (r?.data?.data || []).map((p) => ({
-            value: p._id || p.value,
-            label: p.code ? `${p.code} - ${p.name}` : p.name || p.label,
-          }))
-        )
-      )
-      .catch(() => setProductOptions([]));
   }, []);
 
   useEffect(() => {
@@ -296,13 +285,12 @@ const InventoryHoldingDays = () => {
               </Col>
               <Col sm="6" md="3" className="mb-1">
                 <Label className="form-label">{t("Product")}</Label>
-                <Select
+                <EntitySearchSelect
+                  kind="product"
                   value={product}
                   onChange={(sel) => setProduct(sel)}
-                  options={productOptions}
                   isClearable
                   placeholder={t("All products")}
-                  classNamePrefix="select"
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />

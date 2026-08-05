@@ -373,6 +373,7 @@ export const API_ENDPOINTS = {
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
     create: `/admin/adjustment-notes`,
+    createBatch: `/admin/adjustment-notes/batch`, // many notes, one party
     void: `/admin/adjustment-notes`, // append /:id/void
     // Invoices (customer) / Vendor POs (vendor) a note can be applied to.
     documents: `/admin/adjustment-notes/documents`,

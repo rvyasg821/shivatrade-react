@@ -17,7 +17,7 @@ import {
   getPurchaseOrderList,
   cleanPurchaseOrderMessage,
 } from "./store";
-import { getCustomerDropdown } from "../customers/store";
+import EntitySearchSelect from "@components/entity-select";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -80,7 +80,6 @@ const PurchaseOrderView = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.purchaseOrder);
-  const customerStore = useSelector((state) => state.customer);
   const authStore = useSelector((state) => state.auth);
   const creatorCtx = useSelector((state) => state.creatorContext);
   const selectedCreator = creatorCtx?.selectedCreator || "all";
@@ -160,7 +159,6 @@ const PurchaseOrderView = () => {
   const handleSearch = (value) => setSearchInput(value);
 
   useLayoutEffect(() => {
-    dispatch(getCustomerDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -280,14 +278,6 @@ const PurchaseOrderView = () => {
     onDone: () => handleList(),
   });
 
-  const customerOptions = useMemo(
-    () =>
-      (customerStore?.customerDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.company_name || c.name,
-      })),
-    [customerStore?.customerDropdown]
-  );
 
   // Recompute from the lines with the same helper the detail page + costing
   // card use, so the listed amount matches them (the stored grand_total
@@ -570,16 +560,11 @@ const PurchaseOrderView = () => {
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="customer"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Customer")}
-                      options={customerOptions}
-                      value={
-                        customerOptions.find(
-                          (o) => o.value === customerFilter
-                        ) || null
-                      }
+                      value={customerFilter || null}
                       onChange={(opt) =>
                         setCustomerFilter(opt ? opt.value : "")
                       }

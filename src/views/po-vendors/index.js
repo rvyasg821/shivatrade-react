@@ -20,7 +20,7 @@ import {
   cancelPoVendor,
 } from "./store";
 import useBulkDelete from "@src/utility/hooks/useBulkDelete";
-import { getVendorDropdown } from "../vendors/store";
+import EntitySearchSelect from "@components/entity-select";
 import { startLoading, stopLoading } from "../loadingstore";
 
 import {
@@ -80,7 +80,6 @@ const PoVendorView = () => {
   const store = useSelector((s) => s.poVendor);
   const creatorCtx = useSelector((s) => s.creatorContext);
   const selectedCreator = creatorCtx?.selectedCreator || "all";
-  const vendorStore = useSelector((s) => s.vendor);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -158,7 +157,6 @@ const PoVendorView = () => {
   const handleSearch = (value) => setSearchInput(value);
 
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -294,17 +292,6 @@ const PoVendorView = () => {
     }
   };
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => {
-        const name = v.company_name || v.name || "";
-        return {
-          value: v._id,
-          label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
-        };
-      }),
-    [vendorStore?.vendorDropdown]
-  );
 
   const renderQtyProgress = (row) => {
     const lines = row?.lines || [];
@@ -642,15 +629,11 @@ const PoVendorView = () => {
                     />
                   </Col>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="vendor"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Vendor")}
-                      options={vendorOptions}
-                      value={
-                        vendorOptions.find((o) => o.value === vendorFilter) ||
-                        null
-                      }
+                      value={vendorFilter || null}
                       onChange={(opt) =>
                         setVendorFilter(opt ? opt.value : "")
                       }
