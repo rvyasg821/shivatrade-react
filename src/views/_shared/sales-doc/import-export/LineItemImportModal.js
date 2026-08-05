@@ -196,16 +196,25 @@ const LineItemImportModal = ({
   // Show the per-row table only when there's something the user actually
   // needs to inspect — warnings, skipped, or errors. Pure new/updated
   // imports show just the summary chips + a CTA.
-  const noisyRows = useMemo(
-    () =>
-      (preview?.rows || []).filter(
-        (r) =>
-          r.status === "skipped" ||
-          r.status === "error" ||
-          (r.warnings && r.warnings.length > 0),
-      ),
-    [preview],
-  );
+  const noisyRows = useMemo(() => {
+    const rows = (preview?.rows || []).filter(
+      (r) =>
+        r.status === "skipped" ||
+        r.status === "error" ||
+        (r.warnings && r.warnings.length > 0),
+    );
+    // Errors first, then skipped, then warning-only — so the rows that actually
+    // need fixing are always on top even when a big import produces hundreds of
+    // benign "added to the price list on save" warnings.
+    const rank = (r) =>
+      r.status === "error" ? 0 : r.status === "skipped" ? 1 : 2;
+    return rows.slice().sort((a, b) => rank(a) - rank(b));
+  }, [preview]);
+
+  // Cap the rendered rows so a 700-row import doesn't paint hundreds of <tr>.
+  const NOISY_CAP = 100;
+  const shownNoisy = noisyRows.slice(0, NOISY_CAP);
+  const hiddenNoisy = noisyRows.length - shownNoisy.length;
 
   const handleConfirm = () => {
     if (!validRows.length) return;
@@ -360,7 +369,7 @@ const LineItemImportModal = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {noisyRows.map((r) => (
+                    {shownNoisy.map((r) => (
                       <tr
                         key={r.rowNum}
                         className={r.status === "error" ? "table-danger" : ""}
@@ -401,6 +410,14 @@ const LineItemImportModal = ({
                     ))}
                   </tbody>
                 </Table>
+                {hiddenNoisy > 0 && (
+                  <div className="text-muted small text-center py-1">
+                    {t(
+                      "…and {{n}} more row(s) with notices — they'll still import where valid.",
+                      { n: hiddenNoisy },
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

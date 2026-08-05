@@ -35,6 +35,8 @@ import Notification from "@components/toast/notification";
 
 import { appsRoot } from "@constant/defaultValues";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import { getCurrencySymbol } from "@src/utility/currency";
+import { confirmAndCreateMissingPrices } from "@src/views/_shared/price-list/confirmMissingPrices";
 import {
   initPurchaseOrderItem,
   initPurchaseOrderLineItem,
@@ -803,7 +805,24 @@ const PurchaseOrderWizard = () => {
       );
       return;
     }
-    handleSubmit((values) => dispatchSave(buildPayload(values)))();
+    handleSubmit(async (values) => {
+      // Offer to add any (vendor, product) not yet in the price list, at the
+      // entered rate + today's date. Cancel aborts the save.
+      const proceed = await confirmAndCreateMissingPrices({
+        lines: (values.lines || []).map((l) => ({
+          product_id: l.product_id,
+          product_name: l.product_name,
+          vendor_id: l.vendor_id,
+          vendor_name: l.vendor_name,
+          unit_price: l.unit_price,
+        })),
+        t,
+        currencySymbol:
+          getCurrencySymbol(values.vendor_currency_code) || "",
+      });
+      if (!proceed) return;
+      dispatchSave(buildPayload(values));
+    })();
   };
 
   // Save completes → back to listing.
