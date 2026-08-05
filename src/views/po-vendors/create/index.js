@@ -42,6 +42,8 @@ import { getExpenseDropdown } from "@src/views/expenses/store";
 import { getExchangeRateOptions } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
 import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
+import { confirmAndCreateMissingPrices } from "@src/views/_shared/price-list/confirmMissingPrices";
+import EntitySearchSelect from "@components/entity-select";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { appsRoot } from "@constant/defaultValues";
@@ -196,15 +198,6 @@ const CreatePoVendor = () => {
     return [{ value: "INR", label: "INR (₹)" }, ...foreign];
   }, [currencyStore?.exchangeOptions]);
 
-  const productOptions = useMemo(
-    () =>
-      (productStore?.productDropdown || []).map((p) => ({
-        value: p._id,
-        label: `${p.code ? p.code + " - " : ""}${p.name}`,
-        raw: p,
-      })),
-    [productStore?.productDropdown]
-  );
 
   // product_id → part_no, so linked-mode lines (coverage has no part_no)
   // can show the part number from the product master.
@@ -397,18 +390,21 @@ const CreatePoVendor = () => {
       );
       return;
     }
-    // Gate: the product must be in the selected vendor's price list.
-    const price = await fetchVendorPrice(opt.value, vendorId);
-    if (price == null) {
+    // Block the same product on two lines — a POV has ONE vendor, so a
+    // duplicate product is just a merged quantity. Keep this row's current
+    // selection unchanged.
+    if (lines.some((r) => r.key !== key && r.product_id === opt.value)) {
       Notification(
         "Validation",
-        t(
-          `"${opt.raw?.name || opt.label}" is not in ${vendorLabel()}'s price list — add it there first.`
-        ),
+        t("This product is already added — edit that line's quantity instead."),
         "warning"
       );
-      return; // do not add the product
+      return;
     }
+    // Auto-fill the rate from the vendor's price list when it exists. When it
+    // doesn't, DON'T block — add the product with a blank rate for the user to
+    // enter; on save we offer to add it to the price list (effective today).
+    const price = await fetchVendorPrice(opt.value, vendorId);
     const raw = opt.raw || {};
     setRow(key, {
       product_id: opt.value,
@@ -417,13 +413,14 @@ const CreatePoVendor = () => {
       hsn_code: raw.hsn_code || "",
       unit: raw.unit_of_measure || "",
       tax_pct: raw.tax_pct != null ? String(raw.tax_pct) : "0",
-      unit_price: price,
+      unit_price: price != null ? price : "",
     });
   };
 
-  // On vendor change (standalone): re-fill rates, and DROP any product that
-  // isn't in the new vendor's price list — a POV line must always reference a
-  // product the vendor actually quotes.
+  // On vendor change (standalone): re-fill each line's rate from the new
+  // vendor's price list. Products are KEPT even when the new vendor doesn't
+  // quote them — the rate is cleared for manual entry, and on save we offer to
+  // add the (vendor, product) to the price list.
   useEffect(() => {
     if (linkedMode || !vendorId) return;
     const rows = lines.filter((r) => r.product_id);
@@ -433,31 +430,8 @@ const CreatePoVendor = () => {
         fetchVendorPrice(r.product_id, vendorId).then((price) => ({ r, price }))
       )
     ).then((results) => {
-      const removed = [];
       for (const { r, price } of results) {
-        if (price != null) {
-          setRow(r.key, { unit_price: price });
-        } else {
-          setRow(r.key, {
-            product_id: "",
-            product_name: "",
-            part_no: "",
-            hsn_code: "",
-            unit: "",
-            tax_pct: "0",
-            unit_price: "",
-          });
-          removed.push(r.product_name || r.product_id);
-        }
-      }
-      if (removed.length) {
-        Notification(
-          "Validation",
-          t(
-            `Cleared ${removed.length} product(s) not in ${vendorLabel()}'s price list: ${removed.join(", ")}.`
-          ),
-          "warning"
-        );
+        setRow(r.key, { unit_price: price != null ? price : "" });
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -720,6 +694,26 @@ const CreatePoVendor = () => {
           );
           return;
         }
+        // Offer to add any (vendor, product) not yet in the price list, using
+        // the entered rate + today's date. Cancel aborts the save.
+        const proceed = await confirmAndCreateMissingPrices({
+          lines: lines
+            .filter((r) => r.product_id)
+            .map((r) => ({
+              product_id: r.product_id,
+              product_name: r.product_name,
+              vendor_id: vendorId,
+              vendor_name: vendorLabel(),
+              unit_price: r.unit_price,
+            })),
+          t,
+          currencySymbol: sym,
+        });
+        if (!proceed) {
+          setCreating(false);
+          return;
+        }
+
         const advanceAmt = num(advance.amount);
         // Native model: the advance (a vendor payment) is recorded in the POV's
         // own currency and stored as-is — no INR conversion.
@@ -1088,24 +1082,23 @@ const CreatePoVendor = () => {
                     <tr key={r.key}>
                       <td>{idx + 1}</td>
                       <td>
-                        <Select
-                          classNamePrefix="select"
+                        <EntitySearchSelect
+                          kind="product"
+                          eager={false}
                           menuPortalTarget={
                             typeof document !== "undefined" ? document.body : null
                           }
                           styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                          options={productOptions}
+                          isClearable={false}
                           isDisabled={!vendorId || !deliveryAddressId}
-                          value={
-                            productOptions.find((o) => o.value === r.product_id) || null
-                          }
+                          value={r.product_id || null}
                           onChange={(opt) => onPickProduct(r.key, opt)}
                           placeholder={
                             !vendorId
                               ? t("Select a vendor first")
                               : !deliveryAddressId
                               ? t("Select Deliver To first")
-                              : t("Select product")
+                              : t("Search product")
                           }
                         />
                       </td>

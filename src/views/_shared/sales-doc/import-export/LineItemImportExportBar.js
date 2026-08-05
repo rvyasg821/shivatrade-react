@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import { confirmAndCreateMissingPrices } from "@src/views/_shared/price-list/confirmMissingPrices";
 
 import LineItemImportModal from "./LineItemImportModal";
 
@@ -179,6 +180,20 @@ const LineItemImportExportBar = ({
       t("Imported {{added}} new, updated {{updated}}", { added, updated }),
       "success",
     );
+    // Auto-add any imported (vendor, product) not yet in the price list — the
+    // import review already listed these, so do it silently (toast on result).
+    // Uses the sheet rate + today. The on-save flow then finds them present.
+    confirmAndCreateMissingPrices({
+      lines: normalized.map((l) => ({
+        product_id: l.product_id,
+        product_name: l.product_name,
+        vendor_id: l.vendor_id,
+        vendor_name: l.vendor_name,
+        unit_price: l.unit_price,
+      })),
+      t,
+      silent: true,
+    });
     if (onAfterImport) {
       // `liveLines.length` is the pre-merge count; new rows sit at the end.
       onAfterImport({

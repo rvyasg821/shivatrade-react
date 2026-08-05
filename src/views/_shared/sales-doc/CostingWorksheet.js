@@ -190,12 +190,36 @@ const CostingWorksheet = ({
 
   // A line's vendor options, filtered to the chosen vendor currency. Empty
   // until a currency is picked (currency-first).
+  //   1) price-listed vendors for this product (with ₹ rate + "Cheapest" badge)
+  //   2) then EVERY other active vendor in the same currency (no rate yet) — so
+  //      you can pick a vendor that doesn't quote the product, enter a cost, and
+  //      have it added to the price list on save (client 2026-08-05).
   const vendorOptsFor = (l) => {
-    const opts = vendorsByProduct[l?.product_id] || [];
     if (!vendorCurrency) return [];
-    return opts.filter(
+    const priced = (vendorsByProduct[l?.product_id] || []).filter(
       (o) => (o.raw?.currency_code || "INR").toUpperCase() === vendorCurrency
     );
+    const pricedIds = new Set(priced.map((o) => String(o.value)));
+    const others = (vendorDropdown || [])
+      .filter(
+        (v) =>
+          (v.currency_code || "INR").toUpperCase() === vendorCurrency &&
+          !pricedIds.has(String(v._id))
+      )
+      .map((v) => ({
+        value: v._id,
+        label: v.vendor_code
+          ? `${v.company_name} (${v.vendor_code})`
+          : v.company_name,
+        raw: {
+          vendor_id: v._id,
+          vendor_name: v.company_name,
+          vendor_code: v.vendor_code,
+          currency_code: v.currency_code,
+          _no_price: true,
+        },
+      }));
+    return [...priced, ...others];
   };
 
   // Change the doc vendor currency. If lines already carry vendors, confirm;
@@ -787,6 +811,11 @@ const CostingWorksheet = ({
     );
     if (opt && r.unit_price != null) {
       setValue(`lines.${idx}.unit_price`, String(r.unit_price));
+    } else if (opt) {
+      // No-price vendor (Option B): clear any rate carried over from a previous
+      // vendor so the user enters this vendor's cost — added to the price list
+      // on save.
+      setValue(`lines.${idx}.unit_price`, "");
     }
   };
 
