@@ -419,11 +419,30 @@ const InvoiceAddEdit = () => {
     lines.find((l) => l.source_currency_code)?.source_currency_code || docCur
   ).toUpperCase();
   const costRateSame = srcCur === docCur;
+  // Lines that actually convert (source ≠ document). If they carry MORE THAN ONE
+  // distinct cost_exchange_rate — e.g. lines pulled from two SOs frozen at
+  // different rates — the single doc-level box can't represent them all, so it
+  // shows "Mixed" instead of misleadingly showing just the first line's rate.
+  // Per-line rates remain authoritative (edit each in its Line Details popup);
+  // this box is only a "set every line to one rate" shortcut.
+  const convertingRates = Array.from(
+    new Set(
+      lines
+        .filter(
+          (l) =>
+            (l.source_currency_code || docCur).toUpperCase() !== docCur
+        )
+        .map((l) => String(l.cost_exchange_rate ?? "1"))
+    )
+  );
+  const costRateMixed = convertingRates.length > 1;
   const costRateVal = costRateSame
     ? "1"
-    : String(
-        lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
-      );
+    : costRateMixed
+      ? ""
+      : String(
+          lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
+        );
   const onCostRateChange = (text) => {
     setLines((prev) =>
       prev.map((l) => ({ ...l, cost_exchange_rate: text }))
@@ -1081,11 +1100,14 @@ const InvoiceAddEdit = () => {
 
   // Guard: if we arrived via ?po=<id> but no POV has been dispatched yet,
   // surface a banner and block Save. Mirrors the BE Rule A enforcement.
+  // Nothing to invoice = nothing INVOICEABLE (vendor-dispatched POV qty PLUS
+  // free-stock/sell-from-stock qty), not just `dispatched`. A stock-fulfilled SO
+  // with no POV is still invoiceable, so it must not be blocked here.
   const noDispatchedYet =
     !!queryPoId &&
     !isEdit &&
     !!poCoverage &&
-    Number(poCoverage?.totals?.dispatched || 0) <= 0;
+    Number(poCoverage?.totals?.invoiceable || 0) <= 0;
 
   // ── Load existing invoice for edit ─────────────────────────────────
 
@@ -1513,6 +1535,15 @@ const InvoiceAddEdit = () => {
         uqc_code: uqcFor(row.unit),
         qty: String(qty),
         unit_price: String(Number(row.unit_price || 0).toFixed(2)),
+        // Multi-currency: carry the SO line's source currency + frozen
+        // source→document rate so the line total converts like every other
+        // line (was missing here → the total showed the raw source value
+        // unconverted, e.g. ₹25,000 printed as €25,000).
+        source_currency_code: row.source_currency_code || "INR",
+        cost_exchange_rate:
+          row.cost_exchange_rate != null && row.cost_exchange_rate !== ""
+            ? String(row.cost_exchange_rate)
+            : "1",
         // Carry the full costing from the SO line so the invoice total
         // equals the SO total (was hardcoded 0 / margin dropped).
         discount_pct: String(row.discount_pct || 0),
@@ -2204,12 +2235,12 @@ const InvoiceAddEdit = () => {
             <div className="d-flex align-items-start">
               <AlertTriangle size={18} className="text-danger me-1 mt-25" />
               <div className="small">
-                <strong>{t("Nothing dispatched yet on this PO.")}</strong>{" "}
+                <strong>{t("Nothing to invoice yet on this SO.")}</strong>{" "}
                 {t(
-                  "A Commercial Invoice can only be raised for qty the vendor has already dispatched (POV status: dispatched / closed)."
+                  "A Commercial Invoice can only be raised for qty that is already dispatched on a POV (status: dispatched / closed) or available in free stock to sell from."
                 )}{" "}
                 {t(
-                  "Open a POV from the PO detail page, mark it dispatched, then come back here."
+                  "Dispatch a POV from the SO detail page (or ensure the product has free stock), then come back here."
                 )}
               </div>
             </div>
@@ -2266,7 +2297,10 @@ const InvoiceAddEdit = () => {
 
       <Card>
         <CardBody>
-          <div className="wizard-step-body">
+          {/* minHeight override: the shared wizard reserves 300px per step,
+              which left a large blank gap under short steps (e.g. Invoice
+              Details). Footer carries its own separation, so size to content. */}
+          <div className="wizard-step-body" style={{ minHeight: 0 }}>
       {/* ─── STEP 1 of 4 — Parties ──────────────────────────────────── */}
       {activeStep === 0 && (
         <Fragment>
@@ -2589,28 +2623,6 @@ const InvoiceAddEdit = () => {
               <small className="text-muted">{t("Pulled from SO")}</small>
             </Col>
             <Col md="4" className="mb-2">
-              <Label className="form-label">{t("Exchange Rate")}</Label>
-              {/* Source→document rate (vendor currency → invoice currency),
-                  like the costing worksheet. Disabled at 1 for same currency. */}
-              <div className="d-flex align-items-center gap-1">
-                <span className="text-nowrap small">1 {srcCur} =</span>
-                <Input
-                  type="number"
-                  step="any"
-                  min="0"
-                  disabled={costRateSame}
-                  value={costRateVal}
-                  onChange={(e) => onCostRateChange(e.target.value)}
-                />
-                <span className="text-nowrap small">{docCur}</span>
-              </div>
-              <small className="text-muted">
-                {costRateSame
-                  ? t("Same currency — no conversion.")
-                  : t("Vendor → invoice currency, per unit.")}
-              </small>
-            </Col>
-            <Col md="4" className="mb-2">
               <Label className="form-label">{t("Incoterm")}</Label>
               <Select
                 classNamePrefix="select"
@@ -2645,8 +2657,47 @@ const InvoiceAddEdit = () => {
 
       {/* ── Lines ────────────────────────────────────────────────────── */}
       <div className="mb-3">
-        <div className="d-flex justify-content-between align-items-center mt-2 mb-2">
-          <h5 className="mb-0">{t("Line Items")}</h5>
+        <div className="d-flex justify-content-between align-items-center mt-2 mb-2 flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <h5 className="mb-0">{t("Line Items")}</h5>
+            {/* Exchange Rate — set-all shortcut. Each line carries its OWN
+                frozen source→document rate (edit per line in Line Details).
+                Typing here overwrites every line to one rate. When lines hold
+                different rates (e.g. from two SOs) it shows "Mixed" rather than
+                misrepresenting them with the first line's rate. */}
+            <div
+              className="d-flex align-items-center gap-1"
+              title={
+                costRateSame
+                  ? t("Same currency — no conversion.")
+                  : costRateMixed
+                    ? t("Lines have different rates — type to set them all.")
+                    : t("Source → invoice currency · sets every line.")
+              }
+            >
+              <Label className="form-label mb-0 small text-nowrap">
+                {t("Exchange Rate")}:
+              </Label>
+              <span className="text-nowrap small">1 {srcCur} =</span>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                bsSize="sm"
+                style={{ width: 110 }}
+                disabled={costRateSame}
+                value={costRateVal}
+                placeholder={costRateMixed ? t("Mixed") : "0"}
+                onChange={(e) => onCostRateChange(e.target.value)}
+              />
+              <span className="text-nowrap small">{docCur}</span>
+              {costRateMixed && (
+                <span className="text-warning small text-nowrap">
+                  ({t("Mixed")})
+                </span>
+              )}
+            </div>
+          </div>
           <div className="d-flex flex-wrap gap-1">
             {form.purchase_order_id && (
               <Fragment>
@@ -3890,6 +3941,7 @@ const InvoiceAddEdit = () => {
           toggle={() => setCostingModal({ open: false, idx: null })}
           line={lines[costingModal.idx]}
           onChange={(patch) => updateLine(costingModal.idx, patch)}
+          docCurrency={docCur}
           rebateOptions={rebateOptions}
           expenseOptions={expenseOptions}
         />
@@ -3919,12 +3971,29 @@ const CostingModal = ({
   toggle,
   line,
   onChange,
+  docCurrency,
   rebateOptions,
   expenseOptions,
 }) => {
   const { t } = useTranslation();
   const rebates = line?.product_rebates_snapshot || [];
   const expenses = line?.product_expenses_snapshot || [];
+
+  // ── Exchange Rate (per line) ─────────────────────────────────────────
+  // This line's frozen source→document rate (line total = qty × price ×
+  // cost_exchange_rate × …). Each line carries its OWN rate, snapshotted from
+  // its source SO — so a line added from another SO with a different rate keeps
+  // that rate. Editable here per line; disabled at 1 when the line's source
+  // currency already equals the invoice currency (no conversion).
+  const lineSrcCur = (line?.source_currency_code || docCurrency || "INR")
+    .toUpperCase();
+  const lineDocCur = (docCurrency || "INR").toUpperCase();
+  const rateSameCur = lineSrcCur === lineDocCur;
+  const setLineRate = (v) => {
+    if (v === "") return onChange({ cost_exchange_rate: "" });
+    const n = Math.max(0, num(v));
+    onChange({ cost_exchange_rate: String(n) });
+  };
 
   // ── Discount ─────────────────────────────────────────────────────────
   // `discount_pct` is a plain number on the line and is always present (0 when
@@ -3945,6 +4014,26 @@ const CostingModal = ({
   const removeDiscount = () => {
     onChange({ discount_pct: "0" });
     setDiscountOpen(false);
+  };
+
+  // ── Margin ───────────────────────────────────────────────────────────
+  // `margin_pct` mirrors `discount_pct`: a plain number always present on the
+  // line (0 when unused). It is ADDED on top of the costing base
+  // (qty × price + expenses − rebates − discount) to reach the line total, so
+  // it is the per-line selling uplift carried from the SO / quotation.
+  const [marginOpen, setMarginOpen] = useState(num(line?.margin_pct) > 0);
+
+  const setMargin = (v) => {
+    // No upper clamp (a large margin is a valid business choice); just block a
+    // negative, which would silently REDUCE the line total below its cost base.
+    if (v === "") return onChange({ margin_pct: "" });
+    const n = Math.max(0, num(v));
+    onChange({ margin_pct: String(n) });
+  };
+
+  const removeMargin = () => {
+    onChange({ margin_pct: "0" });
+    setMarginOpen(false);
   };
 
   // ── Rebate row helpers ───────────────────────────────────────────────
@@ -4017,6 +4106,33 @@ const CostingModal = ({
         <code className="ms-1">{line?.product_code || line?.product_name}</code>
       </ModalHeader>
       <ModalBody>
+        {/* ── Exchange Rate (this line) ────────────────────────────── */}
+        <Label className="form-label fw-bold mb-1">{t("Exchange Rate")}</Label>
+        <Row className="align-items-center g-1 mb-2">
+          <Col md="7">
+            <div className="d-flex align-items-center gap-1">
+              <span className="text-nowrap small">1 {lineSrcCur} =</span>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                disabled={rateSameCur}
+                value={rateSameCur ? "1" : line?.cost_exchange_rate ?? ""}
+                onChange={(e) => setLineRate(e.target.value)}
+                placeholder="0"
+              />
+              <span className="text-nowrap small">{lineDocCur}</span>
+            </div>
+          </Col>
+          <Col md="5" className="small text-muted">
+            {rateSameCur
+              ? t("Same currency — no conversion.")
+              : t("This line's source → invoice rate (from its SO).")}
+          </Col>
+        </Row>
+
+        <hr className="my-2" />
+
         {/* ── Discount ─────────────────────────────────────────────── */}
         <div className="d-flex align-items-center justify-content-between mb-1">
           <Label className="form-label fw-bold mb-0">{t("Discount")}</Label>
@@ -4057,6 +4173,52 @@ const CostingModal = ({
                 size={16}
                 className="text-danger cursor-pointer"
                 onClick={removeDiscount}
+              />
+            </Col>
+          </Row>
+        )}
+
+        <hr className="my-2" />
+
+        {/* ── Margin ───────────────────────────────────────────────── */}
+        <div className="d-flex align-items-center justify-content-between mb-1">
+          <Label className="form-label fw-bold mb-0">{t("Margin")}</Label>
+          {!marginOpen && (
+            <Button
+              size="sm"
+              color="success"
+              outline
+              onClick={() => setMarginOpen(true)}
+            >
+              + {t("Add Margin")}
+            </Button>
+          )}
+        </div>
+        {!marginOpen ? (
+          <div className="text-muted small mb-2">{t("No margin")}</div>
+        ) : (
+          <Row className="align-items-center g-1 mb-2">
+            <Col md="4">
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                value={line?.margin_pct ?? ""}
+                onChange={(e) => setMargin(e.target.value)}
+                placeholder="0"
+              />
+            </Col>
+            <Col md="1" className="text-muted">
+              %
+            </Col>
+            <Col md="5" className="small text-muted">
+              {t("Selling uplift added on top of (qty × price + expenses − rebates − discount).")}
+            </Col>
+            <Col md="2" className="text-end">
+              <Trash2
+                size={16}
+                className="text-danger cursor-pointer"
+                onClick={removeMargin}
               />
             </Col>
           </Row>
@@ -4200,7 +4362,7 @@ const CostingModal = ({
 
         <div className="small text-muted mt-2">
           {t(
-            "Per-line costing — line_total = ((qty × price) + Σ expenses − Σ rebates) × (1 − discount/100). Frozen at issue."
+            "Per-line costing — line_total = (qty × price × (1 − discount/100) + Σ expenses − Σ rebates) × (1 + margin/100). Frozen at issue."
           )}
         </div>
 
