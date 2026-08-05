@@ -275,9 +275,9 @@ const LeadRequirementItems = ({
           <thead className="table-light">
             <tr>
               <th style={{ width: 36 }}>#</th>
+              <th style={{ minWidth: 240 }}>{t("Product")}</th>
               <th style={{ minWidth: 130 }}>{t("HS Code")}</th>
               <th style={{ minWidth: 130 }}>{t("Part No")}</th>
-              <th style={{ minWidth: 240 }}>{t("Product")}</th>
               <th style={{ width: 90 }}>{t("Unit")}</th>
               <th className="text-end" style={{ minWidth: 120 }}>
                 {t("Qty")}
@@ -313,34 +313,6 @@ const LeadRequirementItems = ({
                   <td className="text-muted">{idx + 1}</td>
                   <td>
                     <Controller
-                      name={`lines.${idx}.hs_code`}
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          bsSize="sm"
-                          placeholder={t("HSN")}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      )}
-                    />
-                  </td>
-                  <td>
-                    <Controller
-                      name={`lines.${idx}.part_no`}
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          bsSize="sm"
-                          placeholder={t("Part No")}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      )}
-                    />
-                  </td>
-                  <td>
-                    <Controller
                       name={`lines.${idx}.product_id`}
                       control={control}
                       render={({ field }) => (
@@ -367,6 +339,34 @@ const LeadRequirementItems = ({
                           }
                           onChange={(opt) => onPickProduct(idx, opt)}
                           placeholder={t("Search product")}
+                        />
+                      )}
+                    />
+                  </td>
+                  <td>
+                    <Controller
+                      name={`lines.${idx}.hs_code`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          bsSize="sm"
+                          placeholder={t("HSN")}
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      )}
+                    />
+                  </td>
+                  <td>
+                    <Controller
+                      name={`lines.${idx}.part_no`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          bsSize="sm"
+                          placeholder={t("Part No")}
+                          {...field}
+                          value={field.value ?? ""}
                         />
                       )}
                     />

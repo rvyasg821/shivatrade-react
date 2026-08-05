@@ -268,7 +268,7 @@ const SelectSoLines = () => {
               </div>
             ) : groups.length === 0 ? (
               <div className="text-muted small py-2">
-                {t("No invoiceable (dispatched) SO lines for this customer.")}
+                {t("No invoiceable SO lines for this customer (dispatched or in free stock).")}
               </div>
             ) : (
               <Fragment>

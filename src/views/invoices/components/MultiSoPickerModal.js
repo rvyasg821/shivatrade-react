@@ -255,6 +255,15 @@ const MultiSoPickerModal = ({
           uqc_code: uqcFor(l.unit),
           qty: String(qty),
           unit_price: String(l.unit_price || 0),
+          // Multi-currency: carry the SO line's source currency + frozen
+          // source→document rate so the invoice line total converts correctly
+          // (line total = qty × unit_price × cost_exchange_rate). Without these
+          // the rate defaults to 1 and a foreign line shows its raw source value.
+          source_currency_code: l.source_currency_code || "INR",
+          cost_exchange_rate:
+            l.cost_exchange_rate != null && l.cost_exchange_rate !== ""
+              ? String(l.cost_exchange_rate)
+              : "1",
           discount_pct: "0",
           tax_pct: "0",
           igst_rate_pct: String(l.tax_pct || 0),
@@ -303,7 +312,7 @@ const MultiSoPickerModal = ({
           </div>
         ) : groups.length === 0 ? (
           <div className="text-muted small py-2">
-            {t("No invoiceable (dispatched) SO lines for this customer.")}
+            {t("No invoiceable SO lines for this customer (dispatched or in free stock).")}
           </div>
         ) : (
           <Fragment>

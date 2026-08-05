@@ -142,3 +142,13 @@
     .step-connector { margin: 0 0.3rem; min-width: 14px; }
   }
 }
+
+/* ── Invoice wizard: size each step to its content ──────────────────────
+   The shared 300px `.wizard-step-body` reservation left a large blank gap
+   below short steps (e.g. the Invoice Details header step). The footer
+   already carries its own top border + margin for separation, so the
+   reservation isn't needed here. Scoped to `.invoice-add` so every other
+   wizard keeps the fixed reservation. */
+.quotation-wizard.invoice-add .wizard-step-body {
+  min-height: 0;
+}
