@@ -21,7 +21,7 @@ import {
   cleanQuotationMessage,
   cleanQuotationState,
 } from "../../store";
-import { getCustomerDropdown, getCustomer } from "../../../customers/store";
+import { getCustomer } from "../../../customers/store";
 import {
   getExchangeRateOptions,
   getCurrencyDropdown,
@@ -79,6 +79,10 @@ const QuotationWizard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [customerAddressOptions, setCustomerAddressOptions] = useState([]);
+  // customer _id → company name, cached from the same on-demand detail fetches
+  // used for addresses. Feeds the consignee snapshot name so the full customer
+  // list isn't needed.
+  const [customerNameById, setCustomerNameById] = useState({});
   const [rateMeta, setRateMeta] = useState(null);
 
   // ── Yup schema ──────────────────────────────────────────────────────
@@ -478,7 +482,6 @@ const QuotationWizard = () => {
 
   // ── Initial loads ───────────────────────────────────────────────────
   useEffect(() => {
-    dispatch(getCustomerDropdown());
     dispatch(getExchangeRateOptions());
     dispatch(getCurrencyDropdown());
     dispatch(getProductDropdown());
@@ -606,6 +609,17 @@ const QuotationWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerStore?.customerItem, watchedCustomer, watch("customer_address_id")]);
 
+  // Cache the name of whichever customer the store is currently holding (buyer
+  // or consignee) so the consignee snapshot never needs the full customer list.
+  useEffect(() => {
+    const cust = customerStore?.customerItem;
+    if (cust?._id)
+      setCustomerNameById((m) => ({
+        ...m,
+        [cust._id]: cust.company_name || cust.name || "",
+      }));
+  }, [customerStore?.customerItem]);
+
   // ── Consignee (Ship-to) — mirrors the Sales Order form ──────────────
   // "Same as Buyer" (default) → consignee mirrors the bill-to customer +
   // address and the dropdowns are locked. Uncheck to ship to a different
@@ -680,7 +694,15 @@ const QuotationWizard = () => {
     }
     instance
       .get(`${API_ENDPOINTS.customers.get}/${watchedConsignee}`)
-      .then((resp) => applyAddrs(resp?.data?.data?.addresses || []))
+      .then((resp) => {
+        const c = resp?.data?.data;
+        if (c?._id)
+          setCustomerNameById((m) => ({
+            ...m,
+            [c._id]: c.company_name || c.name || "",
+          }));
+        applyAddrs(c?.addresses || []);
+      })
       .catch(() => {
         if (!cancelled) setConsigneeAddressOptions([]);
       });
@@ -702,9 +724,9 @@ const QuotationWizard = () => {
     if (!addrId) return undefined;
     const a = consigneeAddressOptions.find((o) => o.value === addrId)?.raw;
     if (!a) return undefined;
-    const name = customerOptions.find(
-      (o) => o.value === getValues("consignee_id")
-    )?.label;
+    // Name from the per-customer detail cache (populated by the consignee
+    // address fetch above) — no full customer list needed.
+    const name = customerNameById[getValues("consignee_id")];
     return {
       name: name || undefined,
       address_line1: a.address_line1 || undefined,
@@ -740,14 +762,6 @@ const QuotationWizard = () => {
   }, [store?.loading, dispatch]);
 
   // ── Master maps + dropdown options ──────────────────────────────────
-  const customerOptions = useMemo(
-    () =>
-      (customerStore?.customerDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.company_name,
-      })),
-    [customerStore?.customerDropdown]
-  );
 
   const currencyOptions = useMemo(
     () =>
@@ -970,7 +984,6 @@ const QuotationWizard = () => {
     isLocked,
     pricingLoading,
     rateMeta,
-    customerOptions,
     customerAddressOptions,
     consigneeAddressOptions,
     currencyOptions,

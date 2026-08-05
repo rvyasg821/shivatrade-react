@@ -87,7 +87,8 @@ import {
   resetInvoiceItem,
 } from "@src/views/invoices/store";
 import { getPurchaseOrder } from "@src/views/purchase-orders/store";
-import { getCustomerDropdown, getCustomer } from "@src/views/customers/store";
+import { getCustomer } from "@src/views/customers/store";
+import EntitySearchSelect from "@components/entity-select";
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import {
   getExchangeRateOptions,
@@ -168,7 +169,6 @@ const InvoiceAddEdit = () => {
     dispatch(getCurrencyDropdown());
     dispatch(getRebateDropdown());
     dispatch(getExpenseDropdown());
-    dispatch(getCustomerDropdown());
     dispatch(getCompanyDetails());
   }, [dispatch]);
 
@@ -177,14 +177,6 @@ const InvoiceAddEdit = () => {
   const customerStore = useSelector((s) => s.customer);
   const companyStore = useSelector((s) => s.company);
 
-  const customerOptions = useMemo(
-    () =>
-      (customerStore?.customerDropdown || []).map((c) => ({
-        value: c._id,
-        label: c.company_name,
-      })),
-    [customerStore?.customerDropdown]
-  );
 
   // Active bank accounts of the company; PFI already enriches each with
   // currency_code. bankAccountOptions itself depends on form.currency_code
@@ -325,6 +317,10 @@ const InvoiceAddEdit = () => {
   // Address options per customer/consignee/notify — cached so picking the same
   // entity again doesn't refetch. Keyed by customer _id.
   const [addressOptionsByCustomer, setAddressOptionsByCustomer] = useState({});
+  // customer _id → company name, cached from the same on-demand detail fetch as
+  // the addresses. Used for the consignee snapshot name so the full customer
+  // list isn't needed. Keyed by the id ON THE RECORD.
+  const [customerNameById, setCustomerNameById] = useState({});
   // Coverage from the PO arrival (?po=...). Drives the BE qty guard mirror:
   // qty cap per line = dispatched − already_invoiced; banner + disable Save
   // when nothing has been dispatched yet.
@@ -678,6 +674,10 @@ const InvoiceAddEdit = () => {
       raw: a,
     }));
     setAddressOptionsByCustomer((s) => ({ ...s, [cust._id]: opts }));
+    setCustomerNameById((s) => ({
+      ...s,
+      [cust._id]: cust.company_name || cust.name || "",
+    }));
   }, [customerStore?.customerItem]);
 
   // Auto-fill Country of Destination from the consignee's country — the goods
@@ -1020,8 +1020,12 @@ const InvoiceAddEdit = () => {
     if (!form.consignee_id) return;
     const opts = addressOptionsByCustomer[form.consignee_id] || [];
     const a = opts.find((o) => o.value === form.consignee_address_id)?.raw || {};
+    // Name comes from the per-customer detail cache (or the already-hydrated
+    // snapshot on edit) — no full customer list needed.
     const name =
-      customerOptions.find((o) => o.value === form.consignee_id)?.label || "";
+      customerNameById[form.consignee_id] ||
+      form.consignee_snapshot?.name ||
+      "";
     // Don't wipe a pre-filled snapshot before the master data has loaded.
     if (!name && !a.address_line1) return;
     onF("consignee_snapshot", {
@@ -1038,7 +1042,7 @@ const InvoiceAddEdit = () => {
     form.consignee_id,
     form.consignee_address_id,
     addressOptionsByCustomer,
-    customerOptions,
+    customerNameById,
   ]);
 
   // Default bank pre-fill on new invoice — first matching by currency,
@@ -1996,25 +2000,19 @@ const InvoiceAddEdit = () => {
             {fromCustomer && (
               <Col md="12" className="mb-1">
                 <Label className="form-label">{t("Pick Customer")}</Label>
-                <Select
-                  classNamePrefix="select"
+                <EntitySearchSelect
+                  kind="customer"
                   isClearable
-                  options={customerOptions}
-                  value={(() => {
-                    const id = form[idKey];
-                    if (!id) return null;
-                    const match = customerOptions.find(
-                      (o) => o.value === id
-                    );
-                    if (match) return match;
-                    // Fallback: customer master list hasn't loaded yet, OR
-                    // the linked customer is now inactive. Surface what we
-                    // know from the snapshot so the user can see it.
-                    return {
-                      value: id,
-                      label: snap.name || t("(customer)"),
-                    };
-                  })()}
+                  // Show the name from the snapshot instantly (no ?ids= flash);
+                  // the snapshot is the source of truth for this party.
+                  value={
+                    form[idKey]
+                      ? {
+                          value: form[idKey],
+                          label: snap.name || t("(customer)"),
+                        }
+                      : null
+                  }
                   onChange={(opt) => {
                     const v = opt ? opt.value : "";
                     if (v) {
@@ -2283,13 +2281,10 @@ const InvoiceAddEdit = () => {
               <Label className="form-label">
                 {t("Customer")} <span className="text-danger">*</span>
               </Label>
-              <Select
-                classNamePrefix="select"
-                options={customerOptions}
-                value={
-                  customerOptions.find((o) => o.value === form.customer_id) ||
-                  null
-                }
+              <EntitySearchSelect
+                kind="customer"
+                value={form.customer_id || null}
+                isClearable={false}
                 onChange={(opt) => {
                   const v = opt ? opt.value : "";
                   setForm((s) => {
@@ -2370,17 +2365,13 @@ const InvoiceAddEdit = () => {
                 </Label>
               </div>
             </div>
-            <Select
-              classNamePrefix="select"
+            <EntitySearchSelect
+              kind="customer"
               isClearable
               isDisabled={form.consignee_same_as_buyer !== false}
-              options={customerOptions}
-              value={
-                customerOptions.find((o) => o.value === form.consignee_id) ||
-                null
-              }
+              value={form.consignee_id || null}
               onChange={(opt) => onF("consignee_id", opt ? opt.value : "")}
-              placeholder={t("Select consignee")}
+              placeholder={t("Search & select consignee")}
             />
             {errors.consignee_id && (
               <FormFeedback className="d-block">

@@ -6,6 +6,7 @@
 import { Controller, useFormContext } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import { useTranslation } from "react-i18next";
 import { ExternalLink } from "react-feather";
 
@@ -21,7 +22,6 @@ const required = <span className="text-danger">*</span>;
 
 const Step1Customer = ({
   isLocked,
-  customerOptions,
   customerAddressOptions,
   consigneeAddressOptions = [],
   currencyOptions,
@@ -55,19 +55,16 @@ const Step1Customer = ({
           name="customer_id"
           control={control}
           render={({ field }) => (
-            <Select
-              classNamePrefix="select"
+            <EntitySearchSelect
+              kind="customer"
               isClearable
               isDisabled={isLocked}
-              options={customerOptions}
               placeholder={
                 watchedLeadId
                   ? t("Auto-create from lead — or pick an existing customer")
-                  : t("Select customer")
+                  : t("Search & select customer")
               }
-              value={
-                customerOptions.find((o) => o.value === field.value) || null
-              }
+              value={field.value || null}
               onChange={(opt) => {
                 field.onChange(opt ? opt.value : "");
                 setValue("customer_address_id", "");
@@ -159,16 +156,13 @@ const Step1Customer = ({
           name="consignee_id"
           control={control}
           render={({ field }) => (
-            <Select
-              classNamePrefix="select"
+            <EntitySearchSelect
+              kind="customer"
               isClearable
               isDisabled={isLocked || sameAsBuyer}
-              options={customerOptions}
-              value={
-                customerOptions.find((o) => o.value === field.value) || null
-              }
+              value={field.value || null}
               onChange={(opt) => field.onChange(opt ? opt.value : "")}
-              placeholder={t("Select consignee")}
+              placeholder={t("Search & select consignee")}
             />
           )}
         />

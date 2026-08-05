@@ -36,7 +36,7 @@ import {
   createPoVendorStandalone,
   createPoVendorFromPo,
 } from "@src/views/po-vendors/store";
-import { getVendorDropdown, getVendor } from "@src/views/vendors/store";
+import { getVendor } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
 import { getExchangeRateOptions } from "@src/views/currencies/store";
@@ -135,7 +135,6 @@ const CreatePoVendor = () => {
 
   // ── Dropdowns ───────────────────────────────────────────────────────
   useEffect(() => {
-    dispatch(getVendorDropdown());
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getCompanyDetails());
@@ -222,18 +221,15 @@ const CreatePoVendor = () => {
     }));
   }, [poFromStore?.lines]);
 
+  // Linked (generate-from-SO) mode uses the SO's own vendors (scoped). Standalone
+  // mode uses the searchable <EntitySearchSelect> below, so no full vendor list
+  // is built here.
   const vendorOptions = useMemo(() => {
     if (linkedMode && poFromStore?._id === pickedSoId) return soVendorOptions;
-    return (vendorStore?.vendorDropdown || []).map((v) => {
-      const name = v.company_name || v.name || "";
-      return {
-        value: v._id,
-        label: v.vendor_code ? `${v.vendor_code} - ${name}` : name,
-        // Carried so picking a vendor can auto-select its preferred currency.
-        currency_code: v.currency_code || "",
-      };
-    });
-  }, [linkedMode, poFromStore, pickedSoId, soVendorOptions, vendorStore?.vendorDropdown]);
+    return [];
+  }, [linkedMode, poFromStore, pickedSoId, soVendorOptions]);
+  // Standalone: the picked vendor's full row (name + currency for the payload).
+  const [selectedVendorRaw, setSelectedVendorRaw] = useState(null);
 
   // ── Sales Order picker options ───────────────────────────────────────
   useEffect(() => {
@@ -355,8 +351,9 @@ const CreatePoVendor = () => {
     });
 
   const vendorLabel = () =>
-    vendorOptions.find((o) => o.value === vendorId)?.label ||
-    t("the selected vendor");
+    (linkedMode
+      ? vendorOptions.find((o) => o.value === vendorId)?.label
+      : selectedVendorRaw?.company_name) || t("the selected vendor");
 
   const onPickProduct = async (key, opt) => {
     // Cleared selection — reset the row.
@@ -798,22 +795,33 @@ const CreatePoVendor = () => {
                 <Label className="form-label">
                   {t("Vendor")} <span className="text-danger">*</span>
                 </Label>
-                <Select
-                  classNamePrefix="select"
-                  options={vendorOptions}
-                  value={vendorOptions.find((o) => o.value === vendorId) || null}
-                  onChange={(opt) => {
-                    setVendorId(opt ? opt.value : "");
-                    // Auto-select the vendor's preferred currency (standalone
-                    // only — linked mode inherits the source SO's currency). A
-                    // blank preference leaves the current selection untouched;
-                    // changing currency triggers the rate auto-fetch effect.
-                    if (!linkedMode && opt?.currency_code) {
-                      setCurrencyCode(opt.currency_code);
+                {linkedMode ? (
+                  <Select
+                    classNamePrefix="select"
+                    options={vendorOptions}
+                    value={
+                      vendorOptions.find((o) => o.value === vendorId) || null
                     }
-                  }}
-                  placeholder={t("Select vendor")}
-                />
+                    onChange={(opt) => setVendorId(opt ? opt.value : "")}
+                    placeholder={t("Select vendor")}
+                  />
+                ) : (
+                  <EntitySearchSelect
+                    kind="vendor"
+                    value={vendorId || null}
+                    isClearable={false}
+                    onChange={(opt) => {
+                      setVendorId(opt ? opt.value : "");
+                      setSelectedVendorRaw(opt?.raw || null);
+                      // Auto-select the vendor's preferred currency; changing it
+                      // triggers the rate auto-fetch effect.
+                      if (opt?.raw?.currency_code) {
+                        setCurrencyCode(opt.raw.currency_code);
+                      }
+                    }}
+                    placeholder={t("Search vendor")}
+                  />
+                )}
               </div>
 
               {/* Currency the SAVED POV renders in (lines stay in ₹). */}

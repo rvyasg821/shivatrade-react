@@ -10,8 +10,8 @@ import {
   updatePriceList,
   cleanPriceListMessage,
 } from "../store";
-import { getVendorDropdown } from "../../vendors/store";
-import { getProductDropdown } from "../../products/store";
+import { resolveEntityByIds, ENTITY_KINDS } from "@src/utility/asyncSelect";
+import EntitySearchSelect from "@components/entity-select";
 import { getCurrencySymbol } from "@src/utility/currency";
 import { startLoading, stopLoading } from "../../loadingstore";
 
@@ -37,7 +37,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
 
 // ** Third Party
-import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
 // ** Icons
@@ -62,8 +61,6 @@ const PriceListForm = () => {
   const goBack = () => navigate(-1);
 
   const store = useSelector((state) => state.priceList);
-  const vendorStore = useSelector((state) => state.vendor);
-  const productStore = useSelector((state) => state.product);
   const isEditMode = !!id;
 
   const schema = useMemo(
@@ -103,12 +100,7 @@ const PriceListForm = () => {
     defaultValues: initPriceListItem,
   });
 
-  // When true, override the vendor-category filter and show all products.
-  const [showAllProducts, setShowAllProducts] = useState(false);
-
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
-    dispatch(getProductDropdown());
     if (isEditMode) {
       dispatch(getPriceList(id));
     } else {
@@ -170,71 +162,25 @@ const PriceListForm = () => {
     }
   };
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.vendor_code
-          ? `${v.company_name} [${v.vendor_code}]`
-          : v.company_name,
-      })),
-    [vendorStore?.vendorDropdown]
-  );
-
-  // Resolve the selected vendor's categories from the dropdown payload.
   const watchedVendorId = watch("vendor_id");
-  const selectedVendor = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).find(
-        (v) => v._id === watchedVendorId
-      ),
-    [vendorStore?.vendorDropdown, watchedVendorId]
-  );
-  const vendorCategoryIds = selectedVendor?.category_ids || [];
-  const vendorHasCategories = vendorCategoryIds.length > 0;
-
-  const allProductOptions = useMemo(
-    () =>
-      (productStore?.productDropdown || []).map((p) => ({
-        value: p._id,
-        label: `${p.code} - ${p.name}`,
-        category_id: p.category_id,
-        raw: p,
-      })),
-    [productStore?.productDropdown]
-  );
-
-  // Default = filter by vendor's categories.
-  //   no vendor       → empty list (Select is disabled below)
-  //   show-all toggle → full list
-  //   vendor w/o cats → full list with a warning
-  //   normal          → only products in vendor's categories
-  const productOptions = useMemo(() => {
-    if (!watchedVendorId) return [];
-    if (showAllProducts || !vendorHasCategories) return allProductOptions;
-    const set = new Set(vendorCategoryIds);
-    return allProductOptions.filter((o) => set.has(o.category_id));
-  }, [
-    allProductOptions,
-    watchedVendorId,
-    showAllProducts,
-    vendorHasCategories,
-    vendorCategoryIds,
-  ]);
-
-  // If the currently selected product no longer matches the filtered list
-  // after a vendor change, clear it so users don't carry stale picks.
+  // The picked vendor's full row — its currency_code drives the currency
+  // display. Set on pick; resolved via ?ids= on edit / ?vendor_id= prefill.
+  const [selectedVendor, setSelectedVendor] = useState(null);
   useEffect(() => {
-    const pid = watch("product_id");
-    if (
-      pid &&
-      productOptions.length &&
-      !productOptions.find((o) => o.value === pid)
-    ) {
-      setValue("product_id", "");
+    if (!watchedVendorId) {
+      setSelectedVendor(null);
+      return;
     }
+    if (selectedVendor?._id === watchedVendorId) return;
+    let alive = true;
+    resolveEntityByIds(ENTITY_KINDS.vendor, [watchedVendorId]).then((opts) => {
+      if (alive && opts[0]) setSelectedVendor(opts[0].raw);
+    });
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productOptions]);
+  }, [watchedVendorId]);
 
 
   useEffect(() => {
@@ -270,12 +216,15 @@ const PriceListForm = () => {
                     name="vendor_id"
                     control={control}
                     render={({ field }) => (
-                      <Select
-                        classNamePrefix="select"
-                        options={vendorOptions}
-                        value={vendorOptions.find((o) => o.value === field.value) || null}
-                        placeholder={t("Select vendor")}
-                        onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                      <EntitySearchSelect
+                        kind="vendor"
+                        value={field.value || null}
+                        placeholder={t("Search vendor")}
+                        isClearable={false}
+                        onChange={(opt) => {
+                          field.onChange(opt ? opt.value : "");
+                          setSelectedVendor(opt?.raw || null);
+                        }}
                         menuPortalTarget={document.body}
                         styles={{
                           menuPortal: (b) => ({ ...b, zIndex: 9999 }),
@@ -291,40 +240,22 @@ const PriceListForm = () => {
                 </Col>
 
                 <Col md="4" className="mb-2">
-                  <Label className="form-label d-flex justify-content-between align-items-center">
-                    <span>
-                      {t("Product")} <span className="text-danger">*</span>
-                    </span>
-                    {watchedVendorId && vendorHasCategories && (
-                      <small>
-                        <a
-                          href="#"
-                          className="text-decoration-none"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowAllProducts((s) => !s);
-                          }}
-                        >
-                          {showAllProducts
-                            ? t("Filter by vendor categories")
-                            : t("Show all products")}
-                        </a>
-                      </small>
-                    )}
+                  <Label className="form-label">
+                    {t("Product")} <span className="text-danger">*</span>
                   </Label>
                   <Controller
                     name="product_id"
                     control={control}
                     render={({ field }) => (
-                      <Select
-                        classNamePrefix="select"
-                        options={productOptions}
-                        value={productOptions.find((o) => o.value === field.value) || null}
+                      <EntitySearchSelect
+                        kind="product"
+                        value={field.value || null}
                         placeholder={
                           watchedVendorId
-                            ? t("Select product")
+                            ? t("Search product")
                             : t("Pick a vendor first")
                         }
+                        isClearable={false}
                         isDisabled={!watchedVendorId}
                         onChange={(opt) => {
                           field.onChange(opt ? opt.value : "");
@@ -351,20 +282,6 @@ const PriceListForm = () => {
                       />
                     )}
                   />
-                  {watchedVendorId && !vendorHasCategories && (
-                    <small className="text-warning d-block mt-1">
-                      {t(
-                        "This vendor has no categories set - showing all products."
-                      )}
-                    </small>
-                  )}
-                  {watchedVendorId &&
-                    vendorHasCategories &&
-                    !showAllProducts && (
-                      <small className="text-muted d-block mt-1">
-                        {t("Showing products matching this vendor's categories.")}
-                      </small>
-                    )}
                   {errors.product_id && (
                     <FormFeedback className="d-block">
                       {errors.product_id.message}

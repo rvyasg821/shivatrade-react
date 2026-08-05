@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Row, Col, Button, UncontrolledTooltip } from "reactstrap";
-import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import { Edit, PlusCircle, Upload, Download, Clock } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +13,6 @@ import {
   getPriceListList,
   cleanPriceListMessage,
 } from "@src/views/price-list/store";
-import { getProductDropdown } from "@src/views/products/store";
 import DatatablePagination from "@components/datatable/DatatablePagination";
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
@@ -29,7 +28,6 @@ const PriceListTab = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const store = useSelector((s) => s.priceList);
-  const productStore = useSelector((s) => s.product);
   const authStore = useSelector((s) => s.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -95,7 +93,6 @@ const PriceListTab = () => {
   );
 
   useEffect(() => {
-    dispatch(getProductDropdown());
     return () => {
       dispatch(cleanPriceListMessage(null));
     };
@@ -107,16 +104,6 @@ const PriceListTab = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, productFilter]);
 
-  const productOptions = useMemo(
-    () =>
-      (productStore?.productDropdown || []).map((p) => ({
-        value: p._id,
-        label: p.product_code
-          ? `${p.product_code} - ${p.name}`
-          : p.name,
-      })),
-    [productStore?.productDropdown]
-  );
 
   const rows = store?.priceListItems || [];
 
@@ -236,14 +223,11 @@ const PriceListTab = () => {
           used to sit), action buttons on the right. */}
       <Row className="mb-2 align-items-center g-1">
         <Col md="4" sm="6">
-          <Select
-            classNamePrefix="select"
+          <EntitySearchSelect
+            kind="product"
             placeholder={t("Filter by Product")}
             isClearable
-            options={productOptions}
-            value={
-              productOptions.find((o) => o.value === productFilter) || null
-            }
+            value={productFilter || null}
             onChange={(opt) => setProductFilter(opt ? opt.value : "")}
             menuPortalTarget={document.body}
             styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}

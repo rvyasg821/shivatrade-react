@@ -21,7 +21,7 @@ import {
   Spinner,
   Badge,
 } from "reactstrap";
-import Select from "react-select";
+import EntitySearchSelect from "@components/entity-select";
 import {
   ArrowLeft,
   Plus,
@@ -38,7 +38,6 @@ import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
-import { getVendorDropdown } from "@src/views/vendors/store";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -114,16 +113,6 @@ const ManageVendorPricing = () => {
     [vendorCurrencyCodeById, currencyByCode, currency]
   );
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.vendor_code
-          ? `${v.company_name} [${v.vendor_code}]`
-          : v.company_name,
-      })),
-    [vendorStore?.vendorDropdown]
-  );
 
   // Vendor ids already represented by a current row — keep the add-dropdown clean.
   const usedVendorIds = useMemo(
@@ -191,7 +180,6 @@ const ManageVendorPricing = () => {
   };
 
   useEffect(() => {
-    dispatch(getVendorDropdown());
     dispatch(getCurrencyDropdown());
     if (productId) loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -482,30 +470,35 @@ const ManageVendorPricing = () => {
                             </td>
                             <td>
                               {r._isNew ? (
-                                <Select
-                                  classNamePrefix="select"
+                                <EntitySearchSelect
+                                  kind="vendor"
                                   menuPortalTarget={document.body}
                                   styles={{
                                     menuPortal: (b) => ({ ...b, zIndex: 9999 }),
                                   }}
-                                  options={vendorOptions.filter(
-                                    (o) =>
-                                      o.value === vid ||
-                                      !usedVendorIds.has(o.value)
-                                  )}
-                                  value={
-                                    vendorOptions.find(
-                                      (o) => o.value === vid
-                                    ) || null
-                                  }
-                                  onChange={(opt) =>
+                                  isClearable={false}
+                                  value={vid || null}
+                                  onChange={(opt) => {
+                                    const v = opt ? opt.value : "";
+                                    // No duplicate vendor for this product.
+                                    if (v && v !== vid && usedVendorIds.has(v)) {
+                                      Notification(
+                                        "Validation",
+                                        t("This vendor is already in the list."),
+                                        "warning"
+                                      );
+                                      return;
+                                    }
+                                    setField(r._key, "vendor_id", v);
+                                    // Stamp the vendor's currency so the row
+                                    // resolves it without loading all vendors.
                                     setField(
                                       r._key,
-                                      "vendor_id",
-                                      opt ? opt.value : ""
-                                    )
-                                  }
-                                  placeholder={t("Select vendor")}
+                                      "currency_code",
+                                      opt?.raw?.currency_code || ""
+                                    );
+                                  }}
+                                  placeholder={t("Search vendor")}
                                 />
                               ) : (
                                 <div>

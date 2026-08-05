@@ -17,8 +17,7 @@ import {
   getPriceListList,
   cleanPriceListMessage,
 } from "./store";
-import { getVendorDropdown } from "../vendors/store";
-import { getProductDropdown } from "../products/store";
+import EntitySearchSelect from "@components/entity-select";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
@@ -31,7 +30,6 @@ import {
   CardBody,
   UncontrolledTooltip,
 } from "reactstrap";
-import Select from "react-select";
 
 // ** Custom
 import Notification from "@components/toast/notification";
@@ -63,8 +61,6 @@ const PriceListView = () => {
 
   const dispatch = useDispatch();
   const store = useSelector((state) => state.priceList);
-  const vendorStore = useSelector((state) => state.vendor);
-  const productStore = useSelector((state) => state.product);
   const authStore = useSelector((state) => state.auth);
   const authUserItem = authStore?.authUserItem || null;
 
@@ -155,8 +151,6 @@ const PriceListView = () => {
   };
 
   useLayoutEffect(() => {
-    dispatch(getVendorDropdown());
-    dispatch(getProductDropdown());
     window.scrollTo(0, 0);
   }, []);
 
@@ -230,25 +224,6 @@ const PriceListView = () => {
     onDone: () => handleList(),
   });
 
-  const vendorOptions = useMemo(
-    () =>
-      (vendorStore?.vendorDropdown || []).map((v) => ({
-        value: v._id,
-        label: v.vendor_code
-          ? `${v.company_name} [${v.vendor_code}]`
-          : v.company_name,
-      })),
-    [vendorStore?.vendorDropdown],
-  );
-
-  const productOptions = useMemo(
-    () =>
-      (productStore?.productDropdown || []).map((p) => ({
-        value: p._id,
-        label: `${p.code} - ${p.name}`,
-      })),
-    [productStore?.productDropdown],
-  );
 
   const formatNumber = (v) =>
     v !== null && v !== undefined && v !== ""
@@ -514,15 +489,11 @@ const PriceListView = () => {
                     />
                   </Col>
                   <Col sm="4" md="4" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="vendor"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Vendor")}
-                      options={vendorOptions}
-                      value={
-                        vendorOptions.find((o) => o.value === vendorFilter) ||
-                        null
-                      }
+                      value={vendorFilter || null}
                       onChange={(opt) => setVendorFilter(opt ? opt.value : "")}
                       menuPortalTarget={document.body}
                       styles={{
@@ -531,15 +502,11 @@ const PriceListView = () => {
                     />
                   </Col>
                   <Col sm="4" md="4" className="mb-2 mb-md-0">
-                    <Select
+                    <EntitySearchSelect
+                      kind="product"
                       isClearable
-                      classNamePrefix="select"
                       placeholder={t("Filter by Product")}
-                      options={productOptions}
-                      value={
-                        productOptions.find((o) => o.value === productFilter) ||
-                        null
-                      }
+                      value={productFilter || null}
                       onChange={(opt) => setProductFilter(opt ? opt.value : "")}
                       menuPortalTarget={document.body}
                       styles={{
