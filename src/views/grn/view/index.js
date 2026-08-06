@@ -36,6 +36,7 @@ import { openPdfViewer } from "@src/utility/pdf";
 import { downloadExcel } from "@src/utility/excel";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const STATUS_COLOR = {
   draft: "secondary",
@@ -92,6 +93,8 @@ const GrnView = () => {
         part_no: l.part_no,
         hsn_code: l.hsn_code,
         unit: l.unit,
+        // Agreed price (vendor currency) — drives the read-only Price/Amount.
+        unit_price: l.unit_price,
         dispatched_qty: remaining.toFixed(2),
         received_qty: remaining.toFixed(2),
         accepted_qty: remaining.toFixed(2),
@@ -107,6 +110,8 @@ const GrnView = () => {
       po_vendor_id: pov._id,
       po_vendor_voucher_no: pov.voucher_no,
       purchase_order_voucher_no: pov.purchase_order_voucher_no,
+      // Vendor currency of the POV — the Price column renders in it.
+      currency_code: pov.currency_code,
       grn_date: null,
       lines,
     });
@@ -188,6 +193,7 @@ const GrnView = () => {
     let received = 0;
     let rejected = 0;
     let pending = 0;
+    let amount = 0;
     for (const l of lines) {
       // This GRN's share of dispatched = full dispatched − other GRNs' accounted.
       const base = Math.max(
@@ -201,8 +207,10 @@ const GrnView = () => {
       received += acc;
       rejected += rej;
       pending += Math.max(0, base - acc - rej);
+      // Amount = received (good) qty × unit price (vendor currency).
+      amount += acc * num(l.unit_price);
     }
-    return { dispatched, received, rejected, pending };
+    return { dispatched, received, rejected, pending, amount };
   }, [lines, qc]);
 
   const setField = (lineId, field, value) =>
@@ -227,6 +235,18 @@ const GrnView = () => {
   // Pending = base − Received(good) − Rejected. Never negative.
   const pendingOf = (l) =>
     Math.max(0, r4(baseOf(l) - acceptedOf(l) - rejectedOf(l)));
+
+  // Read-only pricing (vendor currency, from the source POV line): Price is the
+  // agreed unit rate; Amount = Received(good) qty × Price — the value that will
+  // post to the vendor ledger when the GRN is confirmed.
+  const sym = getCurrencySymbol(grn?.currency_code || "INR") || "";
+  const priceOf = (l) => num(l.unit_price);
+  const amountOf = (l) => acceptedOf(l) * priceOf(l);
+  const money = (n) =>
+    num(n).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   const onReceivedChange = (l, raw) => {
     const base = baseOf(l);
@@ -501,6 +521,13 @@ const GrnView = () => {
                   <th className="text-end" style={{ width: 90 }}>
                     {t("Pending")}
                   </th>
+                  <th className="text-end" style={{ width: 110 }}>
+                    {t("Price")}
+                    {grn?.currency_code ? ` (${grn.currency_code})` : ""}
+                  </th>
+                  <th className="text-end" style={{ width: 120 }}>
+                    {t("Amount")}
+                  </th>
                   <th style={{ width: 130 }}>{t("Batch")}</th>
                   <th style={{ minWidth: 150 }}>{t("Remarks")}</th>
                 </tr>
@@ -581,6 +608,15 @@ const GrnView = () => {
                           <span className="text-muted"> {l.unit}</span>
                         ) : null}
                       </td>
+                      {/* Read-only: agreed unit price + received-value (Amount). */}
+                      <td className="text-end text-nowrap">
+                        {sym}
+                        {money(priceOf(l))}
+                      </td>
+                      <td className="text-end text-nowrap fw-semibold">
+                        {sym}
+                        {money(amountOf(l))}
+                      </td>
                       <td>
                         <Input
                           bsSize="sm"
@@ -618,6 +654,11 @@ const GrnView = () => {
                   <td className="text-end">{totals.received.toFixed(2)}</td>
                   <td className="text-end">{totals.rejected.toFixed(2)}</td>
                   <td className="text-end">{totals.pending.toFixed(2)}</td>
+                  <td />
+                  <td className="text-end">
+                    {sym}
+                    {money(totals.amount)}
+                  </td>
                   <td colSpan={2} />
                 </tr>
               </tfoot>

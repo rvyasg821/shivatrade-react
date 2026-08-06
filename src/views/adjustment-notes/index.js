@@ -98,6 +98,7 @@ const SOURCE_LABELS = {
   adjustment: "Adjustment Note",
   receipt: "Customer Receipt",
   payment: "Vendor Payment",
+  grn: "Goods Received (GRN)",
 };
 
 const AdjustmentNotes = () => {
@@ -330,9 +331,11 @@ const AdjustmentNotes = () => {
     { name: t("Date"), selector: (r) => dateOnly(r?.date) },
     {
       name: t("Source"),
-      minWidth: "150px",
+      minWidth: "200px",
       selector: (r) => (
-        <span className="text-nowrap">{SOURCE_LABELS[r?.source] || "-"}</span>
+        <span className="text-nowrap pe-3">
+          {SOURCE_LABELS[r?.source] || "-"}
+        </span>
       ),
     },
     {
@@ -340,7 +343,7 @@ const AdjustmentNotes = () => {
       grow: 3,
       minWidth: "220px",
       selector: (r) => (
-        <div className="py-50">
+        <div className="py-50 ps-1">
           <Badge className="doc-badge doc-badge-gray text-capitalize">
             {r?.party_type}
           </Badge>

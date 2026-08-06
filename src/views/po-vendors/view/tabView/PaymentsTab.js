@@ -114,12 +114,12 @@ const PaymentsTab = ({ registerActions }) => {
   const perms = authUserItem?.role?.permissions?.["po-vendors"];
   const canUpdate = isAdmin || perms?.can_all || perms?.can_update;
   // Payments run independently of dispatch — allowed in any non-cancelled
-  // status (incl. draft); blocked only once the POV is cancelled.
+  // status (incl. draft); blocked only once the POV is cancelled. There is no
+  // GRN lock: Record Payment is always available on a live POV.
   const canPay = canUpdate && statusLower !== "cancelled";
-  // Payments are blocked until goods are received (a GRN exists) — UNLESS the
-  // POV already has an advance/payment (amount_paid > 0), in which case the
-  // advance flow has started and further payments are free.
-  const paymentsUnlocked = !!p?.has_grn || num(p?.amount_paid) > 0;
+  // The KPI summary cards, however, stay hidden until goods are received
+  // (a GRN exists) — the balance/status figures only make sense once received.
+  const showKpis = !!p?.has_grn;
 
   const orderValue = num(p?.order_value);
   const paidToDate = num(p?.amount_paid);
@@ -299,36 +299,20 @@ const PaymentsTab = ({ registerActions }) => {
     if (!registerActions) return undefined;
     registerActions(
       canPay ? (
-        <Button
-          color="success"
-          size="sm"
-          onClick={openModal}
-          disabled={!paymentsUnlocked}
-          title={
-            paymentsUnlocked
-              ? undefined
-              : t("Record a GRN (goods receipt) before recording a payment.")
-          }
-        >
+        <Button color="success" size="sm" onClick={openModal}>
           <DollarSign size={14} className="me-50" /> {t("Record Payment")}
         </Button>
       ) : null
     );
     return () => registerActions(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canPay, balance, paymentsUnlocked]);
+  }, [canPay, balance]);
 
   return (
     <Fragment>
-      {canPay && !paymentsUnlocked ? (
-        <div className="alert alert-warning py-1 px-2 small mb-2" role="alert">
-          {t(
-            "Payments are locked until a GRN (goods receipt) is recorded for this POV. Advances paid before goods are added when the POV is created."
-          )}
-        </div>
-      ) : null}
-      {/* Money position summary — hidden until payments unlock (a GRN exists). */}
-      {paymentsUnlocked && (
+      {/* Money position summary (KPIs) — hidden until a GRN (goods receipt)
+          exists; the Record Payment button stays available regardless. */}
+      {showKpis && (
       <Row className="g-1 mb-2">
         <Col md="3" sm="6">
           <div className="border rounded p-1 h-100">
