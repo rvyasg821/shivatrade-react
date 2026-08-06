@@ -17,11 +17,17 @@ import { openPdfViewer } from "@src/utility/pdf";
 import { downloadExcel } from "@src/utility/excel";
 import { appsRoot, isAdminUser } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+const money = (n) =>
+  num(n).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const STATUS_COLOR = {
   draft: "#6c757d",
@@ -130,12 +136,20 @@ const GrnsTab = ({ registerActions }) => {
               <th style={{ minWidth: 220 }} className="text-nowrap">
                 {t("GRN")}
               </th>
-              <th style={{ width: 140 }}>{t("Date")}</th>
+              <th style={{ width: 140 }} className="text-nowrap">
+                {t("Date")}
+              </th>
               <th style={{ width: 100 }} className="text-end">
                 {t("Received")}
               </th>
               <th style={{ width: 100 }} className="text-end">
                 {t("Rejected")}
+              </th>
+              <th style={{ width: 110 }} className="text-end text-nowrap">
+                {t("Unit Price")}
+              </th>
+              <th style={{ width: 120 }} className="text-end">
+                {t("Total")}
               </th>
               <th style={{ width: 130 }} className="text-center">
                 {t("Status")}
@@ -164,7 +178,9 @@ const GrnsTab = ({ registerActions }) => {
                       <ExternalLink size={12} className="ms-25" />
                     </Link>
                   </td>
-                  <td>{g.grn_date ? formatDate(g.grn_date) : "-"}</td>
+                  <td className="text-nowrap">
+                    {g.grn_date ? formatDate(g.grn_date) : "-"}
+                  </td>
                   <td className="text-end">{num(g.received_qty).toFixed(2)}</td>
                   <td className="text-end">
                     {num(g.rejected_qty) > 0 ? (
@@ -174,6 +190,22 @@ const GrnsTab = ({ registerActions }) => {
                     ) : (
                       num(g.rejected_qty).toFixed(2)
                     )}
+                  </td>
+                  <td className="text-end text-nowrap">
+                    {g.unit_price != null && g.unit_price !== "" ? (
+                      <>
+                        {getCurrencySymbol(g.currency_code || "INR") || ""}
+                        {money(g.unit_price)}
+                      </>
+                    ) : (
+                      <span className="text-muted" title={t("Lines have different prices")}>
+                        {t("Mixed")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-end text-nowrap fw-semibold">
+                    {getCurrencySymbol(g.currency_code || "INR") || ""}
+                    {money(g.total_value)}
                   </td>
                   <td className="text-center">
                     <span
