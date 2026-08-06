@@ -574,6 +574,27 @@ const CostingWorksheet = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productIdsKey]);
 
+  // Auto-select the cheapest matching-currency vendor for any line that has a
+  // product + a price-listed vendor but NO vendor yet. Fresh product picks and
+  // vendor-currency changes already auto-select; this covers lines that arrived
+  // PRE-LOADED (seeded from a lead/RFQ, bulk-imported, or edit-hydrated) and so
+  // never went through the pick flow. Only fills EMPTY vendors — never overrides
+  // an existing pick — and only when a vendor currency is chosen. Keyed off the
+  // loaded vendor lists + currency so it doesn't loop after it sets a vendor.
+  useEffect(() => {
+    if (readOnly || !vendorCurrency) return;
+    (liveLines || []).forEach((l, idx) => {
+      if (!l?.product_id || l?.vendor_id) return; // only empty-vendor lines
+      const opts = vendorsByProduct[l.product_id];
+      if (!Array.isArray(opts) || !opts.length) return; // not loaded / none
+      const match = opts.find(
+        (o) => (o.raw?.currency_code || "INR").toUpperCase() === vendorCurrency
+      );
+      if (match) onPickVendor(idx, match);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorsByProduct, vendorCurrency, productIdsKey, readOnly]);
+
   // Backfill per-unit master weights onto lines that already carry a product
   // (seeded from an RFQ/lead, bulk-imported, or hydrated for edit) but never
   // captured them through the picker — then auto-fill each empty weight /
