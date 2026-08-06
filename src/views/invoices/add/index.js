@@ -2038,10 +2038,12 @@ const InvoiceAddEdit = () => {
                   // the snapshot is the source of truth for this party.
                   value={
                     form[idKey]
-                      ? {
-                          value: form[idKey],
-                          label: snap.name || t("(customer)"),
-                        }
+                      ? snap.name
+                        ? { value: form[idKey], label: snap.name }
+                        : // No snapshot name yet — pass the bare id so
+                          // EntitySearchSelect resolves the real label via ?ids=
+                          // instead of showing a generic "(customer)".
+                          form[idKey]
                       : null
                   }
                   onChange={(opt) => {
