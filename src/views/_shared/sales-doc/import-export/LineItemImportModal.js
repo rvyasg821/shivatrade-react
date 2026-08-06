@@ -54,6 +54,9 @@ const LineItemImportModal = ({
   // Quotation & Sales Order use the costing-worksheet sheet (aliased headers +
   // per-code expense/rebate value columns). PFI / Lead keep the legacy sheet.
   const isCosting = docType === "quotation" || docType === "po";
+  // Leads are a plain requirement list — no vendor / pricing. Hide every
+  // vendor-related hint and the Vendor preview column for them.
+  const isLead = docType === "lead";
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -240,7 +243,11 @@ const LineItemImportModal = ({
                   )}
                 </li>
                 <li>
-                  {isCosting
+                  {isLead
+                    ? t(
+                        "Required columns: product_code, qty. Optional: hs_code, part_no, customer_reference, description. A lead has no vendor or pricing.",
+                      )
+                    : isCosting
                     ? t(
                         "Required columns: productcode, qty. vendorcode is optional — blank falls back to the cheapest active vendor.",
                       )
@@ -248,15 +255,17 @@ const LineItemImportModal = ({
                         "Required columns: product_code, qty. vendor_code is optional — blank falls back to the cheapest active vendor.",
                       )}
                 </li>
-                <li>
-                  {isCosting
-                    ? t(
-                        "Each expense/rebate code is its own column (e.g. PKC, TPC(%), DBK). Type an amount to apply it to that line — the typed value overrides the master; leave blank to skip. Computed columns (price/disc, value, grand total…) are ignored on import.",
-                      )
-                    : t(
-                        "Header row repeats the columns 'rebate' and 'expense'. Put a rebate/expense code (e.g. DBK, RODTEP, CHA) under each cell to attach it to the line; leave blank to skip.",
-                      )}
-                </li>
+                {!isLead && (
+                  <li>
+                    {isCosting
+                      ? t(
+                          "Each expense/rebate code is its own column (e.g. PKC, TPC(%), DBK). Type an amount to apply it to that line — the typed value overrides the master; leave blank to skip. Computed columns (price/disc, value, grand total…) are ignored on import.",
+                        )
+                      : t(
+                          "Header row repeats the columns 'rebate' and 'expense'. Put a rebate/expense code (e.g. DBK, RODTEP, CHA) under each cell to attach it to the line; leave blank to skip.",
+                        )}
+                  </li>
+                )}
                 <li>
                   {isCosting
                     ? t(
@@ -267,9 +276,13 @@ const LineItemImportModal = ({
                       )}
                 </li>
                 <li>
-                  {t(
-                    "Rows matching an existing line (by product_code + vendor_code) will update that line — no duplicates are created.",
-                  )}
+                  {isLead
+                    ? t(
+                        "Rows matching an existing line (by product_code) will update that line — no duplicates are created.",
+                      )
+                    : t(
+                        "Rows matching an existing line (by product_code + vendor_code) will update that line — no duplicates are created.",
+                      )}
                 </li>
                 <li>{t("Accepts .xlsx, .xls or .csv files.")}</li>
               </ol>
@@ -364,7 +377,7 @@ const LineItemImportModal = ({
                       <th>#</th>
                       <th>{t("Status")}</th>
                       <th>{t("Product")}</th>
-                      <th>{t("Vendor")}</th>
+                      {!isLead && <th>{t("Vendor")}</th>}
                       <th>{t("Details")}</th>
                     </tr>
                   </thead>
@@ -393,7 +406,11 @@ const LineItemImportModal = ({
                             </div>
                           ) : null}
                         </td>
-                        <td className="small">{r.data?.vendor_code || "—"}</td>
+                        {!isLead && (
+                          <td className="small">
+                            {r.data?.vendor_code || "—"}
+                          </td>
+                        )}
                         <td className="small">
                           {r.errors?.length ? (
                             <div className="text-danger">

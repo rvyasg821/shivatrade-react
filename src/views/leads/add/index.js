@@ -228,58 +228,9 @@ const LeadForm = () => {
 
   const watchCurrency = useWatch({ control, name: "currency" });
 
-  // Expected Value (multi-currency). Auto = Σ(qty × native unit_price ×
-  // cost_exchange_rate) — the items table total, already in the LEAD currency
-  // (each line converted source→lead by the grid). Stored NATIVE in the lead
-  // currency. A manual override is held in the lead currency too; null override
-  // → auto (tracks the items), a number → the operator's value.
-  const watchLines = useWatch({ control, name: "lines" });
-  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-  const lineDocTotal = (list) =>
-    (list || []).reduce(
-      (s, l) =>
-        s +
-        (Number(l.qty) || 0) *
-          (Number(l.unit_price) || 0) *
-          (Number(l.cost_exchange_rate) || 1),
-      0
-    );
-  const docTotalForExpected = useMemo(
-    () => lineDocTotal(watchLines),
-    [watchLines]
-  );
-  const [manualExpected, setManualExpected] = useState(null);
-  const expectedBase =
-    manualExpected != null ? manualExpected : docTotalForExpected;
-  const expectedDisplay = expectedBase ? String(round2(expectedBase)) : "";
-  // Live auto value (lead currency) — shown as a hint when overridden.
-  const autoExpectedDisplay = round2(docTotalForExpected);
-  const onExpectedChange = (text) => {
-    if (text === "") {
-      setManualExpected(null);
-      return;
-    }
-    const doc = Number(text);
-    setManualExpected(Number.isFinite(doc) ? doc : null);
-  };
-
-  // On opening an existing lead: if the saved Expected Value (INR) differs
-  // from the line-items total, it was a manual override — restore it so the
-  // operator's value isn't lost; otherwise leave it on auto.
-  useEffect(() => {
-    if (!isEditMode) {
-      setManualExpected(null);
-      return;
-    }
-    const stored = Number(store?.leadItem?.expected_value);
-    const linesDoc = lineDocTotal(store?.leadItem?.lines);
-    if (Number.isFinite(stored) && Math.abs(stored - linesDoc) > 0.01) {
-      setManualExpected(stored);
-    } else {
-      setManualExpected(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, store?.leadItem?._id]);
+  // Expected Value is a plain manual figure (lead currency) entered by the
+  // operator — bound directly to the form field. (The old auto-from-line-items
+  // computation was removed with lead line pricing: a lead has no prices.)
 
   useLayoutEffect(() => {
     dispatch(getProductDropdown());
@@ -439,8 +390,11 @@ const LeadForm = () => {
       assigned_to: data.assigned_to || undefined,
       currency: data.currency || undefined,
       country_code: data.country_code || undefined,
-      // Stored in base (INR): the override if set, else the line-items total.
-      expected_value: expectedBase > 0 ? expectedBase : undefined,
+      // Operator-entered expected deal value (lead currency).
+      expected_value:
+        data.expected_value === "" || data.expected_value == null
+          ? undefined
+          : Number(data.expected_value),
       // Requirement line items (quotation line shape — managed by the shared
       // SalesDocLineItems component). Deprecated interested_* arrays are
       // omitted so legacy values on existing leads are preserved.
@@ -882,34 +836,21 @@ const LeadForm = () => {
                     {t("Expected Value")} (
                     {getCurrencySymbol(watchCurrency || "INR") || "₹"})
                   </Label>
-                  <Input
-                    id="expected_value"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder={t("Auto from items; editable")}
-                    value={expectedDisplay}
-                    onChange={(e) => onExpectedChange(e.target.value)}
+                  <Controller
+                    name="expected_value"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="expected_value"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder={t("Expected deal value")}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    )}
                   />
-                  {manualExpected != null && (
-                    <small className="text-muted d-block mt-25">
-                      {t("Manual")} · {t("auto is")}{" "}
-                      {getCurrencySymbol(watchCurrency || "INR") || "₹"}
-                      {autoExpectedDisplay.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setManualExpected(null);
-                        }}
-                      >
-                        {t("Reset to auto")}
-                      </a>
-                    </small>
-                  )}
                 </Col>
                 <Col md="3" className="mb-2">
                   <Label className="form-label" for="delivery_expectation">
