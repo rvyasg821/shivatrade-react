@@ -97,12 +97,11 @@ const DispatchPoVendor = () => {
     setSeeded(true);
   }, [p, id, lines, seeded]);
 
-  const { totals, totalShort, shortLineCount, overLineCount } = useMemo(() => {
+  const { totals, totalShort, shortLineCount } = useMemo(() => {
     let ordered = 0;
     let dispatched = 0;
     let totalShort = 0;
     let shortLineCount = 0;
-    let overLineCount = 0;
     for (const l of lines) {
       const ord = num(l.ordered_qty);
       const dsp = num(qtyByLine[l._id]);
@@ -112,15 +111,12 @@ const DispatchPoVendor = () => {
       if (diff > 1e-6) {
         totalShort += diff;
         shortLineCount += 1;
-      } else if (diff < -1e-6) {
-        overLineCount += 1;
       }
     }
     return {
       totals: { ordered, dispatched },
       totalShort,
       shortLineCount,
-      overLineCount,
     };
   }, [lines, qtyByLine]);
 
@@ -152,14 +148,8 @@ const DispatchPoVendor = () => {
       Notification("Validation", closedPeriodMessage(booksClosedUpto, t("dispatch date")), "warning");
       return;
     }
-    if (overLineCount > 0) {
-      Notification(
-        "Validation",
-        t("Dispatched quantity cannot exceed ordered quantity on any line."),
-        "warning"
-      );
-      return;
-    }
+    // Over-dispatch (dispatched > ordered) is allowed (client 2026-08-06) — the
+    // vendor can send more than ordered; no cap here.
     setSubmitting(true);
     try {
       const payload = {
@@ -330,7 +320,7 @@ const DispatchPoVendor = () => {
               {t("Per-line Dispatched Quantity")}
             </Label>
             <small className="text-muted">
-              {t("Edit if under-dispatch. Cannot exceed ordered.")}
+              {t("Edit the dispatched qty — over- or under-dispatch is allowed.")}
             </small>
           </div>
 
@@ -358,7 +348,6 @@ const DispatchPoVendor = () => {
                   const ordered = num(l.ordered_qty);
                   const dispatched = num(qtyByLine[l._id]);
                   const short = ordered - dispatched;
-                  const over = short < -1e-6;
                   const sub = [
                     l?.part_no ? `Part: ${l.part_no}` : null,
                     l?.hsn_code ? `HSN: ${l.hsn_code}` : null,
@@ -382,11 +371,9 @@ const DispatchPoVendor = () => {
                         <Input
                           type="number"
                           min="0"
-                          max={ordered}
                           step="any"
                           bsSize="sm"
                           className="text-end"
-                          invalid={over}
                           disabled={locked}
                           value={qtyByLine[l._id] ?? ""}
                           onChange={(e) =>
@@ -523,7 +510,7 @@ const DispatchPoVendor = () => {
           <Button
             color="primary"
             onClick={onSubmit}
-            disabled={submitting || overLineCount > 0 || locked}
+            disabled={submitting || locked}
           >
             {submitting ? (
               <Spinner size="sm" className="me-50" />

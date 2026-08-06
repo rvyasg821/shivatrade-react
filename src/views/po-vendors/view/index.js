@@ -181,9 +181,13 @@ const ViewPoVendor = () => {
   // Cancel is only available before dispatch — once goods are dispatched the
   // POV can no longer be cancelled from the detail page.
   const canCancel = canUpdate && statusLower === "draft";
-  // A cancelled POV (no dispatch/receipt activity) can be put back to draft so
-  // its quantities are re-reserved against the PO.
-  const canRevert = canUpdate && statusLower === "cancelled";
+  // Revert to draft: a CANCELLED POV, or a DISPATCHED one whose goods haven't
+  // been received yet (no GRN) — reverting undoes the dispatch. Once a GRN
+  // exists the receipt is immutable, so the button is hidden.
+  const canRevert =
+    canUpdate &&
+    (statusLower === "cancelled" ||
+      (statusLower === "dispatched" && !p?.has_grn));
   // Re-order what this POV never delivered. `has_balance` is computed on the
   // detail response — it nets off any balance POV already raised from this one,
   // and caps a PO-backed line at the parent PO line's pending.
@@ -221,16 +225,23 @@ const ViewPoVendor = () => {
   };
 
   const handleRevert = () => {
+    const fromDispatched = statusLower === "dispatched";
     mySwal
       .fire({
         title: t("Revert this POV to draft?"),
-        text: t(
-          "Its ordered quantities will be re-reserved against the PO. Only possible if they haven't been re-issued on another POV."
-        ),
+        text: fromDispatched
+          ? t(
+              "This undoes the dispatch (dispatched quantities are cleared) and returns the POV to draft. Only possible before any goods are received (no GRN)."
+            )
+          : t(
+              "Its ordered quantities will be re-reserved against the PO. Only possible if they haven't been re-issued on another POV."
+            ),
         icon: "question",
         showCancelButton: true,
         confirmButtonText: t("Yes, revert to draft"),
-        cancelButtonText: t("Keep cancelled"),
+        cancelButtonText: fromDispatched
+          ? t("Keep dispatched")
+          : t("Keep cancelled"),
         customClass: {
           confirmButton: "btn btn-primary",
           cancelButton: "btn btn-outline-secondary ms-1",

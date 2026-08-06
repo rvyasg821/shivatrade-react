@@ -330,10 +330,7 @@ const EditPoVendor = () => {
         Notification("Validation", t("Pick a delivery address."), "warning");
         return;
       }
-      if (!invoiceNumber.trim()) {
-        Notification("Validation", t("Invoice number is required."), "warning");
-        return;
-      }
+      // Invoice number is OPTIONAL — sent as-is (may be blank).
       data.invoice_number = invoiceNumber.trim();
       data.delivery_address_id = deliveryAddressId;
       // Omitted when blank — the DTO validates it as a date string, so ""
@@ -804,12 +801,10 @@ const EditPoVendor = () => {
                 conversion rate is needed. */}
           </Row>
 
-          {/* Vendor's invoice number — required (draft-only edit). */}
+          {/* Vendor's invoice number — optional (draft-only edit). */}
           <Row>
             <Col md="6" className="mb-1">
-              <Label className="form-label">
-                {t("Invoice Number")} <span className="text-danger">*</span>
-              </Label>
+              <Label className="form-label">{t("Invoice Number")}</Label>
               <Input
                 maxLength={120}
                 disabled={!isDraft}

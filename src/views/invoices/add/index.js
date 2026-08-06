@@ -419,34 +419,15 @@ const InvoiceAddEdit = () => {
     lines.find((l) => l.source_currency_code)?.source_currency_code || docCur
   ).toUpperCase();
   const costRateSame = srcCur === docCur;
-  // Lines that actually convert (source ≠ document). If they carry MORE THAN ONE
-  // distinct cost_exchange_rate — e.g. lines pulled from two SOs frozen at
-  // different rates — the single doc-level box can't represent them all, so it
-  // shows "Mixed" instead of misleadingly showing just the first line's rate.
-  // Per-line rates remain authoritative (edit each in its Line Details popup);
-  // this box is only a "set every line to one rate" shortcut.
-  const convertingRates = Array.from(
-    new Set(
-      lines
-        .filter(
-          (l) =>
-            (l.source_currency_code || docCur).toUpperCase() !== docCur
-        )
-        .map((l) => String(l.cost_exchange_rate ?? "1"))
-    )
-  );
-  const costRateMixed = convertingRates.length > 1;
+  // ONE source→document exchange rate for the WHOLE invoice — every line shares
+  // it (no per-line rate). The box shows/edits it and writes it to all lines.
   const costRateVal = costRateSame
     ? "1"
-    : costRateMixed
-      ? ""
-      : String(
-          lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
-        );
+    : String(
+        lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
+      );
   const onCostRateChange = (text) => {
-    setLines((prev) =>
-      prev.map((l) => ({ ...l, cost_exchange_rate: text }))
-    );
+    setLines((prev) => prev.map((l) => ({ ...l, cost_exchange_rate: text })));
   };
 
   // GST route defaults by currency: a FOREIGN (export) invoice defaults to
@@ -2662,19 +2643,15 @@ const InvoiceAddEdit = () => {
         <div className="d-flex justify-content-between align-items-center mt-2 mb-2 flex-wrap gap-2">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <h5 className="mb-0">{t("Line Items")}</h5>
-            {/* Exchange Rate — set-all shortcut. Each line carries its OWN
-                frozen source→document rate (edit per line in Line Details).
-                Typing here overwrites every line to one rate. When lines hold
-                different rates (e.g. from two SOs) it shows "Mixed" rather than
-                misrepresenting them with the first line's rate. */}
+            {/* ONE source→invoice-currency exchange rate for the whole invoice —
+                applies to every line. Disabled (fixed at 1) when the vendor and
+                invoice currencies match. */}
             <div
               className="d-flex align-items-center gap-1"
               title={
                 costRateSame
                   ? t("Same currency — no conversion.")
-                  : costRateMixed
-                    ? t("Lines have different rates — type to set them all.")
-                    : t("Source → invoice currency · sets every line.")
+                  : t("Source → invoice currency · applies to every line.")
               }
             >
               <Label className="form-label mb-0 small text-nowrap">
@@ -2689,15 +2666,10 @@ const InvoiceAddEdit = () => {
                 style={{ width: 110 }}
                 disabled={costRateSame}
                 value={costRateVal}
-                placeholder={costRateMixed ? t("Mixed") : "0"}
+                placeholder="0"
                 onChange={(e) => onCostRateChange(e.target.value)}
               />
               <span className="text-nowrap small">{docCur}</span>
-              {costRateMixed && (
-                <span className="text-warning small text-nowrap">
-                  ({t("Mixed")})
-                </span>
-              )}
             </div>
           </div>
           <div className="d-flex flex-wrap gap-1">
@@ -3943,7 +3915,6 @@ const InvoiceAddEdit = () => {
           toggle={() => setCostingModal({ open: false, idx: null })}
           line={lines[costingModal.idx]}
           onChange={(patch) => updateLine(costingModal.idx, patch)}
-          docCurrency={docCur}
           rebateOptions={rebateOptions}
           expenseOptions={expenseOptions}
         />
@@ -3973,29 +3944,12 @@ const CostingModal = ({
   toggle,
   line,
   onChange,
-  docCurrency,
   rebateOptions,
   expenseOptions,
 }) => {
   const { t } = useTranslation();
   const rebates = line?.product_rebates_snapshot || [];
   const expenses = line?.product_expenses_snapshot || [];
-
-  // ── Exchange Rate (per line) ─────────────────────────────────────────
-  // This line's frozen source→document rate (line total = qty × price ×
-  // cost_exchange_rate × …). Each line carries its OWN rate, snapshotted from
-  // its source SO — so a line added from another SO with a different rate keeps
-  // that rate. Editable here per line; disabled at 1 when the line's source
-  // currency already equals the invoice currency (no conversion).
-  const lineSrcCur = (line?.source_currency_code || docCurrency || "INR")
-    .toUpperCase();
-  const lineDocCur = (docCurrency || "INR").toUpperCase();
-  const rateSameCur = lineSrcCur === lineDocCur;
-  const setLineRate = (v) => {
-    if (v === "") return onChange({ cost_exchange_rate: "" });
-    const n = Math.max(0, num(v));
-    onChange({ cost_exchange_rate: String(n) });
-  };
 
   // ── Discount ─────────────────────────────────────────────────────────
   // `discount_pct` is a plain number on the line and is always present (0 when
@@ -4108,33 +4062,6 @@ const CostingModal = ({
         <code className="ms-1">{line?.product_code || line?.product_name}</code>
       </ModalHeader>
       <ModalBody>
-        {/* ── Exchange Rate (this line) ────────────────────────────── */}
-        <Label className="form-label fw-bold mb-1">{t("Exchange Rate")}</Label>
-        <Row className="align-items-center g-1 mb-2">
-          <Col md="7">
-            <div className="d-flex align-items-center gap-1">
-              <span className="text-nowrap small">1 {lineSrcCur} =</span>
-              <Input
-                type="number"
-                step="any"
-                min="0"
-                disabled={rateSameCur}
-                value={rateSameCur ? "1" : line?.cost_exchange_rate ?? ""}
-                onChange={(e) => setLineRate(e.target.value)}
-                placeholder="0"
-              />
-              <span className="text-nowrap small">{lineDocCur}</span>
-            </div>
-          </Col>
-          <Col md="5" className="small text-muted">
-            {rateSameCur
-              ? t("Same currency — no conversion.")
-              : t("This line's source → invoice rate (from its SO).")}
-          </Col>
-        </Row>
-
-        <hr className="my-2" />
-
         {/* ── Discount ─────────────────────────────────────────────── */}
         <div className="d-flex align-items-center justify-content-between mb-1">
           <Label className="form-label fw-bold mb-0">{t("Discount")}</Label>
