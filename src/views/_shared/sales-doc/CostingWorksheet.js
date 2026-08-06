@@ -136,6 +136,38 @@ const EditableCell = ({
   );
 };
 
+// Vendor picker cell — the price-listed + in-currency vendor list is already
+// loaded client-side, so instead of dumping ALL of them in the menu this shows
+// only the first 10 and filters as you type (mirrors the searchable dropdowns'
+// 10-count behaviour). Priced vendors sort first, so they stay visible.
+const VENDOR_MENU_CAP = 10;
+const WorksheetVendorSelect = ({ options, ...rest }) => {
+  const { t } = useTranslation();
+  const [input, setInput] = useState("");
+  const shown = useMemo(() => {
+    const term = input.trim().toLowerCase();
+    const list = term
+      ? (options || []).filter((o) =>
+          String(o.label || "").toLowerCase().includes(term)
+        )
+      : options || [];
+    return list.slice(0, VENDOR_MENU_CAP);
+  }, [options, input]);
+  return (
+    <Select
+      {...rest}
+      options={shown}
+      // We do the filtering + capping ourselves, so disable react-select's own.
+      filterOption={() => true}
+      onInputChange={(v, meta) => {
+        if (meta.action === "input-change") setInput(v);
+      }}
+      onMenuClose={() => setInput("")}
+      noOptionsMessage={() => (input ? t("No matches") : t("Type to search"))}
+    />
+  );
+};
+
 const CostingWorksheet = ({
   control,
   setValue,
@@ -1259,7 +1291,7 @@ const CostingWorksheet = ({
                       />
                     </td>
                     <td>
-                      <Select
+                      <WorksheetVendorSelect
                         classNamePrefix="select"
                         menuPortalTarget={document.body}
                         styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
