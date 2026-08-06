@@ -48,14 +48,16 @@ import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValue
 // ** Import/Export
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { getCurrencySymbol } from "@src/utility/currency";
 import ImportModal from "./components/ImportModal";
 
 // Currency symbol for the price column. ₹ for INR (the base currency) or when
 // no code is set; otherwise prefix the ISO code so non-INR prices stay clear.
-const CURRENCY_SYMBOLS = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
 const curSym = (code) => {
   const c = (code || "INR").toUpperCase();
-  return CURRENCY_SYMBOLS[c] || `${c} `;
+  // Shared resolver (configured currencies + broad ISO fallback, e.g. CNY → ¥);
+  // only a genuinely unknown code shows the ISO code prefix.
+  return getCurrencySymbol(c) || `${c} `;
 };
 
 const ProductList = () => {

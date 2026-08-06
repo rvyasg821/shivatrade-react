@@ -6,20 +6,18 @@
  * exactly so the costing card preview matches what the server will store.
  */
 
-import { EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
+import { getCurrencySymbol } from "@src/utility/currency";
 
 export const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
-// Currency code → symbol. INR is the home currency; foreign symbols come
-// from the shared exchange-target list. Falls back to the code itself.
-const CURRENCY_SYMBOLS = { INR: "₹" };
-EXCHANGE_TO_CURRENCY_OPTIONS.forEach((o) => {
-  CURRENCY_SYMBOLS[o.value] = o.symbol;
-});
-export const currencySymbol = (code) => CURRENCY_SYMBOLS[code] || code || "";
+// Currency code → symbol. Delegates to the single shared resolver (which knows
+// the configured currencies + a broad ISO fallback, so e.g. CNY → ¥, not the
+// bare code). Only a genuinely unknown code falls back to the code itself.
+export const currencySymbol = (code) =>
+  getCurrencySymbol(code) || code || "";
 
 export const round2 = (n) =>
   Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
