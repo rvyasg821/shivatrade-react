@@ -19,6 +19,7 @@ import { getCurrencySymbol } from "@src/utility/currency";
 import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/LineItemImportExportBar";
 import Notification from "@components/toast/notification";
 import EntitySearchSelect from "@components/entity-select";
+import { resolveEntityByIds, ENTITY_KINDS } from "@src/utility/asyncSelect";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
@@ -102,6 +103,89 @@ const LeadRequirementItems = ({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedLines, sourceRates, leadCur]);
+
+  // Resolve product master (code/name) for lines hydrated with only a
+  // product_id (edit mode / bulk import) — the picker is a searchable dropdown,
+  // so the parent no longer ships the whole catalog and the edit-hydration
+  // carries just product_id. Without this the box shows the raw UUID.
+  const [fetchedProductsById, setFetchedProductsById] = useState({});
+  const productIdsKey = (watchedLines || [])
+    .map((l) => l?.product_id || "")
+    .join("|");
+  useEffect(() => {
+    const known = new Set(productOptions.map((o) => String(o.value)));
+    const missing = Array.from(
+      new Set(
+        (watchedLines || [])
+          .map((l) => l?.product_id)
+          .filter(
+            (pid) => pid && !known.has(String(pid)) && !fetchedProductsById[pid]
+          )
+      )
+    );
+    if (!missing.length) return;
+    resolveEntityByIds(ENTITY_KINDS.product, missing).then((opts) => {
+      if (!opts.length) return;
+      setFetchedProductsById((m) => {
+        const next = { ...m };
+        opts.forEach((o) => {
+          next[o.value] = o.raw || {};
+        });
+        return next;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productIdsKey, productOptions.length]);
+
+  // Backfill product_code / product_name onto lines that arrived with only a
+  // product_id, once resolved — so the Excel export's code columns fill and the
+  // label stops depending on the async lookup. Fills only when blank.
+  useEffect(() => {
+    const byId = new Map(
+      productOptions.map((o) => [String(o.value), o.raw || {}])
+    );
+    Object.entries(fetchedProductsById).forEach(([id, raw]) => {
+      if (!byId.has(String(id))) byId.set(String(id), raw);
+    });
+    if (!byId.size) return;
+    (watchedLines || []).forEach((l, idx) => {
+      if (!l || !l.product_id) return;
+      if (l.product_code || l.product_name) return;
+      const raw = byId.get(String(l.product_id));
+      if (!raw) return;
+      if (raw.code || raw.product_code) {
+        setValue(`lines.${idx}.product_code`, raw.code || raw.product_code, {
+          shouldDirty: false,
+        });
+      }
+      if (raw.name || raw.product_name) {
+        setValue(`lines.${idx}.product_name`, raw.name || raw.product_name, {
+          shouldDirty: false,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productIdsKey, productOptions.length, fetchedProductsById]);
+
+  // Label for the product picker's current value. Prefers the line's own
+  // code/name; falls back to the ?ids=-resolved master so the box never shows
+  // the raw UUID while the backfill catches up.
+  const productLabelFor = (l) => {
+    let code = l?.product_code;
+    let name = l?.product_name;
+    if (!code && !name) {
+      const raw =
+        fetchedProductsById[l?.product_id] ||
+        (productOptions.find(
+          (o) => String(o.value) === String(l?.product_id)
+        )?.raw ||
+          {});
+      code = raw.code || raw.product_code || "";
+      name = raw.name || raw.product_name || "";
+    }
+    if (code) return `${code} - ${name || ""}`;
+    return name || t("Loading…");
+  };
 
   // Per-line converted rate + value, in the lead currency.
   const lineRateDoc = (idx) => {
@@ -328,12 +412,11 @@ const LeadRequirementItems = ({
                             field.value
                               ? {
                                   value: field.value,
-                                  label: watchedLines?.[idx]?.product_code
-                                    ? `${watchedLines[idx].product_code} - ${
-                                        watchedLines[idx].product_name || ""
-                                      }`
-                                    : watchedLines?.[idx]?.product_name ||
-                                      field.value,
+                                  label: productLabelFor(
+                                    watchedLines?.[idx] || {
+                                      product_id: field.value,
+                                    }
+                                  ),
                                 }
                               : null
                           }

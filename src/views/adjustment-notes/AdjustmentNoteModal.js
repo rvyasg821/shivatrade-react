@@ -308,7 +308,12 @@ const AdjustmentNoteModal = ({ isOpen, toggle, prefill, onPosted }) => {
               kind={form.party_type}
               value={
                 form.party_id
-                  ? { value: form.party_id, label: form.party_name }
+                  ? form.party_name
+                    ? { value: form.party_id, label: form.party_name }
+                    : // No snapshot name (prefill gave only an id) — pass the
+                      // bare id so EntitySearchSelect resolves the real label
+                      // via ?ids= instead of rendering a blank box.
+                      form.party_id
                   : null
               }
               onChange={onParty}

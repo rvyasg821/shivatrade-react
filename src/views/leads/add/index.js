@@ -303,6 +303,8 @@ const LeadForm = () => {
         interested_products: store.leadItem.interested_products || [],
         lines: (store.leadItem.lines || []).map((l) => ({
           product_id: l.product_id || "",
+          product_code: l.product_code || "",
+          product_name: l.product_name || "",
           vendor_id: l.vendor_id || "",
           description: l.description || "",
           customer_reference: l.customer_reference || "",
