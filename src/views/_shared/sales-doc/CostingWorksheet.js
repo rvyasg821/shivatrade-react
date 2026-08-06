@@ -278,19 +278,12 @@ const CostingWorksheet = ({
     }
   };
 
-  // Hydrate the doc vendor currency from persisted lines when the header field
-  // isn't set yet (editing a doc saved before this field, or a fresh load).
-  useEffect(() => {
-    if (vendorCurrency) return;
-    const fromLine = (liveLines || [])
-      .map((l) =>
-        l?.vendor_id ? (l?.source_currency_code || "").toUpperCase() : ""
-      )
-      .find(Boolean);
-    if (fromLine)
-      setValue("vendor_currency_code", fromLine, { shouldDirty: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveLines, vendorCurrency]);
+  // NOTE: the doc Vendor Currency is deliberately NOT auto-derived from seeded
+  // lines — it starts BLANK on a fresh document so the operator picks it (client
+  // 2026-08-06). Picking it (changeVendorCurrency) then auto-selects each line's
+  // vendor in that currency. An EDIT loads the saved `vendor_currency_code` via
+  // the form reset, so existing docs still open with their currency set.
+
   // Vendor's true currency for a picked row (fallback: the row's own currency).
   const vendorCurOf = (vendorId, rowCcy) =>
     (vendorCcyById[vendorId] || rowCcy || "INR").toUpperCase();
