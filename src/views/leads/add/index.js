@@ -128,16 +128,13 @@ const LeadForm = () => {
           .trim()
           .required(t("Company name is required"))
           .max(200),
-        contact_name: yup
-          .string()
-          .trim()
-          .required(t("Contact name is required"))
-          .max(150),
+        contact_name: yup.string().trim().nullable().notRequired().max(150),
         contact_email: yup
           .string()
           .trim()
           .email(t("Invalid email"))
-          .required(t("Email is required")),
+          .nullable()
+          .notRequired(),
         contact_phone: yup.string().trim().nullable().notRequired(),
         source: yup.string().required(t("Source is required")),
         status: yup.string().required(t("Status is required")),
@@ -673,7 +670,7 @@ const LeadForm = () => {
                 </Col>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="contact_name">
-                    {t("Contact Name")} {requiredMark}
+                    {t("Contact Name")}
                   </Label>
                   <Controller
                     name="contact_name"
@@ -692,7 +689,7 @@ const LeadForm = () => {
                 </Col>
                 <Col md="6" className="mb-2">
                   <Label className="form-label" for="contact_email">
-                    {t("Email")} {requiredMark}
+                    {t("Email")}
                   </Label>
                   <Controller
                     name="contact_email"
