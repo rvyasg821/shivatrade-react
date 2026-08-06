@@ -1033,13 +1033,14 @@ const CostingWorksheet = ({
               placeholder={t("Select…")}
             />
           </div>
-          {distinctSources.length > 0 ? (
-            distinctSources.map((src) => {
-              // Same currency as the document → fixed rate 1, box disabled.
-              const same = src === docCur;
-              const sr = same
-                ? { rate: "1", available: true }
-                : sourceRates[src] || { rate: "", available: true };
+          {(() => {
+            // A source currency that EQUALS the document currency needs no rate
+            // box (it's always 1) — only show boxes for currencies that convert.
+            const converting = distinctSources.filter((s) => s !== docCur);
+            if (!converting.length)
+              return <Badge color="light-secondary">{docCur}</Badge>;
+            return converting.map((src) => {
+              const sr = sourceRates[src] || { rate: "", available: true };
               return (
                 <div
                   key={src}
@@ -1052,7 +1053,7 @@ const CostingWorksheet = ({
                     min="0"
                     bsSize="sm"
                     className="text-end ws-rate-input"
-                    disabled={readOnly || same}
+                    disabled={readOnly}
                     value={sr.rate}
                     onChange={(e) => setSourceRate(src, e.target.value)}
                   />
@@ -1064,10 +1065,8 @@ const CostingWorksheet = ({
                   ) : null}
                 </div>
               );
-            })
-          ) : (
-            <Badge color="light-secondary">{docCur}</Badge>
-          )}
+            });
+          })()}
           {/* Shipment freight (document currency) — split by qty across lines
               into the Freight / CNF Amount / CNF Rate columns. */}
           <div className="d-flex align-items-center gap-50 ws-rate-box">
