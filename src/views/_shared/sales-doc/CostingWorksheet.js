@@ -594,6 +594,15 @@ const CostingWorksheet = ({
       if (!l || !l.product_id || l._wt_seeded) return;
       const raw = byId.get(String(l.product_id));
       if (!raw) return; // options not loaded yet — retry when they are
+      // Backfill product_code / product_name onto lines hydrated with only a
+      // product_id (edit / RFQ-seed / import). Without these the dropdown label
+      // falls back to the raw UUID. Fill only when blank so a value is never lost.
+      if (!l.product_code && (raw.code || raw.product_code)) {
+        setValue(`lines.${idx}.product_code`, raw.code || raw.product_code);
+      }
+      if (!l.product_name && (raw.name || raw.product_name)) {
+        setValue(`lines.${idx}.product_name`, raw.name || raw.product_name);
+      }
       const nwpu =
         raw.net_weight_per_unit != null ? String(raw.net_weight_per_unit) : "0";
       const gwpu =
@@ -637,6 +646,26 @@ const CostingWorksheet = ({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productIdsKey, productOptions.length, fetchedProductsById, readOnly]);
+
+  // Label for the product picker's current value. Prefers the line's own
+  // code/name; when a line was hydrated with just a product_id (edit / RFQ-seed
+  // / import) it falls back to the ?ids=-resolved master so the box never shows
+  // the raw UUID while the backfill effect catches up (or in read-only mode).
+  const productLabelFor = (l) => {
+    let code = l.product_code;
+    let name = l.product_name;
+    if (!code && !name) {
+      const raw =
+        fetchedProductsById[l.product_id] ||
+        (productOptions.find((o) => String(o.value) === String(l.product_id))
+          ?.raw ||
+          {});
+      code = raw.code || raw.product_code || "";
+      name = raw.name || raw.product_name || "";
+    }
+    if (code) return `${code} - ${name || ""}`;
+    return name || t("Loading…");
+  };
 
   const addRow = () => {
     // Jump to the page that will hold the appended row (its index = current
@@ -1206,9 +1235,7 @@ const CostingWorksheet = ({
                           l.product_id
                             ? {
                                 value: l.product_id,
-                                label: l.product_code
-                                  ? `${l.product_code} - ${l.product_name || ""}`
-                                  : l.product_name || l.product_id,
+                                label: productLabelFor(l),
                               }
                             : null
                         }
