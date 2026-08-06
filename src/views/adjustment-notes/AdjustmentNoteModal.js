@@ -277,7 +277,13 @@ const AdjustmentNoteModal = ({ isOpen, toggle, prefill, onPosted }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={toggle} centered size="lg">
+    <Modal
+      isOpen={isOpen}
+      toggle={toggle}
+      centered
+      size="lg"
+      backdrop="static"
+    >
       <ModalHeader toggle={toggle}>{t("Add Adjustment Note")}</ModalHeader>
       <ModalBody>
         <Row>

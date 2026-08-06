@@ -129,6 +129,7 @@ const LineItemImportExportBar = ({
   // existing line → update in place; otherwise append. Guarantees no duplicate
   // product+vendor pairs are ever created in the form.
   const applyImport = (rows) => {
+    const isLead = docType === "lead";
     const normalized = rows.map((r) => {
       const line = {
         ...initLineItem,
@@ -156,22 +157,44 @@ const LineItemImportExportBar = ({
       onFreightImported(Math.round((sum + Number.EPSILON) * 100) / 100);
     }
 
-    // Match by IDs — codes aren't always saved on form lines.
+    // Duplicate key. LEADS match by PRODUCT CODE only (a lead has no vendor —
+    // a repeated product is the same requirement, so its qty is MERGED into the
+    // existing line, incl. one already on the form that may still carry a legacy
+    // vendor_id). Other docs match by product_id + vendor_id and replace in
+    // place. Work on a local mirror so index/qty bookkeeping stays correct as we
+    // append/merge (liveLines is a stale snapshot during this loop).
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    const keyOf = (l) =>
+      isLead
+        ? `code:${String(l?.product_code || "").trim().toLowerCase()}`
+        : `${l?.product_id || ""}|${l?.vendor_id || ""}`;
+    const working = liveLines.map((l) => ({ ...l }));
     const keyToIdx = new Map();
-    liveLines.forEach((l, i) =>
-      keyToIdx.set(`${l.product_id || ""}|${l.vendor_id || ""}`, i),
-    );
+    working.forEach((l, i) => {
+      const k = keyOf(l);
+      if (k && k !== "code:" && !keyToIdx.has(k)) keyToIdx.set(k, i);
+    });
     let updated = 0;
     let added = 0;
     for (const row of normalized) {
-      const key = `${row.product_id || ""}|${row.vendor_id || ""}`;
-      const existingIdx = keyToIdx.get(key);
+      const k = keyOf(row);
+      const existingIdx = k && k !== "code:" ? keyToIdx.get(k) : undefined;
       if (existingIdx !== undefined) {
-        lineFA.update(existingIdx, row);
+        if (isLead) {
+          // Merge qty into the existing line; keep its other fields.
+          const cur = working[existingIdx];
+          const merged = { ...cur, qty: String(num(cur.qty) + num(row.qty)) };
+          working[existingIdx] = merged;
+          lineFA.update(existingIdx, merged);
+        } else {
+          working[existingIdx] = row;
+          lineFA.update(existingIdx, row);
+        }
         updated++;
       } else {
         lineFA.append(row);
-        keyToIdx.set(key, liveLines.length + added);
+        if (k && k !== "code:") keyToIdx.set(k, working.length);
+        working.push(row);
         added++;
       }
     }
