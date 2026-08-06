@@ -478,6 +478,7 @@ export const API_ENDPOINTS = {
     fromPov: `/admin/grn/from-pov`, // append /:povId
     get: `/admin/grn/get`, // append /:id
     update: `/admin/grn/update`, // append /:id
+    invoiceNumber: `/admin/grn/invoice-number`, // append /:id
     delete: `/admin/grn/delete`, // append /:id
     deleteMany: `/admin/grn/delete-many`,
     pdf: `/admin/grn`, // append /:id/pdf (authed; opened in the in-app viewer)

@@ -71,6 +71,39 @@ const GrnView = () => {
   // Active (non-cancelled) Debit Note already raised against this GRN, if any.
   const [existingDn, setExistingDn] = useState(null);
 
+  // Editable vendor invoice number (defaults from the POV on GRN create).
+  const [invoiceNo, setInvoiceNo] = useState("");
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  // Seed once (keyed on the loaded doc's id) so it doesn't clobber typing.
+  // Create mode → default from the POV's invoice number; detail → the saved GRN.
+  useEffect(() => {
+    if (isCreate)
+      setInvoiceNo(povStore?.poVendorItem?.invoice_number || "");
+    else setInvoiceNo(store?.grnItem?.po_vendor_invoice_number || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreate, store?.grnItem?._id, povStore?.poVendorItem?._id]);
+
+  const saveInvoiceNo = () => {
+    if (!id) return;
+    setSavingInvoice(true);
+    instance
+      .put(`${API_ENDPOINTS.grn.invoiceNumber}/${id}`, {
+        invoice_number: invoiceNo,
+      })
+      .then(() => {
+        Notification("Success", t("Invoice number saved"), "success");
+        dispatch(getGrn(id));
+      })
+      .catch((e) =>
+        Notification(
+          "Error",
+          e?.response?.data?.message || t("Could not save invoice number"),
+          "warning"
+        )
+      )
+      .finally(() => setSavingInvoice(false));
+  };
+
   useEffect(() => {
     dispatch(stopLoading());
     if (isCreate) dispatch(getPoVendor(povId));
@@ -275,7 +308,7 @@ const GrnView = () => {
       setSaving(true);
       try {
         const created = await dispatch(
-          createGrnFromPov({ povId })
+          createGrnFromPov({ povId, data: { invoice_number: invoiceNo } })
         ).unwrap();
         const newGrn = created?.grnItem;
         if (!newGrn?._id)
@@ -383,10 +416,39 @@ const GrnView = () => {
               <div className="text-muted small d-flex flex-wrap gap-1">
                 {chip(t("Vendor Code"), grn.vendor_code)}
                 {chip(t("VPO"), grn.po_vendor_voucher_no)}
-                {chip(t("Invoice No"), grn.po_vendor_invoice_number)}
                 {chip(t("SO"), grn.purchase_order_voucher_no)}
                 {chip(t("Customer PO"), grn.customer_po_number)}
                 {chip(t("Date"), grn.grn_date ? formatDate(grn.grn_date) : null)}
+              </div>
+              {/* Editable vendor invoice number — auto-filled from the POV. In
+                  create mode it's saved with the GRN (no separate button); on a
+                  saved GRN it has its own Save button. */}
+              <div className="d-flex align-items-center gap-1 mt-1">
+                <span className="text-muted small fw-semibold text-nowrap">
+                  {t("Invoice No")}:
+                </span>
+                <Input
+                  bsSize="sm"
+                  style={{ maxWidth: 220 }}
+                  value={invoiceNo}
+                  placeholder={t("Vendor invoice number")}
+                  onChange={(e) => setInvoiceNo(e.target.value)}
+                />
+                <Button
+                  color="primary"
+                  size="sm"
+                  // Create mode: the GRN isn't persisted yet, so "Save" here
+                  // saves it as a draft (carrying the invoice number). Saved
+                  // GRN: update just the invoice number in place.
+                  onClick={isCreate ? () => onSave() : saveInvoiceNo}
+                  disabled={isCreate ? saving : savingInvoice}
+                >
+                  {(isCreate ? saving : savingInvoice) ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    t("Save")
+                  )}
+                </Button>
               </div>
             </div>
           </div>
