@@ -19,15 +19,59 @@
 
 import { EXCHANGE_TO_CURRENCY_OPTIONS } from "@constant/options";
 
-// Hard-coded fallbacks. Override via the options file or the optional
-// `overrides` arg below — do NOT scatter local maps across components.
-const BASE_SYMBOLS = {
+// Common ISO 4217 symbols — a broad fallback so a currency that ISN'T in
+// EXCHANGE_TO_CURRENCY_OPTIONS (or is looked up without the live `overrides`
+// arg) still renders a SYMBOL instead of its bare code (e.g. CNY → ¥, not
+// "CNY"). EXCHANGE_TO_CURRENCY_OPTIONS / overrides win over these.
+const ISO_SYMBOLS = {
   INR: "₹",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+  CNY: "¥",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+  CHF: "CHF",
+  HKD: "HK$",
+  NZD: "NZ$",
+  AED: "د.إ",
+  SAR: "﷼",
+  QAR: "﷼",
+  KWD: "د.ك",
+  BHD: "ب.د",
+  OMR: "ر.ع.",
+  ZAR: "R",
+  THB: "฿",
+  MYR: "RM",
+  IDR: "Rp",
+  PHP: "₱",
+  VND: "₫",
+  KRW: "₩",
+  RUB: "₽",
+  BRL: "R$",
+  TRY: "₺",
+  PKR: "₨",
+  BDT: "৳",
+  LKR: "₨",
+  NPR: "₨",
+  EGP: "£",
+  NGN: "₦",
+  KES: "KSh",
+  MXN: "$",
+  SEK: "kr",
+  NOK: "kr",
+  DKK: "kr",
+  PLN: "zł",
+  ILS: "₪",
 };
 
-// Build the static map once at import time so the lookup is O(1).
+// Build the static map once at import time so the lookup is O(1). Layered:
+// ISO fallbacks first, then EXCHANGE_TO_CURRENCY_OPTIONS (configured symbols
+// win), and the optional `overrides` arg wins over everything at call time.
 const STATIC_SYMBOLS = (() => {
-  const out = { ...BASE_SYMBOLS };
+  const out = { ...ISO_SYMBOLS };
   (EXCHANGE_TO_CURRENCY_OPTIONS || []).forEach((c) => {
     if (c?.value && c?.symbol) out[String(c.value).toUpperCase()] = c.symbol;
   });
