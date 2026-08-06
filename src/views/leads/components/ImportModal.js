@@ -13,14 +13,13 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
 
   const instructions = (
     <ol className="mb-0 mt-1">
-      <li>{t("Download the sample Excel — one row per requirement line")}</li>
-      <li>{t("Required columns: voucher_no, company_name, contact_email")}</li>
+      <li>{t("Download the sample Excel — it has TWO sheets: 'Leads' (one row per lead) and 'Requirement Items' (one row per product line)")}</li>
+      <li>{t("Leads sheet — only company_name is required. Optional: contact_name, contact_email, contact_phone, reference_no, customer_name, source, status, expected_value, currency, delivery_expectation, follow_up_date, notes")}</li>
+      <li>{t("Requirement Items sheet — link each line to its lead by company_name, then: product_code, hs_code, part_no, unit, qty, customer_reference, description. product_code must already exist for your company")}</li>
+      <li>{t("voucher_no is OPTIONAL — leave it blank for a new lead (a voucher is generated automatically)")}</li>
+      <li>{t("A lead you already created is UPDATED on re-import (matched by voucher_no, else company_name) — its header is refreshed and the Requirement Items are merged: matching products are updated (e.g. changed qty), new products added, and lines not in the file are kept")}</li>
       <li>{t("customer_name is optional — fill it to link a repeat-business lead to an EXISTING customer (matched by company name; source becomes existing_customer). Leave blank for a new prospect. An unmatched name errors — it never creates a customer.")}</li>
-      <li>{t("Rows sharing the same voucher_no become ONE lead with multiple product lines (header taken from the first row)")}</li>
-      <li>{t("product_code lists the interested-in products — must already exist for your company. A lead captures no qty or price (those come at the Quotation stage)")}</li>
-      <li>{t("List several products in ONE product_code cell, comma-separated (e.g. PRD-001, PRD-002, PRD-003) — each becomes a requirement line")}</li>
       <li>{t("status defaults to 'new'; source is optional (web, referral, trade_show, cold_call, existing_customer, other)")}</li>
-      <li>{t("The original voucher number is preserved; if it already exists the lead is skipped (safe to re-run)")}</li>
       <li>{t("Accepts .xlsx, .xls or .csv files (max 5 MB)")}</li>
     </ol>
   );
@@ -31,8 +30,8 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
         <Badge className="doc-badge doc-badge-green">
           {preview.summary.valid_new} {t("New")}
         </Badge>
-        <Badge className="doc-badge doc-badge-gray">
-          {preview.summary.skipped || 0} {t("Skip (exists)")}
+        <Badge className="doc-badge doc-badge-orange">
+          {preview.summary.valid_update || 0} {t("Update existing")}
         </Badge>
         <Badge className="doc-badge doc-badge-red">
           {preview.summary.errors} {t("Errors")}
@@ -93,8 +92,9 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       sampleFilename="lead-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
-      // Only brand-new leads are importable; skips/errors are not counted.
-      computeValidCount={(s) => s?.valid_new || 0}
+      // New leads + existing leads gaining products are importable; skips/errors
+      // are not counted.
+      computeValidCount={(s) => (s?.valid_new || 0) + (s?.valid_update || 0)}
       confirmLabel={(n) => `${t("Confirm Import")} (${n})`}
     />
   );
