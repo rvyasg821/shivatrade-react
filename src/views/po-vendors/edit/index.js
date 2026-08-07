@@ -10,8 +10,11 @@
 //                   rates after the PO has gone out), but only until a GRN
 //                   exists, because a receipt bakes the cost into stock.
 //           GST % — draft only, same reason as the header terms.
-//           Qty   — never editable here; it is locked to the SO line and the
-//                   pending/coverage guards are computed from it.
+//           Qty   — draft AND dispatched, until a GRN exists. On dispatched it
+//                   seeds from the dispatched qty and is the single source of
+//                   truth: saving sets BOTH ordered and dispatched to it (the
+//                   backend syncs dispatched_qty), so no un-dispatched pending
+//                   is left. Never below what a GRN already received.
 //
 // The GST *amount* is never stored: `line_total` is qty × price with no tax in
 // it and the PDF derives the tax from `tax_pct` at render time, so writing the
@@ -84,6 +87,10 @@ const EditPoVendor = () => {
   const hasReceipt = povLines.some((l) => num(l?.received_qty) > 1e-6);
   const canEditRate = (isDraft || status === "dispatched") && !hasReceipt;
   const canEditGst = isDraft;
+  // Quantity: draft, and dispatched too (the vendor may ship more/less than
+  // ordered, so the order qty can be corrected to match) — until a GRN exists,
+  // same rule as the rate. On dispatched it seeds from the dispatched qty.
+  const canEditQty = (isDraft || status === "dispatched") && !hasReceipt;
 
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [expectedArrival, setExpectedArrival] = useState("");
@@ -189,7 +196,18 @@ const EditPoVendor = () => {
       discs[l._id] = String(num(l.discount_pct));
       hsns[l._id] = l.hsn_code || "";
       parts[l._id] = l.part_no || "";
-      qtys[l._id] = String(num(l.ordered_qty));
+      // On a dispatched POV the qty field auto-fills with what was actually
+      // dispatched (which may be an over-dispatch, e.g. 15 vs ordered 10). It is
+      // the single source of truth: saving sets BOTH ordered and dispatched to
+      // this number (backend syncs dispatched_qty), so no un-dispatched pending
+      // is left behind. Draft keeps the order qty.
+      qtys[l._id] = String(
+        num(
+          status === "dispatched" && num(l.dispatched_qty) > 0
+            ? l.dispatched_qty
+            : l.ordered_qty
+        )
+      );
     }
     setRateByLine(rates);
     setTaxByLine(taxes);
@@ -350,9 +368,9 @@ const EditPoVendor = () => {
     // sent regardless of status. Empty array clears the links.
     data.linked_sales_order_ids = pickedSoIds;
 
-    // Quantity is editable in draft — block a save that would send 0 / blank,
-    // which the backend rejects anyway (ordered_qty must be > 0).
-    if (canEditGst) {
+    // Quantity is editable in draft and dispatched — block a save that would
+    // send 0 / blank, which the backend rejects anyway (ordered_qty must be > 0).
+    if (canEditQty) {
       const bad = povLines.find((l) => num(qtyByLine[l._id]) <= 0);
       if (bad) {
         Notification(
@@ -374,8 +392,8 @@ const EditPoVendor = () => {
         ...(canEditGst
           ? { tax_pct: gstApplies ? String(num(taxByLine[l._id])) : "0" }
           : {}),
-        // Quantity is draft-only, same gate as GST.
-        ...(canEditGst ? { ordered_qty: String(num(qtyByLine[l._id])) } : {}),
+        // Quantity — draft, and dispatched (reconcile to the shipped qty).
+        ...(canEditQty ? { ordered_qty: String(num(qtyByLine[l._id])) } : {}),
         ...(canEditRate ? { unit_price: String(num(rateByLine[l._id])) } : {}),
         // Discount rides the same rule as the rate.
         ...(canEditRate ? { discount_pct: String(num(discByLine[l._id])) } : {}),
@@ -439,7 +457,7 @@ const EditPoVendor = () => {
               <span>
                 {canEditRate
                   ? t(
-                      "This Vendor PO is already with the vendor. The header and GST are frozen — only the vendor's rate can be revised. Re-send the PDF after saving."
+                      "This Vendor PO is already with the vendor. The header and GST are frozen — the rate and quantity can still be revised. Re-send the PDF after saving."
                     )
                   : hasReceipt
                     ? t(
@@ -460,7 +478,7 @@ const EditPoVendor = () => {
               {canEditGst
                 ? t("Quantity, rate and GST are editable while the PO is a draft.")
                 : canEditRate
-                  ? t("Only the rate is editable at this status.")
+                  ? t("Quantity and rate are editable at this status.")
                   : t("Read-only at this status.")}
             </small>
           </div>
@@ -568,7 +586,7 @@ const EditPoVendor = () => {
                           </td>
                           <td>{l?.unit || "-"}</td>
                           <td>
-                            {canEditGst ? (
+                            {canEditQty ? (
                               <Input
                                 type="number"
                                 min="0"
