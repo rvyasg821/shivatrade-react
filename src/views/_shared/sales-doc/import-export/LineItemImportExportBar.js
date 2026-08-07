@@ -130,6 +130,10 @@ const LineItemImportExportBar = ({
   // product+vendor pairs are ever created in the form.
   const applyImport = (rows) => {
     const isLead = docType === "lead";
+    // Invoices allow the same product+vendor on multiple lines — so every
+    // imported row is APPENDED (never matched/updated in place), mirroring the
+    // backend resolver (which marks them all NEW).
+    const allowDuplicates = docType === "invoice";
     const normalized = rows.map((r) => {
       const line = {
         ...initLineItem,
@@ -170,15 +174,32 @@ const LineItemImportExportBar = ({
         : `${l?.product_id || ""}|${l?.vendor_id || ""}`;
     const working = liveLines.map((l) => ({ ...l }));
     const keyToIdx = new Map();
+    // Invoices use a COUNTED match: each key maps to a QUEUE of every existing
+    // line's index, and each imported row consumes one — so a straight
+    // export→re-import updates the same N lines in place and only extra
+    // duplicate rows (beyond the form's count) append.
+    const keyToQueue = new Map();
     working.forEach((l, i) => {
       const k = keyOf(l);
-      if (k && k !== "code:" && !keyToIdx.has(k)) keyToIdx.set(k, i);
+      if (!k || k === "code:") return;
+      if (!keyToIdx.has(k)) keyToIdx.set(k, i);
+      if (!keyToQueue.has(k)) keyToQueue.set(k, []);
+      keyToQueue.get(k).push(i);
     });
     let updated = 0;
     let added = 0;
     for (const row of normalized) {
       const k = keyOf(row);
-      const existingIdx = k && k !== "code:" ? keyToIdx.get(k) : undefined;
+      let existingIdx;
+      if (!k || k === "code:") {
+        existingIdx = undefined;
+      } else if (allowDuplicates) {
+        // Consume the next existing line of this product+vendor (counted).
+        const q = keyToQueue.get(k);
+        existingIdx = q && q.length ? q.shift() : undefined;
+      } else {
+        existingIdx = keyToIdx.get(k);
+      }
       if (existingIdx !== undefined) {
         if (isLead) {
           // Merge qty into the existing line; keep its other fields.
@@ -187,8 +208,26 @@ const LineItemImportExportBar = ({
           working[existingIdx] = merged;
           lineFA.update(existingIdx, merged);
         } else {
-          working[existingIdx] = row;
-          lineFA.update(existingIdx, row);
+          // Update in place with the sheet's values, but PRESERVE the existing
+          // line's identity + doc-specific anchors the sheet doesn't carry — so
+          // a re-import never wipes the invoice line's purchase_order_line_id
+          // (SO link) / uqc / currency-rate and orphans it on save.
+          const cur = working[existingIdx] || {};
+          const merged = {
+            ...row,
+            _id: row._id || cur._id,
+            purchase_order_line_id:
+              cur.purchase_order_line_id || row.purchase_order_line_id,
+            po_vendor_line_id:
+              cur.po_vendor_line_id || row.po_vendor_line_id,
+            uqc_code: row.uqc_code || cur.uqc_code,
+            source_currency_code:
+              row.source_currency_code || cur.source_currency_code,
+            cost_exchange_rate:
+              row.cost_exchange_rate || cur.cost_exchange_rate,
+          };
+          working[existingIdx] = merged;
+          lineFA.update(existingIdx, merged);
         }
         updated++;
       } else {

@@ -4,10 +4,13 @@
 // the breakdown. The Notes + Status form sits on the left.
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { useMemo } from "react";
+import { useSelector } from "react-redux";
 import { Row, Col, Label, Input } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
 
+import DateInput from "@components/date-input";
 import { PURCHASE_ORDER_STATUS_OPTIONS } from "@constant/options";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
@@ -37,6 +40,27 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
     freightTotal,
   });
   const currentStatus = useWatch({ control, name: "status" }) || "draft";
+
+  // "Received in bank" options — active company bank accounts, preferring those
+  // in the order currency (else all). Feeds the advance section below.
+  const bankAccounts = useSelector(
+    (s) => s.company?.companyItem?.bank_accounts || []
+  );
+  const bankOptions = useMemo(() => {
+    const active = bankAccounts.filter(
+      (b) => !b.soft_delete && b.is_active !== false
+    );
+    const cc = (currencyCode || "").toUpperCase();
+    const matching = active.filter(
+      (b) => (b.currency_code || "").toUpperCase() === cc
+    );
+    return (matching.length ? matching : active).map((b) => ({
+      value: b._id,
+      label: `${b.bank_name} — ${b.account_number}${
+        b.currency_code ? ` · ${b.currency_code}` : ""
+      }`,
+    }));
+  }, [bankAccounts, currencyCode]);
 
   // Current status + only its legal next statuses (matches the BE matrix).
   const allowedStatuses = [
@@ -98,6 +122,96 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
                   placeholder={t(
                     "Prints in the Remarks block on the SO PDF. Pre-filled from the company default; edit as needed."
                   )}
+                  disabled={isLocked}
+                  {...field}
+                  value={field.value || ""}
+                />
+              )}
+            />
+          </Col>
+        </Row>
+
+        {/* ── Advance / down-payment received against this order ── */}
+        <Row>
+          <Col md="12" className="mb-1">
+            <Label className="form-label fw-semibold mb-0">
+              {t("Advance Payment")}
+            </Label>
+          </Col>
+          <Col md="3" className="mb-2">
+            <Label className="form-label">
+              {t("Advance Amount")}
+              {currencyCode ? ` (${currencyCode})` : ""}
+            </Label>
+            <Controller
+              name="advance_amount"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  id="advance_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  disabled={isLocked}
+                  {...field}
+                  value={field.value || ""}
+                />
+              )}
+            />
+          </Col>
+          <Col md="3" className="mb-2">
+            <Label className="form-label">{t("Advance Date")}</Label>
+            <Controller
+              name="advance_date"
+              control={control}
+              render={({ field }) => (
+                <DateInput
+                  id="advance_date"
+                  value={field.value || ""}
+                  disabled={isLocked}
+                  onChange={(_d, _s, iso) => field.onChange(iso || "")}
+                />
+              )}
+            />
+          </Col>
+          <Col md="3" className="mb-2">
+            <Label className="form-label">{t("Received in Bank")}</Label>
+            <Controller
+              name="advance_bank_account_id"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  classNamePrefix="select"
+                  isClearable
+                  isDisabled={isLocked}
+                  options={bankOptions}
+                  value={
+                    bankOptions.find((o) => o.value === field.value) || null
+                  }
+                  onChange={(opt) => field.onChange(opt ? opt.value : "")}
+                  placeholder={t("Select bank account")}
+                  noOptionsMessage={() => t("No bank accounts")}
+                  menuPlacement="auto"
+                  menuPosition="fixed"
+                  menuPortalTarget={
+                    typeof document !== "undefined" ? document.body : undefined
+                  }
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                />
+              )}
+            />
+          </Col>
+          <Col md="3" className="mb-2">
+            <Label className="form-label">{t("Advance Notes")}</Label>
+            <Controller
+              name="advance_notes"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  id="advance_notes"
+                  placeholder={t("e.g. 30% advance via NEFT")}
+                  maxLength={200}
                   disabled={isLocked}
                   {...field}
                   value={field.value || ""}

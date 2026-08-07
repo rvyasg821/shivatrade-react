@@ -38,8 +38,6 @@ import {
   FileText,
   Layers,
   Percent,
-  Upload,
-  Download,
 } from "react-feather";
 
 import WizardHeader from "@src/views/_shared/wizard/WizardHeader";
@@ -47,8 +45,8 @@ import WizardFooter from "@src/views/_shared/wizard/WizardFooter";
 import "@src/views/_shared/wizard/wizard.scss";
 import Select from "react-select";
 
-import InvoiceLineImportModal from "./components/InvoiceLineImportModal";
 import MultiSoPickerModal from "../components/MultiSoPickerModal";
+import InvoiceLineWorksheet from "./components/InvoiceLineWorksheet";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -307,9 +305,6 @@ const InvoiceAddEdit = () => {
     company_address_id: "",
   });
   const [lines, setLines] = useState([]);
-  // Pagination for the Line Items table on Step 3.
-  const [linesPageSize, setLinesPageSize] = useState(10);
-  const [linesPage, setLinesPage] = useState(0);
   const [bankSnapshots, setBankSnapshots] = useState([]);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
@@ -325,6 +320,12 @@ const InvoiceAddEdit = () => {
   // qty cap per line = dispatched − already_invoiced; banner + disable Save
   // when nothing has been dispatched yet.
   const [poCoverage, setPoCoverage] = useState(null);
+  // Advance amount per source SO id — used to auto-sum the invoice's advance
+  // across EVERY source SO its lines come from (the advance is auto-managed:
+  // the field is read-only and the backend is authoritative on save; this is
+  // the live preview). Seeded on generate + each SO picked. Declared here (not
+  // near the picker) so the effects above can reference it without a TDZ error.
+  const [soAdvanceById, setSoAdvanceById] = useState({});
   // Count of PO lines auto-dropped because they had 0 dispatched qty.
   // Used to render the "N of M dispatched" info banner.
   const [droppedLineCount, setDroppedLineCount] = useState(0);
@@ -418,17 +419,9 @@ const InvoiceAddEdit = () => {
   const srcCur = (
     lines.find((l) => l.source_currency_code)?.source_currency_code || docCur
   ).toUpperCase();
-  const costRateSame = srcCur === docCur;
-  // ONE source→document exchange rate for the WHOLE invoice — every line shares
-  // it (no per-line rate). The box shows/edits it and writes it to all lines.
-  const costRateVal = costRateSame
-    ? "1"
-    : String(
-        lines.find((l) => l.source_currency_code)?.cost_exchange_rate ?? "1"
-      );
-  const onCostRateChange = (text) => {
-    setLines((prev) => prev.map((l) => ({ ...l, cost_exchange_rate: text })));
-  };
+  // The source→document exchange rate is now owned per-line by the Costing
+  // Worksheet (its per-currency rate box); the old single-rate invoice box was
+  // removed. `docCur`/`srcCur` are still used for the currency-symbol display.
 
   // GST route defaults by currency: a FOREIGN (export) invoice defaults to
   // LUT / zero-rated → IGST 0 (the usual merchant-exporter case, and matching
@@ -711,6 +704,11 @@ const InvoiceAddEdit = () => {
       if (!po) return;
       const coverage = covResp?.data?.data || null;
       setPoCoverage(coverage);
+      // Seed the primary source SO's advance for the auto-sum preview.
+      setSoAdvanceById((m) => ({
+        ...m,
+        [po._id]: Number(po.advance_amount || 0),
+      }));
 
       setForm((s) => ({
         ...s,
@@ -804,6 +802,8 @@ const InvoiceAddEdit = () => {
             : Number(l.qty || 0);
         return {
           seq: i + 1,
+          // Source SO id — drives the multi-SO advance auto-sum preview.
+          purchase_order_id: po._id,
           purchase_order_line_id: l._id,
           po_vendor_line_id: undefined,
           product_id: l.product_id,
@@ -933,6 +933,11 @@ const InvoiceAddEdit = () => {
             ? String(po.advance_amount)
             : s.advance_received,
       }));
+      if (primaryPoId)
+        setSoAdvanceById((m) => ({
+          ...m,
+          [primaryPoId]: Number(po?.advance_amount || 0),
+        }));
       // Round to 2dp like every other seed path — SO lines can carry more.
       setLines(
         seed.lines.map((l, i) => ({
@@ -944,6 +949,25 @@ const InvoiceAddEdit = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, queryPoId]);
+
+  // Advance is auto-managed: it's the Σ of advance_amount over EVERY distinct
+  // source SO the lines come from. Only overrides the field when every source
+  // SO's advance is known here (generate + picked SOs); otherwise it leaves the
+  // value untouched and the backend computes the exact sum on save — so it can
+  // never wrongly zero the advance on edit (where per-SO advances aren't known).
+  useEffect(() => {
+    const poIds = Array.from(
+      new Set((lines || []).map((l) => l.purchase_order_id).filter(Boolean))
+    );
+    if (!poIds.length) return;
+    if (!poIds.every((id) => soAdvanceById[id] != null)) return;
+    const sum = poIds.reduce((s, id) => s + Number(soAdvanceById[id] || 0), 0);
+    const next = String(round2(sum));
+    setForm((f) =>
+      f.advance_received === next ? f : { ...f, advance_received: next }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, soAdvanceById]);
 
   // Auto-fetch addresses when customer/consignee/notify changes so the
   // matching address picker can populate.
@@ -1321,10 +1345,8 @@ const InvoiceAddEdit = () => {
   );
   // Unit Price is NATIVE to the vendor (source) currency, which may differ from
   // the invoice (document) currency — label that column with the source symbol.
-  const srcSym = useMemo(
-    () => getCurrencySymbol(srcCur) || sym || "₹",
-    [srcCur, sym]
-  );
+  // (srcSym removed — the per-line source-currency symbol is rendered inside
+  // the Costing Worksheet now.)
 
   // ── UQC back-fill ───────────────────────────────────────────────────
   //
@@ -1365,21 +1387,8 @@ const InvoiceAddEdit = () => {
       ),
     [],
   );
-  // Clear a per-line validation error live, so the red border disappears as
-  // soon as the operator fixes the field (instead of waiting for re-validation).
-  const clearLineError = useCallback((idx, key) => {
-    setErrors((prev) => {
-      const k = `line_${idx}_${key}`;
-      if (!prev[k]) return prev;
-      const next = { ...prev };
-      delete next[k];
-      return next;
-    });
-  }, []);
-  const removeLine = useCallback(
-    (idx) => setLines((prev) => prev.filter((_, i) => i !== idx)),
-    [],
-  );
+  // (Per-line error clearing + row delete are now handled inside the Costing
+  // Worksheet; the old table's `clearLineError`/`removeLine` were removed.)
 
   // ── "Add lines from PO" picker (edit mode only) ─────────────────────
   // Surfaces PO lines that have dispatched-but-not-yet-invoiced qty
@@ -1391,15 +1400,23 @@ const InvoiceAddEdit = () => {
   const [addPicks, setAddPicks] = useState({});
   const [addPageSize, setAddPageSize] = useState(10);
   const [addPage, setAddPage] = useState(0);
-  // Import / Export of Step 3 line items.
-  const [linesImportOpen, setLinesImportOpen] = useState(false);
-  const [linesExporting, setLinesExporting] = useState(false);
+  // (The old Step-3 line Import/Export state was retired — the Costing
+  // Worksheet's own import/export bar handles it now.)
 
   // "+ Add items from another SO" — same-customer multi-SO picker.
   const [soPickerOpen, setSoPickerOpen] = useState(false);
   const appendSoLines = (picked) => {
     setSoPickerOpen(false);
     if (!picked?.length) return;
+    // Learn each picked SO's advance so the preview can include it.
+    setSoAdvanceById((m) => {
+      const next = { ...m };
+      for (const row of picked) {
+        if (row.purchase_order_id && row.so_advance_amount != null)
+          next[row.purchase_order_id] = Number(row.so_advance_amount || 0);
+      }
+      return next;
+    });
     setLines((prev) => {
       const next = prev.slice();
       for (const row of picked) {
@@ -1550,159 +1567,6 @@ const InvoiceAddEdit = () => {
     setAddModalOpen(false);
     setAddableLines([]);
     setAddPicks({});
-  };
-
-  // ── Step 3 line items: Export ──────────────────────────────────────
-  // The export IS the template — no separate "download sample". BE
-  // ships the current draft (or, on a fresh invoice with no lines yet,
-  // a seeded sheet of addable SO rows) plus a hidden _SO_LINES sheet
-  // so a user can hand-add a row by copying a purchase_order_line_id.
-  const handleLinesExport = async () => {
-    if (!form.purchase_order_id) {
-      Notification(
-        "Info",
-        t("Bind a Sales Order to this invoice first."),
-        "info",
-      );
-      return;
-    }
-    setLinesExporting(true);
-    try {
-      // POST the on-screen lines so unsaved edits (qty / price /
-      // description / etc.) ride into the workbook instead of being
-      // dropped in favour of the persisted draft.
-      const resp = await instance.post(
-        API_ENDPOINTS.invoices.linesExport,
-        {
-          purchase_order_id: form.purchase_order_id,
-          invoice_id: editId || undefined,
-          lines: (lines || []).map((l) => ({
-            _id: l._id,
-            purchase_order_line_id: l.purchase_order_line_id,
-            product_id: l.product_id,
-            product_name: l.product_name,
-            product_code: l.product_code,
-            hsn_code: l.hsn_code,
-            part_no: l.part_no,
-            description: l.description,
-            customer_reference: l.customer_reference,
-            qty: l.qty,
-            unit: l.unit,
-            uqc_code: l.uqc_code,
-            unit_price: l.unit_price,
-            source_currency_code: l.source_currency_code,
-            cost_exchange_rate: l.cost_exchange_rate,
-            discount_pct: l.discount_pct,
-            margin_pct: l.margin_pct,
-            igst_rate_pct: l.igst_rate_pct,
-            packages: l.packages,
-            net_weight: l.net_weight,
-            gross_weight: l.gross_weight,
-            product_rebates_snapshot: l.product_rebates_snapshot,
-            product_expenses_snapshot: l.product_expenses_snapshot,
-          })),
-        },
-        { responseType: "blob" },
-      );
-      const cd = resp.headers?.["content-disposition"] || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename =
-        m?.[1] || `invoice-lines-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      Notification(
-        "Error",
-        err?.response?.data?.message ||
-          t("Couldn't generate the line items file. Please try again."),
-        "warning",
-      );
-    } finally {
-      setLinesExporting(false);
-    }
-  };
-
-  // ── Step 3 line items: Import merge ────────────────────────────────
-  // Resolved rows arrive from the BE already validated against the
-  // bound SO + POV dispatched gate. Rows whose product_code already
-  // exists on the draft are patched in place; the rest are appended.
-  const applyResolvedLines = (rows) => {
-    let updated = 0;
-    let added = 0;
-    setLines((prev) => {
-      const next = [...prev];
-      const idxByProductCode = new Map();
-      next.forEach((l, i) => {
-        const code = (l.product_code || "").toLowerCase();
-        if (code) idxByProductCode.set(code, i);
-      });
-      for (const r of rows) {
-        const data = r.data || {};
-        const patch = {
-          purchase_order_line_id: data.purchase_order_line_id,
-          product_id: data.product_id,
-          product_code: data.product_code,
-          product_name: data.product_name,
-          hsn_code: data.hsn_code ?? "",
-          part_no: data.part_no ?? "",
-          description: data.description ?? "",
-          customer_reference: data.customer_reference ?? "",
-          qty: String(data.qty ?? "0"),
-          unit: data.unit || "",
-          uqc_code: data.uqc_code || "",
-          unit_price: String(Number(data.unit_price ?? 0).toFixed(2)),
-          discount_pct: String(data.discount_pct ?? "0"),
-          margin_pct: String(data.margin_pct ?? "0"),
-          igst_rate_pct: String(data.igst_rate_pct ?? "0"),
-          product_rebates_snapshot: Array.isArray(data.product_rebates_snapshot)
-            ? data.product_rebates_snapshot
-            : [],
-          product_expenses_snapshot: Array.isArray(
-            data.product_expenses_snapshot,
-          )
-            ? data.product_expenses_snapshot
-            : [],
-          // Packing List — operator-editable in the sheet; feeds the
-          // auto-summed cargo totals in the Shipment section.
-          packages: data.packages != null ? String(data.packages) : "",
-          net_weight: data.net_weight != null ? String(data.net_weight) : "",
-          gross_weight:
-            data.gross_weight != null ? String(data.gross_weight) : "",
-        };
-        const codeKey = (data.product_code || "").toLowerCase();
-        const targetIdx = codeKey ? idxByProductCode.get(codeKey) : undefined;
-        if (targetIdx !== undefined) {
-          next[targetIdx] = { ...next[targetIdx], ...patch };
-          updated++;
-        } else {
-          next.push({
-            _id: undefined,
-            seq: next.length,
-            tax_pct: "0",
-            // A product added via import isn't tied to an SO vendor line, so
-            // default it to the invoice currency at rate 1 (native, no
-            // conversion). Existing lines keep their frozen source rate above.
-            source_currency_code: (form.currency_code || "INR").toUpperCase(),
-            cost_exchange_rate: "1",
-            ...patch,
-          });
-          if (codeKey) idxByProductCode.set(codeKey, next.length - 1);
-          added++;
-        }
-      }
-      return next;
-    });
-    Notification(
-      "Success",
-      t("Imported {{added}} new, updated {{updated}}.", { added, updated }),
-      "success",
-    );
   };
 
 
@@ -2643,59 +2507,13 @@ const InvoiceAddEdit = () => {
         <div className="d-flex justify-content-between align-items-center mt-2 mb-2 flex-wrap gap-2">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <h5 className="mb-0">{t("Line Items")}</h5>
-            {/* ONE source→invoice-currency exchange rate for the whole invoice —
-                applies to every line. Disabled (fixed at 1) when the vendor and
-                invoice currencies match. */}
-            <div
-              className="d-flex align-items-center gap-1"
-              title={
-                costRateSame
-                  ? t("Same currency — no conversion.")
-                  : t("Source → invoice currency · applies to every line.")
-              }
-            >
-              <Label className="form-label mb-0 small text-nowrap">
-                {t("Exchange Rate")}:
-              </Label>
-              <span className="text-nowrap small">1 {srcCur} =</span>
-              <Input
-                type="number"
-                step="any"
-                min="0"
-                bsSize="sm"
-                style={{ width: 110 }}
-                disabled={costRateSame}
-                value={costRateVal}
-                placeholder="0"
-                onChange={(e) => onCostRateChange(e.target.value)}
-              />
-              <span className="text-nowrap small">{docCur}</span>
-            </div>
+            {/* The source→document exchange rate now lives inside the Costing
+                Worksheet's own per-currency rate box (below). */}
           </div>
           <div className="d-flex flex-wrap gap-1">
-            {form.purchase_order_id && (
-              <Fragment>
-                <Button
-                  size="sm"
-                  color="outline-secondary"
-                  className="text-nowrap"
-                  onClick={handleLinesExport}
-                  disabled={linesExporting}
-                  type="button"
-                >
-                  {t("Export")} <Download size={14} />
-                </Button>
-                <Button
-                  size="sm"
-                  color="outline-secondary"
-                  className="text-nowrap"
-                  onClick={() => setLinesImportOpen(true)}
-                  type="button"
-                >
-                  {t("Import")} <Upload size={14} />
-                </Button>
-              </Fragment>
-            )}
+            {/* Excel Import/Export now lives inside the Costing Worksheet's own
+                bar (below), so the old invoice line Import/Export buttons were
+                retired. The SO pickers stay here. */}
             {isEdit && form.purchase_order_id && (
               <Button
                 size="sm"
@@ -2723,403 +2541,19 @@ const InvoiceAddEdit = () => {
           </div>
         </div>
         <div>
-          {lines.length === 0 ? (
-            <div className="text-muted text-center py-2">
-              {t(
-                "No lines. Pick a PO via the 'Generate Invoice' action on the PO detail page."
-              )}
-            </div>
-          ) : (
-            <Table responsive bordered size="sm" className="align-top mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th style={{ width: 30 }}>#</th>
-                  <th style={{ width: 110 }}>{t("HSN")} <span className="text-danger">*</span></th>
-                  <th style={{ width: 110 }}>{t("Part No")}</th>
-                  <th style={{ minWidth: 180, maxWidth: 260 }}>
-                    {t("Product / Description")}
-                  </th>
-                  <th style={{ width: 90 }} className="text-end">
-                    {t("Qty")}
-                  </th>
-                  <th style={{ width: 100 }}>{t("UQC")}</th>
-                  <th style={{ width: 110 }} className="text-end">
-                    {t("Unit Price")} {srcSym}
-                  </th>
-                  <th style={{ width: 80 }} className="text-end">
-                    {t("IGST %")}
-                  </th>
-                  <th style={{ width: 110 }} className="text-end">
-                    {t("IGST Amt")} {sym}
-                  </th>
-                  <th style={{ width: 110 }} className="text-end">
-                    {t("Line Total")} {sym}
-                  </th>
-                  <th style={{ width: 70 }} className="text-center">
-                    {t("Action")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const totalRows = lines.length;
-                  const pageCount = Math.max(
-                    1,
-                    Math.ceil(totalRows / linesPageSize),
-                  );
-                  const safePage = Math.min(linesPage, pageCount - 1);
-                  const start = safePage * linesPageSize;
-                  const pageLines = lines.slice(start, start + linesPageSize);
-                  return pageLines.map((l, pi) => {
-                    const i = start + pi;
-                  // Mirror the backend recompute() + Quotation/PO engine:
-                  //   taxable = qty × price × (1 − disc/100)
-                  //   + expenses (on taxable) → − rebates (on after-expense / FOB)
-                  //   margin  = (taxable + expenses − rebates) × margin/100
-                  //   lineTotal = taxable + expenses − rebates + margin
-                  // Multi-currency: convert the native price to the DOCUMENT
-                  // currency FIRST (× cost_exchange_rate; 1 for same-currency),
-                  // so every figure below is in the invoice currency.
-                  const priceDoc =
-                    num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
-                  const taxable =
-                    num(l.qty) * priceDoc * (1 - num(l.discount_pct) / 100);
-                  const expensesTotal = sumExpenses(
-                    l.product_expenses_snapshot,
-                    taxable,
-                  );
-                  const afterExpense = taxable + expensesTotal;
-                  const rebatesTotal = sumRebates(
-                    l.product_rebates_snapshot,
-                    afterExpense,
-                  );
-                  const afterRebate = afterExpense - rebatesTotal;
-                  const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
-                  const lineTotal = round2(afterRebate + marginAmt);
-                  // Live IGST. Zero under LUT no matter what rate is typed —
-                  // an LUT export is zero-rated, and the backend forces
-                  // igst_amount = 0 on save. Showing a number here that the
-                  // saved invoice will not have is worse than showing nothing.
-                  const lineIgst = isLut
-                    ? 0
-                    : round2((lineTotal * num(l.igst_rate_pct)) / 100);
-                  const rebateCount = (l.product_rebates_snapshot || []).length;
-                  const expenseCount = (l.product_expenses_snapshot || []).length;
-                  return (
-                    <tr key={l._id || i}>
-                      <td>{i + 1}</td>
-                      <td>
-                        <Input
-                                    value={l.hsn_code || ""}
-                          onChange={(e) => {
-                            updateLine(i, { hsn_code: e.target.value });
-                            if (e.target.value.trim()) clearLineError(i, "hsn");
-                          }}
-                          invalid={!!errors[`line_${i}_hsn`]}
-                          placeholder="HSN"
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          value={l.part_no || ""}
-                          onChange={(e) =>
-                            updateLine(i, { part_no: e.target.value })
-                          }
-                          placeholder={t("Part No")}
-                        />
-                      </td>
-                      <td>
-                        {l.product_code && (
-                          <span
-                            className="badge"
-                            style={{
-                              background: "#eef0f3",
-                              color: "#1a2238",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {l.product_code}
-                          </span>
-                        )}
-                        <Input
-                          type="textarea"
-                          rows="1"
-                          className="mt-25"
-                          value={l.description || ""}
-                          onChange={(e) =>
-                            updateLine(i, { description: e.target.value })
-                          }
-                          placeholder={t("Description (goods)")}
-                        />
-                        <Input
-                          className="mt-25"
-                          value={l.customer_reference || ""}
-                          onChange={(e) =>
-                            updateLine(i, {
-                              customer_reference: e.target.value,
-                            })
-                          }
-                          maxLength={120}
-                          placeholder={t(
-                            "Buyer's Requirement # (e.g. BOSCH PUMP REQUISITION)",
-                          )}
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="text-end"
-                          value={l.qty}
-                          onChange={(e) => {
-                            updateLine(i, { qty: e.target.value });
-                            if (Number(e.target.value) > 0)
-                              clearLineError(i, "qty");
-                          }}
-                          onBlur={(e) => {
-                            const v = e.target.value;
-                            if (v === "" || v === null) return;
-                            const n = Number(v);
-                            if (Number.isFinite(n)) {
-                              updateLine(i, { qty: n.toFixed(2) });
-                            }
-                          }}
-                          invalid={!!errors[`line_${i}_qty`]}
-                        />
-                      </td>
-                      <td>
-                        {/* Read-only — derived from the line's UOM via
-                            the UOM master; change the product's unit, not this. */}
-                        <Input
-                          value={l.uqc_code || ""}
-                          readOnly
-                          className="bg-light"
-                          maxLength={10}
-                        />
-                      </td>
-                      <td>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="text-end"
-                          value={l.unit_price}
-                          onChange={(e) =>
-                            updateLine(i, { unit_price: e.target.value })
-                          }
-                          onBlur={(e) => {
-                            const v = e.target.value;
-                            if (v === "" || v === null) return;
-                            const n = Number(v);
-                            if (Number.isFinite(n)) {
-                              updateLine(i, { unit_price: n.toFixed(2) });
-                            }
-                          }}
-                        />
-                      </td>
-                      <td>
-                        {/* Zero-rated under LUT → the rate reads 0 and locks;
-                            switch the GST route to IGST-paid to charge it. */}
-                        <Input
-                          type="number"
-                          step="any"
-                          className="text-end"
-                          disabled={isLut}
-                          value={isLut ? "0" : l.igst_rate_pct}
-                          onChange={(e) =>
-                            updateLine(i, { igst_rate_pct: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="text-end">
-                        {isLut ? (
-                          <span className="text-muted" title={t("Zero-rated under LUT")}>
-                            —
-                          </span>
-                        ) : (
-                          <span>{sym}{fmt(lineIgst)}</span>
-                        )}
-                      </td>
-                      <td className="text-end fw-semibold">
-                        {sym}{fmt(lineTotal)}
-                        {(rebateCount > 0 ||
-                          expenseCount > 0 ||
-                          num(l.discount_pct) > 0 ||
-                          num(l.margin_pct) > 0) && (
-                          <div
-                            className="d-flex flex-column align-items-end gap-1 mt-25"
-                            style={{ fontSize: "0.85rem" }}
-                          >
-                            {num(l.discount_pct) > 0 && (
-                              <span className="badge badge-light-danger">
-                                {t("Discount")} {fmt(num(l.discount_pct))}%
-                              </span>
-                            )}
-                            {num(l.margin_pct) > 0 && (
-                              <span className="badge badge-light-info">
-                                {t("Margin")} {fmt(num(l.margin_pct))}%
-                              </span>
-                            )}
-                            {expenseCount > 0 && (
-                              <span
-                                className="badge badge-light-warning"
-                                title={(l.product_expenses_snapshot || [])
-                                  .map(
-                                    (e) =>
-                                      `${e.name || e.code}: ${
-                                        e.type === "percent"
-                                          ? `${num(e.value)}%`
-                                          : `${sym}${fmt(num(e.value))}`
-                                      }`,
-                                  )
-                                  .join(" · ")}
-                              >
-                                {t("Expenses")} +{sym}{fmt(expensesTotal)}
-                              </span>
-                            )}
-                            {rebateCount > 0 && (
-                              <span
-                                className="badge badge-light-success"
-                                title={(l.product_rebates_snapshot || [])
-                                  .map(
-                                    (r) =>
-                                      `${r.name || r.code}: ${
-                                        r.type === "fixed"
-                                          ? `${sym}${fmt(num(r.pct))}`
-                                          : `${num(r.pct)}%`
-                                      }`,
-                                  )
-                                  .join(" · ")}
-                              >
-                                {t("Rebates")} −{sym}{fmt(rebatesTotal)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="text-center align-middle">
-                        <div className="d-inline-flex align-items-center gap-1">
-                          <Button
-                            id={`inv-line-edit-${i}`}
-                            size="sm"
-                            color="link"
-                            className="p-0 d-inline-flex align-items-center justify-content-center"
-                            style={{ width: 22, height: 22 }}
-                            onClick={() => setCostingModal({ open: true, idx: i })}
-                          >
-                            <Tag size={16} className="text-primary" />
-                          </Button>
-                          <UncontrolledTooltip
-                            target={`inv-line-edit-${i}`}
-                            placement="top"
-                          >
-                            {t("Edit rebates / expenses / packing")}
-                          </UncontrolledTooltip>
-                          <Button
-                            id={`inv-line-del-${i}`}
-                            size="sm"
-                            color="link"
-                            className="p-0 d-inline-flex align-items-center justify-content-center"
-                            style={{ width: 22, height: 22 }}
-                            onClick={() => removeLine(i)}
-                          >
-                            <Trash2 size={16} className="text-danger" />
-                          </Button>
-                          <UncontrolledTooltip
-                            target={`inv-line-del-${i}`}
-                            placement="top"
-                          >
-                            {t("Delete line")}
-                          </UncontrolledTooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                  });
-                })()}
-              </tbody>
-              <tfoot className="table-light">
-                <tr>
-                  {/* 8 = every column up to and including IGST % (#, HSN, Part
-                      No, Product, Qty, UQC, Unit Price, IGST %). The two cells
-                      that follow land under IGST Amt and Line Total. Bump this
-                      if a column is ever added or removed. */}
-                  <td colSpan="8" className="text-end fw-bold">
-                    {t("Subtotal")}
-                  </td>
-                  {/* IGST column sum — in the DOCUMENT currency (each line's
-                      IGST above is now doc-currency). */}
-                  <td className="text-end fw-bold">
-                    {isLut ? (
-                      <span
-                        className="text-muted fw-normal"
-                        title={t("Zero-rated under LUT")}
-                      >
-                        —
-                      </span>
-                    ) : (
-                      <span style={{ color: "#1a2238" }}>
-                        {sym}{fmt(totals.igst)}
-                      </span>
-                    )}
-                  </td>
-                  {/* Subtotal in the DOCUMENT currency — the line totals are
-                      already converted per-line, so no header × rate. */}
-                  <td className="text-end fw-bold">
-                    <span style={{ color: "#1a2238" }}>
-                      {sym}{fmt(totals.subtotal)}
-                    </span>
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </Table>
-          )}
-          {lines.length > 0 && (() => {
-            const totalRows = lines.length;
-            const pageCount = Math.max(1, Math.ceil(totalRows / linesPageSize));
-            const safePage = Math.min(linesPage, pageCount - 1);
-            return (
-              <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-                <div className="d-flex align-items-center small text-muted">
-                  <span className="me-50">{t("Show")}</span>
-                  <Input
-                    type="select"
-                    bsSize="sm"
-                    value={linesPageSize}
-                    onChange={(e) => {
-                      setLinesPageSize(Number(e.target.value) || 10);
-                      setLinesPage(0);
-                    }}
-                    style={{ width: 80 }}
-                  >
-                    {[10, 25, 50, 100, 200].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </Input>
-                  <span className="ms-50">
-                    {t("of")} {totalRows} {t("rows")}
-                  </span>
-                </div>
-                <ReactPaginate
-                  previousLabel=""
-                  nextLabel=""
-                  pageCount={pageCount}
-                  activeClassName="active"
-                  forcePage={safePage}
-                  onPageChange={({ selected }) => setLinesPage(selected)}
-                  pageClassName="page-item"
-                  nextLinkClassName="page-link"
-                  nextClassName="page-item next"
-                  previousClassName="page-item prev"
-                  previousLinkClassName="page-link"
-                  pageLinkClassName="page-link"
-                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                />
-              </div>
-            );
-          })()}
+          <InvoiceLineWorksheet
+            lines={lines}
+            onLinesChange={setLines}
+            uqcFor={uqcFor}
+            expenseOptions={expenseOptions}
+            rebateOptions={rebateOptions}
+            docCurrencyCode={form.currency_code || "INR"}
+            baseCurrencyCode="INR"
+            freightTotal={form.freight_charges}
+            onFreightChange={(v) => onF("freight_charges", v)}
+            isLut={isLut}
+            exchangeRate={num(form.exchange_rate) || 1}
+          />
           {errors.lines && (
             <div className="text-danger small mt-1">{errors.lines}</div>
           )}
@@ -3419,12 +2853,18 @@ const InvoiceAddEdit = () => {
               <Label className="form-label">
                 {t("Advance Received")} ({sym || "-"})
               </Label>
+              {/* Auto-managed: Σ of every source Sales Order's advance. Read-only
+                  — the backend is authoritative and finalises the sum on save. */}
               <Input
                 type="number"
                 step="any"
                 value={form.advance_received}
-                onChange={(e) => onF("advance_received", e.target.value)}
+                readOnly
+                disabled
               />
+              <small className="text-muted">
+                {t("Auto-summed from the source Sales Orders' advances.")}
+              </small>
             </Col>
             <Col md="9" className="d-flex align-items-end justify-content-end">
               <div className="small text-end" style={{ minWidth: 280 }}>
@@ -3693,7 +3133,6 @@ const InvoiceAddEdit = () => {
         toggle={() => setSoPickerOpen(false)}
         customerId={form.customer_id || undefined}
         lockCurrency={form.currency_code || undefined}
-        lockCountry={form.country_of_destination || undefined}
         excludeInvoiceId={editId || undefined}
         existingPoLineIds={lines
           .map((l) => l.purchase_order_line_id)
@@ -3920,14 +3359,6 @@ const InvoiceAddEdit = () => {
         />
       )}
 
-      <InvoiceLineImportModal
-        isOpen={linesImportOpen}
-        toggle={() => setLinesImportOpen((o) => !o)}
-        purchaseOrderId={form.purchase_order_id}
-        invoiceId={editId}
-        draftLines={lines}
-        onConfirm={applyResolvedLines}
-      />
     </Fragment>
   );
 };

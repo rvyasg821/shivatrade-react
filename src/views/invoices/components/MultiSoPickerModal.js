@@ -4,12 +4,12 @@
 //   1. Invoice listing "Create Invoice" — no customer locked yet; the
 //      operator picks a customer, then ticks invoiceable lines across that
 //      customer's confirmed SOs (grouped by SO).
-//   2. Wizard "+ Add items from another SO" — customer + currency + country
-//      already locked by the in-progress invoice; non-matching SOs disabled.
+//   2. Wizard "+ Add items from another SO" — customer + currency already
+//      locked by the in-progress invoice; SOs in a different currency disabled.
 //
-// Invariant: one invoice = one customer + one currency + one country. The
-// first SO with a ticked line sets the "active key" (currency|country); SOs
-// that don't match are disabled with a hint.
+// Invariant: one invoice = one customer + one currency. The invoice's currency
+// (`lockCurrency`), else the first SO with a ticked line, sets the "active key"
+// (currency); SOs whose currency differs are disabled with a hint.
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
@@ -33,17 +33,15 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { useUqcResolver } from "@src/views/_shared/uom/useUomOptions";
 
 
-const groupKey = (g) =>
-  `${(g.currency_code || "").toUpperCase()}|${(g.country_of_destination || "")
-    .trim()
-    .toLowerCase()}`;
+// SOs are combinable into one invoice when they share the invoice's CURRENCY
+// (client 2026-08-07 — currency only; destination is no longer part of the key).
+const groupKey = (g) => (g.currency_code || "").toUpperCase();
 
 const MultiSoPickerModal = ({
   isOpen,
   toggle,
   customerId: lockedCustomerId,
   lockCurrency,
-  lockCountry,
   excludeInvoiceId,
   existingPoLineIds = [],
   onConfirm,
@@ -117,29 +115,36 @@ const MultiSoPickerModal = ({
     };
   }, [isOpen, customerId, excludeInvoiceId]);
 
-  // Displayed groups = raw minus lines already on the in-progress draft;
-  // empty groups dropped. Pure derivation — never triggers a re-fetch.
+  // Displayed groups: drop any line with no remaining qty to invoice (fully-
+  // invoiced products never appear — backend drops available≤0, this guards the
+  // FE too). The `existing` (already-on-draft) filter is applied ONLY in CREATE
+  // mode: there the draft isn't saved, so `available` can't net the lines just
+  // picked — hiding them prevents a double-add. In EDIT mode the invoice IS
+  // saved, so `available` already = remaining-to-invoice, and a PARTIALLY-billed
+  // line must stay visible so its remaining can be topped up (picking merges the
+  // added qty into the existing line). Empty groups dropped. No re-fetch.
+  const isEditContext = !!excludeInvoiceId;
   const groups = useMemo(
     () =>
       rawGroups
         .map((g) => ({
           ...g,
           lines: (g.lines || []).filter(
-            (l) => !existing.has(String(l.purchase_order_line_id))
+            (l) =>
+              Number(l.available) > 1e-6 &&
+              (isEditContext ||
+                !existing.has(String(l.purchase_order_line_id)))
           ),
         }))
         .filter((g) => g.lines.length > 0),
-    [rawGroups, existing]
+    [rawGroups, existing, isEditContext]
   );
 
-  // Active key: from the wizard lock if provided, else from the first group
-  // that has any selected line. Groups whose key differs are disabled.
+  // Active currency: the invoice's currency when provided (so SOs in any other
+  // currency are disabled), else the first group with a selected line. Groups
+  // whose currency differs are disabled.
   const activeKey = useMemo(() => {
-    if (lockCurrency || lockCountry) {
-      return `${(lockCurrency || "").toUpperCase()}|${(lockCountry || "")
-        .trim()
-        .toLowerCase()}`;
-    }
+    if (lockCurrency) return (lockCurrency || "").toUpperCase();
     for (const g of groups) {
       const anySelected = g.lines.some(
         (l) => picks[l.purchase_order_line_id]?.selected
@@ -147,7 +152,7 @@ const MultiSoPickerModal = ({
       if (anySelected) return groupKey(g);
     }
     return null;
-  }, [groups, picks, lockCurrency, lockCountry]);
+  }, [groups, picks, lockCurrency]);
 
   const isGroupEnabled = (g) => !activeKey || groupKey(g) === activeKey;
 
@@ -241,6 +246,9 @@ const MultiSoPickerModal = ({
         }
         out.push({
           purchase_order_id: g.po_id,
+          // The source SO's advance — the form sums it across distinct SOs so
+          // the auto-managed invoice advance previews correctly before save.
+          so_advance_amount: g.advance_amount ?? "0",
           purchase_order_line_id: l.purchase_order_line_id,
           po_vendor_line_id: undefined,
           product_id: l.product_id,
@@ -363,7 +371,7 @@ const MultiSoPickerModal = ({
                   )}
                   {!enabled && (
                     <span className="text-danger small ms-auto">
-                      {t("Different currency/country — not combinable")}
+                      {t("Different currency — not same as the invoice")}
                     </span>
                   )}
                 </div>
@@ -391,21 +399,35 @@ const MultiSoPickerModal = ({
                         ) : null}
                         {l.product_name}
                       </span>
-                      <span className="text-muted small me-1 flex-shrink-0">
-                        {t("avail")} {l.available}
+                      {/* Remaining (not-yet-invoiced) of the SO line's ordered
+                          qty — partial invoicing shows what's still to bill. */}
+                      <span
+                        className="text-muted small me-1 flex-shrink-0"
+                        title={t("Remaining to invoice of the SO ordered qty")}
+                      >
+                        {t("remaining")} {l.available}
+                        {l.ordered != null ? ` / ${l.ordered}` : ""}
                       </span>
                       <Input
                         type="number"
                         bsSize="sm"
                         min="0"
+                        max={l.available}
                         step="0.01"
                         className="flex-shrink-0"
                         style={{ width: 90 }}
                         disabled={!enabled || !pk.selected}
                         value={pk.qty ?? ""}
-                        onChange={(e) =>
-                          setQty(l.purchase_order_line_id, e.target.value)
-                        }
+                        onChange={(e) => {
+                          // Cap at the remaining available so a second invoice
+                          // can never over-bill the SO line.
+                          const raw = e.target.value;
+                          const capped =
+                            raw === "" || Number(raw) <= Number(l.available)
+                              ? raw
+                              : String(l.available);
+                          setQty(l.purchase_order_line_id, capped);
+                        }}
                       />
                     </div>
                   );
@@ -479,7 +501,6 @@ MultiSoPickerModal.propTypes = {
   toggle: PropTypes.func.isRequired,
   customerId: PropTypes.string,
   lockCurrency: PropTypes.string,
-  lockCountry: PropTypes.string,
   excludeInvoiceId: PropTypes.string,
   existingPoLineIds: PropTypes.array,
   onConfirm: PropTypes.func.isRequired,
