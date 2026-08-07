@@ -128,6 +128,9 @@ const GrnView = () => {
         unit: l.unit,
         // Agreed price (vendor currency) — drives the read-only Price/Amount.
         unit_price: l.unit_price,
+        // GST% + discount% from the POV line — read-only GST column.
+        tax_pct: l.tax_pct,
+        discount_pct: l.discount_pct,
         dispatched_qty: remaining.toFixed(2),
         received_qty: remaining.toFixed(2),
         accepted_qty: remaining.toFixed(2),
@@ -227,6 +230,7 @@ const GrnView = () => {
     let rejected = 0;
     let pending = 0;
     let amount = 0;
+    let gst = 0;
     for (const l of lines) {
       // This GRN's share of dispatched = full dispatched − other GRNs' accounted.
       const base = Math.max(
@@ -240,10 +244,21 @@ const GrnView = () => {
       received += acc;
       rejected += rej;
       pending += Math.max(0, base - acc - rej);
-      // Amount = received (good) qty × unit price (vendor currency).
-      amount += acc * num(l.unit_price);
+      // Amount = received (good) qty × unit price × (1−disc%) (taxable);
+      // GST = Amount × GST% (vendor currency).
+      const taxable = acc * num(l.unit_price) * (1 - num(l.discount_pct) / 100);
+      amount += taxable;
+      gst += taxable * (num(l.tax_pct) / 100);
     }
-    return { dispatched, received, rejected, pending, amount };
+    return {
+      dispatched,
+      received,
+      rejected,
+      pending,
+      amount,
+      gst,
+      total: amount + gst,
+    };
   }, [lines, qc]);
 
   const setField = (lineId, field, value) =>
@@ -270,11 +285,17 @@ const GrnView = () => {
     Math.max(0, r4(baseOf(l) - acceptedOf(l) - rejectedOf(l)));
 
   // Read-only pricing (vendor currency, from the source POV line): Price is the
-  // agreed unit rate; Amount = Received(good) qty × Price — the value that will
-  // post to the vendor ledger when the GRN is confirmed.
+  // agreed unit rate; Amount = Received(good) qty × Price × (1−disc%) (taxable);
+  // GST = Amount × GST%. Amount + GST is the GST-inclusive value that posts to
+  // the vendor ledger when the GRN is confirmed.
   const sym = getCurrencySymbol(grn?.currency_code || "INR") || "";
   const priceOf = (l) => num(l.unit_price);
-  const amountOf = (l) => acceptedOf(l) * priceOf(l);
+  const discOf = (l) => num(l.discount_pct);
+  const taxOf = (l) => num(l.tax_pct);
+  const amountOf = (l) => acceptedOf(l) * priceOf(l) * (1 - discOf(l) / 100);
+  const gstOf = (l) => amountOf(l) * (taxOf(l) / 100);
+  // GST-inclusive total = taxable + GST — the value that posts to the ledger.
+  const totalOf = (l) => amountOf(l) + gstOf(l);
   const money = (n) =>
     num(n).toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -590,6 +611,12 @@ const GrnView = () => {
                   <th className="text-end" style={{ width: 120 }}>
                     {t("Amount")}
                   </th>
+                  <th className="text-end" style={{ width: 120 }}>
+                    {t("GST")}
+                  </th>
+                  <th className="text-end" style={{ width: 130 }}>
+                    {t("Total Amt")}
+                  </th>
                   <th style={{ width: 130 }}>{t("Batch")}</th>
                   <th style={{ minWidth: 150 }}>{t("Remarks")}</th>
                 </tr>
@@ -679,6 +706,21 @@ const GrnView = () => {
                         {sym}
                         {money(amountOf(l))}
                       </td>
+                      {/* Read-only GST = Amount × GST% (from the POV line). */}
+                      <td className="text-end text-nowrap">
+                        {sym}
+                        {money(gstOf(l))}
+                        {taxOf(l) > 0 ? (
+                          <span className="text-muted small d-block">
+                            {taxOf(l)}%
+                          </span>
+                        ) : null}
+                      </td>
+                      {/* GST-inclusive total = Amount + GST. */}
+                      <td className="text-end text-nowrap fw-semibold">
+                        {sym}
+                        {money(totalOf(l))}
+                      </td>
                       <td>
                         <Input
                           bsSize="sm"
@@ -720,6 +762,14 @@ const GrnView = () => {
                   <td className="text-end">
                     {sym}
                     {money(totals.amount)}
+                  </td>
+                  <td className="text-end">
+                    {sym}
+                    {money(totals.gst)}
+                  </td>
+                  <td className="text-end">
+                    {sym}
+                    {money(totals.total)}
                   </td>
                   <td colSpan={2} />
                 </tr>

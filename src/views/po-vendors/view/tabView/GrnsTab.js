@@ -149,7 +149,13 @@ const GrnsTab = ({ registerActions }) => {
                 {t("Unit Price")}
               </th>
               <th style={{ width: 120 }} className="text-end">
-                {t("Total")}
+                {t("Amount")}
+              </th>
+              <th style={{ width: 120 }} className="text-end">
+                {t("GST")}
+              </th>
+              <th style={{ width: 130 }} className="text-end">
+                {t("Total Amt")}
               </th>
               <th style={{ width: 130 }} className="text-center">
                 {t("Status")}
@@ -206,6 +212,16 @@ const GrnsTab = ({ registerActions }) => {
                   <td className="text-end text-nowrap fw-semibold">
                     {getCurrencySymbol(g.currency_code || "INR") || ""}
                     {money(g.total_value)}
+                  </td>
+                  {/* Read-only GST = taxable × POV GST% (vendor currency). */}
+                  <td className="text-end text-nowrap">
+                    {getCurrencySymbol(g.currency_code || "INR") || ""}
+                    {money(g.gst_value)}
+                  </td>
+                  {/* GST-inclusive total = Amount + GST. */}
+                  <td className="text-end text-nowrap fw-semibold">
+                    {getCurrencySymbol(g.currency_code || "INR") || ""}
+                    {money(g.total_with_gst)}
                   </td>
                   <td className="text-center">
                     <span
