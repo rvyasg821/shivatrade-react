@@ -63,16 +63,23 @@ import { formatDate } from "@src/utility/dateFormat";
 // Exchange rates are STORED as "{to} units per 1 {from}" (e.g. 1 USD = 0.88 EUR
 // stores 0.88 on the USD page) — this reads plainly "1 FROM = rate TO", where
 // FROM is the currency being edited and TO is the one picked. NO inversion, NO
-// direction flip — the value entered IS the value stored. We only round to the
-// 6 dp the backend allows. (Multi-currency plan §6.1 — pair-aware, direct.)
-const round6 = (n) => Math.round((Number(n) + Number.EPSILON) * 1e6) / 1e6;
+// direction flip — the value entered IS the value stored. We round to the 12 dp
+// the backend now allows so a small rate reverses cleanly (1 INR = 0.010515… →
+// 95.09), not lossily (0.011 → 90.91). (Multi-currency plan §6.1 — pair-aware.)
+const RATE_DP = 12;
+const roundRate = (n) => {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  // Round to RATE_DP and drop float noise / trailing zeros via Number().
+  return Number(x.toFixed(RATE_DP));
+};
 const toStoredRate = (entered) => {
   const x = Number(entered);
-  return x > 0 ? String(round6(x)) : "";
+  return x > 0 ? String(roundRate(x)) : "";
 };
 const toIntuitiveRate = (stored) => {
   const x = Number(stored);
-  return x > 0 ? String(round6(x)) : "";
+  return x > 0 ? String(roundRate(x)) : "";
 };
 
 const CurrencyForm = () => {
@@ -547,9 +554,9 @@ const CurrencyForm = () => {
                     </Label>
                     <Input
                       type="number"
-                      step="0.000001"
+                      step="any"
                       min="0"
-                      placeholder="0.88"
+                      placeholder="0.010515"
                       value={rateFormState.rate}
                       onChange={(e) =>
                         setRateFormState((s) => ({ ...s, rate: e.target.value }))
@@ -615,7 +622,7 @@ const CurrencyForm = () => {
                             {isEditing ? (
                               <Input
                                 type="number"
-                                step="0.000001"
+                                step="any"
                                 min="0"
                                 bsSize="sm"
                                 value={editingRate}

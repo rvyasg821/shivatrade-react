@@ -52,13 +52,16 @@ export const computeLineCosting = (line, opts = {}) => {
   // Multi-currency (D-7 = A): convert the vendor COST from its source currency
   // to the DOCUMENT currency FIRST (× cost_exchange_rate; 1 for a domestic /
   // same-currency line), then build the sell price in the document currency.
-  const price = num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
+  const rate = num(l.cost_exchange_rate) || 1;
+  const price = num(l.unit_price) * rate;
   const disc = num(l.discount_pct);
   const gross = round2(qty * price);
   const discountAmt = round2((gross * disc) / 100);
   const taxable = round2(gross - discountAmt);
 
-  // Expenses apply first — % on Taxable, fixed amounts as-is.
+  // Expenses apply first — % on Taxable (already in document currency, no
+  // convert); fixed amounts are in the VENDOR (source) currency, so convert
+  // them source→document with the same per-line rate as the unit price.
   let expensesPctAmt = 0;
   let expensesFixedAmt = 0;
   let expensesPctRate = 0;
@@ -66,7 +69,7 @@ export const computeLineCosting = (line, opts = {}) => {
     if (e.type === "percent") {
       expensesPctRate += num(e.value);
       expensesPctAmt += (taxable * num(e.value)) / 100;
-    } else expensesFixedAmt += num(e.value);
+    } else expensesFixedAmt += num(e.value) * rate;
   }
   expensesPctAmt = round2(expensesPctAmt);
   expensesFixedAmt = round2(expensesFixedAmt);
@@ -79,7 +82,10 @@ export const computeLineCosting = (line, opts = {}) => {
   let rebatesFixedAmt = 0;
   let rebatesPctRate = 0;
   for (const r of l.product_rebates_snapshot || []) {
-    if (r.type === "fixed") rebatesFixedAmt += num(r.pct);
+    // Fixed rebates are an absolute in the vendor (source) currency → convert
+    // source→document like the price/expenses; percent rebates are a % of the
+    // doc-currency FOB base, so no conversion.
+    if (r.type === "fixed") rebatesFixedAmt += num(r.pct) * rate;
     else {
       rebatesPctRate += num(r.pct);
       rebatesPctAmt += (afterExpenses * num(r.pct)) / 100;
@@ -146,7 +152,8 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
   (lines || []).forEach((l) => {
     const qty = num(l?.qty);
     // Convert the vendor cost source→document currency first (1 = no convert).
-    const price = num(l?.unit_price) * (num(l?.cost_exchange_rate) || 1);
+    const rate = num(l?.cost_exchange_rate) || 1;
+    const price = num(l?.unit_price) * rate;
     const disc = num(l?.discount_pct);
     const taxPct = num(l?.tax_pct);
     const lineGross = qty * price;
@@ -155,7 +162,8 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
     discount_total += lineGross - lineNet;
     subtotal += lineNet;
 
-    // Expenses first: % on Taxable, fixed as-is.
+    // Expenses first: % on Taxable (doc currency, no convert); fixed amounts are
+    // in the vendor (source) currency → convert source→doc with the line rate.
     let lineProdReb = 0;
     let lineProdExp = 0;
     for (const e of l?.product_expenses_snapshot || []) {
@@ -164,16 +172,19 @@ export const computeDocTotals = (lines, exchangeRate, opts = {}) => {
         expenses_pct_total += amt;
         lineProdExp += amt;
       } else {
-        expenses_fixed_total += num(e.value);
-        lineProdExp += num(e.value);
+        const amt = num(e.value) * rate;
+        expenses_fixed_total += amt;
+        lineProdExp += amt;
       }
     }
     const lineAfterExpenses = lineNet + lineProdExp;
-    // Rebates: % on post-expense total (FOB = Taxable + Expenses), fixed as-is.
+    // Rebates: % on post-expense total (FOB = Taxable + Expenses); fixed
+    // converted source→doc like expenses.
     for (const r of l?.product_rebates_snapshot || []) {
       if (r.type === "fixed") {
-        rebates_fixed_total += num(r.pct);
-        lineProdReb += num(r.pct);
+        const amt = num(r.pct) * rate;
+        rebates_fixed_total += amt;
+        lineProdReb += amt;
       } else {
         const amt = (lineAfterExpenses * num(r.pct)) / 100;
         rebates_pct_total += amt;
