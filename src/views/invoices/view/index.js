@@ -150,6 +150,9 @@ const ViewInvoice = () => {
     reference: "",
     notes: "",
     company_bank_account_id: "",
+    // Receipt-time rate, entered human-readable as "1 {CUR} = ₹ ___"
+    // (₹-per-foreign). Converted to the invoice's foreign-per-₹1 on submit.
+    exchange_rate_inr: "",
   });
   const [payErrors, setPayErrors] = useState({});
 
@@ -162,6 +165,13 @@ const ViewInvoice = () => {
   }, [companyStore?.companyItem]);
 
   const openPaymentModal = () => {
+    // Seed the human-readable "1 {CUR} = ₹___" (₹-per-foreign) from the
+    // invoice's stored foreign-per-₹1 rate. Defaults to the invoice rate so a
+    // same-rate receipt yields 0 gain/loss; the user edits it to the day's rate.
+    // Round to 2dp (rupees-per-foreign is always a large rate) so the reciprocal
+    // of the 6dp-stored exchange_rate reads clean (95.20, not 95.201828).
+    const invRate = num(inv?.exchange_rate) || 1;
+    const rateInr = invRate > 0 ? 1 / invRate : 1;
     setPayForm({
       payment_date: new Date().toISOString().slice(0, 10),
       // Pre-fill the outstanding balance in the document (customer) currency.
@@ -170,6 +180,7 @@ const ViewInvoice = () => {
       reference: "",
       notes: "",
       company_bank_account_id: defaultBankId,
+      exchange_rate_inr: Number(rateInr.toFixed(2)).toString(),
     });
     setPayErrors({});
     setPayOpen(true);
@@ -197,9 +208,22 @@ const ViewInvoice = () => {
     const bal = balanceDoc;
     if (amt > bal + 0.01)
       e.amount = `Cannot exceed balance due ${sym}${fmt(bal)}`;
+    // For foreign invoices, validate + convert the human-readable receipt rate
+    // ("1 {CUR} = ₹___", ₹-per-foreign) back to the stored foreign-per-₹1.
+    const isForeign = (inv?.currency_code || "INR").toUpperCase() !== "INR";
+    if (isForeign) {
+      const rateInr = Number(payForm.exchange_rate_inr || 0);
+      if (!(rateInr > 0)) e.exchange_rate_inr = "Rate > 0";
+    }
     setPayErrors(e);
     if (Object.keys(e).length) return;
-    dispatch(recordInvoicePayment({ id, data: payForm })).then((r) => {
+    const { exchange_rate_inr, ...rest } = payForm;
+    const data = { ...rest };
+    if (isForeign) {
+      const rateInr = Number(exchange_rate_inr || 0);
+      data.exchange_rate = String(1 / rateInr);
+    }
+    dispatch(recordInvoicePayment({ id, data })).then((r) => {
       if (r?.meta?.requestStatus === "fulfilled") {
         setPayOpen(false);
         dispatch(getInvoice(id));
@@ -675,7 +699,7 @@ const ViewInvoice = () => {
       });
     }
 
-    if ((isIssued || isPartial) && canEdit) {
+    if ((isDraft || isIssued || isPartial) && canEdit) {
       actions.push({
         icon: DollarSign,
         label: t("Record Payment"),
@@ -1105,7 +1129,7 @@ const ViewInvoice = () => {
                       bar (same pattern as the Lead / POV detail tabs). */}
                   <div className="d-flex gap-1">
                     {activeTab === "payments" &&
-                      (isIssued || isPartial) &&
+                      (isDraft || isIssued || isPartial) &&
                       canEdit && (
                         <Button
                           size="sm"
@@ -1301,7 +1325,7 @@ const ViewInvoice = () => {
                   {/* Money position summary — mirrors the POV Payments tab.
                       Only meaningful once the invoice is issued (a draft has no
                       receivable position yet), so hide it while draft. */}
-                  {(isIssued || isPartial || isPaid) && (
+                  {(isDraft || isIssued || isPartial || isPaid) && (
                   <Row className="g-1 mb-2">
                     <Col md="3" sm="6">
                       <div className="border rounded p-1 h-100">
@@ -1356,18 +1380,36 @@ const ViewInvoice = () => {
                       <div className="text-muted text-center py-3">
                         {t("No payments recorded yet.")}
                       </div>
-                    ) : (
+                    ) : (() => {
+                      // Realized forex gain/loss columns — foreign invoices only.
+                      const showForex =
+                        (inv?.currency_code || "INR").toUpperCase() !== "INR";
+                      const forexTotal = (inv.payments || [])
+                        .filter((p) => !p.voided_at)
+                        .reduce(
+                          (a, p) => a + (num(p.forex_gain_loss_inr) || 0),
+                          0
+                        );
+                      return (
                       <Table responsive bordered size="sm" className="align-middle mb-0">
                         <thead className="table-light">
                           <tr>
-                            <th>{t("Date")}</th>
-                            <th>{t("Method")}</th>
-                            <th>{t("Bank")}</th>
-                            <th>{t("Reference")}</th>
-                            <th>{t("Notes")}</th>
-                            <th>{t("Receipt")}</th>
-                            <th className="text-end">{t("Amount")}</th>
-                            <th></th>
+                            <th className="text-nowrap">{t("Receipt")}</th>
+                            <th className="text-nowrap">{t("Date")}</th>
+                            <th className="text-nowrap">{t("Method")}</th>
+                            <th className="text-nowrap">{t("Bank")}</th>
+                            <th className="text-nowrap">{t("Reference")}</th>
+                            <th className="text-nowrap">{t("Notes")}</th>
+                            <th className="text-nowrap text-end">{t("Amount")}</th>
+                            {showForex && (
+                              <>
+                                <th className="text-nowrap text-end">{t("Receipt Rate")}</th>
+                                <th className="text-nowrap text-end">{t("Gain/Loss (₹)")}</th>
+                              </>
+                            )}
+                            <th className="text-nowrap text-start">
+                              {t("Actions")}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1381,58 +1423,102 @@ const ViewInvoice = () => {
                                   voided ? { textDecoration: "line-through" } : {}
                                 }
                               >
-                                <td>{formatDate(p.payment_date)}</td>
-                                <td className="text-capitalize">
-                                  {(p.method || "-").replace(/_/g, " ")}
-                                </td>
-                                <td>{p.bank_name || "-"}</td>
-                                <td>{p.reference || "-"}</td>
-                                <td>{p.notes || "-"}</td>
-                                <td>
+                                <td className="text-nowrap">
                                   {!voided && p.receipt_voucher_no ? (
-                                    <span className="d-inline-flex align-items-center gap-1">
-                                      <Button
-                                        size="sm"
-                                        color="link"
-                                        className="p-0"
-                                        title={t("Download Receipt")}
-                                        onClick={() =>
-                                          openInvoicePdf("receipt", {
-                                            paymentId: p._id,
-                                          })
-                                        }
-                                      >
-                                        <Download size={13} className="me-25" />
-                                        {p.receipt_voucher_no}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        color="link"
-                                        className="p-0"
-                                        title={`${t("Download Receipt")} — ${t("Excel")}`}
-                                        onClick={() =>
-                                          downloadInvoiceExcel("receipt", {
-                                            paymentId: p._id,
-                                          })
-                                        }
-                                      >
-                                        {t("Excel")}
-                                      </Button>
-                                    </span>
+                                    <Button
+                                      size="sm"
+                                      color="link"
+                                      className="p-0"
+                                      title={t("Download Receipt")}
+                                      onClick={() =>
+                                        openInvoicePdf("receipt", {
+                                          paymentId: p._id,
+                                        })
+                                      }
+                                    >
+                                      {p.receipt_voucher_no}
+                                    </Button>
                                   ) : (
                                     <span className="text-muted">
                                       {p.receipt_voucher_no || "-"}
                                     </span>
                                   )}
                                 </td>
-                                <td className="text-end">
+                                <td className="text-nowrap">{formatDate(p.payment_date)}</td>
+                                <td className="text-nowrap text-capitalize">
+                                  {(p.method || "-").replace(/_/g, " ")}
+                                </td>
+                                <td className="text-nowrap">{p.bank_name || "-"}</td>
+                                <td className="text-nowrap">{p.reference || "-"}</td>
+                                <td className="text-nowrap">{p.notes || "-"}</td>
+                                <td className="text-nowrap text-end">
                                   {sym}
                                   {fmt(p.amount)}
                                 </td>
-                                <td className="text-end">
-                                  {!voided &&
-                                    (isIssued || isPartial) &&
-                                    canEdit && (
+                                {showForex &&
+                                  (() => {
+                                    const rate = num(p.exchange_rate) || 0;
+                                    const rateInr = rate > 0 ? 1 / rate : 0;
+                                    const gl = num(p.forex_gain_loss_inr) || 0;
+                                    return (
+                                      <>
+                                        <td className="text-nowrap text-end">
+                                          {rateInr
+                                            ? `1 ${inv.currency_code} = ₹${fmt(
+                                                rateInr
+                                              )}`
+                                            : "-"}
+                                        </td>
+                                        <td
+                                          className={`text-nowrap text-end ${
+                                            voided
+                                              ? ""
+                                              : gl >= 0
+                                              ? "text-success"
+                                              : "text-danger"
+                                          }`}
+                                        >
+                                          {gl >= 0 ? "" : "− "}₹
+                                          {fmt(Math.abs(gl))}
+                                        </td>
+                                      </>
+                                    );
+                                  })()}
+                                <td className="text-nowrap text-start">
+                                  <div className="d-flex align-items-center gap-1">
+                                    {!voided && p.receipt_voucher_no ? (
+                                      <>
+                                        <Button
+                                          color="flat-secondary"
+                                          size="sm"
+                                          className="p-25"
+                                          title={t("Download PDF")}
+                                          onClick={() =>
+                                            openInvoicePdf("receipt", {
+                                              paymentId: p._id,
+                                            })
+                                          }
+                                        >
+                                          <Download size={15} />
+                                        </Button>
+                                        <Button
+                                          color="flat-secondary"
+                                          size="sm"
+                                          className="p-25"
+                                          title={t("Download Excel")}
+                                          onClick={() =>
+                                            downloadInvoiceExcel("receipt", {
+                                              paymentId: p._id,
+                                            })
+                                          }
+                                        >
+                                          <FileText size={15} />
+                                        </Button>
+                                      </>
+                                    ) : null}
+                                    {!voided &&
+                                    (isDraft || isIssued || isPartial) &&
+                                    canEdit ? (
                                       <Button
                                         size="sm"
                                         color="link"
@@ -1443,19 +1529,41 @@ const ViewInvoice = () => {
                                       >
                                         {t("Void")}
                                       </Button>
-                                    )}
-                                  {voided && (
-                                    <span className="badge bg-light text-muted">
-                                      {t("voided")}
-                                    </span>
-                                  )}
+                                    ) : voided ? (
+                                      <span className="badge bg-light text-muted">
+                                        {t("voided")}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 </td>
                               </tr>
                             );
                           })}
                         </tbody>
+                        {showForex && (
+                          <tfoot className="table-light">
+                            <tr>
+                              <td colSpan="7" className="text-end fw-bold">
+                                {t("Net Realized Forex Gain/Loss")}
+                              </td>
+                              <td className="text-end" />
+                              <td
+                                className={`text-end fw-bold ${
+                                  forexTotal >= 0
+                                    ? "text-success"
+                                    : "text-danger"
+                                }`}
+                              >
+                                {forexTotal >= 0 ? "" : "− "}₹
+                                {fmt(Math.abs(forexTotal))}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        )}
                       </Table>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
                 </TabPane>
@@ -1850,6 +1958,64 @@ const ViewInvoice = () => {
                 }
               />
             </Col>
+            {(inv?.currency_code || "INR").toUpperCase() !== "INR" && (
+              <Col md="6" className="mb-2">
+                <Label className="form-label">
+                  {t("Exchange rate at receipt")}{" "}
+                  <span className="text-danger">*</span>
+                </Label>
+                <div className="d-flex align-items-center">
+                  <span className="me-1 text-nowrap">
+                    1 {inv.currency_code} = ₹
+                  </span>
+                  <Input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={payForm.exchange_rate_inr}
+                    onChange={(e) =>
+                      setPayForm((s) => ({
+                        ...s,
+                        exchange_rate_inr: e.target.value,
+                      }))
+                    }
+                    invalid={!!payErrors.exchange_rate_inr}
+                  />
+                </div>
+                {payErrors.exchange_rate_inr && (
+                  <FormFeedback className="d-block">
+                    {payErrors.exchange_rate_inr}
+                  </FormFeedback>
+                )}
+                {(() => {
+                  // Live realized gain/loss preview vs the invoice rate.
+                  const invRate = num(inv?.exchange_rate) || 1;
+                  const invRateInr = invRate > 0 ? 1 / invRate : 0;
+                  const rcptRateInr = Number(payForm.exchange_rate_inr || 0);
+                  const amt = Number(payForm.amount || 0);
+                  if (!(rcptRateInr > 0) || !(amt > 0) || !(invRateInr > 0))
+                    return (
+                      <small className="text-muted">
+                        {t("Invoice rate")}: 1 {inv.currency_code} = ₹
+                        {fmt(invRateInr)}
+                      </small>
+                    );
+                  const gl = amt * rcptRateInr - amt * invRateInr;
+                  const g2 = Math.round(gl * 100) / 100;
+                  return (
+                    <small
+                      className={
+                        g2 >= 0 ? "text-success" : "text-danger"
+                      }
+                    >
+                      {t("Invoice rate")}: 1 {inv.currency_code} = ₹
+                      {fmt(invRateInr)} · {g2 >= 0 ? t("Gain") : t("Loss")} ₹
+                      {fmt(Math.abs(g2))}
+                    </small>
+                  );
+                })()}
+              </Col>
+            )}
             <Col md="6" className="mb-2">
               <Label className="form-label">{t("Reference (UTR / Wire / LC #)")}</Label>
               <Input

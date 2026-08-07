@@ -109,26 +109,29 @@ const round2 = (n) =>
 //                value lives in `pct` regardless of `type`
 //   Expense row: { expense_id, code, name, type: 'percent'|'fixed', value }
 //                value lives in `value` regardless of `type`
-const sumRebates = (items, base) => {
+// `rate` = the line's cost_exchange_rate (source→doc). FIXED amounts are in the
+// vendor (source) currency → convert them like the unit price; PERCENT heads are
+// a % of a doc-currency base, so no conversion. Defaults to 1 (domestic line).
+const sumRebates = (items, base, rate = 1) => {
   if (!Array.isArray(items) || items.length === 0) return 0;
   let total = 0;
   for (const r of items) {
     if (!r) continue;
     const add =
-      r.type === "fixed" ? num(r.pct) : (base * num(r.pct)) / 100;
+      r.type === "fixed" ? num(r.pct) * rate : (base * num(r.pct)) / 100;
     // Round each entry before summing so a row of 33.333… 's doesn't
     // build into noise across many lines.
     total += round2(add);
   }
   return round2(total);
 };
-const sumExpenses = (items, base) => {
+const sumExpenses = (items, base, rate = 1) => {
   if (!Array.isArray(items) || items.length === 0) return 0;
   let total = 0;
   for (const e of items) {
     if (!e) continue;
     const add =
-      e.type === "percent" ? (base * num(e.value)) / 100 : num(e.value);
+      e.type === "percent" ? (base * num(e.value)) / 100 : num(e.value) * rate;
     total += round2(add);
   }
   return round2(total);
@@ -408,6 +411,28 @@ const InvoiceAddEdit = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.currency_code]);
+
+  // Client 2026-08-07 (Option A): the costing worksheet's vendor rate box IS the
+  // invoice's exchange rate. When the vendor/source currency is the base (INR),
+  // a line's cost_exchange_rate (doc units per 1 INR) is numerically identical
+  // to the invoice header exchange_rate (foreign-per-₹1) — so mirror it onto
+  // form.exchange_rate. The Record-Payment modal + forex gain/loss then compare
+  // against this same rate automatically. GUARD: only when an INR-source line
+  // exists; a purely foreign-vendor invoice carries no INR rate to derive here,
+  // so its master-fetched exchange_rate is left untouched.
+  useEffect(() => {
+    const inrLine = (lines || []).find(
+      (l) =>
+        (l?.source_currency_code || "").toUpperCase() === "INR" &&
+        num(l?.cost_exchange_rate) > 0
+    );
+    if (!inrLine) return;
+    const want = String(inrLine.cost_exchange_rate);
+    if (Math.abs(num(form.exchange_rate) - num(want)) > 1e-9) {
+      onF("exchange_rate", want);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines]);
 
   // ── Source→document rate box (mirrors the costing worksheet) ──────────
   // The line cost is native to the VENDOR (source) currency; the invoice is in
@@ -1291,12 +1316,23 @@ const InvoiceAddEdit = () => {
     let subtotalDoc = 0;
     let igstDoc = 0;
     for (const l of lines) {
-      const priceDoc = num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
+      const lineRate = num(l.cost_exchange_rate) || 1;
+      const priceDoc = num(l.unit_price) * lineRate;
       const taxable =
         num(l.qty) * priceDoc * (1 - num(l.discount_pct) / 100);
-      const expensesTotal = sumExpenses(l.product_expenses_snapshot, taxable);
+      // Fixed expenses/rebates are in the vendor (source) currency → convert
+      // with the same per-line rate as the price.
+      const expensesTotal = sumExpenses(
+        l.product_expenses_snapshot,
+        taxable,
+        lineRate
+      );
       const afterExpense = taxable + expensesTotal;
-      const rebatesTotal = sumRebates(l.product_rebates_snapshot, afterExpense);
+      const rebatesTotal = sumRebates(
+        l.product_rebates_snapshot,
+        afterExpense,
+        lineRate
+      );
       const afterRebate = afterExpense - rebatesTotal;
       const marginAmt = (afterRebate * num(l.margin_pct)) / 100;
       const lineNet = round2(afterRebate + marginAmt);

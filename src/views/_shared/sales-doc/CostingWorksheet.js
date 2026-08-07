@@ -419,35 +419,82 @@ const CostingWorksheet = ({
     return Array.from(set).sort();
   }, [liveLines, docCur]);
 
-  // { [sourceCode]: { rate: string, available: boolean } }
+  // The rate boxes are captured in the CLIENT-FACING direction:
+  // "1 {document/customer} = rate {source/vendor}" (e.g. 1 USD = 95.18 INR →
+  // rate 95.18). The per-line cost_exchange_rate stored/used by the costing
+  // engine is the INVERSE (source→document = 1/rate) — UNCHANGED — so nothing
+  // downstream (math, storage, PDFs, reports) is affected by this display flip.
+  // { [sourceCode]: { rate: string(doc→source), available: boolean } }
   const [sourceRates, setSourceRates] = useState({});
   const sourcesKey = distinctSources.join("|");
+
+  // cost_exchange_rate is stored at 6 decimals, so the INVERSE we show (1/cer)
+  // carries reciprocal noise: a typed 95.20 comes back as 95.2018279. Only the
+  // meaningful digits survive that round-trip — ~2 decimals for a large display
+  // rate (small stored rate), more for a small one. Round to that precision so
+  // the box reads clean. Applied ONLY on seed/fetch — never while the user
+  // types, so their raw keystrokes are preserved.
+  const cleanDisplayRate = (v) => {
+    const nv = Number(v);
+    if (!(nv > 0)) return "";
+    const dec = Math.min(8, Math.max(2, Math.round(6.3 - 2 * Math.log10(nv))));
+    return String(Number(nv.toFixed(dec)));
+  };
+
+  // SEED from a saved/hydrated line rate FIRST (edit mode) so a document keeps
+  // the exact rate it was saved with and is never silently overwritten by the
+  // live master rate. Stored cost_exchange_rate is source→doc, so its display
+  // (doc→source) is the inverse. A cost_exchange_rate of exactly 1 on a
+  // cross-currency line is the reset placeholder (not a real rate) → skip, let
+  // the fetch fill it. No-overwrite guard (`m[sc] ? m`) keeps a value the user
+  // has already typed. Declared BEFORE the fetch effect so the seed wins.
+  useEffect(() => {
+    (liveLines || []).forEach((l) => {
+      const sc = (l?.source_currency_code || "INR").toUpperCase();
+      if (sc === docCur) return;
+      const cer = num(l?.cost_exchange_rate);
+      if (!(cer > 0) || Math.abs(cer - 1) < 1e-9) return;
+      setSourceRates((m) =>
+        m[sc]
+          ? m
+          : { ...m, [sc]: { rate: cleanDisplayRate(1 / cer), available: true } }
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveLines, docCur]);
+
   useEffect(() => {
     let cancelled = false;
     distinctSources.forEach((src) => {
       if (src === docCur) return; // same currency → fixed rate 1, no fetch
-      if (sourceRates[src]) return; // fetched or user-edited already
+      if (sourceRates[src]) return; // seeded / fetched / user-edited already
+      // Same master call as before (from source, to document); INVERT the
+      // result for the doc→source display. Guarded so it never clobbers a
+      // value seeded from the saved line or typed by the user meanwhile.
       instance
         .get(API_ENDPOINTS.currencies.currentRate, {
           params: { from: src, to: docCur },
         })
         .then((resp) => {
           if (cancelled) return;
-          const r = Number(resp?.data?.data?.rate);
-          setSourceRates((m) => ({
-            ...m,
-            [src]:
-              r > 0
-                ? { rate: String(r), available: true }
-                : { rate: "1", available: false },
-          }));
+          const r = Number(resp?.data?.data?.rate); // source→doc
+          setSourceRates((m) =>
+            m[src]
+              ? m
+              : {
+                  ...m,
+                  [src]:
+                    r > 0
+                      ? { rate: cleanDisplayRate(1 / r), available: true }
+                      : { rate: "1", available: false },
+                }
+          );
         })
         .catch(() => {
           if (cancelled) return;
-          setSourceRates((m) => ({
-            ...m,
-            [src]: { rate: "1", available: false },
-          }));
+          setSourceRates((m) =>
+            m[src] ? m : { ...m, [src]: { rate: "1", available: false } }
+          );
         });
     });
     return () => {
@@ -462,13 +509,17 @@ const CostingWorksheet = ({
       [src]: { rate: value, available: Number(value) > 0 },
     }));
 
-  // Push each line's frozen cost_exchange_rate = its source→doc rate (1 same).
+  // Freeze each line's cost_exchange_rate = source→document = 1 / (the
+  // doc→source display rate). 1 when the vendor currency == the document
+  // currency, or no rate is available yet. Tolerance compare (not string) so
+  // the reciprocal round-trip doesn't churn setValue in a loop.
   useEffect(() => {
     liveLines.forEach((l, idx) => {
       if (!l?.vendor_id) return; // vendorless row has no cost to convert
       const sc = (l?.source_currency_code || "INR").toUpperCase();
-      const want = sc === docCur ? "1" : sourceRates[sc]?.rate || "1";
-      if (String(l?.cost_exchange_rate ?? "") !== String(want)) {
+      const disp = sc === docCur ? 0 : num(sourceRates[sc]?.rate);
+      const want = sc === docCur || !(disp > 0) ? "1" : String(1 / disp);
+      if (Math.abs(num(l?.cost_exchange_rate) - num(want)) > 1e-9) {
         setValue(`lines.${idx}.cost_exchange_rate`, want, {
           shouldDirty: false,
         });
@@ -1069,10 +1120,12 @@ const CostingWorksheet = ({
   return (
     <Fragment>
       {/* Exchange-rate boxes — one per distinct VENDOR (source) currency that
-          differs from the document currency: converts each line's cost into the
-          document currency (1 {source} = rate {doc}). Auto-filled from the
-          currency master, editable. INR is just another currency. With the
-          one-currency-per-document rule there is at most one box. */}
+          differs from the document currency. Shown in the client's direction
+          "1 {document/customer} = rate {vendor/source}" (e.g. 1 USD = 95.18
+          INR); the stored per-line cost_exchange_rate is the inverse. Seeded
+          from the saved rate on edit, else auto-filled from the currency
+          master; editable. With the one-currency-per-document rule there is at
+          most one box. */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
         <div className="d-flex align-items-center gap-1 flex-wrap">
           {/* Vendor (buy) currency — one per document. Picked FIRST; the line
@@ -1111,7 +1164,9 @@ const CostingWorksheet = ({
                   key={src}
                   className="d-flex align-items-center gap-50 ws-rate-box"
                 >
-                  <span className="fw-bold">1 {src} =</span>
+                  {/* Client-facing direction: 1 {customer/doc} = rate {vendor/
+                      source}, e.g. "1 USD = 95.18 INR". Stored as its inverse. */}
+                  <span className="fw-bold">1 {docCur} =</span>
                   <Input
                     type="number"
                     step="0.000001"
@@ -1122,7 +1177,7 @@ const CostingWorksheet = ({
                     value={sr.rate}
                     onChange={(e) => setSourceRate(src, e.target.value)}
                   />
-                  <span className="fw-bold">{docCur}</span>
+                  <span className="fw-bold">{src}</span>
                   {sr.available === false ? (
                     <span className="text-warning small ms-25">
                       {t("exchange rate not available")}
