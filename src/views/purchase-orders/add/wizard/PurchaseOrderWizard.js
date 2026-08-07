@@ -94,6 +94,10 @@ const PurchaseOrderWizard = () => {
         delivery_address: yup.string().nullable(),
         delivery_address_id: yup.string().nullable(),
         expected_delivery_date: yup.string().nullable(),
+        advance_amount: yup.string().nullable(),
+        advance_date: yup.string().nullable(),
+        advance_notes: yup.string().nullable().max(200),
+        advance_bank_account_id: yup.string().nullable(),
         payment_terms: yup.string().nullable().max(100),
         delivery_terms: yup.string().nullable().max(100),
         dispatched_through: yup.string().nullable().max(50),
@@ -232,6 +236,14 @@ const PurchaseOrderWizard = () => {
           new Date().toISOString().slice(0, 10),
         expected_delivery_date:
           (p.expected_delivery_date || "").slice(0, 10) || "",
+        // Advance section — normalise the date; show a real advance, blank a 0.
+        advance_amount:
+          p.advance_amount != null && Number(p.advance_amount) > 0
+            ? String(p.advance_amount)
+            : "",
+        advance_date: (p.advance_date || "").slice(0, 10) || "",
+        advance_notes: p.advance_notes || "",
+        advance_bank_account_id: p.advance_bank_account_id || "",
         lines: (p.lines || []).map((l) => ({
           ...initPurchaseOrderLineItem,
           ...l,
@@ -676,6 +688,16 @@ const PurchaseOrderWizard = () => {
     };
   };
 
+  // Resolve a company bank account id → its bank name, snapshotted onto the SO
+  // so the advance's "received in bank" survives a later bank edit/removal.
+  const resolveBankName = (bankId) => {
+    if (!bankId) return undefined;
+    const b = (companyStore?.companyItem?.bank_accounts || []).find(
+      (x) => x._id === bankId
+    );
+    return b?.bank_name || undefined;
+  };
+
   // ── Submit ──
   const buildPayload = (values) => {
     if (isLocked) {
@@ -701,6 +723,15 @@ const PurchaseOrderWizard = () => {
       expected_delivery_date: values.expected_delivery_date || undefined,
       customer_po_number: values.customer_po_number?.trim() || undefined,
       reference_no: values.reference_no?.trim() || undefined,
+      // Advance + the bank it was received into (name snapshot resolved below).
+      advance_amount:
+        values.advance_amount === "" || values.advance_amount == null
+          ? undefined
+          : String(values.advance_amount),
+      advance_date: values.advance_date || undefined,
+      advance_notes: values.advance_notes?.trim() || undefined,
+      advance_bank_account_id: values.advance_bank_account_id || undefined,
+      advance_bank_name: resolveBankName(values.advance_bank_account_id),
       delivery_address: values.delivery_address?.trim() || undefined,
       delivery_address_id: values.delivery_address_id || undefined,
       payment_terms: values.payment_terms?.trim() || undefined,

@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive, Clipboard } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -60,6 +60,24 @@ const REPORTS = [
       "Per-line differences between the Sales Order selling price and the actual invoiced price.",
     icon: GitPullRequest,
     to: `${appsRoot}/reports/so-invoice-reconciliation`,
+    live: true,
+  },
+  {
+    key: "sales-order-status",
+    title: "Sales Order Status",
+    description:
+      "Open, partially closed and closed Sales Orders by invoiced qty — with the linked invoices' qty, rates and amounts.",
+    icon: Clipboard,
+    to: `${appsRoot}/reports/sales-order-status`,
+    live: true,
+  },
+  {
+    key: "purchase-order-status",
+    title: "Purchase Order Status",
+    description:
+      "Open, partially closed and closed Vendor POs by GRN-received qty — with the linked GRNs' qty, rates and amounts.",
+    icon: Clipboard,
+    to: `${appsRoot}/reports/purchase-order-status`,
     live: true,
   },
   {

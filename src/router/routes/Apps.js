@@ -94,6 +94,8 @@ const GstBalanceReport = lazy(() => import('@src/views/reports/gst-balance'));
 const PurchaseTurnoverReport = lazy(() => import('@src/views/reports/purchase-turnover'));
 const SalesTurnoverReport = lazy(() => import('@src/views/reports/sales-turnover'));
 const SoInvoiceReconciliationReport = lazy(() => import('@src/views/reports/so-invoice-reconciliation'));
+const SalesOrderStatusReport = lazy(() => import('@src/views/reports/sales-order-status'));
+const PurchaseOrderStatusReport = lazy(() => import('@src/views/reports/purchase-order-status'));
 const StockTurnoverReport = lazy(() => import('@src/views/reports/stock-turnover'));
 const InventoryHoldingDaysReport = lazy(() => import('@src/views/reports/inventory-holding-days'));
 const InventoryAgingReport = lazy(() => import('@src/views/reports/inventory-aging'));
@@ -739,6 +741,16 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/so-invoice-reconciliation`,
     element: <SoInvoiceReconciliationReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/sales-order-status`,
+    element: <SalesOrderStatusReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/purchase-order-status`,
+    element: <PurchaseOrderStatusReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {

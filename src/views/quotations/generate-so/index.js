@@ -31,6 +31,7 @@ import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import LocationSelect from "@src/views/_shared/LocationSelect";
 import { getQuotation } from "@src/views/quotations/store";
+import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { getCurrencySymbol } from "@src/utility/currency";
 import { appsRoot } from "@constant/defaultValues";
 
@@ -49,6 +50,9 @@ const GenerateSalesOrder = () => {
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceDate, setAdvanceDate] = useState("");
   const [advanceNotes, setAdvanceNotes] = useState("");
+  // Company bank account the advance was received into ("received in bank").
+  const [advanceBankId, setAdvanceBankId] = useState("");
+  const companyStore = useSelector((s) => s.company);
 
   // Sales Orders already generated from this quotation (non-cancelled). If any
   // exist we block a duplicate generation and warn the user.
@@ -60,6 +64,28 @@ const GenerateSalesOrder = () => {
       dispatch(getQuotation(quotationId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotationId]);
+
+  // Company bank accounts feed the "Received in bank" picker.
+  useEffect(() => {
+    dispatch(getCompanyDetails());
+  }, [dispatch]);
+
+  // Active bank accounts; prefer those matching the order currency, else all.
+  const bankOptions = useMemo(() => {
+    const active = (companyStore?.companyItem?.bank_accounts || []).filter(
+      (b) => !b.soft_delete && b.is_active !== false
+    );
+    const cc = (q?.currency_code || "").toUpperCase();
+    const matching = active.filter(
+      (b) => (b.currency_code || "").toUpperCase() === cc
+    );
+    return (matching.length ? matching : active).map((b) => ({
+      value: b._id,
+      label: `${b.bank_name} — ${b.account_number}${
+        b.currency_code ? ` · ${b.currency_code}` : ""
+      }`,
+    }));
+  }, [companyStore?.companyItem?.bank_accounts, q?.currency_code]);
 
   // Prefill the Reference No. from the quotation being converted (the backend
   // also defaults it, but seeding here keeps the field visible + editable).
@@ -165,6 +191,11 @@ const GenerateSalesOrder = () => {
               : String(advanceAmount),
           advance_date: advanceDate || undefined,
           advance_notes: advanceNotes?.trim() || undefined,
+          advance_bank_account_id: advanceBankId || undefined,
+          // Name snapshot so the ledger/PDF survives a later bank edit/removal.
+          advance_bank_name:
+            (bankOptions.find((o) => o.value === advanceBankId)?.label || "")
+              .split(" — ")[0] || undefined,
         }
       );
       const purchaseOrder = resp?.data?.data?.purchase_order;
@@ -379,6 +410,27 @@ const GenerateSalesOrder = () => {
                   value={advanceDate}
                   onChange={(_d, _s, iso) => setAdvanceDate(iso || "")}
                 />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label fw-semibold">
+                  {t("Received in Bank")}
+                </label>
+                <select
+                  className="form-control"
+                  value={advanceBankId}
+                  onChange={(e) => setAdvanceBankId(e.target.value)}
+                >
+                  <option value="">{t("Select bank account")}</option>
+                  {bankOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <small className="text-muted">
+                  {t("Company account the advance was received into.")}
+                </small>
               </div>
 
               <div className="col-12">

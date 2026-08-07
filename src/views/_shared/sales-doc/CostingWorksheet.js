@@ -182,6 +182,21 @@ const CostingWorksheet = ({
   // Drives the import/export filename + backend layout. "quotation" by default;
   // the Sales Order wizard passes "po".
   docType = "quotation",
+  // Hides the built-in Excel import/export bar (the Invoice hosts its own line
+  // importer for now). Additive/gated — Quotation & SO omit it, so their bar
+  // renders exactly as before.
+  hideImportExport = false,
+  // Invoice-only: show a read-only UQC column + an editable IGST% column (and a
+  // derived IGST-Amt cell). Additive/gated — Quotation & SO omit it, so their
+  // grid is unchanged. `isLut` locks IGST% to 0 (LUT/zero-rated export).
+  showIgst = false,
+  isLut = false,
+  // Invoice-only: allow the SAME product + vendor on more than one line (an
+  // invoice may legitimately bill the same product twice), and hide the "Add
+  // Product" button (invoice lines come from the SO pickers / import only).
+  // Additive/gated — Quotation & SO omit them, so their behaviour is unchanged.
+  allowDuplicateProducts = false,
+  hideAddProduct = false,
 }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -827,8 +842,9 @@ const CostingWorksheet = ({
     const productId = allLines[idx]?.product_id || "";
     // Block the same product + same vendor on two lines. A product may still be
     // added with a different vendor (multi-vendor model) — only an exact
-    // product+vendor duplicate is rejected.
-    if (newVendorId && productId) {
+    // product+vendor duplicate is rejected. Skipped when duplicates are allowed
+    // (invoices may bill the same product+vendor on more than one line).
+    if (newVendorId && productId && !allowDuplicateProducts) {
       const dup = allLines.some(
         (l, i) =>
           i !== idx &&
@@ -1014,6 +1030,9 @@ const CostingWorksheet = ({
     hsn: 112,
     qty: 78,
     uom: 60,
+    uqc: 66,
+    igst: 70,
+    igstAmt: 104,
     rate: 92,
     disc: 64,
     pad: 96,
@@ -1141,25 +1160,29 @@ const CostingWorksheet = ({
                 drives the filename + backend layout (quotation vs po). Shares
                 this worksheet's lineFA so imported rows appear without a
                 remount. */}
-            <LineItemImportExportBar
-              docType={docType}
-              control={control}
-              lineFA={lineFA}
-              initLineItem={emptyLine()}
-              currencyCode={docCurrencyCode}
-              exchangeRate={exchangeRate}
-              // Shipment freight round-trip: exported (and re-imported) with
-              // the lines so the sheet's Freight / CNF columns match this
-              // worksheet. The per-line split is always re-derived by qty,
-              // so only the column's SUM is honoured on import.
-              freightTotal={freightTotal}
-              onFreightImported={(v) =>
-                setValue("freight_total", String(v), { shouldDirty: true })
-              }
-            />
-            <Button color="outline-primary" size="sm" onClick={addRow}>
-              <Plus size={14} className="me-25" /> {t("Add Product")}
-            </Button>
+            {!hideImportExport && (
+              <LineItemImportExportBar
+                docType={docType}
+                control={control}
+                lineFA={lineFA}
+                initLineItem={emptyLine()}
+                currencyCode={docCurrencyCode}
+                exchangeRate={exchangeRate}
+                // Shipment freight round-trip: exported (and re-imported) with
+                // the lines so the sheet's Freight / CNF columns match this
+                // worksheet. The per-line split is always re-derived by qty,
+                // so only the column's SUM is honoured on import.
+                freightTotal={freightTotal}
+                onFreightImported={(v) =>
+                  setValue("freight_total", String(v), { shouldDirty: true })
+                }
+              />
+            )}
+            {!hideAddProduct && (
+              <Button color="outline-primary" size="sm" onClick={addRow}>
+                <Plus size={14} className="me-25" /> {t("Add Product")}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1173,6 +1196,7 @@ const CostingWorksheet = ({
             <col style={{ width: W.hsn }} />
             <col style={{ width: W.qty }} />
             <col style={{ width: W.uom }} />
+            {showIgst && <col style={{ width: W.uqc }} />}
             <col style={{ width: W.rate }} />
             <col style={{ width: W.disc }} />
             <col style={{ width: W.pad }} />
@@ -1185,6 +1209,8 @@ const CostingWorksheet = ({
             <col style={{ width: W.grand }} />
             {isForeign && <col style={{ width: W.rateDoc }} />}
             <col style={{ width: W.amt }} />
+            {showIgst && <col style={{ width: W.igst }} />}
+            {showIgst && <col style={{ width: W.igstAmt }} />}
             <col style={{ width: W.freight }} />
             <col style={{ width: W.cnfAmt }} />
             <col style={{ width: W.cnfRate }} />
@@ -1201,6 +1227,7 @@ const CostingWorksheet = ({
               <th>{t("HSN")}</th>
               <th className="text-end">{t("Qty")}</th>
               <th className="text-center">{t("UOM")}</th>
+              {showIgst && <th className="text-center">{t("UQC")}</th>}
               <th className="text-end">
                 {t("Rate")} {srcSym}
               </th>
@@ -1227,6 +1254,12 @@ const CostingWorksheet = ({
               <th className="text-end">
                 {t("Amt")} {docCur}
               </th>
+              {showIgst && <th className="text-end">{t("IGST%")}</th>}
+              {showIgst && (
+                <th className="text-end">
+                  {t("IGST Amt")} {docCur}
+                </th>
+              )}
               <th className="text-end">{t("Freight")}</th>
               <th className="text-end">{t("CNF Amount")}</th>
               <th className="text-end">{t("CNF Rate")}</th>
@@ -1239,7 +1272,10 @@ const CostingWorksheet = ({
           <tbody>
             {lineFA.fields.length === 0 ? (
               <tr>
-                <td colSpan={21} className="text-center text-muted py-3">
+                <td
+                  colSpan={21 + (showIgst ? 3 : 0)}
+                  className="text-center text-muted py-3"
+                >
                   {t('No products yet — click "Add Product".')}
                 </td>
               </tr>
@@ -1357,6 +1393,11 @@ const CostingWorksheet = ({
                     <td className="text-center text-muted">
                       {l.unit || "-"}
                     </td>
+                    {showIgst && (
+                      <td className="text-center text-muted">
+                        {l.uqc_code || "-"}
+                      </td>
+                    )}
                     <td className="p-0">
                       <EditableCell
                         value={l.unit_price}
@@ -1472,6 +1513,28 @@ const CostingWorksheet = ({
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(amtDoc)}
                     </td>
+                    {showIgst && (
+                      <td className="p-0">
+                        {/* IGST% — editable; locked to 0 on a LUT/zero-rated
+                            export. The IGST amount below derives from it. */}
+                        <EditableCell
+                          value={isLut ? "0" : l.igst_rate_pct}
+                          display={
+                            isLut ? "0" : l.igst_rate_pct ? num(l.igst_rate_pct) : null
+                          }
+                          suffix="%"
+                          readOnly={readOnly || isLut}
+                          onCommit={(v) => setField(idx, "igst_rate_pct", v)}
+                        />
+                      </td>
+                    )}
+                    {showIgst && (
+                      <td className="text-end ws-calc">
+                        {moneyDoc(
+                          isLut ? 0 : (amtDoc * num(l.igst_rate_pct)) / 100
+                        )}
+                      </td>
+                    )}
                     <td className="p-0">
                       {/* Editable per-line freight. Auto-split by qty is the
                           default; typing here overrides just this line and the
@@ -1569,6 +1632,7 @@ const CostingWorksheet = ({
                 <td />
                 <td className="text-end">{fmt(totals.qty)}</td>
                 <td />
+                {showIgst && <td />}
                 <td />
                 <td />
                 <td />
@@ -1585,6 +1649,8 @@ const CostingWorksheet = ({
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}
                 </td>
+                {showIgst && <td />}
+                {showIgst && <td />}
                 <td className="text-end">{moneyDoc(freightSum)}</td>
                 <td className="text-end ws-foot-grand">{moneyDoc(cnfTotal)}</td>
                 <td className="text-end">{moneyDoc(cnfRateTotal)}</td>

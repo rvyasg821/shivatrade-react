@@ -621,6 +621,12 @@ const initPurchaseOrderItem = {
   expected_delivery_date: "",
   customer_po_number: "",
   reference_no: "",
+  // Advance / down-payment captured at SO creation + the company bank it was
+  // received into. (Wizard: register()-ed fields MUST live in defaultValues.)
+  advance_amount: "",
+  advance_date: "",
+  advance_notes: "",
+  advance_bank_account_id: "",
   delivery_address: "",
   delivery_address_id: "",
   payment_terms: "",

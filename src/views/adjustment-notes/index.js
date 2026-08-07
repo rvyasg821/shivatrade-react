@@ -99,6 +99,7 @@ const SOURCE_LABELS = {
   receipt: "Customer Receipt",
   payment: "Vendor Payment",
   grn: "Goods Received (GRN)",
+  advance: "Sales Order Advance",
 };
 
 const AdjustmentNotes = () => {
