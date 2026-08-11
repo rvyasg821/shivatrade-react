@@ -131,6 +131,9 @@ const trackingModuleSlug = "tracking";
 // SaaS platform-owner activity log (ERP tracking system). Distinct from
 // `trackingModuleSlug`, which is the POV shipment event timeline.
 const trackingLogsModuleSlug = "tracking-logs";
+// Company Admin's own-company Activity Log (subset of the platform console's
+// Activity feed, scoped to the caller's company). Company-admin only.
+const activityLogModuleSlug = "activity-log";
 const inventoryModuleSlug = "inventory";
 
 // Warehouse
@@ -234,6 +237,7 @@ const rolePermissionName = {
   [poVendorsModuleSlug]: "PO Vendors",
   [trackingModuleSlug]: "Tracking",
   [trackingLogsModuleSlug]: "Activity Log",
+  [activityLogModuleSlug]: "Activity Log",
   [inventoryModuleSlug]: "Inventory",
 
   // Warehouse
@@ -565,6 +569,7 @@ export {
   poVendorsModuleSlug,
   trackingModuleSlug,
   trackingLogsModuleSlug,
+  activityLogModuleSlug,
   inventoryModuleSlug,
   // Warehouse
   warehouseGroupSlug,

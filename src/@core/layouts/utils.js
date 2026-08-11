@@ -1,6 +1,14 @@
 // ** React Imports
 import { useContext } from 'react'
 import { AbilityContext } from '@src/utility/context/Can'
+import { getCurrentUser } from '@utils'
+
+// Company-Admin-only nav items can't be gated by RBAC: a Company Admin's
+// ability is built from their explicit role permissions (only Super Admin gets
+// manage-all), so a brand-new module permission wouldn't be granted to them.
+// Gate on the role name instead.
+const isCompanyAdminUser = () =>
+  getCurrentUser()?.role?.name === 'Company Admin'
 
 /**
  * Return which component to render based on it's data/context
@@ -99,6 +107,10 @@ export const canViewMenuGroup = (item, tools = [], isSuperAdmin = false, isEmplo
     // Hide admin-only items from non-admins (company admin should not see)
     if (i.adminOnly && !isSuperAdmin) return false
 
+    // Company-Admin-only items (e.g. Activity Log) — hidden from every other
+    // company role (and from super admin via companyOnly).
+    if (i.companyAdminOnly && !isCompanyAdminUser()) return false
+
     // Hide admin-level items (e.g. "Attendance Admin", "Leave Requests Admin") from Employee role users
     if (i.adminLevel && isEmployee) return false
 
@@ -132,6 +144,9 @@ export const canViewMenuItem = (item, tools = [], isSuperAdmin = false, isEmploy
 
   // Hide admin-only items from non-admins (company admin should not see)
   if (item.adminOnly && !isSuperAdmin) return false
+
+  // Company-Admin-only items (e.g. Activity Log) — hidden from every other role.
+  if (item.companyAdminOnly && !isCompanyAdminUser()) return false
 
   // Hide admin-level items (e.g. "Home Office Compliance") from Employee role users
   if (item.adminLevel && isEmployee) return false

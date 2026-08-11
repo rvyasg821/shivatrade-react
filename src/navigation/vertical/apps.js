@@ -85,6 +85,7 @@ import {
   poVendorsModuleSlug,
   trackingModuleSlug,
   trackingLogsModuleSlug,
+  activityLogModuleSlug,
   inventoryModuleSlug,
   invoicesModuleSlug,
   expensesModuleSlug,
@@ -147,6 +148,19 @@ const navigationItems = [
     title: rolePermissionName[adjustmentNotesModuleSlug],
     icon: <Repeat size={20} />,
     navLink: `${appsRoot}/adjustment-notes`,
+  },
+
+  // Company Admin's own-company Activity Log. `companyAdminOnly` shows it only
+  // to the Company Admin role (a Company Admin's ability is built from explicit
+  // permissions, so RBAC on a new slug couldn't grant it); the backend
+  // additionally 403s any non-company-admin.
+  {
+    id: activityLogModuleSlug,
+    companyOnly: true,
+    companyAdminOnly: true,
+    title: rolePermissionName[activityLogModuleSlug],
+    icon: <Eye size={20} />,
+    navLink: `${appsRoot}/activity-log`,
   },
 
   // Sales
