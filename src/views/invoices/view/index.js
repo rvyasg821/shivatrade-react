@@ -1396,10 +1396,8 @@ const ViewInvoice = () => {
                           <tr>
                             <th className="text-nowrap">{t("Receipt")}</th>
                             <th className="text-nowrap">{t("Date")}</th>
-                            <th className="text-nowrap">{t("Method")}</th>
                             <th className="text-nowrap">{t("Bank")}</th>
                             <th className="text-nowrap">{t("Reference")}</th>
-                            <th className="text-nowrap">{t("Notes")}</th>
                             <th className="text-nowrap text-end">{t("Amount")}</th>
                             {showForex && (
                               <>
@@ -1445,12 +1443,8 @@ const ViewInvoice = () => {
                                   )}
                                 </td>
                                 <td className="text-nowrap">{formatDate(p.payment_date)}</td>
-                                <td className="text-nowrap text-capitalize">
-                                  {(p.method || "-").replace(/_/g, " ")}
-                                </td>
                                 <td className="text-nowrap">{p.bank_name || "-"}</td>
                                 <td className="text-nowrap">{p.reference || "-"}</td>
-                                <td className="text-nowrap">{p.notes || "-"}</td>
                                 <td className="text-nowrap text-end">
                                   {sym}
                                   {fmt(p.amount)}
@@ -1543,7 +1537,7 @@ const ViewInvoice = () => {
                         {showForex && (
                           <tfoot className="table-light">
                             <tr>
-                              <td colSpan="7" className="text-end fw-bold">
+                              <td colSpan="5" className="text-end fw-bold">
                                 {t("Net Realized Forex Gain/Loss")}
                               </td>
                               <td className="text-end" />

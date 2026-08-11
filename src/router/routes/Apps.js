@@ -94,6 +94,9 @@ const GstBalanceReport = lazy(() => import('@src/views/reports/gst-balance'));
 const PurchaseTurnoverReport = lazy(() => import('@src/views/reports/purchase-turnover'));
 const SalesTurnoverReport = lazy(() => import('@src/views/reports/sales-turnover'));
 const SoInvoiceReconciliationReport = lazy(() => import('@src/views/reports/so-invoice-reconciliation'));
+const LeadToInvoiceDurationReport = lazy(() => import('@src/views/reports/lead-to-invoice-duration'));
+const AdvanceVsInvoiceReport = lazy(() => import('@src/views/reports/advance-vs-invoice'));
+const ExchangeGainLossReport = lazy(() => import('@src/views/reports/exchange-gain-loss'));
 const SalesOrderStatusReport = lazy(() => import('@src/views/reports/sales-order-status'));
 const PurchaseOrderStatusReport = lazy(() => import('@src/views/reports/purchase-order-status'));
 const StockTurnoverReport = lazy(() => import('@src/views/reports/stock-turnover'));
@@ -741,6 +744,21 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/so-invoice-reconciliation`,
     element: <SoInvoiceReconciliationReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/lead-to-invoice-duration`,
+    element: <LeadToInvoiceDurationReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/advance-vs-invoice`,
+    element: <AdvanceVsInvoiceReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/exchange-gain-loss`,
+    element: <ExchangeGainLossReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {

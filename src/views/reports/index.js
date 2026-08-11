@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive, Clipboard } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive, Clipboard, DollarSign, RefreshCw } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -60,6 +60,33 @@ const REPORTS = [
       "Per-line differences between the Sales Order selling price and the actual invoiced price.",
     icon: GitPullRequest,
     to: `${appsRoot}/reports/so-invoice-reconciliation`,
+    live: true,
+  },
+  {
+    key: "lead-to-invoice-duration",
+    title: "Lead to Invoice Duration",
+    description:
+      "Conversion cycle time from Lead → Quotation → Sales Order → Invoice, per invoice.",
+    icon: Clock,
+    to: `${appsRoot}/reports/lead-to-invoice-duration`,
+    live: true,
+  },
+  {
+    key: "advance-vs-invoice",
+    title: "Advance vs Invoice",
+    description:
+      "Advances received on Sales Orders vs invoices raised against them — with the balance still receivable.",
+    icon: DollarSign,
+    to: `${appsRoot}/reports/advance-vs-invoice`,
+    live: true,
+  },
+  {
+    key: "exchange-gain-loss",
+    title: "Exchange Gain/Loss",
+    description:
+      "Realized forex impact per customer receipt — invoice rate vs receipt rate, gain or loss.",
+    icon: RefreshCw,
+    to: `${appsRoot}/reports/exchange-gain-loss`,
     live: true,
   },
   {
