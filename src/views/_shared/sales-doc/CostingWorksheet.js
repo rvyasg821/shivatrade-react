@@ -1426,8 +1426,20 @@ const CostingWorksheet = ({
                         }
                       />
                     </td>
-                    <td className="small text-muted text-truncate">
-                      {l.part_no || "-"}
+                    {/* Part No is editable in draft and overrides the product
+                        master for THIS document only (same rule as HSN below —
+                        the master is never written back). */}
+                    <td className="p-0">
+                      <EditableCell
+                        value={l.part_no || ""}
+                        type="text"
+                        align="start"
+                        readOnly={readOnly}
+                        placeholder="-"
+                        onCommit={(v) =>
+                          setField(idx, "part_no", String(v ?? "").trim())
+                        }
+                      />
                     </td>
                     {/* HSN is editable in draft and overrides the product
                         master for THIS document only — the master is never
