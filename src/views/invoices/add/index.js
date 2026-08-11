@@ -1255,6 +1255,8 @@ const InvoiceAddEdit = () => {
         seq: l.seq || i + 1,
         purchase_order_line_id: l.purchase_order_line_id,
         po_vendor_line_id: l.po_vendor_line_id,
+        // Restore the frozen vendor so the dropdown shows it (not blank) on edit.
+        vendor_id: l.vendor_id || "",
         product_id: l.product_id,
         product_name: l.product_name,
         product_code: l.product_code,
@@ -1760,6 +1762,8 @@ const InvoiceAddEdit = () => {
       seq: l.seq,
       purchase_order_line_id: l.purchase_order_line_id,
       po_vendor_line_id: l.po_vendor_line_id,
+      // Persist the frozen vendor so an edit re-shows it (no blank dropdown).
+      vendor_id: l.vendor_id || undefined,
       product_id: l.product_id,
       product_name: l.product_name,
       product_code: l.product_code,
