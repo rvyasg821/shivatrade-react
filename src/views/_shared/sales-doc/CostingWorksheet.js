@@ -676,6 +676,10 @@ const CostingWorksheet = ({
     if (readOnly || !vendorCurrency) return;
     (liveLines || []).forEach((l, idx) => {
       if (!l?.product_id || l?.vendor_id) return; // only empty-vendor lines
+      // Invoice lines are cost-frozen from their Sales Order (they carry a
+      // purchase_order_line_id + a unit_price). Auto-picking the cheapest vendor
+      // for them would silently rewrite the SO's rate/value/margin — so skip.
+      if (l?.purchase_order_line_id && num(l?.unit_price) > 0) return;
       const opts = vendorsByProduct[l.product_id];
       if (!Array.isArray(opts) || !opts.length) return; // not loaded / none
       const match = opts.find(
