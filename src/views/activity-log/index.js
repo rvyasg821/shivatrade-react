@@ -7,6 +7,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useMemo,
   useState,
   useLayoutEffect,
 } from "react";
@@ -57,19 +58,52 @@ const actionBadge = (action) => {
   return "doc-badge-gray";
 };
 
-const ACTION_OPTIONS = [
-  { value: "", label: "All actions" },
-  { value: "created", label: "Created" },
-  { value: "updated", label: "Updated" },
-  { value: "deleted", label: "Deleted" },
-];
+// Human labels for the stored `action` strings (audit-log.entity ENUM). Both
+// hard + soft delete read as "Deleted".
+const ACTION_LABELS = {
+  create: "Created",
+  update: "Updated",
+  delete: "Deleted",
+  soft_delete: "Deleted",
+  import: "Imported",
+  login: "Login",
+  logout: "Logout",
+  login_failed: "Login failed",
+  pwd_reset_req: "Password reset requested",
+  pwd_reset: "Password reset",
+};
+
+const ALL_ACTION = { value: "", label: "All actions" };
+
+// Build the Action dropdown from the actions that ACTUALLY exist for this
+// company (returned by the backend), so it never offers a value with zero rows.
+// Actions sharing a label (delete + soft_delete → "Deleted") merge into one
+// option whose value is the comma-list the backend ORs together.
+const buildActionOptions = (actions) => {
+  const byLabel = new Map();
+  (actions || []).forEach((a) => {
+    const label = ACTION_LABELS[a] || a;
+    if (!byLabel.has(label)) byLabel.set(label, []);
+    byLabel.get(label).push(a);
+  });
+  const opts = Array.from(byLabel, ([label, raws]) => ({
+    value: raws.join(","),
+    label,
+  })).sort((x, y) => x.label.localeCompare(y.label));
+  return [ALL_ACTION, ...opts];
+};
 
 const ActivityLog = () => {
   const { t } = useTranslation();
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [action, setAction] = useState(ACTION_OPTIONS[0]);
+  const [action, setAction] = useState(ALL_ACTION);
+  const [availableActions, setAvailableActions] = useState([]);
+  const actionOptions = useMemo(
+    () => buildActionOptions(availableActions),
+    [availableActions]
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [loading, setLoading] = useState(false);
@@ -98,6 +132,9 @@ const ActivityLog = () => {
           total: payload.total || 0,
           perPage: payload.perPage || perPage,
         });
+        if (Array.isArray(payload.available_actions)) {
+          setAvailableActions(payload.available_actions);
+        }
       } catch (e) {
         Notification("Error", t("There are no records to display"), "warning");
         setData({ items: [], total: 0, perPage });
@@ -181,8 +218,8 @@ const ActivityLog = () => {
                 <Label className="form-label">{t("Action")}</Label>
                 <Select
                   value={action}
-                  onChange={(sel) => setAction(sel || ACTION_OPTIONS[0])}
-                  options={ACTION_OPTIONS}
+                  onChange={(sel) => setAction(sel || ALL_ACTION)}
+                  options={actionOptions}
                   classNamePrefix="select"
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
