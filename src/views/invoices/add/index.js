@@ -834,6 +834,13 @@ const InvoiceAddEdit = () => {
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
+          // Carry the SO line's VENDOR so the invoice keeps the exact cost the
+          // order was priced at. Without it the line arrived vendorless and the
+          // Costing Worksheet auto-picked the *cheapest* vendor, silently
+          // rewriting the rate/value/margin away from the Sales Order.
+          vendor_id: l.vendor_id || "",
+          vendor_name: l.vendor_name || "",
+          vendor_code: l.vendor_code || "",
           part_no: l.part_no || "",
           // Description is seeded directly from product_name only —
           // operators can edit it later. We do NOT inherit the SO line's
