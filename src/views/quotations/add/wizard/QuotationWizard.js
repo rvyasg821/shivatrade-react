@@ -872,6 +872,14 @@ const QuotationWizard = () => {
         qty: String(l.qty || "0"),
         unit: l.unit || "",
         unit_price: String(l.unit_price || "0"),
+        // Multi-currency: the vendor (source) currency + the frozen source→doc
+        // rate the worksheet set/typed. Dropped here before, so an edited rate
+        // box reverted to the currency-master rate on save/reopen.
+        source_currency_code: l.source_currency_code || undefined,
+        cost_exchange_rate:
+          l.cost_exchange_rate != null && String(l.cost_exchange_rate) !== ""
+            ? String(l.cost_exchange_rate)
+            : undefined,
         discount_pct: String(l.discount_pct || "0"),
         tax_pct: String(l.tax_pct || "0"),
         margin_pct: String(l.margin_pct || "0"),
