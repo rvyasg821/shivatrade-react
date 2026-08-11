@@ -980,6 +980,14 @@ const CostingWorksheet = ({
   const totals = liveLines.reduce(
     (acc, l) => {
       const c = computeLineCosting(l, { excludeGst: true });
+      // Source-currency (vendor) totals, computed natively so the footer
+      // matches the per-row cost columns exactly (no doc→source round-trip
+      // drift). `*Src` back the cost columns; the plain fields stay doc-currency
+      // for the selling side / storage.
+      const cSrc = computeLineCosting(
+        { ...l, cost_exchange_rate: 1 },
+        { excludeGst: true }
+      );
       acc.qty += num(l?.qty);
       acc.value += c.taxable;
       acc.expense += c.expenses;
@@ -987,6 +995,12 @@ const CostingWorksheet = ({
       acc.rebate += c.rebates;
       acc.margin += c.margin;
       acc.grand += c.lineTotal;
+      acc.valueSrc += cSrc.taxable;
+      acc.expenseSrc += cSrc.expenses;
+      acc.totalAfterExpSrc += round2(cSrc.taxable + cSrc.expenses);
+      acc.rebateSrc += cSrc.rebates;
+      acc.marginSrc += cSrc.margin;
+      acc.grandSrc += cSrc.lineTotal;
       acc.netWt += num(l?.net_weight_kg);
       acc.grossWt += num(l?.gross_weight_kg);
       acc.packages += num(l?.package_count);
@@ -1000,6 +1014,12 @@ const CostingWorksheet = ({
       rebate: 0,
       margin: 0,
       grand: 0,
+      valueSrc: 0,
+      expenseSrc: 0,
+      totalAfterExpSrc: 0,
+      rebateSrc: 0,
+      marginSrc: 0,
+      grandSrc: 0,
       netWt: 0,
       grossWt: 0,
       packages: 0,
@@ -1055,21 +1075,16 @@ const CostingWorksheet = ({
   // vendor on a EUR quote). One-currency-per-document → a single source symbol.
   const srcCur = distinctSources.find(Boolean) || docCurrencyCode;
   const srcSym = currencySymbol(srcCur) || docSym;
-  // Cost columns (Price/Disc → Grand Total) are DISPLAYED in the vendor
-  // (source) currency: computeLineCosting works in the document currency, so we
-  // divide back by the frozen source→doc rate (`cost_exchange_rate`). One
-  // currency per document → a single rate; 1 when vendor == document currency.
-  // Storage + the customer selling price (Rate/Amt {docCur} columns) stay in the
-  // document currency — this is display-only.
-  const srcRate =
-    Number(
-      (
-        liveLines.find(
-          (l) => l?.source_currency_code && num(l?.cost_exchange_rate) > 0,
-        ) || {}
-      ).cost_exchange_rate,
-    ) || 1;
-  const moneySrc = (v) => `${srcSym}${fmt(srcRate ? v / srcRate : v)}`;
+  // Cost columns (Price/Disc → Grand Total) are shown in the vendor (source)
+  // currency. They are computed NATIVELY in that currency (a parallel
+  // computeLineCosting with cost_exchange_rate = 1 — see `cSrc` per row and the
+  // `*Src` totals below), NOT by dividing the document-currency result back by
+  // the rate. That old round-trip amplified the document's 2-decimal rounding
+  // into visible drift (an INR vendor's ₹5,000 rate showed ₹4,999.85 on a USD
+  // quote). Storage + the customer selling price (Rate/Amt {docCur} columns)
+  // stay in the document currency — this is display-only. moneySrc now just
+  // prefixes the source symbol onto an already-source-currency value.
+  const moneySrc = (v) => `${srcSym}${fmt(v)}`;
 
   // Fixed column widths (px) so every value fits on one line.
   const W = {
@@ -1338,14 +1353,20 @@ const CostingWorksheet = ({
               pagedFields.map(({ row, idx }) => {
                 const l = liveLines[idx] || {};
                 const c = computeLineCosting(l, { excludeGst: true });
-                // Price/Disc in the DOCUMENT currency = converted cost − disc,
-                // consistent with Value/Expense/… below (all doc currency).
-                const costDoc =
-                  num(l.unit_price) * (num(l.cost_exchange_rate) || 1);
-                const priceAfterDisc = round2(
-                  costDoc * (1 - num(l.discount_pct) / 100)
+                // Cost columns are shown in the vendor (source) currency —
+                // compute them NATIVELY (cost_exchange_rate = 1) so the entered
+                // vendor price shows back EXACTLY, with no doc→source round-trip
+                // drift (an INR vendor's ₹5,000 used to show ₹4,999.85 on a USD
+                // quote). The document-currency `c` / `amtDoc` still drive the
+                // selling (Rate/Amt {docCur}) columns + storage.
+                const cSrc = computeLineCosting(
+                  { ...l, cost_exchange_rate: 1 },
+                  { excludeGst: true }
                 );
-                const totalAfterExp = round2(c.taxable + c.expenses);
+                const priceAfterDiscSrc = round2(
+                  num(l.unit_price) * (1 - num(l.discount_pct) / 100)
+                );
+                const totalAfterExpSrc = round2(cSrc.taxable + cSrc.expenses);
                 // computeLineCosting already converted the cost source→document
                 // currency, so the line total is ALREADY in the doc currency —
                 // no × rate here.
@@ -1471,10 +1492,10 @@ const CostingWorksheet = ({
                       />
                     </td>
                     <td className="text-end ws-calc">
-                      {moneySrc(priceAfterDisc)}
+                      {moneySrc(priceAfterDiscSrc)}
                     </td>
                     <td className="text-end ws-calc fw-semibold">
-                      {moneySrc(c.taxable)}
+                      {moneySrc(cSrc.taxable)}
                     </td>
                     <td className="text-end p-0">
                       <span
@@ -1489,7 +1510,7 @@ const CostingWorksheet = ({
                           )
                         }
                       >
-                        {moneySrc(c.expenses)}
+                        {moneySrc(cSrc.expenses)}
                       </span>
                       <CostHeadsPopover
                         id={expId}
@@ -1512,7 +1533,7 @@ const CostingWorksheet = ({
                       />
                     </td>
                     <td className="text-end ws-calc">
-                      {moneySrc(totalAfterExp)}
+                      {moneySrc(totalAfterExpSrc)}
                     </td>
                     <td className="text-end p-0">
                       <span
@@ -1527,7 +1548,7 @@ const CostingWorksheet = ({
                           )
                         }
                       >
-                        {moneySrc(c.rebates)}
+                        {moneySrc(cSrc.rebates)}
                       </span>
                       <CostHeadsPopover
                         id={rebId}
@@ -1558,9 +1579,9 @@ const CostingWorksheet = ({
                         onCommit={(v) => setField(idx, "margin_pct", v)}
                       />
                     </td>
-                    <td className="text-end ws-calc">{moneySrc(c.margin)}</td>
+                    <td className="text-end ws-calc">{moneySrc(cSrc.margin)}</td>
                     <td className="text-end ws-calc fw-bold">
-                      {moneySrc(grandInr)}
+                      {moneySrc(cSrc.lineTotal)}
                     </td>
                     {isForeign && (
                       <td className="text-end ws-calc">{moneyDoc(rateDoc)}</td>
@@ -1691,14 +1712,14 @@ const CostingWorksheet = ({
                 <td />
                 <td />
                 <td />
-                <td className="text-end">{moneySrc(totals.value)}</td>
-                <td className="text-end">{moneySrc(totals.expense)}</td>
-                <td className="text-end">{moneySrc(totals.totalAfterExp)}</td>
-                <td className="text-end">{moneySrc(totals.rebate)}</td>
+                <td className="text-end">{moneySrc(totals.valueSrc)}</td>
+                <td className="text-end">{moneySrc(totals.expenseSrc)}</td>
+                <td className="text-end">{moneySrc(totals.totalAfterExpSrc)}</td>
+                <td className="text-end">{moneySrc(totals.rebateSrc)}</td>
                 <td />
-                <td className="text-end">{moneySrc(totals.margin)}</td>
+                <td className="text-end">{moneySrc(totals.marginSrc)}</td>
                 <td className="text-end ws-foot-grand">
-                  {moneySrc(totals.grand)}
+                  {moneySrc(totals.grandSrc)}
                 </td>
                 {isForeign && <td />}
                 <td className="text-end ws-foot-grand">

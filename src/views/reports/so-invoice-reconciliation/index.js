@@ -471,13 +471,13 @@ const SoInvoiceReconciliation = () => {
                             <td colSpan={6}>{t("Totals (INR)")}</td>
                             {/* SO Qty / SO Rate columns */}
                             <td />
-                            <td className="text-end">{`₹ ${grp(totals.so_value_inr)}`}</td>
+                            <td className="text-end text-nowrap">{`₹ ${grp(totals.so_value_inr)}`}</td>
                             {/* Inv Qty / Inv Rate columns */}
                             <td />
-                            <td className="text-end">{`₹ ${grp(totals.invoice_value_inr)}`}</td>
+                            <td className="text-end text-nowrap">{`₹ ${grp(totals.invoice_value_inr)}`}</td>
                             {/* Rate Diff column */}
                             <td />
-                            <td className={`text-end ${variance < 0 ? "text-danger" : ""}`}>
+                            <td className={`text-end text-nowrap ${variance < 0 ? "text-danger" : ""}`}>
                               {`₹ ${grp(totals.variance_inr)}`}
                             </td>
                             {/* Diff % column */}

@@ -12,7 +12,14 @@ import {
   TabContent,
   TabPane,
 } from "reactstrap";
-import { FileText, Percent, Inbox, CornerUpLeft, DollarSign } from "react-feather";
+import {
+  FileText,
+  Percent,
+  Inbox,
+  CornerUpLeft,
+  DollarSign,
+  ShoppingCart,
+} from "react-feather";
 import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 
@@ -21,6 +28,7 @@ import ExpensesTab from "./ExpensesTab";
 import GrnsTab from "./GrnsTab";
 import DebitNotesTab from "./DebitNotesTab";
 import PaymentsTab from "./PaymentsTab";
+import SalesOrdersTab from "./SalesOrdersTab";
 
 const PoVendorTabView = ({ onActiveTabChange }) => {
   const { t } = useTranslation();
@@ -47,6 +55,17 @@ const PoVendorTabView = ({ onActiveTabChange }) => {
   const paymentsCount = (poVendorItem?.payments || []).filter(
     (pay) => !pay?.voided_at
   ).length;
+  // Source SO (coverage FK) + soft-linked SOs, de-duped.
+  const salesOrdersCount = (() => {
+    const ids = new Set();
+    if (poVendorItem?.purchase_order_id) {
+      ids.add(String(poVendorItem.purchase_order_id));
+    }
+    (poVendorItem?.linked_sales_orders || []).forEach(
+      (so) => so?.id && ids.add(String(so.id))
+    );
+    return ids.size;
+  })();
 
   const tabBtn = (key, label, Icon, count) => (
     <NavItem>
@@ -87,6 +106,12 @@ const PoVendorTabView = ({ onActiveTabChange }) => {
             {tabBtn("overview", t("Line Items"), FileText, linesCount)}
             {tabBtn("expenses", t("Expenses"), Percent, expensesCount)}
             {tabBtn("payments", t("Payments"), DollarSign, paymentsCount)}
+            {tabBtn(
+              "salesorders",
+              t("Sales Orders"),
+              ShoppingCart,
+              salesOrdersCount
+            )}
             {tabBtn("grns", t("GRNs"), Inbox, 0)}
             {tabBtn("debitnotes", t("Debit Notes"), CornerUpLeft, 0)}
           </Nav>
@@ -110,6 +135,9 @@ const PoVendorTabView = ({ onActiveTabChange }) => {
             {active === "payments" && (
               <PaymentsTab registerActions={registerActions} />
             )}
+          </TabPane>
+          <TabPane tabId="salesorders">
+            {active === "salesorders" && <SalesOrdersTab />}
           </TabPane>
           <TabPane tabId="grns">
             {active === "grns" && (
