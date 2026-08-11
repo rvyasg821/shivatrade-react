@@ -170,6 +170,7 @@ const ModulePermission = lazy(
 );
 
 const TrackingLogs = lazy(() => import('@src/views/tracking-logs'));
+const ActivityLog = lazy(() => import('@src/views/activity-log'));
 const PlanList = lazy(() => import('@src/views/plans'));
 const AddPlan = lazy(() => import('@src/views/plans/add'));
 const EditPlan = lazy(() => import('@src/views/plans/add'));
@@ -1197,6 +1198,17 @@ const AppRoutes = [
     meta: {
       permissionId: 'tracking-logs',
       action: 'list',
+    },
+  },
+  // Company Admin's own-company Activity Log. Guarded by role (companyAdminOnly)
+  // — a Company Admin lacks a per-module 'activity-log' permission, so a
+  // permissionId gate would wrongly block them. The backend forces the caller's
+  // own company and 403s any non-company-admin.
+  {
+    path: `${appsRoot}/activity-log`,
+    element: <ActivityLog />,
+    meta: {
+      companyAdminOnly: true,
     },
   },
   {

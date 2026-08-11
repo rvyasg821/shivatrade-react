@@ -25,6 +25,13 @@ const RoleWrapper = ({ children, route }) => {
     let hasPermission = true
     if (route) {
         const action = route?.meta?.action || ""
+        // ** Company-Admin-only routes (e.g. Activity Log): gate on role name,
+        // NOT a module permission — a Company Admin's permissions never include a
+        // brand-new 'activity-log' slug, so a permissionId check would wrongly
+        // block them. The backend is the hard gate (403s non-company-admins).
+        if (route?.meta?.companyAdminOnly && roleName !== 'Company Admin') {
+            hasPermission = false
+        }
         // ** Allow access if user is super admin (bypass) or has permission
         if (!bypass && route?.meta?.permissionId) {
             const modulePermissions = permissions[route.meta.permissionId]

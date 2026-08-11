@@ -336,6 +336,10 @@ export const API_ENDPOINTS = {
     pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
   },
+  // Company Admin's own-company Activity Log (backend forces own company_id).
+  activityLog: {
+    list: `/admin/tracking/company-activity`,
+  },
   // SaaS platform-owner tracking (super admin only; backend 403s otherwise).
   trackingLogs: {
     activity: `/admin/tracking/activity`,
