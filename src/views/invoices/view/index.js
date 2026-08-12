@@ -1983,8 +1983,13 @@ const ViewInvoice = () => {
                 )}
                 {(() => {
                   // Live realized gain/loss preview vs the invoice rate.
+                  // Compare in the 2-dp INR-per-foreign rate the operator sees
+                  // and enters — NOT the raw reciprocal of the 6-dp stored
+                  // doc-per-₹1 rate, whose drift (95.0932 vs the entered 95.09)
+                  // otherwise fabricates a phantom loss when the rates match.
                   const invRate = num(inv?.exchange_rate) || 1;
-                  const invRateInr = invRate > 0 ? 1 / invRate : 0;
+                  const invRateInr =
+                    invRate > 0 ? Number((1 / invRate).toFixed(2)) : 0;
                   const rcptRateInr = Number(payForm.exchange_rate_inr || 0);
                   const amt = Number(payForm.amount || 0);
                   if (!(rcptRateInr > 0) || !(amt > 0) || !(invRateInr > 0))
