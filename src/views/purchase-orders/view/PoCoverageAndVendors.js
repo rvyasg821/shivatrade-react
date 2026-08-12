@@ -6,7 +6,7 @@
 // each tab mounts only when opened, so the cost is negligible.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
   Table,
@@ -18,17 +18,11 @@ import {
 } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
-import {
-  ExternalLink,
-  AlertTriangle,
-  Info,
-  FileText,
-  Package,
-} from "react-feather";
+import { ExternalLink, AlertTriangle, Package } from "react-feather";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
-import { appsRoot, isAdminUser } from "@constant/defaultValues";
+import { appsRoot } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
 
@@ -78,114 +72,19 @@ export const usePoCoverage = () => {
   return { po, coverage, povs, loading, reload: load };
 };
 
-export const PoCoveragePanel = ({ data, registerActions }) => {
+export const PoCoveragePanel = ({ data }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { po, coverage, povs, loading } = data;
-  const authStore = useSelector((s) => s.auth);
-  const authUserItem = authStore?.authUserItem || null;
-  const poStatus = (po?.status || "").toLowerCase();
-
-  const isAdmin = isAdminUser(authUserItem);
-  const invoicePerms = authUserItem?.role?.permissions?.invoices;
-  const canCreateInvoice =
-    isAdmin || invoicePerms?.can_all || invoicePerms?.can_add;
 
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
 
-  // Generate Invoice — gated on remaining un-invoiced FULFILLED qty. Fulfilled
-  // = dispatched by a vendor OR covered from free stock (sell-from-stock), both
-  // folded into `invoiceable` by the coverage service. Hides once everything
-  // fulfilled is already on an invoice; the BE enforces the same rule per-line.
-  const dispatchedTotal = num(coverage?.totals?.dispatched);
-  const fromStockTotal = num(coverage?.totals?.from_stock);
-  const invoiceableTotal = num(coverage?.totals?.invoiceable);
-  const canGenerateInvoice =
-    canCreateInvoice &&
-    invoiceableTotal > 0 &&
-    poStatus !== "draft" &&
-    poStatus !== "cancelled";
-
-  const invoicedTotal = num(coverage?.totals?.invoiced);
-  const fullyInvoiced =
-    (dispatchedTotal > 0 || fromStockTotal > 0) &&
-    invoiceableTotal <= 1e-6 &&
-    invoicedTotal > 0;
-
-  // Publish the Coverage tab's action buttons to the top-right of the tab bar.
-  // POV creation now lives on the PO detail header ("Generate POV"); the
-  // Coverage tab only publishes "Generate Invoice".
-  useEffect(() => {
-    if (!registerActions) return undefined;
-    if (!canGenerateInvoice) {
-      registerActions(null);
-      return () => registerActions(null);
-    }
-    registerActions(
-      <Fragment>
-        {canGenerateInvoice && (
-          <Button
-            color="primary"
-            size="sm"
-            onClick={() =>
-              navigate(`${appsRoot}/invoices/add?po_id=${po?._id}`)
-            }
-          >
-            <FileText size={14} className="me-50" />
-            {t("Generate Invoice")}
-          </Button>
-        )}
-      </Fragment>
-    );
-    return () => registerActions(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canGenerateInvoice, registerActions, po?._id]);
+  // The invoice-coverage banner + "Generate Invoice" button now live on the
+  // Sales Order detail HEADER (single source), so they're intentionally not
+  // repeated here on the Coverage tab.
 
   return (
     <Fragment>
-      {/* Invoice progress hint — shows whenever any qty has been invoiced
-          against this PO. Helps the operator see at a glance that an
-          invoice already exists, and why "Generate Invoice" may be
-          hidden (fully invoiced). */}
-      {invoicedTotal > 0 && (
-        <div
-          className={`d-flex align-items-start gap-1 small p-1 mb-2 rounded ${
-            fullyInvoiced
-              ? "bg-light-success text-success"
-              : "bg-light-info text-info"
-          }`}
-        >
-          <Info size={14} className="mt-25 flex-shrink-0" />
-          <div>
-            <strong>
-              {fullyInvoiced
-                ? t("All dispatched qty already invoiced.")
-                : t("Partial invoice raised for this PO.")}
-            </strong>{" "}
-            <span className="text-body">
-              {t("Invoiced")}: {invoicedTotal} / {t("Dispatched")}:{" "}
-              {dispatchedTotal}
-              {invoiceableTotal > 0 && (
-                <>
-                  {" · "}
-                  {t("Still invoiceable")}: {invoiceableTotal}
-                </>
-              )}
-            </span>{" "}
-            <Link
-              to={`${appsRoot}/invoices?purchase_order_id=${po?._id}`}
-              className="text-decoration-underline"
-            >
-              {t("View invoices")} <ExternalLink size={11} />
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Create POV / Generate Invoice actions are published to the tab bar
-          (top-right) via registerActions — see the effect above. */}
-
       {loading && !coverage ? (
         <div className="text-center py-3">
           <Spinner />{" "}

@@ -1005,6 +1005,9 @@ const CostingWorksheet = ({
       acc.rebateSrc += cSrc.rebates;
       acc.marginSrc += cSrc.margin;
       acc.grandSrc += cSrc.lineTotal;
+      // IGST amount in ₹ (INR) for the footer total: doc line total ÷ rate ×
+      // IGST%. 0 on a LUT/zero-rated export. rate = doc-per-₹1 (1 for INR docs).
+      acc.igstInr += isLut ? 0 : (c.lineTotal / rate) * (num(l?.igst_rate_pct) / 100);
       acc.netWt += num(l?.net_weight_kg);
       acc.grossWt += num(l?.gross_weight_kg);
       acc.packages += num(l?.package_count);
@@ -1024,6 +1027,7 @@ const CostingWorksheet = ({
       rebateSrc: 0,
       marginSrc: 0,
       grandSrc: 0,
+      igstInr: 0,
       netWt: 0,
       grossWt: 0,
       packages: 0,
@@ -1089,6 +1093,16 @@ const CostingWorksheet = ({
   // stay in the document currency — this is display-only. moneySrc now just
   // prefixes the source symbol onto an already-source-currency value.
   const moneySrc = (v) => `${srcSym}${fmt(v)}`;
+  // Base-currency (INR) amounts — used for the IGST Amt column, which is always
+  // shown in ₹ regardless of the document currency (mirrors the commercial PDF's
+  // IGST breakdown, which is always INR). INR = document-amount ÷ exchange_rate
+  // (exchange_rate is doc-per-₹1). rate = 1 on a domestic ₹ document.
+  const baseSym = currencySymbol(baseCurrencyCode) || "₹";
+  const moneyBase = (v) => `${baseSym}${fmt(v)}`;
+  const igstAmtInr = (amtDoc, igstPct) => {
+    const r = num(exchangeRate) || 1;
+    return (num(amtDoc) / (r > 0 ? r : 1)) * (num(igstPct) / 100);
+  };
 
   // Fixed column widths (px) so every value fits on one line.
   const W = {
@@ -1281,10 +1295,10 @@ const CostingWorksheet = ({
             <col style={{ width: W.margin }} />
             <col style={{ width: W.marginAmt }} />
             <col style={{ width: W.grand }} />
-            {isForeign && <col style={{ width: W.rateDoc }} />}
-            <col style={{ width: W.amt }} />
             {showIgst && <col style={{ width: W.igst }} />}
             {showIgst && <col style={{ width: W.igstAmt }} />}
+            {isForeign && <col style={{ width: W.rateDoc }} />}
+            <col style={{ width: W.amt }} />
             <col style={{ width: W.freight }} />
             <col style={{ width: W.cnfAmt }} />
             <col style={{ width: W.cnfRate }} />
@@ -1320,6 +1334,12 @@ const CostingWorksheet = ({
               <th className="text-end">
                 {t("Grand Total")} {srcSym}
               </th>
+              {showIgst && <th className="text-end">{t("IGST%")}</th>}
+              {showIgst && (
+                <th className="text-end">
+                  {t("IGST Amt")} {baseSym}
+                </th>
+              )}
               {isForeign && (
                 <th className="text-end">
                   {t("Rate")} {docCur}
@@ -1328,12 +1348,6 @@ const CostingWorksheet = ({
               <th className="text-end">
                 {t("Amt")} {docCur}
               </th>
-              {showIgst && <th className="text-end">{t("IGST%")}</th>}
-              {showIgst && (
-                <th className="text-end">
-                  {t("IGST Amt")} {docCur}
-                </th>
-              )}
               <th className="text-end">{t("Freight")}</th>
               <th className="text-end">{t("CNF Amount")}</th>
               <th className="text-end">{t("CNF Rate")}</th>
@@ -1599,16 +1613,10 @@ const CostingWorksheet = ({
                     <td className="text-end ws-calc fw-bold">
                       {moneySrc(cSrc.lineTotal)}
                     </td>
-                    {isForeign && (
-                      <td className="text-end ws-calc">{moneyDoc(rateDoc)}</td>
-                    )}
-                    <td className="text-end ws-calc fw-bold">
-                      {moneyDoc(amtDoc)}
-                    </td>
                     {showIgst && (
                       <td className="p-0">
                         {/* IGST% — editable; locked to 0 on a LUT/zero-rated
-                            export. The IGST amount below derives from it. */}
+                            export. The IGST amount beside it derives from it. */}
                         <EditableCell
                           value={isLut ? "0" : l.igst_rate_pct}
                           display={
@@ -1622,11 +1630,19 @@ const CostingWorksheet = ({
                     )}
                     {showIgst && (
                       <td className="text-end ws-calc">
-                        {moneyDoc(
-                          isLut ? 0 : (amtDoc * num(l.igst_rate_pct)) / 100
+                        {/* IGST Amt — always in ₹ (INR), even on a foreign-
+                            currency invoice: amtDoc ÷ exchange_rate × IGST%. */}
+                        {moneyBase(
+                          isLut ? 0 : igstAmtInr(amtDoc, l.igst_rate_pct)
                         )}
                       </td>
                     )}
+                    {isForeign && (
+                      <td className="text-end ws-calc">{moneyDoc(rateDoc)}</td>
+                    )}
+                    <td className="text-end ws-calc fw-bold">
+                      {moneyDoc(amtDoc)}
+                    </td>
                     <td className="p-0">
                       {/* Editable per-line freight. Auto-split by qty is the
                           default; typing here overrides just this line and the
@@ -1737,12 +1753,16 @@ const CostingWorksheet = ({
                 <td className="text-end ws-foot-grand">
                   {moneySrc(totals.grandSrc)}
                 </td>
+                {showIgst && <td />}
+                {showIgst && (
+                  <td className="text-end ws-foot-grand">
+                    {moneyBase(totals.igstInr)}
+                  </td>
+                )}
                 {isForeign && <td />}
                 <td className="text-end ws-foot-grand">
                   {moneyDoc(grandDoc)}
                 </td>
-                {showIgst && <td />}
-                {showIgst && <td />}
                 <td className="text-end">{moneyDoc(freightSum)}</td>
                 <td className="text-end ws-foot-grand">{moneyDoc(cnfTotal)}</td>
                 <td className="text-end">{moneyDoc(cnfRateTotal)}</td>

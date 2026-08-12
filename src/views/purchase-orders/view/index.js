@@ -6,7 +6,7 @@
 //   4. Tabs (Line Items | Coverage | PO Vendors)  |  Snapshot side panel
 
 import { Fragment, useEffect, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Calendar,
@@ -20,6 +20,8 @@ import {
   Mail,
   Briefcase,
   Truck,
+  FileText,
+  Info,
 } from "react-feather";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -189,11 +191,35 @@ const ViewPurchaseOrder = () => {
   const canEdit = isAdmin || perms?.can_all || perms?.can_update;
   const povPerms = authUserItem?.role?.permissions?.["po-vendors"];
   const canCreatePov = isAdmin || povPerms?.can_all || povPerms?.can_add;
+  const invoicePerms = authUserItem?.role?.permissions?.invoices;
+  const canCreateInvoice =
+    isAdmin || invoicePerms?.can_all || invoicePerms?.can_add;
 
   // Live coverage (also drives the Coverage / Vendor PO tabs — shared so the
   // header "Generate POV" button can gate on pending qty and refresh the tabs
   // after creating POVs).
   const coverageData = usePoCoverage();
+
+  // Invoice coverage → header "Generate Invoice" button + progress banner.
+  // Same numbers the Coverage tab shows, surfaced on the header so the operator
+  // sees invoice status at a glance without opening the tab. `invoiceable` =
+  // fulfilled (dispatched + sell-from-stock) qty not yet invoiced.
+  const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
+  const covTotals = coverageData?.coverage?.totals;
+  const dispatchedTotal = num(covTotals?.dispatched);
+  const fromStockTotal = num(covTotals?.from_stock);
+  const invoiceableTotal = num(covTotals?.invoiceable);
+  const invoicedTotal = num(covTotals?.invoiced);
+  const canGenerateInvoice =
+    canCreateInvoice &&
+    invoiceableTotal > 1e-6 &&
+    statusLower !== "draft" &&
+    statusLower !== "cancelled";
+  // Everything fulfilled is already on an invoice — nothing left to raise.
+  const fullyInvoiced =
+    (dispatchedTotal > 0 || fromStockTotal > 0) &&
+    invoiceableTotal <= 1e-6 &&
+    invoicedTotal > 0;
   // Show whenever there's uncovered (pending) qty. Procurement needs a
   // confirmed SO (BE rule), so from a re-edited Draft the button confirms the
   // SO first (see onGeneratePov) before opening the Generate POV page.
@@ -481,6 +507,44 @@ const ViewPurchaseOrder = () => {
   return (
     <Fragment>
       <div className="app-user-view">
+        {/* Invoice-coverage banner — shows above the header whenever any qty has
+            been invoiced against this SO. Green when everything fulfilled is
+            invoiced (explains why "Generate Invoice" is gone); blue on a partial
+            invoice. Numbers come from the same coverage the Coverage tab uses. */}
+        {invoicedTotal > 0 && (
+          <div
+            className={`d-flex align-items-start gap-1 small p-1 mb-1 rounded ${
+              fullyInvoiced
+                ? "bg-light-success text-success"
+                : "bg-light-info text-info"
+            }`}
+          >
+            <Info size={14} className="mt-25 flex-shrink-0" />
+            <div>
+              <strong>
+                {fullyInvoiced
+                  ? t("All dispatched qty already invoiced.")
+                  : t("Partial invoice raised for this Sales Order.")}
+              </strong>{" "}
+              <span className="text-body">
+                {t("Invoiced")}: {invoicedTotal} / {t("Dispatched")}:{" "}
+                {dispatchedTotal}
+                {invoiceableTotal > 1e-6 && (
+                  <>
+                    {" · "}
+                    {t("Still invoiceable")}: {invoiceableTotal}
+                  </>
+                )}
+              </span>{" "}
+              <Link
+                to={`${appsRoot}/invoices?purchase_order_id=${id}`}
+                className="text-decoration-underline"
+              >
+                {t("View invoices")} <ExternalLink size={11} />
+              </Link>
+            </div>
+          </div>
+        )}
         <DetailHeader
           avatarText="P"
           title={p?.voucher_no || "-"}
@@ -513,6 +577,19 @@ const ViewPurchaseOrder = () => {
                   >
                     <Truck size={14} className="me-50" />
                     {t("Generate POV")}
+                  </Button>
+                )}
+                {canGenerateInvoice && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    className="d-flex align-items-center"
+                    onClick={() =>
+                      navigate(`${appsRoot}/invoices/add?po_id=${id}`)
+                    }
+                  >
+                    <FileText size={14} className="me-50" />
+                    {t("Generate Invoice")}
                   </Button>
                 )}
                 <Button

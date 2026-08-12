@@ -448,18 +448,10 @@ const InvoiceAddEdit = () => {
   // Worksheet (its per-currency rate box); the old single-rate invoice box was
   // removed. `docCur`/`srcCur` are still used for the currency-symbol display.
 
-  // GST route defaults by currency: a FOREIGN (export) invoice defaults to
-  // LUT / zero-rated → IGST 0 (the usual merchant-exporter case, and matching
-  // how the quotation/SO drop GST on non-INR); a domestic (INR) invoice keeps
-  // igst_paid (GST charged). An explicit operator pick is never overridden.
-  const gstRouteTouched = useRef(false);
-  useEffect(() => {
-    if (gstRouteTouched.current || !form.currency_code) return;
-    const foreign = String(form.currency_code).toUpperCase() !== "INR";
-    const want = foreign ? "lut_zero_rated" : "igst_paid";
-    if (form.gst_route !== want) onF("gst_route", want);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.currency_code]);
+  // GST route defaults to IGST Paid for EVERY invoice (domestic and export).
+  // The operator opts into LUT / zero-rated manually via the radio below — we
+  // no longer auto-switch export invoices to LUT based on currency (client
+  // 2026-08-12).
 
   // ── Packing totals: auto-sum from line items, editable override ──────
   // Header Total Packages / Net / Gross default to the sum of the per-line
@@ -3017,10 +3009,7 @@ const InvoiceAddEdit = () => {
                       id={`gst-${opt.value}`}
                       name="gst_route"
                       checked={form.gst_route === opt.value}
-                      onChange={() => {
-                        gstRouteTouched.current = true;
-                        onF("gst_route", opt.value);
-                      }}
+                      onChange={() => onF("gst_route", opt.value)}
                     />
                     <Label
                       className="form-check-label ms-25"
