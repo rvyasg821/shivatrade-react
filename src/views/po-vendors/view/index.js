@@ -376,16 +376,29 @@ const ViewPoVendor = () => {
       label: t("POV Total"),
       value: lines.length > 0 ? `${sym} ${fmtCcy(grandTotal)}` : "-",
       sub:
-        lines.length > 0 && (expensesTotal > 0 || gstTotal > 0)
+        lines.length > 0
           ? [
-              `${t("Goods")} ${sym}${fmtCcy(goodsTotal)}`,
-              gstTotal > 0 ? `${t("GST")} ${sym}${fmtCcy(gstTotal)}` : null,
-              expensesTotal > 0
-                ? `${t("Charges")} ${sym}${fmtCcy(expensesTotal)}`
+              expensesTotal > 0 || gstTotal > 0
+                ? [
+                    `${t("Goods")} ${sym}${fmtCcy(goodsTotal)}`,
+                    gstTotal > 0
+                      ? `${t("GST")} ${sym}${fmtCcy(gstTotal)}`
+                      : null,
+                    expensesTotal > 0
+                      ? `${t("Charges")} ${sym}${fmtCcy(expensesTotal)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")
+                : null,
+              // POV convention: exchange_rate is INR per 1 unit of the POV
+              // currency (multiply) — the opposite direction of sales docs.
+              !gstApplies
+                ? `≈ ${t("INR")} ${fmtMoney(num(grandTotal) * inrRate)}`
                 : null,
             ]
               .filter(Boolean)
-              .join(" + ")
+              .join(" · ")
           : null,
       icon: DollarSign,
       tone: "secondary",

@@ -1,6 +1,7 @@
 // Purchase Turnover (VPO) — PURCHASE_TURNOVER_VPO_REPORT_PLAN.md.
-// What we purchased, paid and still owe. Dispatched + closed POVs, every
-// payment status (unpaid POVs are IN — turnover is what was bought, not paid).
+// What we purchased, paid and still owe. Sourced from CONFIRMED GRNs — goods
+// actually received (client change-request #8, 2026-08-19) — not the PO/POV
+// itself, which may not have been fulfilled yet. One row per GRN.
 // MULTI-CURRENCY (D-6): a Vendor PO is native to the vendor's own currency and
 // currencies can never be summed, so the report is a STACK of per-currency
 // sections, each with its own subtotal. KPI tiles show only counts.
@@ -93,10 +94,10 @@ const CurrencySection = ({ group, firstColLabel }) => {
           <thead className="table-light">
             <tr>
               <th style={{ minWidth: 140 }}>{firstColLabel}</th>
-              <th className="text-end">{t("POVs")}</th>
+              <th className="text-end">{t("GRNs")}</th>
               <th className="text-end">{t("Taxable")}</th>
               <th className="text-end">{t("GST")}</th>
-              <th className="text-end">{t("Order Value")}</th>
+              <th className="text-end">{t("Received Value")}</th>
               <th className="text-end">{t("Paid")}</th>
               <th className="text-end">{t("Outstanding")}</th>
             </tr>
@@ -255,9 +256,9 @@ const PurchaseTurnover = () => {
             money total lives inside a currency section below. */}
         <Row className="mb-1">
           <StatTile
-            label={t("POVs")}
+            label={t("GRNs")}
             value={store?.overall_pov_count ?? 0}
-            hint={t("dispatched + closed, across all currencies")}
+            hint={t("confirmed goods receipts, across all currencies")}
           />
           <StatTile
             label={t("Currencies")}

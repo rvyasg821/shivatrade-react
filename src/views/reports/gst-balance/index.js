@@ -278,7 +278,7 @@ const GstBalance = () => {
                         <th
                           className="text-end"
                           title={t(
-                            "Vendor PO goods + charges, excluding GST. Status dispatched/closed, dated by dispatch date."
+                            "Goods received (confirmed GRNs), excluding GST. Dated by GRN date."
                           )}
                         >
                           {t("Purchase Taxable (₹)")}
@@ -408,7 +408,7 @@ const GstBalance = () => {
                     <div>
                       <strong>{t("Purchase Taxable + Input GST")}</strong>{" "}
                       {t(
-                        "— from Vendor POs (goods + vendor charges, excluding GST). Only status Dispatched or Closed; drafts and cancelled are excluded. Dated by dispatch date, or the created date when a POV was never dispatch-dated. IGST vs CGST/SGST is decided by the vendor's state against your company's."
+                        "— from CONFIRMED GRNs (goods actually received), excluding GST. A dispatched-but-not-yet-received Vendor PO does not count yet. Dated by GRN date. IGST vs CGST/SGST is decided by the vendor's state against your company's."
                       )}
                     </div>
                     <div className="mt-25">
@@ -419,7 +419,7 @@ const GstBalance = () => {
                     </div>
                     <div className="mt-25">
                       {t(
-                        "Click any month to see the exact Vendor POs and invoices behind its figures."
+                        "Click any month to see the exact GRNs and invoices behind its figures."
                       )}
                     </div>
                   </div>
@@ -451,13 +451,13 @@ const GstBalance = () => {
           ) : (
             <Fragment>
               <h6 className="mb-1">
-                {t("Purchases — Vendor POs behind the Input GST")}
+                {t("Purchases — GRNs behind the Input GST")}
               </h6>
               <div className="table-responsive mb-2">
                 <Table bordered size="sm" className="align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>{t("Vendor PO")}</th>
+                      <th>{t("GRN")}</th>
                       <th>{t("Vendor")}</th>
                       <th>{t("State")}</th>
                       <th>{t("Status")}</th>
@@ -471,12 +471,12 @@ const GstBalance = () => {
                     {purchaseMeta.total === 0 ? (
                       <tr>
                         <td colSpan="8" className="text-center text-muted py-2">
-                          {t("No vendor POs in this month")}
+                          {t("No GRNs in this month")}
                         </td>
                       </tr>
                     ) : (
                       purchaseMeta.rows.map((p) => (
-                        <tr key={p.po_vendor_id}>
+                        <tr key={p.grn_id}>
                           <td className="text-nowrap">{p.voucher_no}</td>
                           <td>{p.vendor_name}</td>
                           <td className="text-nowrap">
@@ -518,7 +518,7 @@ const GstBalance = () => {
                 size={purchaseSize}
                 onSize={setPurchaseSize}
                 onPage={setPurchasePage}
-                label={t("Vendor POs")}
+                label={t("GRNs")}
               />
 
               <h6 className="mb-1 mt-2">
@@ -576,7 +576,7 @@ const GstBalance = () => {
 
               <div className="text-muted small mt-2">
                 {t(
-                  "Taxable excludes GST. A Vendor PO's taxable value is its goods plus vendor charges; only Dispatched and Closed POVs are counted, dated by dispatch date."
+                  "Taxable excludes GST. A GRN's taxable value is the accepted goods it received; only CONFIRMED GRNs are counted, dated by GRN date."
                 )}
               </div>
             </Fragment>

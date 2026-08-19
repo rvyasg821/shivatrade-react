@@ -450,6 +450,13 @@ const ViewQuotation = () => {
               : headerTotals.grand_inr
           )}`
         : "-",
+      // Viewing in doc-currency hides the INR figure the toggle just swapped
+      // out — show it as a second line so both are visible at once, same as
+      // the Invoice/SO/POV pages.
+      sub:
+        showDocEffective && q?.grand_total
+          ? `≈ ₹${fmt(headerTotals.grand_inr)}`
+          : null,
       icon: DollarSign,
       tone: "secondary",
     },

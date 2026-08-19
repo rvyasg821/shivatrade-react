@@ -84,8 +84,13 @@ const LedgerStatement = ({ kind, partyId }) => {
   const money = (v) => `${sym}${fmt(v)}`;
   // Balance shows the magnitude only — no minus sign.
   const moneyAbs = (v) => `${sym}${fmt(Math.abs(num(v)))}`;
+  const moneyInr = (v) => `₹${fmt(v)}`;
+  const moneyInrAbs = (v) => `₹${fmt(Math.abs(num(v)))}`;
   const rows = data?.rows || [];
   const summary = data?.summary || null;
+  // The native currency already IS the base currency — showing a second,
+  // identical INR column would just be noise.
+  const showInr = ccy && ccy !== "INR";
 
   return (
     <Fragment>
@@ -100,11 +105,13 @@ const LedgerStatement = ({ kind, partyId }) => {
                 kind === "vendor" ? t("Total Billed") : t("Total Invoiced"),
                 summary.total_billed,
                 "",
+                summary.total_billed_inr,
               ],
               [
                 kind === "vendor" ? t("Total Paid") : t("Total Received"),
                 summary.total_paid,
                 "",
+                summary.total_paid_inr,
               ],
             ];
             // Migration opening balance — only when one was set.
@@ -113,17 +120,28 @@ const LedgerStatement = ({ kind, partyId }) => {
                 t("Opening Balance"),
                 summary.opening_balance,
                 "text-info",
+                summary.opening_balance,
               ]);
             }
-            cards.push([t("Outstanding"), summary.outstanding, "text-warning"]);
+            cards.push([
+              t("Outstanding"),
+              summary.outstanding,
+              "text-warning",
+              summary.outstanding_inr,
+            ]);
             const md = Math.floor(12 / cards.length) || 3;
-            return cards.map(([label, value, cls]) => (
+            return cards.map(([label, value, cls, valueInr]) => (
               <Col md={md} key={label}>
                 <div className="border rounded p-1 h-100">
                   <div className="text-muted small">{label}</div>
                   <h4 className={`mb-0 mt-25 fw-bolder ${cls}`}>
                     {money(value)}
                   </h4>
+                  {showInr && (
+                    <div className="text-muted small">
+                      {moneyInr(valueInr)}
+                    </div>
+                  )}
                 </div>
               </Col>
             ));
@@ -186,18 +204,25 @@ const LedgerStatement = ({ kind, partyId }) => {
               <th className="text-end" style={{ width: 120 }}>{t("Debit")}</th>
               <th className="text-end" style={{ width: 120 }}>{t("Credit")}</th>
               <th className="text-end" style={{ width: 130 }}>{t("Balance")}</th>
+              {showInr && (
+                <>
+                  <th className="text-end" style={{ width: 120 }}>{t("Debit (INR)")}</th>
+                  <th className="text-end" style={{ width: 120 }}>{t("Credit (INR)")}</th>
+                  <th className="text-end" style={{ width: 130 }}>{t("Balance (INR)")}</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="text-center py-3">
+                <td colSpan={showInr ? 9 : 6} className="text-center py-3">
                   <Spinner size="sm" /> {t("Loading…")}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-3">
+                <td colSpan={showInr ? 9 : 6} className="text-center text-muted py-3">
                   {t("No ledger entries.")}
                 </td>
               </tr>
@@ -212,6 +237,19 @@ const LedgerStatement = ({ kind, partyId }) => {
                   <td className="text-end">{r.dr ? money(r.dr) : "-"}</td>
                   <td className="text-end">{r.cr ? money(r.cr) : "-"}</td>
                   <td className="text-end fw-semibold">{moneyAbs(r.balance)}</td>
+                  {showInr && (
+                    <>
+                      <td className="text-end text-muted">
+                        {r.dr_inr ? moneyInr(r.dr_inr) : "-"}
+                      </td>
+                      <td className="text-end text-muted">
+                        {r.cr_inr ? moneyInr(r.cr_inr) : "-"}
+                      </td>
+                      <td className="text-end fw-semibold text-muted">
+                        {moneyInrAbs(r.balance_inr)}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))
             )}
@@ -225,6 +263,19 @@ const LedgerStatement = ({ kind, partyId }) => {
                 <td className="text-end fw-bold">{money(data?.total_dr)}</td>
                 <td className="text-end fw-bold">{money(data?.total_cr)}</td>
                 <td className="text-end fw-bold">{moneyAbs(data?.balance)}</td>
+                {showInr && (
+                  <>
+                    <td className="text-end fw-bold text-muted">
+                      {moneyInr(data?.total_dr_inr)}
+                    </td>
+                    <td className="text-end fw-bold text-muted">
+                      {moneyInr(data?.total_cr_inr)}
+                    </td>
+                    <td className="text-end fw-bold text-muted">
+                      {moneyInrAbs(data?.balance_inr)}
+                    </td>
+                  </>
+                )}
               </tr>
             </tfoot>
           )}

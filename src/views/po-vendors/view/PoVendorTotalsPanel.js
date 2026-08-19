@@ -173,6 +173,17 @@ const PoVendorTotalsPanel = () => {
             {sym} {fmtCcy(totals.grandRounded)}
           </span>
         </div>
+
+        {/* POV convention: exchange_rate is INR per 1 unit of the POV
+            currency (multiply) — the opposite direction of sales docs. */}
+        {!gstApplies && (
+          <div className="d-flex justify-content-between px-2 pt-1 small text-muted">
+            <span>{t("INR equivalent")}</span>
+            <span>
+              ≈ ₹{fmt(totals.grandRounded * (num(p?.exchange_rate) || 1))}
+            </span>
+          </div>
+        )}
       </CardBody>
     </Card>
   );
