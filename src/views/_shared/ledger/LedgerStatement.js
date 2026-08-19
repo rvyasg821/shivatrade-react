@@ -114,13 +114,17 @@ const LedgerStatement = ({ kind, partyId }) => {
                 summary.total_paid_inr,
               ],
             ];
-            // Migration opening balance — only when one was set.
+            // Migration opening balance — only when one was set. No exchange
+            // rate was captured at migration, so there is no real INR
+            // conversion for this figure (unlike the other cards) — passing
+            // `null` skips the INR sub-line instead of showing the native
+            // value again, which would read as a bug.
             if (Number(summary.opening_balance || 0) !== 0) {
               cards.push([
                 t("Opening Balance"),
                 summary.opening_balance,
                 "text-info",
-                summary.opening_balance,
+                null,
               ]);
             }
             cards.push([
@@ -137,7 +141,7 @@ const LedgerStatement = ({ kind, partyId }) => {
                   <h4 className={`mb-0 mt-25 fw-bolder ${cls}`}>
                     {money(value)}
                   </h4>
-                  {showInr && (
+                  {showInr && valueInr !== null && (
                     <div className="text-muted small">
                       {moneyInr(valueInr)}
                     </div>
@@ -239,14 +243,18 @@ const LedgerStatement = ({ kind, partyId }) => {
                   <td className="text-end fw-semibold">{moneyAbs(r.balance)}</td>
                   {showInr && (
                     <>
+                      {/* Opening Balance has no captured exchange rate (a flat
+                          migrated figure) — its "INR" value would just equal
+                          the native one, which reads as a bug, not a real
+                          conversion. Left blank on this one row only. */}
                       <td className="text-end text-muted">
-                        {r.dr_inr ? moneyInr(r.dr_inr) : "-"}
+                        {r.type === "opening" ? "-" : r.dr_inr ? moneyInr(r.dr_inr) : "-"}
                       </td>
                       <td className="text-end text-muted">
-                        {r.cr_inr ? moneyInr(r.cr_inr) : "-"}
+                        {r.type === "opening" ? "-" : r.cr_inr ? moneyInr(r.cr_inr) : "-"}
                       </td>
                       <td className="text-end fw-semibold text-muted">
-                        {moneyInrAbs(r.balance_inr)}
+                        {r.type === "opening" ? "-" : moneyInrAbs(r.balance_inr)}
                       </td>
                     </>
                   )}
@@ -285,7 +293,7 @@ const LedgerStatement = ({ kind, partyId }) => {
         <div className="text-muted small mt-1">
           {kind === "customer"
             ? t(
-                "Balance is the net amount received from this customer — receipts less adjustment notes."
+                "Balance is the net amount still receivable from this customer — invoices raised less receipts and adjustment notes."
               )
             : t(
                 "Balance is the net amount paid to this vendor — payments less adjustment notes."
