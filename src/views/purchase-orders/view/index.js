@@ -156,6 +156,14 @@ const ViewPurchaseOrder = () => {
         p?.grand_total !== undefined
           ? `${sym} ${fmt(headerTotals.grand_currency)}`
           : "-",
+      // Sales-doc convention: exchange_rate is doc-currency per ₹1, so
+      // INR = grand ÷ exchange_rate. Domestic (₹) orders need no second line.
+      sub:
+        sym !== "₹" && p?.grand_total !== undefined
+          ? `≈ ₹${fmt(
+              headerTotals.grand_currency / (Number(p?.exchange_rate) || 1)
+            )}`
+          : null,
       icon: DollarSign,
       tone: "secondary",
     },
