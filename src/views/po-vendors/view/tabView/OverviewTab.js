@@ -6,7 +6,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { Table, Button, Input } from "reactstrap";
+import { Table, Button, Input, Badge } from "reactstrap";
 import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { Edit } from "react-feather";
@@ -165,6 +165,14 @@ const OverviewTab = ({ registerActions }) => {
                     </td>
                     <td className="text-end text-nowrap">
                       {money(l?.unit_price)}
+                      {l?.tolerance_hold && (
+                        <Badge
+                          className="doc-badge doc-badge-orange d-block mt-25"
+                          title={l.tolerance_hold_reason}
+                        >
+                          {t("Tolerance Hold")}
+                        </Badge>
+                      )}
                     </td>
                     <td className="text-end text-nowrap">
                       {num(l?.discount_pct) > 0

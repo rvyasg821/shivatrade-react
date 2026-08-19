@@ -99,6 +99,11 @@ const CompanySettingsPage = () => {
     payment_voucher_prefix: '', receipt_voucher_prefix: '',
     // Financial year closure — books closed up to & incl. this date ('' = open).
     books_closed_upto: '',
+    // Tolerance & Three-Way Match — blank/0 = check disabled (matches backend default).
+    tolerance_config: {
+      grn_qty_tolerance_pct: '', pov_price_tolerance_pct: '',
+      invoice_qty_tolerance_pct: '', invoice_price_tolerance_pct: '',
+    },
   }
   const [settingsData, setSettingsData] = useState(defaultSettings)
 
@@ -120,9 +125,22 @@ const CompanySettingsPage = () => {
   // Sync store -> local state
   useEffect(() => {
     if (store.settings) {
-      setSettingsData((prev) => ({ ...prev, ...store.settings }))
+      setSettingsData((prev) => ({
+        ...prev,
+        ...store.settings,
+        // Backend sends null when unset — keep the {} shape so field inputs
+        // below don't have to null-guard every access.
+        tolerance_config: store.settings.tolerance_config || {},
+      }))
     }
   }, [store.settings])
+
+  const handleToleranceChange = (field, value) => {
+    setSettingsData((prev) => ({
+      ...prev,
+      tolerance_config: { ...prev.tolerance_config, [field]: value === '' ? '' : Number(value) },
+    }))
+  }
 
   const handleChange = (field, value) => {
     setSettingsData((prev) => ({ ...prev, [field]: value }))
@@ -620,6 +638,57 @@ const CompanySettingsPage = () => {
                           </Button>
                         </Col>
                       ) : null}
+                    </Row>
+                  </CardBody>
+                </Card>
+              )}
+
+              {/* Tolerance & Three-Way Match — company-wide only (TOLERANCE_THREE_WAY_MATCH_PLAN.md §12.5). */}
+              {(!isLocationAdmin && !(settingsScope === 'location' && settingsLocationId)) && (
+                <Card className='mt-1'>
+                  <CardHeader className='border-bottom py-1'>
+                    <CardTitle tag='h5' className='mb-0'>Tolerance Rules</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <small className='text-muted d-block mb-1'>
+                      Maximum allowed % difference before a GRN receipt, a Vendor PO
+                      price revision, or an Invoice qty/price is held for review
+                      instead of applied automatically. Leave blank / 0% to turn
+                      that check off entirely (nothing gets held). Applies company-wide.
+                    </small>
+                    <Row>
+                      <Col md='3'>
+                        <FormGroup>
+                          <Label className='form-label'>GRN Qty Tolerance (%)</Label>
+                          <Input type='number' bsSize='sm' min={0} max={100} step='0.1'
+                            value={settingsData.tolerance_config?.grn_qty_tolerance_pct ?? ''}
+                            onChange={(e) => handleToleranceChange('grn_qty_tolerance_pct', e.target.value)} />
+                        </FormGroup>
+                      </Col>
+                      <Col md='3'>
+                        <FormGroup>
+                          <Label className='form-label'>Vendor PO Price Tolerance (%)</Label>
+                          <Input type='number' bsSize='sm' min={0} max={100} step='0.1'
+                            value={settingsData.tolerance_config?.pov_price_tolerance_pct ?? ''}
+                            onChange={(e) => handleToleranceChange('pov_price_tolerance_pct', e.target.value)} />
+                        </FormGroup>
+                      </Col>
+                      <Col md='3'>
+                        <FormGroup>
+                          <Label className='form-label'>Invoice Qty Tolerance (%)</Label>
+                          <Input type='number' bsSize='sm' min={0} max={100} step='0.1'
+                            value={settingsData.tolerance_config?.invoice_qty_tolerance_pct ?? ''}
+                            onChange={(e) => handleToleranceChange('invoice_qty_tolerance_pct', e.target.value)} />
+                        </FormGroup>
+                      </Col>
+                      <Col md='3'>
+                        <FormGroup>
+                          <Label className='form-label'>Invoice Price Tolerance (%)</Label>
+                          <Input type='number' bsSize='sm' min={0} max={100} step='0.1'
+                            value={settingsData.tolerance_config?.invoice_price_tolerance_pct ?? ''}
+                            onChange={(e) => handleToleranceChange('invoice_price_tolerance_pct', e.target.value)} />
+                        </FormGroup>
+                      </Col>
                     </Row>
                   </CardBody>
                 </Card>

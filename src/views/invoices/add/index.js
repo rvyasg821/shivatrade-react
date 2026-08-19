@@ -5,6 +5,8 @@ import {
   useLocation,
 } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 import {
   Card,
   CardBody,
@@ -146,6 +148,7 @@ const InvoiceAddEdit = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const mySwal = withReactContent(Swal);
   const { id: editId } = useParams();
   const location = useLocation();
   const isEdit = !!editId;
@@ -1824,11 +1827,36 @@ const InvoiceAddEdit = () => {
       Notification("Validation", "Please fix the highlighted fields.", "warning");
       return;
     }
+    // A held invoice (TOLERANCE_THREE_WAY_MATCH_PLAN.md §8.1) still saves
+    // fine as draft — only issue() blocks it — so ask here whether to clear
+    // the hold now (override) rather than leave it silently unresolved.
+    let override = false;
+    if (isEdit && store?.invoiceItem?.tolerance_hold) {
+      const result = await mySwal.fire({
+        title: t("Outside tolerance"),
+        text:
+          store.invoiceItem.tolerance_hold_reason ||
+          t("This invoice has a qty/price tolerance hold."),
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Override & Clear Hold"),
+        cancelButtonText: t("Save, keep it held"),
+        customClass: {
+          confirmButton: "btn btn-warning",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      });
+      override = !!result.isConfirmed;
+    }
     setBusy(true);
     try {
       if (isEdit) {
         const r = await dispatch(
-          updateInvoice({ id: editId, data: buildPayload() })
+          updateInvoice({
+            id: editId,
+            data: { ...buildPayload(), ...(override ? { override: true } : {}) },
+          })
         ).unwrap();
         const newId = r?.invoiceItem?._id || editId;
         navigate(`${appsRoot}/invoices/view/${newId}`);

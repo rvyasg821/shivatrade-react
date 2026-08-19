@@ -6,6 +6,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  Alert,
   Badge,
   Button,
   Col,
@@ -25,6 +26,8 @@ import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { openPdfViewer } from "@src/utility/pdf";
 import { downloadExcel } from "@src/utility/excel";
 import DateInput from "@components/date-input";
@@ -32,6 +35,7 @@ import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/ho
 import Notification from "@components/toast/notification";
 import { isAdminUser } from "@constant/defaultValues";
 import {
+  getPoVendor,
   recordPoVendorPayment,
   voidPoVendorPayment,
 } from "@src/views/po-vendors/store";
@@ -221,16 +225,47 @@ const PaymentsTab = ({ registerActions }) => {
       tds_rate_pct: String(tdsRate),
       tds_amount: String(tdsAmountInr),
     };
-    dispatch(recordPoVendorPayment({ id, data: payload }))
-      .then((r) => {
-        if (r?.meta?.requestStatus === "fulfilled") {
-          setPayOpen(false);
+    // Probe with a RAW axios call first, bypassing Redux entirely — even
+    // though `recordPoVendorPayment` rejects correctly (unlike the GRN
+    // store's `mutate()`-built thunks), a rejection still writes
+    // `state.error`, and the parent po-vendors/view page's generic
+    // error-toast effect watches that and fires off ANY dispatched
+    // rejection — including this one, racing the dialog below the same way
+    // the GRN confirm popup did (see grn/view/index.js for the full story).
+    instance
+      .post(`${API_ENDPOINTS.poVendors.payments}/${id}`, payload)
+      .then((resp) => {
+        setPayOpen(false);
+        Notification(
+          t("Success"),
+          resp?.data?.message || t("Payment recorded"),
+          "success"
+        );
+        // Refresh via a plain GET — NOT by re-dispatching
+        // recordPoVendorPayment, which would POST the same payment a
+        // second time (a payment record isn't idempotent like a GRN/POV
+        // update; a second POST would double-record it).
+        dispatch(getPoVendor(id));
+      })
+      .catch((err) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          t("Could not record payment");
+        // Three-way match block (TOLERANCE_THREE_WAY_MATCH_PLAN.md §7.3) —
+        // a multi-line explanation deserves a dialog, not a small toast.
+        // Override happens back on the GRN/POV that's holding, not here.
+        if (/outside tolerance/i.test(String(msg))) {
+          mySwal.fire({
+            title: t("Payment blocked — three-way match"),
+            text: String(msg),
+            icon: "warning",
+            confirmButtonText: t("OK"),
+            customClass: { confirmButton: "btn btn-primary" },
+            buttonsStyling: false,
+          });
         } else {
-          Notification(
-            t("Error"),
-            r?.payload || t("Could not record payment"),
-            "warning"
-          );
+          Notification(t("Error"), msg, "warning");
         }
       })
       .finally(() => setSaving(false));
@@ -506,6 +541,17 @@ const PaymentsTab = ({ registerActions }) => {
           {t("Record Payment")}
         </ModalHeader>
         <ModalBody>
+          {/* Proactive warning — a POV price hold blocks recordPayment
+              (§7.3 three-way match). A GRN qty hold isn't visible here (GRN
+              data isn't loaded on this tab) — that case still surfaces via
+              the dialog after Submit. */}
+          {(p?.lines || []).some((l) => l.tolerance_hold) && (
+            <Alert color="warning" className="py-1 px-2 small">
+              {t(
+                "One or more lines on this PO have an open price tolerance hold. Payment will be blocked until it's resolved or overridden on the PO."
+              )}
+            </Alert>
+          )}
           <Row>
             <Col md="6" className="mb-2">
               <Label className="form-label">
