@@ -37,6 +37,7 @@ import {
   Spinner,
   Alert,
   Table,
+  Badge,
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowLeft, Save } from "react-feather";
@@ -83,6 +84,7 @@ const EditPoVendor = () => {
   const loaded = p?._id === id;
 
   const povLines = useMemo(() => p?.lines || [], [p]);
+  const hasToleranceHold = povLines.some((l) => l.tolerance_hold);
   // `received_qty` already counts every non-cancelled GRN (drafts included).
   const hasReceipt = povLines.some((l) => num(l?.received_qty) > 1e-6);
   const canEditRate = (isDraft || status === "dispatched") && !hasReceipt;
@@ -337,9 +339,10 @@ const EditPoVendor = () => {
     }));
   };
 
-  const onSave = async () => {
+  const onSave = async (overrideFlag) => {
     if (saving) return;
     const data = {};
+    if (overrideFlag) data.override = true;
 
     // Header fields are draft-only server-side — sending them on a dispatched
     // POV is a hard 400, so they only go in the payload while it is a draft.
@@ -633,6 +636,14 @@ const EditPoVendor = () => {
                                 {fmt(toDisp(l.unit_price))}
                               </small>
                             )}
+                            {l.tolerance_hold && (
+                              <Badge
+                                className="doc-badge doc-badge-orange d-block mt-25"
+                                title={l.tolerance_hold_reason}
+                              >
+                                {t("Tolerance Hold")}
+                              </Badge>
+                            )}
                           </td>
                           {/* Discount % — editable under the same rule as Rate. */}
                           <td>
@@ -892,7 +903,20 @@ const EditPoVendor = () => {
           <Button color="secondary" outline onClick={() => navigate(backTo)}>
             {t("Cancel")}
           </Button>
-          <Button color="primary" disabled={saving || !canSave} onClick={onSave}>
+          {hasToleranceHold && (
+            <Button
+              color="warning"
+              disabled={saving || !canSave}
+              onClick={() => onSave(true)}
+            >
+              {saving ? t("Saving…") : t("Override & Clear Hold")}
+            </Button>
+          )}
+          <Button
+            color="primary"
+            disabled={saving || !canSave}
+            onClick={() => onSave()}
+          >
             <Save size={14} className="me-25" />{" "}
             {saving ? t("Saving…") : t("Save")}
           </Button>

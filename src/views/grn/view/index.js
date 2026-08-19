@@ -25,6 +25,8 @@ import {
   ExternalLink,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
 import { getGrn, updateGrn, createGrnFromPov, cleanGrnMessage } from "../store";
 import { getPoVendor } from "@src/views/po-vendors/store";
@@ -55,6 +57,7 @@ const GrnView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const mySwal = withReactContent(Swal);
 
   const store = useSelector((s) => s.grn);
   const povStore = useSelector((s) => s.poVendor);
@@ -351,14 +354,57 @@ const GrnView = () => {
         });
         const data = { lines: linesPayload };
         if (statusOverride) data.status = statusOverride;
-        await dispatch(updateGrn({ id: newGrn._id, data })).unwrap();
+
+        if (statusOverride) {
+          // "Create & Confirm" — same raw-axios probe as the update branch
+          // below: bypasses Redux so a tolerance rejection can't race the
+          // generic error-toast effect (see that branch's comment).
+          try {
+            await instance.put(
+              `${API_ENDPOINTS.grn.update}/${newGrn._id}`,
+              data
+            );
+          } catch (err) {
+            const errMsg =
+              err?.response?.data?.message || err?.message || String(err);
+            if (/outside quantity tolerance/i.test(String(errMsg))) {
+              const result = await mySwal.fire({
+                title: t("Outside tolerance"),
+                text: String(errMsg),
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: t("Confirm anyway"),
+                cancelButtonText: t("Go back and adjust"),
+                customClass: { confirmButton: "btn btn-warning", cancelButton: "btn btn-outline-secondary ms-1" },
+                buttonsStyling: false,
+              });
+              if (result.isConfirmed) {
+                dispatch(
+                  updateGrn({
+                    id: newGrn._id,
+                    data: { ...data, override: true },
+                  })
+                );
+              }
+              // The GRN was already created (as draft) either way — go to it
+              // so the QC state isn't lost, whether or not it got confirmed.
+              navigate(`${appsRoot}/grn/view/${newGrn._id}`, {
+                replace: true,
+              });
+              return;
+            }
+            throw err;
+          }
+        } else {
+          dispatch(updateGrn({ id: newGrn._id, data }));
+        }
         // Replace (not push) so Back after saving returns to the POV, not to the
         // now-submitted create form.
         navigate(`${appsRoot}/grn/view/${newGrn._id}`, { replace: true });
       } catch (err) {
         Notification(
           "Error",
-          err?.message || t("Could not create GRN."),
+          err?.response?.data?.message || err?.message || t("Could not create GRN."),
           "warning"
         );
       } finally {
@@ -383,7 +429,51 @@ const GrnView = () => {
       }),
     };
     if (statusOverride) payload.status = statusOverride;
-    dispatch(updateGrn({ id, data: payload }));
+
+    if (!statusOverride) {
+      // Plain "Save" (draft) — the tolerance check never runs on a draft
+      // (backend gates it on status === confirmed), so no special handling
+      // needed. Normal thunk path.
+      dispatch(updateGrn({ id, data: payload }));
+      return;
+    }
+
+    // "Save & Confirm" — probe with a RAW axios call first, bypassing Redux
+    // entirely, so a tolerance rejection never touches `store.error` and
+    // can't race the generic error-toast effect (that effect fires off ANY
+    // dispatch(updateGrn(...)) whose payload carries an error — trying to
+    // suppress it AFTER dispatching lost that race in practice, since the
+    // effect can run before the next line of this function does).
+    try {
+      await instance.put(`${API_ENDPOINTS.grn.update}/${id}`, payload);
+      // Succeeded outside Redux — re-dispatch through the normal thunk so
+      // the store/UI refreshes as usual (idempotent: same payload).
+      dispatch(updateGrn({ id, data: payload }));
+    } catch (err) {
+      const errMsg =
+        err?.response?.data?.message || err?.message || String(err);
+      if (/outside quantity tolerance/i.test(String(errMsg))) {
+        const result = await mySwal.fire({
+          title: t("Outside tolerance"),
+          text: String(errMsg),
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: t("Confirm anyway"),
+          cancelButtonText: t("Go back and adjust"),
+          customClass: { confirmButton: "btn btn-warning", cancelButton: "btn btn-outline-secondary ms-1" },
+          buttonsStyling: false,
+        });
+        if (result.isConfirmed) {
+          dispatch(
+            updateGrn({ id, data: { ...payload, override: true } })
+          );
+        }
+        return;
+      }
+      // Some other error — fall through to the normal thunk path so its
+      // usual toast shows (keeps existing behaviour for non-tolerance errors).
+      dispatch(updateGrn({ id, data: payload }));
+    }
   };
 
   // Open the GRN PDF in the in-app viewer (new tab, frontend origin) — fetched
@@ -671,6 +761,14 @@ const GrnView = () => {
                             onReceivedChange(l, e.target.value)
                           }
                         />
+                        {l.tolerance_hold ? (
+                          <Badge
+                            className="doc-badge doc-badge-orange d-block mt-25"
+                            title={l.tolerance_hold_reason}
+                          >
+                            {t("Tolerance Hold")}
+                          </Badge>
+                        ) : null}
                       </td>
                       <td>
                         <Input

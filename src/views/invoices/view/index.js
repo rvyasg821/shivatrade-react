@@ -346,9 +346,20 @@ const ViewInvoice = () => {
 
   useEffect(() => {
     if (store?.success) Notification("Success", store.success, "success");
-    if (store?.error) Notification("Error", store.error, "warning");
+    // A failed issue() already gets its own sticky banner below (issueError,
+    // set in handleIssue's .catch) — every issue failure (missing GSTIN, LUT,
+    // a tolerance hold, anything) would otherwise ALSO show this generic
+    // toast with the same message, since issueInvoice.rejected sets
+    // store.error too. Checking actionFlag here is race-free (it's read
+    // from already-committed state, not a timing-dependent guard) — unlike
+    // trying to suppress this effect from inside handleIssue after the
+    // fact, which can't reliably win against React's own render timing (see
+    // grn/view/index.js for the version of this bug that actually broke).
+    if (store?.error && store?.actionFlag !== "INV_ISS_ERR") {
+      Notification("Error", store.error, "warning");
+    }
     if (store?.success || store?.error) dispatch(cleanInvoiceMessage());
-  }, [store?.success, store?.error, dispatch]);
+  }, [store?.success, store?.error, store?.actionFlag, dispatch]);
 
   const sym = useMemo(
     () => getCurrencySymbol(inv?.currency_code) || inv?.currency_symbol || "",
@@ -903,11 +914,31 @@ const ViewInvoice = () => {
   return (
     <Fragment>
       <div className="app-user-view">
+        {inv?.tolerance_hold && !issueError && (
+          <div
+            className="d-flex align-items-start mb-1 bg-light-warning"
+            style={{ borderRadius: "0.5rem", padding: "0.75rem 1rem" }}
+            role="alert"
+          >
+            <AlertTriangle size={18} className="flex-shrink-0 mt-25 me-1 text-warning" />
+            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+              <div className="fw-bold text-warning">
+                {t("Outside qty/price tolerance")}
+              </div>
+              <div className="small">{inv.tolerance_hold_reason}</div>
+              <div className="small text-muted mt-25">
+                {t(
+                  "This invoice can be saved as draft but cannot be issued until the line(s) are edited back in range, or saved again with override."
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {issueError && (
           <div
             className="d-flex align-items-start mb-1"
             style={{
-              background: "#28c76f",
+              background: "#ea5455",
               color: "#fff",
               borderRadius: "0.5rem",
               padding: "0.75rem 1rem",
