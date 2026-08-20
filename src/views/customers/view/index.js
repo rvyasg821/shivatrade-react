@@ -87,10 +87,6 @@ const ViewCustomer = () => {
     )
     .reduce((sum, iv) => sum + (Number(iv?.grand_total) || 0), 0);
 
-  const subtitleParts = [c?.primary_contact_name, c?.primary_contact_email]
-    .filter(Boolean)
-    .join(" · ");
-
   const kpiItems = [
     {
       key: "revenue",
@@ -156,7 +152,6 @@ const ViewCustomer = () => {
         <DetailHeader
           avatarText={c?.company_name || "C"}
           title={c?.company_name || "-"}
-          subtitle={subtitleParts || null}
           meta={
             <span className="d-inline-flex align-items-center flex-wrap gap-1">
               {c?._id ? (

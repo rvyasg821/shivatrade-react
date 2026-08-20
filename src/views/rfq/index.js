@@ -29,6 +29,7 @@ import { formatDate } from "@src/utility/dateFormat";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const RFQ_STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -253,19 +254,7 @@ const RfqList = () => {
       selector: (row) => (
         (() => {
           const c = STATUS_HEX[row?.status] || "#6c757d";
-          return (
-            <span
-              className="badge rounded-pill text-capitalize text-nowrap"
-              ref={(el) => {
-                if (el) {
-                  el.style.setProperty("background-color", `${c}1f`, "important");
-                  el.style.setProperty("color", c, "important");
-                }
-              }}
-            >
-              {row?.status || "-"}
-            </span>
-          );
+          return <StatusPill label={row?.status || "-"} hex={c} />;
         })()
       ),
     },

@@ -53,6 +53,7 @@ import { formatDate } from "@src/utility/dateFormat";
 import ImportModal from "./components/ImportModal";
 import PriceHistoryDrawer from "./components/PriceHistoryDrawer";
 import useBulkDelete from "@src/utility/hooks/useBulkDelete";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const PriceListView = () => {
   const { t } = useTranslation();
@@ -331,17 +332,7 @@ const PriceListView = () => {
             {srcLabel}
           </span>
         ) : (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", "#6c757d1f", "important");
-                el.style.setProperty("color", "#6c757d", "important");
-              }
-            }}
-          >
-            {srcLabel}
-          </span>
+          <StatusPill label={srcLabel} hex="#6c757d" />
         );
         return (
           <div className="py-75">

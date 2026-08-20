@@ -1,12 +1,7 @@
-// Customer detail page — Invoices list using the custom ReactPaginate
-// pagination (matching the Sales Orders / Quotations panels). Server returns
-// the customer's invoices in one page (perPage 200); pagination is client-side.
+// Customer detail page — Invoices list. Thin config wrapper around the
+// shared PartyDocListPanel (fetch/filter/paginate/table chrome lives there).
 
-import { Fragment, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { Table, UncontrolledTooltip, Spinner } from "reactstrap";
-import { Eye } from "react-feather";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -16,197 +11,102 @@ import {
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { INVOICE_STATUS_COLOR_MAP } from "@constant/options";
-import {
-  usePagination,
-  TablePaginationBar,
-} from "@src/views/_shared/table/TablePagination";
-
-const fmt = (v) =>
-  v === null || v === undefined || v === ""
-    ? "-"
-    : Number(v).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+import PartyDocListPanel, {
+  fmtMoney,
+  statusColumn,
+} from "@src/views/_shared/party/PartyDocListPanel";
 
 const CustomerInvoicesPanel = () => {
-  const { id } = useParams();
-  const dispatch = useDispatch();
   const { t } = useTranslation();
-  const store = useSelector((s) => s.invoice);
-
-  useEffect(() => {
-    if (id) {
-      dispatch(
-        getInvoiceList({
-          orderBy: "invoice_date",
-          orderDirection: "desc",
-          page: 1,
-          perPage: 200,
-          search: "",
-          customer_id: id,
-        })
-      );
-    }
-    return () => {
-      dispatch(cleanInvoiceMessage());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  // Filter to THIS customer's invoices: the invoice store is shared, so a
-  // previously-viewed customer/page can leave stale rows in it. Without this,
-  // an empty customer would briefly show another customer's invoices instead
-  // of the "no invoices" message.
-  const rows = (store?.invoiceItems || []).filter(
-    (r) => String(r?.customer_id || "") === String(id)
-  );
-  // Inverted-flag convention in the invoice slice: `loading === false` means a
-  // fetch is in flight; `loading === true` means idle/done. So only show the
-  // spinner while actually fetching — otherwise (idle + no rows) fall through
-  // to the empty message.
-  const fetching = store?.loading === false;
-  const total = rows.length;
-  const pg = usePagination(total);
-  const pagedRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
-
-  if (fetching && total === 0) {
-    return (
-      <div className="text-center py-3">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (total === 0) {
-    return (
-      <div className="text-muted py-3 text-center">
-        {t("No invoices for this customer yet.")}
-      </div>
-    );
-  }
 
   return (
-    <Fragment>
-      <div className="border rounded">
-        <Table responsive bordered size="sm" className="align-middle mb-0">
-          <thead className="table-light">
-            <tr>
-              <th style={{ minWidth: 200 }}>{t("Invoice #")}</th>
-              <th style={{ width: 130 }}>{t("Date")}</th>
-              <th style={{ width: 130 }} className="text-end">
-                {t("Total")}
-              </th>
-              <th style={{ width: 130 }} className="text-end">
-                {t("Balance")}
-              </th>
-              <th style={{ width: 130 }}>{t("Status")}</th>
-              <th style={{ width: 80 }} className="text-center">
-                {t("Action")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {pagedRows.map((row) => {
-              const sym = row?.currency_symbol || row?.currency_code || "";
-              const c =
-                INVOICE_STATUS_COLOR_MAP[
-                  (row?.status || "").toLowerCase()
-                ] || "#6c757d";
-              const refVoucher =
-                row?.purchase_order_voucher_no || row?.pfi_voucher_no;
-              const refTo = row?.purchase_order_id
-                ? `${appsRoot}/purchase-orders/view/${row.purchase_order_id}`
-                : null;
-              return (
-                <tr key={row?._id}>
-                  <td>
-                    <Link
-                      to={`${appsRoot}/invoices/view/${row?._id || ""}`}
-                      className="text-nowrap d-block fw-semibold"
-                    >
-                      {row?.voucher_no || (
-                        <span className="text-muted fst-italic">
-                          {t("(draft)")}
-                        </span>
-                      )}
-                    </Link>
-                    {refVoucher ? (
-                      <div className="mt-25">
-                        {refTo ? (
-                          <Link
-                            to={refTo}
-                            className="small text-muted text-nowrap"
-                          >
-                            SO - {refVoucher}
-                          </Link>
-                        ) : (
-                          <span className="small text-muted text-nowrap">
-                            SO - {refVoucher}
-                          </span>
-                        )}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>
-                    {row?.invoice_date ? formatDate(row.invoice_date) : "-"}
-                  </td>
-                  <td className="text-end">
-                    {row?.grand_total !== null &&
-                    row?.grand_total !== undefined
-                      ? `${sym}${fmt(row.grand_total)}`
-                      : "-"}
-                  </td>
-                  <td className="text-end">
-                    {row?.balance_receivable !== null &&
-                    row?.balance_receivable !== undefined
-                      ? `${sym}${fmt(row.balance_receivable)}`
-                      : "-"}
-                  </td>
-                  <td>
-                    <span
-                      className="badge rounded-pill text-capitalize text-nowrap"
-                      ref={(el) => {
-                        if (el) {
-                          el.style.setProperty(
-                            "background-color",
-                            `${c}1f`,
-                            "important"
-                          );
-                          el.style.setProperty("color", c, "important");
-                        }
-                      }}
-                    >
-                      {(row?.status || "-").replace(/_/g, " ")}
+    <PartyDocListPanel
+      storeSlice="invoice"
+      itemsKey="invoiceItems"
+      partyField="customer_id"
+      loadAction={getInvoiceList}
+      loadParams={{ orderBy: "invoice_date", orderDirection: "desc" }}
+      cleanAction={cleanInvoiceMessage}
+      emptyText={t("No invoices for this customer yet.")}
+      viewHref={(row) => `${appsRoot}/invoices/view/${row?._id}`}
+      columns={[
+        {
+          header: t("Invoice #"),
+          minWidth: 200,
+          render: (row) => {
+            const refVoucher =
+              row?.purchase_order_voucher_no || row?.pfi_voucher_no;
+            const refTo = row?.purchase_order_id
+              ? `${appsRoot}/purchase-orders/view/${row.purchase_order_id}`
+              : null;
+            return (
+              <>
+                <Link
+                  to={`${appsRoot}/invoices/view/${row?._id || ""}`}
+                  className="text-nowrap d-block fw-semibold"
+                >
+                  {row?.voucher_no || (
+                    <span className="text-muted fst-italic">
+                      {t("(draft)")}
                     </span>
-                  </td>
-                  <td className="text-center">
-                    <Link
-                      to={`${appsRoot}/invoices/view/${row?._id}`}
-                      id={`cust-inv-view-${row?._id}`}
-                    >
-                      <Eye size={18} />
-                    </Link>
-                    <UncontrolledTooltip
-                      placement="top"
-                      target={`cust-inv-view-${row?._id}`}
-                    >
-                      {t("View")}
-                    </UncontrolledTooltip>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </div>
-
-      <TablePaginationBar
-        {...pg}
-        totalRows={total}
-        className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1"
-      />
-    </Fragment>
+                  )}
+                </Link>
+                {refVoucher ? (
+                  <div className="mt-25">
+                    {refTo ? (
+                      <Link to={refTo} className="small text-muted text-nowrap">
+                        SO - {refVoucher}
+                      </Link>
+                    ) : (
+                      <span className="small text-muted text-nowrap">
+                        SO - {refVoucher}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+              </>
+            );
+          },
+        },
+        {
+          header: t("Date"),
+          width: 130,
+          render: (row) => (row?.invoice_date ? formatDate(row.invoice_date) : "-"),
+        },
+        {
+          header: t("Total"),
+          width: 130,
+          align: "end",
+          render: (row) => {
+            const sym = row?.currency_symbol || row?.currency_code || "";
+            return row?.grand_total !== null && row?.grand_total !== undefined
+              ? `${sym}${fmtMoney(row.grand_total)}`
+              : "-";
+          },
+        },
+        {
+          header: t("Balance"),
+          width: 130,
+          align: "end",
+          render: (row) => {
+            const sym = row?.currency_symbol || row?.currency_code || "";
+            return row?.balance_receivable !== null &&
+              row?.balance_receivable !== undefined
+              ? `${sym}${fmtMoney(row.balance_receivable)}`
+              : "-";
+          },
+        },
+        statusColumn(
+          (row) => ({
+            label: (row?.status || "-").replace(/_/g, " "),
+            hex:
+              INVOICE_STATUS_COLOR_MAP[(row?.status || "").toLowerCase()] ||
+              "#6c757d",
+          }),
+          { header: t("Status"), width: 130 }
+        ),
+      ]}
+    />
   );
 };
 

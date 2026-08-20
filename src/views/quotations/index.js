@@ -59,6 +59,7 @@ import { PFI_RETIRED } from "@src/configs/appMode";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
+import StatusPill from "@src/views/_shared/StatusPill";
 import {
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
@@ -401,19 +402,7 @@ const QuotationView = () => {
           rejected: "#dc3545",
         };
         const c = colorMap[row?.status] || "#6c757d";
-        return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {row?.status || "-"}
-          </span>
-        );
+        return <StatusPill label={row?.status || "-"} hex={c} />;
       },
     },
   ];

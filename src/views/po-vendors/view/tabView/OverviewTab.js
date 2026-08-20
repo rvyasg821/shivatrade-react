@@ -159,14 +159,16 @@ const OverviewTab = ({ registerActions }) => {
                       ) : null}
                     </td>
                     <td className="text-end text-nowrap">
-                      {money(l?.unit_price)}
+                      <div>{money(l?.unit_price)}</div>
                       {l?.tolerance_hold && (
-                        <Badge
-                          className="doc-badge doc-badge-orange d-block mt-25"
-                          title={l.tolerance_hold_reason}
-                        >
-                          {t("Tolerance Hold")}
-                        </Badge>
+                        <div className="mt-25">
+                          <Badge
+                            className="doc-badge doc-badge-orange"
+                            title={l.tolerance_hold_reason}
+                          >
+                            {t("Tolerance Hold")}
+                          </Badge>
+                        </div>
                       )}
                     </td>
                     <td className="text-end text-nowrap">

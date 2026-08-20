@@ -52,6 +52,7 @@ import {
 } from "@constant/options";
 import { formatMoney, convertFromInr } from "@src/utility/currency";
 import { getExchangeRateOptions } from "@src/views/currencies/store";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const LeadList = () => {
   const { t } = useTranslation();
@@ -417,21 +418,7 @@ const LeadList = () => {
           lost: "#dc3545",
         };
         const c = colorMap[row?.status] || "#6c757d";
-        // Pill badge with a light tint of the status color. Forced via ref
-        // because the global `.table td` rule overrides class/inline styles.
-        return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {statusLabel(row?.status)}
-          </span>
-        );
+        return <StatusPill label={statusLabel(row?.status)} hex={c} />;
       },
     },
     {

@@ -54,6 +54,7 @@ import {
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import ImportModal from "./components/ImportModal";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const CategoryList = () => {
   const { t } = useTranslation();
@@ -266,17 +267,10 @@ const CategoryList = () => {
       selector: (row) => {
         const c = row?.is_active ? "#198754" : "#fd7e14";
         return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {row?.is_active ? t("Active") : t("Inactive")}
-          </span>
+          <StatusPill
+            label={row?.is_active ? t("Active") : t("Inactive")}
+            hex={c}
+          />
         );
       },
     },

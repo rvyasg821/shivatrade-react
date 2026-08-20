@@ -21,6 +21,7 @@ import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const money = (v, sym) => {
   if (v === null || v === undefined || v === "") return "-";
@@ -162,17 +163,11 @@ const VendorPricesOffcanvas = ({ open, toggle, product }) => {
                         <div className="fw-semibold text-capitalize">
                           {r?.vendor_name || "-"}
                           {idx === 0 && r?.inr_rate_available ? (
-                            <span
-                              className="badge rounded-pill ms-1 text-nowrap"
-                              ref={(el) => {
-                                if (el) {
-                                  el.style.setProperty("background-color", "#1985541f", "important");
-                                  el.style.setProperty("color", "#198754", "important");
-                                }
-                              }}
-                            >
-                              {t("Best")}
-                            </span>
+                            <StatusPill
+                              label={t("Best")}
+                              hex="#198754"
+                              className="ms-1"
+                            />
                           ) : null}
                         </div>
                         {r?.vendor_code ? (
