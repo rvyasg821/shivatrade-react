@@ -45,6 +45,7 @@ import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 
 // ** Constants
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const VendorList = () => {
   const { t } = useTranslation();
@@ -315,17 +316,10 @@ const VendorList = () => {
       selector: (row) => {
         const c = row?.is_active ? "#198754" : "#fd7e14";
         return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {row?.is_active ? t("Active") : t("Inactive")}
-          </span>
+          <StatusPill
+            label={row?.is_active ? t("Active") : t("Inactive")}
+            hex={c}
+          />
         );
       },
     },

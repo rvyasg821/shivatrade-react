@@ -24,7 +24,6 @@ import {
   Spinner,
 } from "reactstrap";
 import Select from "react-select";
-import ReactPaginate from "react-paginate";
 import { Download } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -33,11 +32,11 @@ import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import {
-  appsRoot,
-  defaultPerPageRow,
-  perPageRowItems,
-} from "@constant/defaultValues";
+  useServerPagination,
+  ServerPaginationBar,
+} from "@src/views/_shared/table/ServerPagination";
 
 const grp = (v) =>
   Number(v || 0).toLocaleString("en-IN", {
@@ -102,8 +101,6 @@ const AdvanceVsInvoice = () => {
   const [customer, setCustomer] = useState(null);
   const [status, setStatus] = useState(STATUS_OPTIONS[0]);
   const [searchInput, setSearchInput] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(defaultPerPageRow);
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({
@@ -125,7 +122,7 @@ const AdvanceVsInvoice = () => {
   );
 
   const load = useCallback(
-    async (page = currentPage, perPage = rowsPerPage) => {
+    async (page, perPage) => {
       setLoading(true);
       try {
         const resp = await instance.get(API_ENDPOINTS.reports.advanceVsInvoice, {
@@ -150,8 +147,10 @@ const AdvanceVsInvoice = () => {
         setLoading(false);
       }
     },
-    [baseParams, currentPage, rowsPerPage, t]
+    [baseParams, t]
   );
+
+  const sp = useServerPagination(load);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -161,30 +160,16 @@ const AdvanceVsInvoice = () => {
     let handler;
     if (searchInput) {
       handler = setTimeout(() => {
-        setCurrentPage(1);
-        load(1, rowsPerPage);
+        sp.setPage(1);
+        load(1, sp.perPage);
       }, 500);
     } else {
-      setCurrentPage(1);
-      load(1, rowsPerPage);
+      sp.setPage(1);
+      load(1, sp.perPage);
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput, dateFrom, dateTo, customer, status]);
-
-  const handlePagination = (page) => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    const next = page + 1;
-    setCurrentPage(next);
-    load(next, rowsPerPage);
-  };
-
-  const handlePerPage = (value) => {
-    const perPage = Number(value);
-    setRowsPerPage(perPage);
-    setCurrentPage(1);
-    load(1, perPage);
-  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -210,11 +195,6 @@ const AdvanceVsInvoice = () => {
 
   const rows = data.rows || [];
   const totals = data.totals || {};
-  const total = data.pagination?.total || 0;
-  const perPage = data.pagination?.perPage || rowsPerPage;
-  const pageCount = Math.ceil((total || 1) / (perPage || 1));
-  const startIndex = total ? (currentPage - 1) * perPage + 1 : 0;
-  const endIndex = Math.min(startIndex - 1 + perPage, total);
   const balanceInr = Number(totals.balance_inr || 0);
 
   return (
@@ -431,50 +411,14 @@ const AdvanceVsInvoice = () => {
                       </Table>
                     </div>
 
-                    <Row className="row justify-content-md-between align-items-md-center pagination mt-2">
-                      <Col sm={6} xl={6}>
-                        <div className="d-block d-md-flex align-items-center justify-content-start gap-2">
-                          <div className="label-select d-flex align-items-center gap-1">
-                            <Label className="pr-2 mb-0">{t("Show")}</Label>
-                            <select
-                              id="aviSelectPage"
-                              value={rowsPerPage}
-                              className="form-select form-select-page"
-                              onChange={(e) => handlePerPage(e?.target?.value)}
-                            >
-                              {perPageRowItems?.map((item) => (
-                                <option key={item?.value} value={item?.value}>
-                                  {item.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="text-muted text-center text-sm-start total-pagination">
-                            {startIndex}-{endIndex} of {total}
-                          </div>
-                        </div>
-                      </Col>
-                      <Col sm={6} xl={6}>
-                        <ReactPaginate
-                          nextLabel={<i className="tim-icons icon-minimal-right" />}
-                          breakLabel="..."
-                          previousLabel={<i className="tim-icons icon-minimal-left" />}
-                          pageCount={pageCount}
-                          activeClassName="active"
-                          breakClassName="page-item"
-                          pageClassName={"page-item"}
-                          breakLinkClassName="page-link"
-                          nextLinkClassName={"page-link"}
-                          pageLinkClassName={"page-link"}
-                          nextClassName={"page-item next next-btn"}
-                          previousLinkClassName={"page-link"}
-                          previousClassName={"page-item prev prev-btn"}
-                          onPageChange={(page) => handlePagination(page?.selected)}
-                          forcePage={currentPage - 1}
-                          containerClassName={`pagination react-paginate align-items-center justify-content-xl-end mb-0 mt-xl-0`}
-                        />
-                      </Col>
-                    </Row>
+                    <ServerPaginationBar
+                      idPrefix="avi"
+                      page={sp.page}
+                      perPage={data.pagination?.perPage || sp.perPage}
+                      total={data.pagination?.total || 0}
+                      onPageChange={sp.handlePageChange}
+                      onPerPageChange={sp.handlePerPageChange}
+                    />
                   </Fragment>
                 )}
               </Col>

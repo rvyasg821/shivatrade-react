@@ -63,6 +63,7 @@ import PaymentsImportModal from "./components/PaymentsImportModal";
 import { openPdfViewer } from "@src/utility/pdf";
 
 import { appsRoot, defaultPerPageRow, isAdminUser } from "@constant/defaultValues";
+import StatusPill from "@src/views/_shared/StatusPill";
 import {
   PO_VENDOR_STATUS_OPTIONS,
   PO_VENDOR_STATUS_COLOR_MAP,
@@ -448,19 +449,7 @@ const PoVendorView = () => {
       selector: (row) => {
         const c = PO_VENDOR_STATUS_COLOR_MAP[row?.status] || "#6c757d";
         const label = (row?.status || "-").replace(/_/g, " ");
-        return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {label}
-          </span>
-        );
+        return <StatusPill label={label} hex={c} />;
       },
     },
     {

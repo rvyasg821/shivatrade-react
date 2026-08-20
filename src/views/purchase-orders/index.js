@@ -72,6 +72,7 @@ import {
 import { formatMoney } from "@src/utility/currency";
 import { formatDate } from "@src/utility/dateFormat";
 import { computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import StatusPill from "@src/views/_shared/StatusPill";
 
 const PurchaseOrderView = () => {
   const { t } = useTranslation();
@@ -415,19 +416,7 @@ const PurchaseOrderView = () => {
         const label =
           PURCHASE_ORDER_STATUS_OPTIONS.find((o) => o.value === row?.status)
             ?.label || (row?.status || "-").replace(/_/g, " ");
-        return (
-          <span
-            className="badge rounded-pill text-capitalize text-nowrap"
-            ref={(el) => {
-              if (el) {
-                el.style.setProperty("background-color", `${c}1f`, "important");
-                el.style.setProperty("color", c, "important");
-              }
-            }}
-          >
-            {label}
-          </span>
-        );
+        return <StatusPill label={label} hex={c} />;
       },
     },
     {

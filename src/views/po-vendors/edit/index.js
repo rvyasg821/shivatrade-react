@@ -637,12 +637,14 @@ const EditPoVendor = () => {
                               </small>
                             )}
                             {l.tolerance_hold && (
-                              <Badge
-                                className="doc-badge doc-badge-orange d-block mt-25"
-                                title={l.tolerance_hold_reason}
-                              >
-                                {t("Tolerance Hold")}
-                              </Badge>
+                              <div className="mt-25">
+                                <Badge
+                                  className="doc-badge doc-badge-orange"
+                                  title={l.tolerance_hold_reason}
+                                >
+                                  {t("Tolerance Hold")}
+                                </Badge>
+                              </div>
                             )}
                           </td>
                           {/* Discount % — editable under the same rule as Rate. */}
