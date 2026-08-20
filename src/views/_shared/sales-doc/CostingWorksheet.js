@@ -528,6 +528,30 @@ const CostingWorksheet = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveLines, sourceRates, docCur]);
 
+  // The document header's `exchange_rate` (document-currency-per-₹1 — drives
+  // the "≈ ₹" grand total on the detail page, plus reports/ledgers) is only
+  // auto-filled ONCE from the currency master, when the customer currency is
+  // first picked (see the wizard's currentRate fetch) — it is never touched
+  // again after that. When the vendor currency IS the company base (₹), the
+  // rate box above ("1 USD = X ₹") is literally the same real-world rate in
+  // the opposite direction, so keep the header in lockstep with it. Shared
+  // here (not per-wizard) because Quotation, Sales Order and Invoice all
+  // render this same worksheet — without this, the header silently keeps a
+  // stale master rate while this box shows the rate actually used to cost
+  // the document, and the "≈ ₹" figure disagrees with what was typed here.
+  useEffect(() => {
+    const base = (baseCurrencyCode || "INR").toUpperCase();
+    if (docCur === base) return; // domestic doc — exchange_rate stays 1
+    const disp = num(sourceRates[base]?.rate);
+    if (!(disp > 0)) return;
+    const want = String(1 / disp);
+    const current = num(getValues ? getValues("exchange_rate") : exchangeRate);
+    if (Math.abs(current - num(want)) > 1e-9) {
+      setValue("exchange_rate", want, { shouldDirty: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceRates, docCur, baseCurrencyCode]);
+
   const fetchVendors = (idx, productId, autoSelect = false) => {
     if (!productId) return;
     setLoadingByProduct((m) => ({ ...m, [productId]: true }));
