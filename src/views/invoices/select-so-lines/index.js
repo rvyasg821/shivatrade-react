@@ -20,7 +20,10 @@ import {
   Badge,
 } from "reactstrap";
 import EntitySearchSelect from "@components/entity-select";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 import { ArrowLeft } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -46,8 +49,6 @@ const SelectSoLines = () => {
   const [loading, setLoading] = useState(false);
   // picks: { [po_line_id]: { selected, qty } }
   const [picks, setPicks] = useState({});
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
 
 
   // Fetch invoiceable SO groups for the chosen customer.
@@ -59,7 +60,7 @@ const SelectSoLines = () => {
     }
     let cancelled = false;
     setLoading(true);
-    setPage(0);
+    pg.resetPage();
     (async () => {
       try {
         const resp = await instance.get(
@@ -126,13 +127,8 @@ const SelectSoLines = () => {
     return arr;
   }, [groups]);
   const totalLines = flatLines.length;
-  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageItems = flatLines.slice(pageStart, pageStart + pageSize);
-  useEffect(() => {
-    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
-  }, [pageCount, page]);
+  const pg = usePagination(totalLines);
+  const pageItems = flatLines.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   // Re-group the current page's lines back into SO boxes (in order).
   const pageGroups = useMemo(() => {
@@ -369,47 +365,7 @@ const SelectSoLines = () => {
                   );
                 })}
 
-                {totalLines > pageSize && (
-                  <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
-                    <div className="d-flex align-items-center small text-muted">
-                      <span className="me-50">{t("Show")}</span>
-                      <Input
-                        type="select"
-                        bsSize="sm"
-                        value={pageSize}
-                        onChange={(e) => {
-                          setPageSize(Number(e.target.value) || 10);
-                          setPage(0);
-                        }}
-                        style={{ width: 80 }}
-                      >
-                        {[10, 25, 50, 100].map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </Input>
-                      <span className="ms-50">
-                        {t("of")} {totalLines} {t("lines")}
-                      </span>
-                    </div>
-                    <ReactPaginate
-                      previousLabel=""
-                      nextLabel=""
-                      pageCount={pageCount}
-                      activeClassName="active"
-                      forcePage={safePage}
-                      onPageChange={({ selected }) => setPage(selected)}
-                      pageClassName="page-item"
-                      nextLinkClassName="page-link"
-                      nextClassName="page-item next"
-                      previousClassName="page-item prev"
-                      previousLinkClassName="page-link"
-                      pageLinkClassName="page-link"
-                      containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                    />
-                  </div>
-                )}
+                <TablePaginationBar {...pg} totalRows={totalLines} />
               </Fragment>
             )}
           </CardBody>

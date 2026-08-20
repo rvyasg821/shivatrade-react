@@ -14,9 +14,7 @@ import {
   UncontrolledTooltip,
   Spinner,
   Badge,
-  Input,
 } from "reactstrap";
-import ReactPaginate from "react-paginate";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, AlertTriangle, Package } from "react-feather";
 
@@ -25,6 +23,10 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { appsRoot } from "@constant/defaultValues";
 import { PO_VENDOR_STATUS_BADGE_COLOR } from "@constant/options";
 import { formatDate } from "@src/utility/dateFormat";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 
@@ -76,8 +78,7 @@ export const PoCoveragePanel = ({ data }) => {
   const { t } = useTranslation();
   const { po, coverage, povs, loading } = data;
 
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
+  const pg = usePagination(coverage?.lines?.length || 0);
 
   // The invoice-coverage banner + "Generate Invoice" button now live on the
   // Sales Order detail HEADER (single source), so they're intentionally not
@@ -136,10 +137,7 @@ export const PoCoveragePanel = ({ data }) => {
           </thead>
           <tbody>
             {coverage.lines
-              .slice(
-                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize,
-                Math.min(page, Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)) * pageSize + pageSize
-              )
+              .slice(pg.pageStart, pg.pageStart + pg.pageSize)
               .map((l) => {
               const short = num(l.short);
               const pending = num(l.pending);
@@ -290,50 +288,11 @@ export const PoCoveragePanel = ({ data }) => {
         </Table>
         </div>
 
-        {coverage.lines.length > 0 && (
-          <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-            <div className="d-flex align-items-center small text-muted">
-              <span className="me-50">{t("Show")}</span>
-              <Input
-                type="select"
-                bsSize="sm"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value) || 10);
-                  setPage(0);
-                }}
-                style={{ width: 80 }}
-              >
-                {[10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </Input>
-              <span className="ms-50">
-                {t("of")} {coverage.lines.length} {t("rows")}
-              </span>
-            </div>
-            <ReactPaginate
-              previousLabel=""
-              nextLabel=""
-              pageCount={Math.max(1, Math.ceil(coverage.lines.length / pageSize))}
-              activeClassName="active"
-              forcePage={Math.min(
-                page,
-                Math.max(0, Math.ceil(coverage.lines.length / pageSize) - 1)
-              )}
-              onPageChange={({ selected }) => setPage(selected)}
-              pageClassName="page-item"
-              nextLinkClassName="page-link"
-              nextClassName="page-item next"
-              previousClassName="page-item prev"
-              previousLinkClassName="page-link"
-              pageLinkClassName="page-link"
-              containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-            />
-          </div>
-        )}
+        <TablePaginationBar
+          {...pg}
+          totalRows={coverage.lines.length}
+          className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1"
+        />
         </Fragment>
       )}
     </Fragment>
@@ -343,8 +302,6 @@ export const PoCoveragePanel = ({ data }) => {
 export const PoVendorsPanel = ({ data }) => {
   const { t } = useTranslation();
   const { po, povs, loading } = data;
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
   const fmtMoney = (v) =>
     Number(v || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -360,6 +317,10 @@ export const PoVendorsPanel = ({ data }) => {
       )
     );
   }, [povs]);
+
+  // Hooks run unconditionally every render — declared before the early
+  // returns below.
+  const pg = usePagination(orderedPovs.length);
 
   // POV amount = simple Σ(ordered_qty × unit_price) — no rebates /
   // expenses / margin / GST applied. Shown in INR.
@@ -388,10 +349,7 @@ export const PoVendorsPanel = ({ data }) => {
   }
 
   const totalPovs = orderedPovs.length;
-  const pageCount = Math.max(1, Math.ceil(totalPovs / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pagedPovs = orderedPovs.slice(pageStart, pageStart + pageSize);
+  const pagedPovs = orderedPovs.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   return (
     <Fragment>
@@ -471,47 +429,11 @@ export const PoVendorsPanel = ({ data }) => {
     </Table>
     </div>
 
-    {totalPovs > 0 && (
-      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-        <div className="d-flex align-items-center small text-muted">
-          <span className="me-50">{t("Show")}</span>
-          <Input
-            type="select"
-            bsSize="sm"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value) || 10);
-              setPage(0);
-            }}
-            style={{ width: 80 }}
-          >
-            {[10, 25, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </Input>
-          <span className="ms-50">
-            {t("of")} {totalPovs} {t("rows")}
-          </span>
-        </div>
-        <ReactPaginate
-          previousLabel=""
-          nextLabel=""
-          pageCount={pageCount}
-          activeClassName="active"
-          forcePage={safePage}
-          onPageChange={({ selected }) => setPage(selected)}
-          pageClassName="page-item"
-          nextLinkClassName="page-link"
-          nextClassName="page-item next"
-          previousClassName="page-item prev"
-          previousLinkClassName="page-link"
-          pageLinkClassName="page-link"
-          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-        />
-      </div>
-    )}
+    <TablePaginationBar
+      {...pg}
+      totalRows={totalPovs}
+      className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1"
+    />
     </Fragment>
   );
 };
