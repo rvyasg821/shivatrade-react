@@ -1223,6 +1223,7 @@ const ViewInvoice = () => {
                   docCurrencyCode={inv?.currency_code || "INR"}
                   baseCurrencyCode="INR"
                   showHsn
+                  useStoredTotal
                 />
               </div>
 

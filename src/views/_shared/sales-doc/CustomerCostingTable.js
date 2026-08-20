@@ -28,6 +28,14 @@ const CustomerCostingTable = ({
   // Opt-in dedicated HSN column. When off, HSN still shows as a sub-line
   // under the product name (keeps existing callers unchanged).
   showHsn = false,
+  // Invoice-only: use each line's stored `line_total` (frozen at Issue,
+  // already authoritative — the Costing panel/PDFs/Excel all sum it) instead
+  // of recomputing from scratch. Recomputing independently re-runs the
+  // discount/expense/rebate/margin chain with its own per-step rounding,
+  // which can drift a cent or two from the frozen total and disagree with
+  // the Costing panel shown right below this table. Quotation/SO keep
+  // recomputing live (default) since nothing is frozen for them yet.
+  useStoredTotal = false,
 }) => {
   const { t } = useTranslation();
   const prodById = new Map(
@@ -45,7 +53,10 @@ const CustomerCostingTable = ({
   const rows = (lines || [])
     .filter((l) => l && l.product_id)
     .map((l) => {
-      const amt = computeLineCosting(l, { excludeGst: true }).lineTotal;
+      const amt =
+        useStoredTotal && l.line_total != null
+          ? num(l.line_total)
+          : computeLineCosting(l, { excludeGst: true }).lineTotal;
       const qty = num(l.qty);
       const m = prodById.get(l.product_id) || {};
       return {
