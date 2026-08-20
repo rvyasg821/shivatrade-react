@@ -156,13 +156,16 @@ const ViewPurchaseOrder = () => {
         p?.grand_total !== undefined
           ? `${sym} ${fmt(headerTotals.grand_currency)}`
           : "-",
-      // Sales-doc convention: exchange_rate is doc-currency per ₹1, so
-      // INR = grand ÷ exchange_rate. Domestic (₹) orders need no second line.
+      // Use computeDocTotals' own grand_inr (derived from the UNROUNDED
+      // doc-currency total) — not grand_currency ÷ exchange_rate, which
+      // divides the whole-dollar-ROUNDED total and amplifies that rounding
+      // loss once the tiny exchange rate divides it back out (e.g. a 40-cent
+      // rounding diff turned into a ₹38 error at ~1/95). Same field the
+      // Quotation detail page already uses correctly. Domestic (₹) orders
+      // need no second line.
       sub:
         sym !== "₹" && p?.grand_total !== undefined
-          ? `≈ ₹${fmt(
-              headerTotals.grand_currency / (Number(p?.exchange_rate) || 1)
-            )}`
+          ? `≈ ₹${fmt(headerTotals.grand_inr)}`
           : null,
       icon: DollarSign,
       tone: "secondary",
