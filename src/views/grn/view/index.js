@@ -14,7 +14,10 @@ import {
   Spinner,
   Table,
 } from "reactstrap";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 import {
   ArrowLeft,
   Download,
@@ -69,8 +72,6 @@ const GrnView = () => {
 
   // Editable quality-check map keyed by grn line id.
   const [qc, setQc] = useState({});
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
   // Active (non-cancelled) Debit Note already raised against this GRN, if any.
   const [existingDn, setExistingDn] = useState(null);
 
@@ -219,13 +220,8 @@ const GrnView = () => {
 
   // Client-side pagination for the line table (not a DataTable).
   const totalLines = lines.length;
-  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageLines = lines.slice(pageStart, pageStart + pageSize);
-  useEffect(() => {
-    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
-  }, [pageCount, page]);
+  const pg = usePagination(totalLines);
+  const pageLines = lines.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   const totals = useMemo(() => {
     let dispatched = 0;
@@ -719,7 +715,7 @@ const GrnView = () => {
                   ].filter(Boolean);
                   return (
                     <tr key={l._id}>
-                      <td className="text-muted">{pageStart + i + 1}</td>
+                      <td className="text-muted">{pg.pageStart + i + 1}</td>
                       <td>
                         <div
                           className="fw-semibold text-capitalize"
@@ -874,47 +870,11 @@ const GrnView = () => {
               </tfoot>
             </Table>
 
-            {totalLines > 0 && (
-              <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 px-1 gap-1">
-                <div className="d-flex align-items-center small text-muted">
-                  <span className="me-50">{t("Show")}</span>
-                  <Input
-                    type="select"
-                    bsSize="sm"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value) || 10);
-                      setPage(0);
-                    }}
-                    style={{ width: 80 }}
-                  >
-                    {[10, 25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </Input>
-                  <span className="ms-50">
-                    {t("of")} {totalLines} {t("rows")}
-                  </span>
-                </div>
-                <ReactPaginate
-                  previousLabel=""
-                  nextLabel=""
-                  pageCount={pageCount}
-                  activeClassName="active"
-                  forcePage={safePage}
-                  onPageChange={({ selected }) => setPage(selected)}
-                  pageClassName="page-item"
-                  nextLinkClassName="page-link"
-                  nextClassName="page-item next"
-                  previousClassName="page-item prev"
-                  previousLinkClassName="page-link"
-                  pageLinkClassName="page-link"
-                  containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                />
-              </div>
-            )}
+            <TablePaginationBar
+              {...pg}
+              totalRows={totalLines}
+              className="d-flex justify-content-between align-items-center flex-wrap mt-1 px-1 gap-1"
+            />
 
             <div className="small text-muted mt-1 px-1">
               {t(

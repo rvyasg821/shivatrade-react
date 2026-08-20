@@ -26,7 +26,10 @@ import {
   ModalFooter,
   UncontrolledTooltip,
 } from "reactstrap";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -1438,8 +1441,7 @@ const InvoiceAddEdit = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [addableLines, setAddableLines] = useState([]);
   const [addPicks, setAddPicks] = useState({});
-  const [addPageSize, setAddPageSize] = useState(10);
-  const [addPage, setAddPage] = useState(0);
+  const addPg = usePagination(addableLines.length);
   // (The old Step-3 line Import/Export state was retired — the Costing
   // Worksheet's own import/export bar handles it now.)
 
@@ -3272,15 +3274,8 @@ const InvoiceAddEdit = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    const totalRows = addableLines.length;
-                    const pageCount = Math.max(
-                      1,
-                      Math.ceil(totalRows / addPageSize),
-                    );
-                    const safePage = Math.min(addPage, pageCount - 1);
-                    const start = safePage * addPageSize;
                     return addableLines
-                      .slice(start, start + addPageSize)
+                      .slice(addPg.pageStart, addPg.pageStart + addPg.pageSize)
                       .map((r) => {
                     const pick = addPicks[r.purchase_order_line_id] || {};
                     return (
@@ -3338,55 +3333,11 @@ const InvoiceAddEdit = () => {
                   })()}
                 </tbody>
               </Table>
-              {addableLines.length > 0 && (() => {
-                const totalRows = addableLines.length;
-                const pageCount = Math.max(
-                  1,
-                  Math.ceil(totalRows / addPageSize),
-                );
-                const safePage = Math.min(addPage, pageCount - 1);
-                return (
-                  <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-                    <div className="d-flex align-items-center small text-muted">
-                      <span className="me-50">{t("Show")}</span>
-                      <Input
-                        type="select"
-                        bsSize="sm"
-                        value={addPageSize}
-                        onChange={(e) => {
-                          setAddPageSize(Number(e.target.value) || 10);
-                          setAddPage(0);
-                        }}
-                        style={{ width: 80 }}
-                      >
-                        {[10, 25, 50, 100].map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </Input>
-                      <span className="ms-50">
-                        {t("of")} {totalRows} {t("rows")}
-                      </span>
-                    </div>
-                    <ReactPaginate
-                      previousLabel=""
-                      nextLabel=""
-                      pageCount={pageCount}
-                      activeClassName="active"
-                      forcePage={safePage}
-                      onPageChange={({ selected }) => setAddPage(selected)}
-                      pageClassName="page-item"
-                      nextLinkClassName="page-link"
-                      nextClassName="page-item next"
-                      previousClassName="page-item prev"
-                      previousLinkClassName="page-link"
-                      pageLinkClassName="page-link"
-                      containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                    />
-                  </div>
-                );
-              })()}
+              <TablePaginationBar
+                {...addPg}
+                totalRows={addableLines.length}
+                className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1"
+              />
             </Fragment>
           )}
         </ModalBody>

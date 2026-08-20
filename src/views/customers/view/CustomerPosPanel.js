@@ -5,11 +5,10 @@
 // paginate client-side. The SO # cell shows the source PFI (or Quotation) link
 // beneath it, mirroring the main listing layout.
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Table, Input, UncontrolledTooltip, Spinner } from "reactstrap";
-import ReactPaginate from "react-paginate";
+import { Table, UncontrolledTooltip, Spinner } from "reactstrap";
 import { Eye, ExternalLink } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +19,10 @@ import {
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
 import { PURCHASE_ORDER_STATUS_COLOR_MAP } from "@constant/options";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const fmt = (v) =>
   v === null || v === undefined || v === ""
@@ -34,9 +37,6 @@ const CustomerPosPanel = () => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const store = useSelector((s) => s.purchaseOrder);
-
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -64,10 +64,8 @@ const CustomerPosPanel = () => {
   // Inverted-flag convention: `loading === false` means a fetch is in flight.
   const fetching = store?.loading === false;
   const total = rows.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pagedRows = rows.slice(pageStart, pageStart + pageSize);
+  const pg = usePagination(total);
+  const pagedRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   if (fetching && total === 0) {
     return (
@@ -194,45 +192,11 @@ const CustomerPosPanel = () => {
         </Table>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1">
-        <div className="d-flex align-items-center small text-muted">
-          <span className="me-50">{t("Show")}</span>
-          <Input
-            type="select"
-            bsSize="sm"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value) || 10);
-              setPage(0);
-            }}
-            style={{ width: 80 }}
-          >
-            {[10, 25, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </Input>
-          <span className="ms-50">
-            {t("of")} {total} {t("rows")}
-          </span>
-        </div>
-        <ReactPaginate
-          previousLabel=""
-          nextLabel=""
-          pageCount={pageCount}
-          activeClassName="active"
-          forcePage={safePage}
-          onPageChange={({ selected }) => setPage(selected)}
-          pageClassName="page-item"
-          nextLinkClassName="page-link"
-          nextClassName="page-item next"
-          previousClassName="page-item prev"
-          previousLinkClassName="page-link"
-          pageLinkClassName="page-link"
-          containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-        />
-      </div>
+      <TablePaginationBar
+        {...pg}
+        totalRows={total}
+        className="d-flex justify-content-between align-items-center flex-wrap mt-2 gap-1"
+      />
     </Fragment>
   );
 };

@@ -23,7 +23,10 @@ import {
 } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowLeft, Send, Truck } from "react-feather";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
@@ -66,8 +69,7 @@ const DispatchPoVendor = () => {
   const [submitting, setSubmitting] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
+  const pg = usePagination(lines.length);
 
   useEffect(() => {
     if (id) dispatch(getPoVendor(id));
@@ -121,13 +123,7 @@ const DispatchPoVendor = () => {
   }, [lines, qtyByLine]);
 
   const totalRows = lines.length;
-  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageLines = lines.slice(pageStart, pageStart + pageSize);
-  useEffect(() => {
-    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
-  }, [pageCount, page]);
+  const pageLines = lines.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   const handleQtyChange = (lineId, raw) =>
     setQtyByLine((prev) => ({ ...prev, [lineId]: raw }));
@@ -344,7 +340,7 @@ const DispatchPoVendor = () => {
               </thead>
               <tbody>
                 {pageLines.map((l, idx) => {
-                  const rowNum = pageStart + idx + 1;
+                  const rowNum = pg.pageStart + idx + 1;
                   const ordered = num(l.ordered_qty);
                   const dispatched = num(qtyByLine[l._id]);
                   const short = ordered - dispatched;
@@ -395,47 +391,11 @@ const DispatchPoVendor = () => {
             </Table>
           </div>
 
-          {totalRows > 0 && (
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mt-2">
-              <div className="d-flex align-items-center small text-muted">
-                <span className="me-50">{t("Show")}</span>
-                <Input
-                  type="select"
-                  bsSize="sm"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value) || 10);
-                    setPage(0);
-                  }}
-                  style={{ width: 80 }}
-                >
-                  {[10, 25, 50, 100].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </Input>
-                <span className="ms-50">
-                  {t("of")} {totalRows} {t("rows")}
-                </span>
-              </div>
-              <ReactPaginate
-                previousLabel=""
-                nextLabel=""
-                pageCount={pageCount}
-                activeClassName="active"
-                forcePage={safePage}
-                onPageChange={({ selected }) => setPage(selected)}
-                pageClassName="page-item"
-                nextLinkClassName="page-link"
-                nextClassName="page-item next"
-                previousClassName="page-item prev"
-                previousLinkClassName="page-link"
-                pageLinkClassName="page-link"
-                containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-              />
-            </div>
-          )}
+          <TablePaginationBar
+            {...pg}
+            totalRows={totalRows}
+            className="d-flex justify-content-between align-items-center flex-wrap gap-1 mt-2"
+          />
 
           <div
             className="d-flex justify-content-end flex-wrap gap-2 fw-bold mt-2"

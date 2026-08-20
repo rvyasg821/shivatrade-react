@@ -36,7 +36,10 @@ import {
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, RotateCcw, X, Plus } from "react-feather";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -151,8 +154,7 @@ const PoVendorRecoverModal = ({
   );
 
   // ── Client-side pagination for the preview table ──
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
+  const pg = usePagination(previewLines.length);
 
   const poId = purchaseOrder?._id;
   const previewEndpoint = `${API_ENDPOINTS.poVendors.recoverPreview}/${poId}`;
@@ -891,15 +893,10 @@ const PoVendorRecoverModal = ({
 
   // Pagination derived from the preview lines.
   const totalRows = previewLines.length;
-  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageLines = previewLines.slice(pageStart, pageStart + pageSize);
+  const pageLines = previewLines.slice(pg.pageStart, pg.pageStart + pg.pageSize);
   useEffect(() => {
-    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
-  }, [pageCount, page]);
-  useEffect(() => {
-    setPage(0);
+    pg.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, totalRows]);
 
   const headerTitle = (
@@ -984,7 +981,7 @@ const PoVendorRecoverModal = ({
                 </thead>
                 <tbody>
                   {pageLines.map((l, idx) => {
-                    const rowNum = pageStart + idx + 1;
+                    const rowNum = pg.pageStart + idx + 1;
                     const isDropped = !!dropped[l.purchase_order_line_id];
                     const picked = assignment[l.purchase_order_line_id];
                     const vendorOpts = vendorOptionsForLine(l);
@@ -1326,45 +1323,11 @@ const PoVendorRecoverModal = ({
               </Table>
             </div>
 
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 mt-1 mb-2">
-              <div className="d-flex align-items-center small text-muted">
-                <span className="me-50">{t("Show")}</span>
-                <Input
-                  type="select"
-                  bsSize="sm"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value) || 10);
-                    setPage(0);
-                  }}
-                  style={{ width: 80 }}
-                >
-                  {[10, 25, 50, 100].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </Input>
-                <span className="ms-50">
-                  {t("of")} {totalRows} {t("rows")}
-                </span>
-              </div>
-              <ReactPaginate
-                previousLabel=""
-                nextLabel=""
-                pageCount={pageCount}
-                activeClassName="active"
-                forcePage={safePage}
-                onPageChange={({ selected }) => setPage(selected)}
-                pageClassName="page-item"
-                nextLinkClassName="page-link"
-                nextClassName="page-item next"
-                previousClassName="page-item prev"
-                previousLinkClassName="page-link"
-                pageLinkClassName="page-link"
-                containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-              />
-            </div>
+            <TablePaginationBar
+              {...pg}
+              totalRows={totalRows}
+              className="d-flex justify-content-between align-items-center flex-wrap gap-1 mt-1 mb-2"
+            />
 
             {/* Per-vendor charges — mirrors the old quotation → SO popup. */}
             {vendorSummary.length > 0 && (

@@ -13,7 +13,10 @@ import {
   Badge,
   Spinner,
 } from "reactstrap";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 import {
   ArrowLeft,
   Download,
@@ -129,12 +132,6 @@ const RfqView = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [draftVendors, setDraftVendors] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
-  // Price Comparison matrix has its own paginator, independent of the
-  // "Collect Vendor Prices" table above.
-  const [cmpPageSize, setCmpPageSize] = useState(10);
-  const [cmpPage, setCmpPage] = useState(0);
   const [exporting, setExporting] = useState(false);
   // Unsaved-work flag: a draft with vendors added, or typed prices not yet
   // saved. Drives the "leave anyway?" guard on tab close / refresh.
@@ -242,23 +239,13 @@ const RfqView = () => {
   // Client-side pagination for the comparison grid — mirrors the
   // quotation detail's line-item table.
   const totalLines = lines.length;
-  const pageCount = Math.max(1, Math.ceil(totalLines / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageLines = lines.slice(pageStart, pageStart + pageSize);
-  useEffect(() => {
-    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
-  }, [pageCount, page]);
+  const pg = usePagination(totalLines);
+  const pageLines = lines.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   // Price Comparison paginator (independent of the table above).
   const cmpTotal = lines.length;
-  const cmpPageCount = Math.max(1, Math.ceil(cmpTotal / cmpPageSize));
-  const cmpSafePage = Math.min(cmpPage, cmpPageCount - 1);
-  const cmpStart = cmpSafePage * cmpPageSize;
-  const cmpLines = lines.slice(cmpStart, cmpStart + cmpPageSize);
-  useEffect(() => {
-    if (cmpPage > cmpPageCount - 1) setCmpPage(Math.max(0, cmpPageCount - 1));
-  }, [cmpPageCount, cmpPage]);
+  const cmpPg = usePagination(cmpTotal);
+  const cmpLines = lines.slice(cmpPg.pageStart, cmpPg.pageStart + cmpPg.pageSize);
 
   // The RFQ is single-vendor. The active vendor is the one selected in the
   // dropdown, defaulting to the RFQ's saved vendor.
@@ -1180,7 +1167,7 @@ const RfqView = () => {
                             onChange={() => toggleCheck(l._id)}
                           />
                         </td>
-                        <td className="align-top">{pageStart + i + 1}</td>
+                        <td className="align-top">{pg.pageStart + i + 1}</td>
                         <td className="align-top">
                           <div className="fw-semibold">
                             {l.product_name || "-"}
@@ -1237,47 +1224,7 @@ const RfqView = () => {
                 </tbody>
               </Table>
 
-              {totalLines > 0 && (
-                <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
-                  <div className="d-flex align-items-center small text-muted">
-                    <span className="me-50">{t("Show")}</span>
-                    <Input
-                      type="select"
-                      bsSize="sm"
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value) || 10);
-                        setPage(0);
-                      }}
-                      style={{ width: 80 }}
-                    >
-                      {[10, 25, 50, 100].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </Input>
-                    <span className="ms-50">
-                      {t("of")} {totalLines} {t("rows")}
-                    </span>
-                  </div>
-                  <ReactPaginate
-                    previousLabel=""
-                    nextLabel=""
-                    pageCount={pageCount}
-                    activeClassName="active"
-                    forcePage={safePage}
-                    onPageChange={({ selected }) => setPage(selected)}
-                    pageClassName="page-item"
-                    nextLinkClassName="page-link"
-                    nextClassName="page-item next"
-                    previousClassName="page-item prev"
-                    previousLinkClassName="page-link"
-                    pageLinkClassName="page-link"
-                    containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                  />
-                </div>
-              )}
+              <TablePaginationBar {...pg} totalRows={totalLines} />
 
               <div className="small text-muted mt-1">
                 {t(
@@ -1415,47 +1362,11 @@ const RfqView = () => {
                   })}
                 </tbody>
               </Table>
-              {cmpTotal > 0 && (
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-1 p-1">
-                  <div className="d-flex align-items-center small text-muted">
-                    <span className="me-50">{t("Show")}</span>
-                    <Input
-                      type="select"
-                      bsSize="sm"
-                      value={cmpPageSize}
-                      onChange={(e) => {
-                        setCmpPageSize(Number(e.target.value) || 10);
-                        setCmpPage(0);
-                      }}
-                      style={{ width: 80 }}
-                    >
-                      {[10, 25, 50, 100].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </Input>
-                    <span className="ms-50">
-                      {t("of")} {cmpTotal} {t("rows")}
-                    </span>
-                  </div>
-                  <ReactPaginate
-                    previousLabel=""
-                    nextLabel=""
-                    pageCount={cmpPageCount}
-                    activeClassName="active"
-                    forcePage={cmpSafePage}
-                    onPageChange={({ selected }) => setCmpPage(selected)}
-                    pageClassName="page-item"
-                    nextLinkClassName="page-link"
-                    nextClassName="page-item next"
-                    previousClassName="page-item prev"
-                    previousLinkClassName="page-link"
-                    pageLinkClassName="page-link"
-                    containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-                  />
-                </div>
-              )}
+              <TablePaginationBar
+                {...cmpPg}
+                totalRows={cmpTotal}
+                className="d-flex justify-content-between align-items-center flex-wrap gap-1 p-1"
+              />
             </CardBody>
           </Card>
         )}
