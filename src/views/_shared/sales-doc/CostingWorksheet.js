@@ -1108,7 +1108,10 @@ const CostingWorksheet = ({
   const W = {
     product: 210,
     vendor: 170,
-    part: 92,
+    // Widened from 92 — vendor Part Nos (e.g. CAS numbers like
+    // "10043-52-2") were overflowing the column and reading as cramped
+    // against the HSN cell next to it.
+    part: 112,
     // Wider than part_no now that it holds an input, not a label — an 8-digit
     // HSN plus the cell's own padding does not fit in 92.
     hsn: 112,
