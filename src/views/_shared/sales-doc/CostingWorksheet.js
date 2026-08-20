@@ -25,7 +25,10 @@ import {
 import Select from "react-select";
 import { Plus, Trash2, X } from "react-feather";
 import { useTranslation } from "react-i18next";
-import ReactPaginate from "react-paginate";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
@@ -388,8 +391,7 @@ const CostingWorksheet = ({
   // Client-side pagination over the editable rows. Rows keep their ABSOLUTE
   // index (the cell handlers write to `lines.${idx}`), so we slice but carry
   // the original index along.
-  const [wsPageSize, setWsPageSize] = useState(10);
-  const [wsPage, setWsPage] = useState(0);
+  const wsPg = usePagination(lineFA.fields.length);
 
   const isForeign =
     docCurrencyCode &&
@@ -810,7 +812,7 @@ const CostingWorksheet = ({
   const addRow = () => {
     // Jump to the page that will hold the appended row (its index = current
     // length, before the append takes effect).
-    setWsPage(Math.floor(lineFA.fields.length / wsPageSize));
+    wsPg.jumpToEnd(lineFA.fields.length);
     lineFA.append({ ...emptyLine() });
   };
 
@@ -1167,15 +1169,9 @@ const CostingWorksheet = ({
 
   // ── Pagination (slice fields, keep absolute index) ──
   const wsTotal = lineFA.fields.length;
-  const wsPageCount = Math.max(1, Math.ceil(wsTotal / wsPageSize));
-  const wsSafePage = Math.min(wsPage, wsPageCount - 1);
-  const wsStart = wsSafePage * wsPageSize;
   const pagedFields = lineFA.fields
     .map((row, idx) => ({ row, idx }))
-    .slice(wsStart, wsStart + wsPageSize);
-  useEffect(() => {
-    if (wsPage > wsPageCount - 1) setWsPage(Math.max(0, wsPageCount - 1));
-  }, [wsPageCount, wsPage]);
+    .slice(wsPg.pageStart, wsPg.pageStart + wsPg.pageSize);
 
   return (
     <Fragment>
@@ -1803,47 +1799,7 @@ const CostingWorksheet = ({
         </Table>
       </div>
 
-      {wsTotal > wsPageSize && (
-        <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 gap-1">
-          <div className="d-flex align-items-center small text-muted">
-            <span className="me-50">{t("Show")}</span>
-            <Input
-              type="select"
-              bsSize="sm"
-              value={wsPageSize}
-              onChange={(e) => {
-                setWsPageSize(Number(e.target.value) || 10);
-                setWsPage(0);
-              }}
-              style={{ width: 80 }}
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Input>
-            <span className="ms-50">
-              {t("of")} {wsTotal} {t("rows")}
-            </span>
-          </div>
-          <ReactPaginate
-            previousLabel=""
-            nextLabel=""
-            pageCount={wsPageCount}
-            activeClassName="active"
-            forcePage={wsSafePage}
-            onPageChange={({ selected }) => setWsPage(selected)}
-            pageClassName="page-item"
-            nextLinkClassName="page-link"
-            nextClassName="page-item next"
-            previousClassName="page-item prev"
-            previousLinkClassName="page-link"
-            pageLinkClassName="page-link"
-            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-          />
-        </div>
-      )}
+      <TablePaginationBar {...wsPg} totalRows={wsTotal} />
     </Fragment>
   );
 };

@@ -29,6 +29,11 @@ import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import {
+  usePagination,
+  TablePaginationBar,
+  TotalRowsHint,
+} from "@src/views/_shared/table/TablePagination";
+import {
   getPurchaseTurnover,
   cleanPurchaseTurnoverMessage,
 } from "./store";
@@ -75,12 +80,21 @@ const Outstanding = ({ value, symbol }) => {
 };
 
 // One currency's table: rows + a TOTAL foot. Same markup for month/vendor —
-// only the first column header changes.
+// only the first column header changes. By-Month is naturally short (~12
+// rows/year) but By-Vendor is one row per vendor with activity — unbounded —
+// so this paginates like the other line-item grids. The TOTAL row is a
+// separate backend aggregate (group.totals), not derived from `rows`, so it
+// reads the same on every page — the group's real total, not a page subtotal.
 const CurrencySection = ({ group, firstColLabel }) => {
   const { t } = useTranslation();
   const sym = group.currency_symbol;
   const rows = group.rows || [];
   const totals = group.totals || {};
+
+  const pg = usePagination(rows.length);
+  const totalRows = rows.length;
+  const pageRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
+
   return (
     <div className="mb-2">
       <div className="d-flex align-items-center mb-50">
@@ -110,7 +124,7 @@ const CurrencySection = ({ group, firstColLabel }) => {
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
+              pageRows.map((r) => (
                 <tr key={r.key}>
                   <td className="text-nowrap">{r.label}</td>
                   <td className="text-end">{r.pov_count}</td>
@@ -130,7 +144,10 @@ const CurrencySection = ({ group, firstColLabel }) => {
           {rows.length > 0 ? (
             <tfoot className="table-light">
               <tr className="fw-bolder">
-                <td>{t("TOTAL")}</td>
+                <td>
+                  {t("TOTAL")}{" "}
+                  <TotalRowsHint totalRows={totalRows} pageSize={pg.pageSize} />
+                </td>
                 <td className="text-end">{totals.pov_count ?? 0}</td>
                 <td className="text-end">{money(totals.taxable, sym)}</td>
                 <td className="text-end">{money(totals.gst, sym)}</td>
@@ -144,6 +161,8 @@ const CurrencySection = ({ group, firstColLabel }) => {
           ) : null}
         </Table>
       </div>
+
+      <TablePaginationBar {...pg} totalRows={totalRows} />
     </div>
   );
 };

@@ -13,7 +13,6 @@
 import { Fragment, useState, useEffect } from "react";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { Table, Input, Button } from "reactstrap";
-import ReactPaginate from "react-paginate";
 import { Plus, Trash2 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -21,6 +20,10 @@ import LineItemImportExportBar from "@src/views/_shared/sales-doc/import-export/
 import Notification from "@components/toast/notification";
 import EntitySearchSelect from "@components/entity-select";
 import { resolveEntityByIds, ENTITY_KINDS } from "@src/utility/asyncSelect";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -117,14 +120,8 @@ const LeadRequirementItems = ({
     return name || t("Loading…");
   };
 
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(0);
-
+  const pg = usePagination(lineFA.fields.length);
   const total = lineFA.fields.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStart = safePage * pageSize;
-  const pageEnd = pageStart + pageSize;
 
   const addRow = () => {
     const newIdx = lineFA.fields.length;
@@ -135,7 +132,7 @@ const LeadRequirementItems = ({
       product_code: "",
       product_name: "",
     });
-    setPage(Math.floor(newIdx / pageSize)); // jump to the page with the new row
+    pg.jumpToEnd(newIdx); // jump to the page with the new row
   };
 
   const onPickProduct = (idx, opt) => {
@@ -160,7 +157,7 @@ const LeadRequirementItems = ({
         lineFA.remove(idx);
         const targetIdx = dupIdx > idx ? dupIdx - 1 : dupIdx;
         if (mergedQty > 0) setValue(`lines.${targetIdx}.qty`, mergedQty);
-        setPage(Math.floor(targetIdx / pageSize));
+        pg.setPage(Math.floor(targetIdx / pg.pageSize));
         Notification(
           "Validation",
           t(
@@ -195,7 +192,7 @@ const LeadRequirementItems = ({
           lineFA={lineFA}
           initLineItem={initLineItem}
           onAfterImport={({ totalAfter }) =>
-            setPage(Math.max(0, Math.ceil(totalAfter / pageSize) - 1))
+            pg.setPage(Math.max(0, Math.ceil(totalAfter / pg.pageSize) - 1))
           }
         />
         <Button color="outline-primary" size="sm" onClick={addRow}>
@@ -229,7 +226,7 @@ const LeadRequirementItems = ({
               </tr>
             ) : (
               lineFA.fields.map((row, idx) =>
-                idx < pageStart || idx >= pageEnd ? null : (
+                idx < pg.pageStart || idx >= pg.pageStart + pg.pageSize ? null : (
                   <tr key={row.id}>
                     <td className="text-muted">{idx + 1}</td>
                     <td>
@@ -359,47 +356,11 @@ const LeadRequirementItems = ({
         </Table>
       </div>
 
-      {total > 0 && (
-        <div className="d-flex justify-content-between align-items-center flex-wrap mt-1 mb-3 gap-1">
-          <div className="d-flex align-items-center small text-muted">
-            <span className="me-50">{t("Show")}</span>
-            <Input
-              type="select"
-              bsSize="sm"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value) || 10);
-                setPage(0);
-              }}
-              style={{ width: 80 }}
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Input>
-            <span className="ms-50">
-              {t("of")} {total} {t("rows")}
-            </span>
-          </div>
-          <ReactPaginate
-            previousLabel=""
-            nextLabel=""
-            pageCount={pageCount}
-            activeClassName="active"
-            forcePage={safePage}
-            onPageChange={({ selected }) => setPage(selected)}
-            pageClassName="page-item"
-            nextLinkClassName="page-link"
-            nextClassName="page-item next"
-            previousClassName="page-item prev"
-            previousLinkClassName="page-link"
-            pageLinkClassName="page-link"
-            containerClassName="pagination react-paginate line-items-paginator justify-content-end mb-0"
-          />
-        </div>
-      )}
+      <TablePaginationBar
+        {...pg}
+        totalRows={total}
+        className="d-flex justify-content-between align-items-center flex-wrap mt-1 mb-3 gap-1"
+      />
     </Fragment>
   );
 };

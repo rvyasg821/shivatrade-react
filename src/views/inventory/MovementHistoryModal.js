@@ -19,6 +19,10 @@ import { useTranslation } from "react-i18next";
 import { getMovementHistory, clearMovementHistory } from "./store";
 import { appsRoot } from "@constant/defaultValues";
 import { formatDate } from "@src/utility/dateFormat";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const fmtQty = (v) => {
   const n = Number(v);
@@ -51,6 +55,16 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
   // oldest→newest with the running balance, so the latest row sits at the
   // bottom showing the current on-hand.
   const movements = data?.movements || [];
+
+  // Same pagination as the other line-item grids — a long-lived product can
+  // accumulate hundreds of GRN/invoice movements.
+  const pg = usePagination(movements.length);
+  const totalRows = movements.length;
+  const pageRows = movements.slice(pg.pageStart, pg.pageStart + pg.pageSize);
+  useEffect(() => {
+    pg.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, isOpen]);
 
   return (
     <Offcanvas
@@ -93,7 +107,7 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
               </tr>
             </thead>
             <tbody>
-              {movements.map((m) => {
+              {pageRows.map((m) => {
                 const qty = Number(m.qty) || 0;
                 const isIn = qty >= 0;
                 const route = SOURCE_ROUTE[m.source_type];
@@ -183,6 +197,7 @@ const MovementHistoryModal = ({ isOpen, productId, toggle }) => {
             </tbody>
           </Table>
         )}
+        <TablePaginationBar {...pg} totalRows={totalRows} />
       </OffcanvasBody>
     </Offcanvas>
   );

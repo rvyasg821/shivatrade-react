@@ -14,6 +14,10 @@ import DateInput from "@components/date-input";
 import Notification from "@components/toast/notification";
 import { appsRoot } from "@constant/defaultValues";
 import { currencySymbol } from "@src/views/_shared/sales-doc/_helpers";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 const fmt = (n) =>
@@ -91,6 +95,22 @@ const LedgerStatement = ({ kind, partyId }) => {
   // The native currency already IS the base currency — showing a second,
   // identical INR column would just be noise.
   const showInr = ccy && ccy !== "INR";
+
+  // Client-side pagination. Rows are already the full filtered-range
+  // statement (one API call, no server-side paging), so this only slices
+  // what's rendered. The Total row (tfoot) stays bound to
+  // `data.total_dr/total_cr/balance/...` — full-range aggregates from the
+  // backend — so it reads the SAME on every page, like a bank statement's
+  // period-closing summary rather than a per-page subtotal. Reset to page 1
+  // whenever a new statement loads (party switch or date filter change) so a
+  // stale page number can't leave the grid showing nothing.
+  const pg = usePagination(rows.length);
+  const totalRows = rows.length;
+  const pageRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
+  useEffect(() => {
+    pg.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   return (
     <Fragment>
@@ -231,8 +251,8 @@ const LedgerStatement = ({ kind, partyId }) => {
                 </td>
               </tr>
             ) : (
-              rows.map((r, i) => (
-                <tr key={i}>
+              pageRows.map((r, i) => (
+                <tr key={pg.pageStart + i}>
                   <td className="text-nowrap">{fmtDate(r.date)}</td>
                   <td className="text-nowrap">{r.particulars}</td>
                   <td className="small text-muted text-nowrap">
@@ -265,8 +285,14 @@ const LedgerStatement = ({ kind, partyId }) => {
           {rows.length > 0 && (
             <tfoot className="table-light">
               <tr>
+                {/* Full-range figure (like a statement's closing summary), the
+                    same on every page — "(all N)" so it never reads as a
+                    per-page subtotal. */}
                 <td colSpan={3} className="text-end fw-bold">
-                  {t("Total")}
+                  {t("Total")}{" "}
+                  <span className="fw-normal text-muted">
+                    ({t("all")} {totalRows})
+                  </span>
                 </td>
                 <td className="text-end fw-bold">{money(data?.total_dr)}</td>
                 <td className="text-end fw-bold">{money(data?.total_cr)}</td>
@@ -289,6 +315,9 @@ const LedgerStatement = ({ kind, partyId }) => {
           )}
         </Table>
       </div>
+
+      <TablePaginationBar {...pg} totalRows={totalRows} />
+
       {rows.length > 0 && (
         <div className="text-muted small mt-1">
           {kind === "customer"
