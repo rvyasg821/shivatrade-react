@@ -87,6 +87,7 @@ const PoVendorTotalsPanel = () => {
       chargesTotal,
       taxable,
       gstTotal,
+      rawGrand,
       cgst,
       sgst,
       roundOff,
@@ -175,12 +176,15 @@ const PoVendorTotalsPanel = () => {
         </div>
 
         {/* POV convention: exchange_rate is INR per 1 unit of the POV
-            currency (multiply) — the opposite direction of sales docs. */}
+            currency (multiply) — the opposite direction of sales docs. Uses
+            the UNROUNDED rawGrand, not the whole-unit-rounded grandRounded —
+            multiplying an already-rounded total by ~90-95 amplifies up to
+            ₹45+ of rounding drift that isn't really there. */}
         {!gstApplies && (
           <div className="d-flex justify-content-between px-2 pt-1 small text-muted">
             <span>{t("INR equivalent")}</span>
             <span>
-              ≈ ₹{fmt(totals.grandRounded * (num(p?.exchange_rate) || 1))}
+              ≈ ₹{fmt(totals.rawGrand * (num(p?.exchange_rate) || 1))}
             </span>
           </div>
         )}

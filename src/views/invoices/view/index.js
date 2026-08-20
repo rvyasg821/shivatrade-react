@@ -461,16 +461,6 @@ const ViewInvoice = () => {
     [lines],
   );
   const exchangeRate = num(inv?.exchange_rate) || 1;
-  // Vendor (source) → customer (document) exchange rate, derived from the
-  // line-level source_currency_code + cost_exchange_rate (doc units per 1
-  // vendor unit — one vendor currency per doc). This is the rate the operator
-  // thinks in (e.g. USD vendor → USD customer = 1). Falls back to the INR
-  // roll-up rate only for a purely domestic (INR-vendor) invoice.
-  const vendorRateLine = lines.find((l) =>
-    (l?.source_currency_code || "").trim(),
-  );
-  const vendorCcy = (vendorRateLine?.source_currency_code || "").toUpperCase();
-  const vendorToDocRate = num(vendorRateLine?.cost_exchange_rate) || 1;
   // Charges & Totals fields are typed in the document currency. We
   // recompute the chain on the FE so KPI tiles + Costing card show
   // proper doc-currency values instead of the legacy INR-mixed numbers
@@ -815,6 +805,8 @@ const ViewInvoice = () => {
       value: grandDoc > 0 ? `${sym}${fmt(grandDoc)}` : "-",
       icon: DollarSign,
       tone: "secondary",
+      sub:
+        grandDoc > 0 && sym !== "₹" ? `≈ ₹${fmt(grandInr)}` : null,
     },
     {
       key: "balance",
@@ -891,15 +883,21 @@ const ViewInvoice = () => {
       label: t("GST Route"),
       value: (inv.gst_route || "").replace("_", " "),
     },
-    (vendorCcy || inv?.exchange_rate) && {
+    inv?.exchange_rate && {
       icon: Percent,
       label: t("Exchange Rate"),
-      // Show the VENDOR → CUSTOMER rate the operator set on the SO/worksheet
-      // (e.g. "1 USD = 1.0000 USD" for a USD-vendor/USD-customer deal). Only a
-      // purely domestic (INR-vendor) invoice falls back to the INR roll-up rate.
-      value: vendorCcy
-        ? `1 ${vendorCcy} = ${fmt(vendorToDocRate, 4)} ${inv.currency_code || ""}`.trim()
-        : `1 INR = ${fmt(exchangeRate, 4)} ${inv.currency_code || ""}`.trim(),
+      // Client-facing direction, same convention as the Costing Worksheet's
+      // rate box: "1 {document/customer} = rate INR" (e.g. "1 USD = 95.18
+      // INR"), not the raw stored doc-per-₹1 reciprocal (an awkward "1 INR =
+      // 0.0105 USD"). Always the HEADER rate — the same one behind "INR
+      // equivalent"/Grand Total above, so the two numbers can't disagree.
+      // (A per-line vendor cost rate was tried here before, but a line's
+      // cost_exchange_rate of exactly 1 is a reset PLACEHOLDER elsewhere in
+      // the app, not a guaranteed real rate — showing it risked a false
+      // "1 USD = 1.00 INR".)
+      value: `1 ${inv.currency_code || ""} = ${
+        exchangeRate > 0 ? fmt(1 / exchangeRate) : "-"
+      } INR`.trim(),
     },
   ].filter(Boolean);
 
