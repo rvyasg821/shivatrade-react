@@ -26,6 +26,11 @@ import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import {
+  usePagination,
+  TablePaginationBar,
+  TotalRowsHint,
+} from "@src/views/_shared/table/TablePagination";
 import { getSalesTurnover, cleanSalesTurnoverMessage } from "./store";
 
 // 2-dp grouping, e.g. 1,23,456.00. Native values — Indian digit grouping is a
@@ -70,12 +75,22 @@ const Outstanding = ({ value, symbol }) => {
 };
 
 // One currency's table: rows + a TOTAL foot. Same markup for month/customer —
-// only the first column header changes.
+// only the first column header changes. By-Month is naturally short (~12
+// rows/year) but By-Customer is one row per customer with activity —
+// unbounded — so this paginates like the other line-item grids. The TOTAL
+// row is a separate backend aggregate (group.totals), not derived from
+// `rows`, so it reads the same on every page — the group's real total, not a
+// page subtotal.
 const CurrencySection = ({ group, firstColLabel, loading }) => {
   const { t } = useTranslation();
   const sym = group.currency_symbol;
   const rows = group.rows || [];
   const totals = group.totals || {};
+
+  const pg = usePagination(rows.length);
+  const totalRows = rows.length;
+  const pageRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
+
   return (
     <div className="mb-2">
       <div className="d-flex align-items-center mb-50">
@@ -103,7 +118,7 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
+              pageRows.map((r) => (
                 <tr key={r.key}>
                   <td className="text-nowrap">{r.label}</td>
                   <td className="text-end">{r.invoice_count}</td>
@@ -121,7 +136,10 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
           {rows.length > 0 ? (
             <tfoot className="table-light">
               <tr className="fw-bolder">
-                <td>{t("TOTAL")}</td>
+                <td>
+                  {t("TOTAL")}{" "}
+                  <TotalRowsHint totalRows={totalRows} pageSize={pg.pageSize} />
+                </td>
                 <td className="text-end">{totals.invoice_count ?? 0}</td>
                 <td className="text-end">{money(totals.sales_value, sym)}</td>
                 <td className="text-end">{money(totals.received, sym)}</td>
@@ -133,6 +151,8 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
           ) : null}
         </Table>
       </div>
+
+      <TablePaginationBar {...pg} totalRows={totalRows} />
     </div>
   );
 };

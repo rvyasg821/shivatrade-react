@@ -26,6 +26,10 @@ import XLSX from "xlsx";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const STATUS_BADGE = {
   new: "doc-badge doc-badge-green",
@@ -214,10 +218,14 @@ const LineItemImportModal = ({
     return rows.slice().sort((a, b) => rank(a) - rank(b));
   }, [preview]);
 
-  // Cap the rendered rows so a 700-row import doesn't paint hundreds of <tr>.
-  const NOISY_CAP = 100;
-  const shownNoisy = noisyRows.slice(0, NOISY_CAP);
-  const hiddenNoisy = noisyRows.length - shownNoisy.length;
+  // Paginate instead of hard-capping — so a 700-row import stays reviewable a
+  // page at a time instead of being cut off.
+  const noisyPg = usePagination(noisyRows.length);
+  const noisyTotal = noisyRows.length;
+  const shownNoisy = noisyRows.slice(
+    noisyPg.pageStart,
+    noisyPg.pageStart + noisyPg.pageSize
+  );
 
   const handleConfirm = () => {
     if (!validRows.length) return;
@@ -370,7 +378,7 @@ const LineItemImportModal = ({
             )}
 
             {noisyRows.length > 0 && (
-              <div style={{ maxHeight: 360, overflow: "auto" }}>
+              <div>
                 <Table size="sm" striped bordered responsive>
                   <thead>
                     <tr>
@@ -427,14 +435,7 @@ const LineItemImportModal = ({
                     ))}
                   </tbody>
                 </Table>
-                {hiddenNoisy > 0 && (
-                  <div className="text-muted small text-center py-1">
-                    {t(
-                      "…and {{n}} more row(s) with notices — they'll still import where valid.",
-                      { n: hiddenNoisy },
-                    )}
-                  </div>
-                )}
+                <TablePaginationBar {...noisyPg} totalRows={noisyTotal} />
               </div>
             )}
           </div>

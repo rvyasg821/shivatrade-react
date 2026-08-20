@@ -40,6 +40,10 @@ import {
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 import {
   getInvoice,
@@ -95,6 +99,80 @@ const fmt = (v, dp = 2) =>
     minimumFractionDigits: dp,
     maximumFractionDigits: dp,
   });
+
+// Issue-invoice stock-shortage confirm — a real component (not inline JSX) so
+// it can hold its own pagination state; sweetalert2-react-content keeps it
+// mounted/interactive inside the dialog. Same "Show N / of X rows" pattern as
+// the other line-item grids, replacing the old hard 50-row cap so a large
+// invoice's full shortage list is browsable instead of silently truncated.
+const IssueStockPreviewTable = ({ rows, fmtN, t }) => {
+  const pg = usePagination(rows.length);
+  const pageRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
+
+  return (
+    <Fragment>
+      <div
+        style={{
+          maxHeight: 260,
+          overflowY: "auto",
+          border: "1px solid #ebe9f1",
+          borderRadius: 6,
+        }}
+      >
+        <div className="table-responsive">
+          <table
+            className="table table-sm mb-0 align-middle"
+            style={{ fontSize: "0.85rem" }}
+          >
+            <thead
+              className="table-light"
+              style={{ position: "sticky", top: 0, zIndex: 1 }}
+            >
+              <tr>
+                <th>{t("Product")}</th>
+                <th className="text-end">{t("Qty out")}</th>
+                <th className="text-end">{t("Available")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((r) => (
+                <tr
+                  key={r.key}
+                  style={r.short ? { background: "#fdecea" } : undefined}
+                >
+                  <td className="text-start">
+                    {r.name}
+                    {r.code ? (
+                      <span className="text-muted"> · {r.code}</span>
+                    ) : null}
+                  </td>
+                  <td className="text-end text-danger fw-semibold text-nowrap">
+                    −{fmtN(r.required)}
+                    {r.uom ? ` ${r.uom}` : ""}
+                  </td>
+                  <td
+                    className={`text-end text-nowrap fw-semibold ${
+                      r.short ? "text-danger" : "text-success"
+                    }`}
+                  >
+                    {r.available === null ? "—" : fmtN(r.available)}
+                    {r.available !== null && r.uom ? ` ${r.uom}` : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <TablePaginationBar
+        {...pg}
+        totalRows={rows.length}
+        className="d-flex justify-content-between align-items-center flex-wrap mt-50 gap-1"
+      />
+    </Fragment>
+  );
+};
 
 const ViewInvoice = () => {
   const { id } = useParams();
@@ -500,10 +578,6 @@ const ViewInvoice = () => {
         Number(b.short) - Number(a.short) ||
         (a.name || "").localeCompare(b.name || "")
     );
-    const PREVIEW_CAP = 50;
-    const previewRows = ordered.slice(0, PREVIEW_CAP);
-    const moreCount = ordered.length - previewRows.length;
-
     const res = await mySwal.fire({
       title: t("Issue Invoice?"),
       width: 680,
@@ -538,66 +612,7 @@ const ViewInvoice = () => {
                   {t("will go out of stock.")}
                 </div>
               )}
-              <div
-                style={{
-                  maxHeight: 260,
-                  overflowY: "auto",
-                  border: "1px solid #ebe9f1",
-                  borderRadius: 6,
-                }}
-              >
-                <div className="table-responsive">
-                <table
-                  className="table table-sm mb-0 align-middle"
-                  style={{ fontSize: "0.85rem" }}
-                >
-                  <thead
-                    className="table-light"
-                    style={{ position: "sticky", top: 0, zIndex: 1 }}
-                  >
-                    <tr>
-                      <th>{t("Product")}</th>
-                      <th className="text-end">{t("Qty out")}</th>
-                      <th className="text-end">{t("Available")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((r) => (
-                      <tr
-                        key={r.key}
-                        style={r.short ? { background: "#fdecea" } : undefined}
-                      >
-                        <td className="text-start">
-                          {r.name}
-                          {r.code ? (
-                            <span className="text-muted"> · {r.code}</span>
-                          ) : null}
-                        </td>
-                        <td className="text-end text-danger fw-semibold text-nowrap">
-                          −{fmtN(r.required)}
-                          {r.uom ? ` ${r.uom}` : ""}
-                        </td>
-                        <td
-                          className={`text-end text-nowrap fw-semibold ${
-                            r.short ? "text-danger" : "text-success"
-                          }`}
-                        >
-                          {r.available === null ? "—" : fmtN(r.available)}
-                          {r.available !== null && r.uom ? ` ${r.uom}` : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-              {moreCount > 0 && (
-                <div className="text-muted small mt-50">
-                  +{moreCount}{" "}
-                  {moreCount === 1 ? t("more product") : t("more products")}{" "}
-                  {t("(see the invoice for the full list)")}
-                </div>
-              )}
+              <IssueStockPreviewTable rows={ordered} fmtN={fmtN} t={t} />
             </Fragment>
           )}
         </div>

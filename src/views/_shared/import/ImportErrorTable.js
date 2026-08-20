@@ -9,6 +9,9 @@
 //   • No wrapping   — a long value scrolls rather than becoming three lines
 //   • Details last  — the error text is what the user came for, so it is the
 //                     widest column and always in the same place
+//   • Paginated     — a big import can produce hundreds of error rows; the
+//                     shared TablePaginationBar (see _shared/table) keeps
+//                     that reviewable instead of one long inner scroll
 //
 // A module supplies only which columns identify one of its rows. Row number and
 // the error text are added here, so no module can forget them.
@@ -20,52 +23,62 @@
 
 import { Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const ImportErrorTable = ({ columns = [], rows = [], maxHeight = 400 }) => {
   const { t } = useTranslation();
   const errorRows = (rows || []).filter((r) => r.status === "error");
+  const pg = usePagination(errorRows.length);
+  const pageRows = errorRows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   if (!errorRows.length) return null;
 
   return (
-    <div
-      style={{
-        maxHeight: `${maxHeight}px`,
-        // `auto` on both axes: this element is the only thing allowed to
-        // overflow. The modal body never sees content wider than itself.
-        overflow: "auto",
-        maxWidth: "100%",
-      }}
-    >
-      <Table size="sm" striped bordered className="mb-0">
-        <thead>
-          <tr>
-            <th style={{ width: 56 }}>#</th>
-            {columns.map((col, i) => (
-              <th key={i} className="text-nowrap" style={{ width: col.width }}>
-                {col.header}
-              </th>
-            ))}
-            {/* Widest and last — the reason is what the user is reading for. */}
-            <th style={{ minWidth: 240 }}>{t("Details")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {errorRows.map((row) => (
-            <tr key={row.rowNum} className="table-danger">
-              <td>{row.rowNum}</td>
+    <div>
+      <div
+        style={{
+          maxHeight: `${maxHeight}px`,
+          // `auto` on both axes: this element is the only thing allowed to
+          // overflow. The modal body never sees content wider than itself.
+          overflow: "auto",
+          maxWidth: "100%",
+        }}
+      >
+        <Table size="sm" striped bordered className="mb-0">
+          <thead>
+            <tr>
+              <th style={{ width: 56 }}>#</th>
               {columns.map((col, i) => (
-                <td key={i} className="small text-nowrap">
-                  {col.cell(row) || "—"}
-                </td>
+                <th key={i} className="text-nowrap" style={{ width: col.width }}>
+                  {col.header}
+                </th>
               ))}
-              <td className="small text-danger">
-                {row.errors?.join(", ") || ""}
-              </td>
+              {/* Widest and last — the reason is what the user is reading for. */}
+              <th style={{ minWidth: 240 }}>{t("Details")}</th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {pageRows.map((row) => (
+              <tr key={row.rowNum} className="table-danger">
+                <td>{row.rowNum}</td>
+                {columns.map((col, i) => (
+                  <td key={i} className="small text-nowrap">
+                    {col.cell(row) || "—"}
+                  </td>
+                ))}
+                <td className="small text-danger">
+                  {row.errors?.join(", ") || ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+
+      <TablePaginationBar {...pg} totalRows={errorRows.length} />
     </div>
   );
 };

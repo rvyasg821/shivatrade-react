@@ -39,6 +39,10 @@ import { formatDate } from "@src/utility/dateFormat";
 import Notification from "@components/toast/notification";
 import DateInput from "@components/date-input";
 import { getCurrencyDropdown } from "@src/views/currencies/store";
+import {
+  usePagination,
+  TablePaginationBar,
+} from "@src/views/_shared/table/TablePagination";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -68,6 +72,10 @@ const ManageVendorPricing = () => {
   const [rows, setRows] = useState([]);
   const [historyByVendor, setHistoryByVendor] = useState({});
   const [expanded, setExpanded] = useState({});
+
+  // Same pagination as the other line-item grids — a widely-sourced product
+  // can have far more than 10 pricing vendors.
+  const pg = usePagination(rows.length);
 
   // Fallback (default) currency — used when a vendor has no currency set.
   const currency = useMemo(() => {
@@ -172,6 +180,7 @@ const ManageVendorPricing = () => {
         );
       }
       setHistoryByVendor(grouped);
+      pg.resetPage();
     } catch (e) {
       Notification("Error", t("Could not load vendor pricing."), "warning");
     } finally {
@@ -221,7 +230,10 @@ const ManageVendorPricing = () => {
   const removeRow = (key) =>
     setRows((prev) => prev.filter((r) => r._key !== key));
 
-  const addRow = () =>
+  const addRow = () => {
+    // Jump to the page that will hold the appended row, so "Add Vendor"
+    // doesn't silently land on a page the user isn't looking at.
+    pg.jumpToEnd(rows.length);
     setRows((prev) => [
       ...prev,
       {
@@ -235,6 +247,7 @@ const ManageVendorPricing = () => {
         _original: null,
       },
     ]);
+  };
 
   const toggleHistory = (vid) =>
     setExpanded((m) => ({ ...m, [vid]: !m[vid] }));
@@ -293,6 +306,9 @@ const ManageVendorPricing = () => {
       setSaving(false);
     }
   };
+
+  const totalRows = rows.length;
+  const pageRows = rows.slice(pg.pageStart, pg.pageStart + pg.pageSize);
 
   const sym = currency?.symbol || "₹";
 
@@ -433,7 +449,7 @@ const ManageVendorPricing = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => {
+                    {pageRows.map((r) => {
                       const dirty = isDirty(r);
                       const vid = r.vendor_id;
                       const rc = rowCurrency(r);
@@ -644,6 +660,7 @@ const ManageVendorPricing = () => {
                 </Table>
               </div>
             )}
+            <TablePaginationBar {...pg} totalRows={totalRows} />
           </CardBody>
         </Card>
       </div>
