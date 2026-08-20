@@ -548,6 +548,12 @@ html body.swal2-height-auto {
     padding: 0.25rem 0.4rem;
     border-radius: 4px;
     cursor: default;
+    // table-layout: fixed clips the COLUMN width but not the cell's content —
+    // a value longer than the column (e.g. a CAS number in Part No) was
+    // overflowing visibly into the next cell instead of wrapping/truncating.
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .ws-cell.text-end {
     justify-content: flex-end;
