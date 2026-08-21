@@ -136,6 +136,17 @@ const ViewPurchaseOrder = () => {
 
   const linesCount = (p?.lines || []).length;
 
+  // Vendor→document rate for the Costing Breakdown's "Vendor Rate" line —
+  // see quotations/view/index.js for the full rationale (shared card).
+  const vendorRate = useMemo(() => {
+    const withRate = (p?.lines || []).find(
+      (l) =>
+        (Number(l?.cost_exchange_rate) || 0) > 0 &&
+        Number(l?.cost_exchange_rate) !== 1
+    );
+    return Number((withRate || p?.lines?.[0])?.cost_exchange_rate) || 0;
+  }, [p?.lines]);
+
   // Recompute the grand total from the lines with the SAME helper the
   // costing breakdown card uses, so the header KPI matches it exactly
   // (the stored grand_total carries a 2-decimal rounding drift).
@@ -147,6 +158,23 @@ const ViewPurchaseOrder = () => {
       }),
     [p?.lines, p?.exchange_rate, p?.freight_total]
   );
+
+  // ≈₹ INR estimate — same approach as the Invoice detail page: sum each
+  // line's FROZEN line_total (not a live per-line recompute) + freight,
+  // then divide by the precise header exchange_rate. `headerTotals.grand_inr`
+  // recomputes from raw (unrounded) per-line math, which can drift a cent
+  // from the persisted line totals shown in the table above — amplified
+  // ~90-95x once divided into INR. This keeps the ₹ figure in lock-step
+  // with the Invoice/PDF instead.
+  const grandDocFrozen = useMemo(
+    () =>
+      (p?.lines || []).reduce((s, l) => s + (Number(l?.line_total) || 0), 0) +
+      (Number(p?.freight_total) || 0),
+    [p?.lines, p?.freight_total]
+  );
+  const exchangeRatePo = Number(p?.exchange_rate) || 1;
+  const grandInrPrecise =
+    exchangeRatePo > 0 ? grandDocFrozen / exchangeRatePo : grandDocFrozen;
 
   const kpiItems = [
     {
@@ -165,7 +193,7 @@ const ViewPurchaseOrder = () => {
       // need no second line.
       sub:
         sym !== "₹" && p?.grand_total !== undefined
-          ? `≈ ₹${fmt(headerTotals.grand_inr)}`
+          ? `≈ ₹${fmt(grandInrPrecise)}`
           : null,
       icon: DollarSign,
       tone: "secondary",
@@ -637,10 +665,12 @@ const ViewPurchaseOrder = () => {
             <Fragment>
               <DetailPanel title={t("Costing Breakdown")}>
                 <SalesDocCostingCard
-                  totals={headerTotals}
+                  totals={{ ...headerTotals, grand_inr: grandInrPrecise }}
                   currencyCode={p?.currency_code}
                   hideGst
                   bare
+                  vendorCurrencyCode={p?.vendor_currency_code}
+                  vendorRate={vendorRate}
                 />
               </DetailPanel>
               <PoCustomerOrderPanel />

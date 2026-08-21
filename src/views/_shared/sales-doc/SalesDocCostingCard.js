@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { fmt, num, round2 } from "./_helpers";
+import { fmt, fmtRate, num, round2 } from "./_helpers";
 import { getCurrencySymbol } from "@src/utility/currency";
 
 // All breakdown lines are in the base currency (INR by default) — the local
@@ -37,6 +37,17 @@ const SalesDocCostingCard = ({
   /** Render without the outer Card chrome + inner title/divider — for when
    *  the caller already wraps it in a titled panel (detail pages). */
   bare = false,
+  /** Vendor (source) currency code, e.g. "USD" — the doc-level "Vendor
+   *  Currency" picked in the Costing Worksheet (one per document). Paired
+   *  with `vendorRate` to print a second "Vendor Rate" line under the
+   *  Exchange Rate line. Omit (or pass a currency equal to `currencyCode`)
+   *  to hide the row — nothing to convert. */
+  vendorCurrencyCode,
+  /** cost_exchange_rate — DOC units per 1 vendor unit (frozen per line,
+   *  same value across all lines under the one-vendor-currency-per-doc
+   *  rule). Displayed as its reciprocal to match the Costing Worksheet's
+   *  own "1 {doc} = X {vendor}" convention. */
+  vendorRate,
 }) => {
   const { t } = useTranslation();
   const currencySym = getCurrencySymbol(currencyCode);
@@ -55,6 +66,31 @@ const SalesDocCostingCard = ({
     ? currencyView.sym || currencySym || ""
     : currencySym || "₹";
   const money = (v) => `${viewSym}${fmt(num(v) * viewRate)}`;
+
+  // "1 {sym} = X ₹" line — currency SIGNS ($/€/₹), not the 3-letter code, to
+  // match how every amount on this card is already displayed. Precise (up to
+  // 5dp) so a manual hand-check (doc value × this rate) reproduces the PDF's
+  // ₹ figure exactly. Same-currency docs (already INR) show "1 ₹ = 1 ₹"
+  // instead of hiding the line or a misleading "1 = 0".
+  const rateLabel = !isForeign
+    ? `₹1 = ₹1`
+    : num(totals.rate) > 0
+    ? `${currencySym}1 = ₹${fmtRate(1 / num(totals.rate))}`
+    : null;
+
+  // "1 {doc} = X {vendor}" — vendor→customer rate, CODES not signs (matches
+  // the Costing Worksheet's own "Vendor Currency" box exactly, since that's
+  // where an operator sets this rate and expects to recognize it here).
+  // Hidden when there's nothing to convert (no vendor currency, or it
+  // matches the document currency).
+  const showVendorRate =
+    !!vendorCurrencyCode &&
+    !!currencyCode &&
+    vendorCurrencyCode.toUpperCase() !== currencyCode.toUpperCase() &&
+    num(vendorRate) > 0;
+  const vendorRateLabel = showVendorRate
+    ? `1 ${currencyCode} = ${fmtRate(1 / num(vendorRate))} ${vendorCurrencyCode}`
+    : null;
 
   const Wrapper = bare ? Fragment : Card;
   const Inner = bare ? Fragment : CardBody;
@@ -216,12 +252,16 @@ const SalesDocCostingCard = ({
             <div className="d-flex justify-content-between mt-1 text-muted">
               <small>
                 {t("In INR")}
-                {num(totals.rate) > 0 && viewSym !== "₹"
-                  ? ` (1 ${currencyCode} = ${fmt(1 / num(totals.rate))} INR)`
-                  : ""}
+                {rateLabel && viewSym !== "₹" ? ` (${rateLabel})` : ""}
               </small>
               <small>₹ {fmt(totals.grand_inr)}</small>
             </div>
+            {vendorRateLabel && (
+              <div className="d-flex justify-content-between mt-1 text-muted">
+                <small>{t("Vendor Rate")}</small>
+                <small>{vendorRateLabel}</small>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -248,6 +288,20 @@ const SalesDocCostingCard = ({
                 {fmt(totals.grand_currency)}
               </span>
             </div>
+            {rateLabel && (
+              <div className="d-flex justify-content-between mt-1 text-muted">
+                <small>
+                  {t("Exchange Rate")} ({rateLabel})
+                </small>
+                {isForeign && <small>≈ ₹ {fmt(totals.grand_inr)}</small>}
+              </div>
+            )}
+            {vendorRateLabel && (
+              <div className="d-flex justify-content-between mt-1 text-muted">
+                <small>{t("Vendor Rate")}</small>
+                <small>{vendorRateLabel}</small>
+              </div>
+            )}
           </>
         )}
       </Inner>
