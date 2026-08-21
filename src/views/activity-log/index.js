@@ -22,7 +22,7 @@ import {
   Spinner,
 } from "reactstrap";
 import Select from "react-select";
-import { RefreshCw } from "react-feather";
+import { RefreshCw, ChevronDown, ChevronRight } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
@@ -51,6 +51,14 @@ const fmtDateTime = (v) => {
 };
 
 const Dash = () => <span className="text-muted">—</span>;
+
+// Diff values can be objects (e.g. a snapshot field) — stringify those, and
+// show an em-dash for empty/null so an added or cleared field reads clearly.
+const fmtDiffValue = (v) => {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+};
 
 // Action → badge colour (doc-badge palette).
 const actionBadge = (action) => {
@@ -109,6 +117,9 @@ const ActivityLog = () => {
   );
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ items: [], total: 0, perPage: defaultPerPageRow });
+  const [expanded, setExpanded] = useState({});
+  const toggleRow = (id) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const baseParams = useCallback(
     () => ({
@@ -228,6 +239,7 @@ const ActivityLog = () => {
                       <Table className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
+                            <th style={{ width: 34 }} />
                             <th className="text-nowrap">{t("Date & Time")}</th>
                             <th className="text-nowrap">{t("User")}</th>
                             <th className="text-nowrap">{t("Action")}</th>
@@ -236,40 +248,92 @@ const ActivityLog = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((r) => (
-                            <tr key={r._id}>
-                              <td className="text-nowrap">{fmtDateTime(r.at)}</td>
-                              <td className="text-nowrap fw-semibold">
-                                {r.actor_name || <Dash />}
-                              </td>
-                              <td>
-                                <span
-                                  className={`doc-badge ${actionBadge(r.action)} text-capitalize`}
-                                >
-                                  {r.action || "—"}
-                                </span>
-                              </td>
-                              <td style={{ minWidth: 260 }}>
-                                {r.sentence || <Dash />}
-                              </td>
-                              <td style={{ minWidth: 160 }}>
-                                {r.entity_label || r.entity_name ? (
-                                  <div>
-                                    <div className="fw-semibold">
-                                      {r.entity_label || <Dash />}
-                                    </div>
-                                    {r.entity_name ? (
-                                      <div className="small text-muted text-capitalize">
-                                        {String(r.entity_name).replace(/[_-]/g, " ")}
-                                      </div>
+                          {items.map((r) => {
+                            const open = !!expanded[r._id];
+                            const hasDiff = (r.diff || []).length > 0;
+                            return (
+                              <Fragment key={r._id}>
+                                <tr>
+                                  <td>
+                                    {hasDiff ? (
+                                      <span
+                                        className="cursor-pointer"
+                                        onClick={() => toggleRow(r._id)}
+                                      >
+                                        {open ? (
+                                          <ChevronDown size={16} />
+                                        ) : (
+                                          <ChevronRight size={16} />
+                                        )}
+                                      </span>
                                     ) : null}
-                                  </div>
-                                ) : (
-                                  <Dash />
+                                  </td>
+                                  <td className="text-nowrap">{fmtDateTime(r.at)}</td>
+                                  <td className="text-nowrap fw-semibold">
+                                    {r.actor_name || <Dash />}
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`doc-badge ${actionBadge(r.action)} text-capitalize`}
+                                    >
+                                      {r.action || "—"}
+                                    </span>
+                                  </td>
+                                  <td style={{ minWidth: 260 }}>
+                                    {r.sentence || <Dash />}
+                                  </td>
+                                  <td style={{ minWidth: 160 }}>
+                                    {r.entity_label || r.entity_name ? (
+                                      <div>
+                                        <div className="fw-semibold">
+                                          {r.entity_label || <Dash />}
+                                        </div>
+                                        {r.entity_name ? (
+                                          <div className="small text-muted text-capitalize">
+                                            {String(r.entity_name).replace(/[_-]/g, " ")}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    ) : (
+                                      <Dash />
+                                    )}
+                                  </td>
+                                </tr>
+                                {open && hasDiff && (
+                                  <tr className="bg-light">
+                                    <td colSpan={6} className="small">
+                                      <Table size="sm" borderless className="mb-0">
+                                        <tbody>
+                                          {r.diff.map((d) => (
+                                            <tr key={d.field}>
+                                              <td
+                                                className="text-muted text-capitalize"
+                                                style={{ width: 220 }}
+                                              >
+                                                {d.field}
+                                              </td>
+                                              <td
+                                                className="text-danger"
+                                                style={{
+                                                  textDecoration: "line-through",
+                                                  width: 220,
+                                                }}
+                                              >
+                                                {fmtDiffValue(d.from)}
+                                              </td>
+                                              <td className="text-success fw-semibold">
+                                                {fmtDiffValue(d.to)}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </Table>
+                                    </td>
+                                  </tr>
                                 )}
-                              </td>
-                            </tr>
-                          ))}
+                              </Fragment>
+                            );
+                          })}
                         </tbody>
                       </Table>
                     </div>
