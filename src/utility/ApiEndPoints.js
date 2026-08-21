@@ -479,6 +479,7 @@ export const API_ENDPOINTS = {
     fromLead: `/admin/rfq/from-lead`, // append /:leadId
     update: `/admin/rfq/update`, // append /:id
     delete: `/admin/rfq/delete`, // append /:id
+    deleteMany: `/admin/rfq/delete-many`,
     vendors: `/admin/rfq`, // append /:id/vendors  (POST add, DELETE /:vendorId)
     prices: `/admin/rfq`, // append /:id/prices
     select: `/admin/rfq`, // append /:id/select

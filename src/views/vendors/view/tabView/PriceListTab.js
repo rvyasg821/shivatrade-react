@@ -4,7 +4,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Row, Col, Button, UncontrolledTooltip } from "reactstrap";
+import { Button, UncontrolledTooltip } from "reactstrap";
 import EntitySearchSelect from "@components/entity-select";
 import { Edit, PlusCircle, Upload, Download, Clock } from "react-feather";
 import { useTranslation } from "react-i18next";
@@ -221,8 +221,8 @@ const PriceListTab = () => {
     <Fragment>
       {/* Single header row: product filter on the left (where the title
           used to sit), action buttons on the right. */}
-      <Row className="mb-2 align-items-center g-1">
-        <Col md="4" sm="6">
+      <div className="d-flex align-items-center flex-nowrap gap-2 mb-2">
+        <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <EntitySearchSelect
             kind="product"
             placeholder={t("Filter by Product")}
@@ -232,9 +232,8 @@ const PriceListTab = () => {
             menuPortalTarget={document.body}
             styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
           />
-        </Col>
-        <Col md="8" sm="6">
-          <div className="d-flex gap-1 flex-nowrap justify-content-end align-items-center listing-toolbar-actions">
+        </div>
+        <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
             {canRead && (
               <Button
                 color="outline-secondary"
@@ -268,9 +267,8 @@ const PriceListTab = () => {
                 <PlusCircle size={14} /> {t("Add Price")}
               </Button>
             )}
-          </div>
-        </Col>
-      </Row>
+        </div>
+      </div>
 
       <DatatablePagination
         columns={columns}

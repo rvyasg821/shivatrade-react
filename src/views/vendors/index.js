@@ -397,8 +397,8 @@ const VendorList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="9" md="9">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Input
@@ -444,12 +444,8 @@ const VendorList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-              <Col
-                sm="3"
-                md="3"
-                className="text-end d-flex justify-content-end align-items-start gap-1 flex-wrap listing-toolbar-actions"
-              >
+              </div>
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
                 {canDelete && bulk.selectedRows.length > 0 && (
                   <Button
                     color="danger"
@@ -478,8 +474,8 @@ const VendorList = () => {
                     <PlusCircle size={14} className="me-50" />{t("Add")}
                   </Button>
                 )}
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="vendor-tables">

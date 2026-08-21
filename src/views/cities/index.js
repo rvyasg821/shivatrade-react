@@ -309,11 +309,8 @@ const CityList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              {/* 8/4 (was 9/3): the toolbar now carries Export + Import + Add.
-                  8 rather than the UOM screen's 7, because there are four
-                  filters here and 7 squeezed them. */}
-              <Col sm="8" md="8">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="3" className="mb-2 mb-md-0">
                     <Input
@@ -371,9 +368,8 @@ const CityList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-              <Col sm="4" md="4">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+              </div>
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
                   {canDelete && bulk.selectedRows.length > 0 && (
                     <Button
                       color="danger"
@@ -401,9 +397,8 @@ const CityList = () => {
                       <PlusCircle size={14} className="me-50" /> {t("Add")}
                     </Button>
                   )}
-                </div>
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="city-tables">

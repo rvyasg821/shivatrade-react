@@ -335,8 +335,8 @@ const CategoryList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row className="mb-1">
-              <Col sm="7" md="7">
+            <div className="d-flex align-items-center flex-nowrap gap-2 mb-1">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="6" className="mb-2 mb-md-0">
                     <Input
@@ -374,9 +374,8 @@ const CategoryList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-              <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
+              </div>
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
                   {canDelete && bulk.selectedRows.length > 0 && (
                     <Button
                       color="danger"
@@ -418,9 +417,8 @@ const CategoryList = () => {
                       <PlusCircle size={14} className="me-50" /> {t("Add")}
                     </Button>
                   )}
-                </div>
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="category-tables">
