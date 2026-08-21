@@ -6,16 +6,17 @@ import { Link } from "react-router-dom";
 
 // ** Store
 import { useDispatch, useSelector } from "react-redux";
-import { getRfqList, deleteRfq, cleanRfqMessage } from "./store";
+import { getRfqList, deleteRfq, deleteManyRfqs, cleanRfqMessage } from "./store";
 import { startLoading, stopLoading } from "../loadingstore";
 
 // ** Reactstrap
-import { Col, Row, Card, Input, Badge, CardBody, UncontrolledTooltip } from "reactstrap";
+import { Col, Row, Card, Input, Badge, Button, CardBody, UncontrolledTooltip } from "reactstrap";
 import Select from "react-select";
 
 // ** Custom
 import Notification from "@components/toast/notification";
 import DatatablePagination from "@components/datatable/DatatablePagination";
+import useBulkDelete from "@src/utility/hooks/useBulkDelete";
 import VoucherStatsTiles from "@src/views/_shared/voucher-stats/VoucherStatsTiles";
 
 // ** Third Party
@@ -186,6 +187,17 @@ const RfqList = () => {
   const perms = authUserItem?.role?.permissions?.leads;
   const canDelete = isSystemAdmin || isCompanyAdmin || perms?.can_delete;
 
+  // Multi-select bulk delete (server respects the RFQ delete guard — draft
+  // status + no linked Quotation).
+  const bulk = useBulkDelete({
+    entityLabel: "RFQs",
+    deleteFn: (ids) => dispatch(deleteManyRfqs(ids)).unwrap(),
+    onDone: () => {
+      handleRfqLists();
+      setStatsRefresh((n) => n + 1);
+    },
+  });
+
   const columns = [
     {
       name: t("RFQ No"),
@@ -321,8 +333,8 @@ const RfqList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="9" md="9">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Input
@@ -357,8 +369,22 @@ const RfqList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-            </Row>
+              </div>
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
+                {canDelete && bulk.selectedRows.length > 0 && (
+                  <Button
+                    color="danger"
+                    outline
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={bulk.confirmBulkDelete}
+                    disabled={bulk.deleting}
+                  >
+                    {t("Delete Selected")} ({bulk.selectedRows.length})
+                  </Button>
+                )}
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="rfq-tables">
@@ -371,6 +397,9 @@ const RfqList = () => {
                   handleSort={handleSort}
                   handleRowPerPage={handlePerPage}
                   handlePagination={handlePagination}
+                  selectableRows={canDelete}
+                  onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
             </Row>

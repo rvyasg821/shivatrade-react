@@ -373,8 +373,8 @@ const CustomerList = () => {
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="7" md="7">
+            <div className="d-flex align-items-center flex-nowrap gap-2">
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
                   <Col sm="6" md="4" className="mb-2 mb-md-0">
                     <Input
@@ -410,52 +410,50 @@ const CustomerList = () => {
                     />
                   </Col>
                 </Row>
-              </Col>
-              <Col sm="5" md="5">
-                <div className="d-flex gap-1 justify-content-end flex-nowrap listing-toolbar-actions">
-                  {canDelete && bulk.selectedRows.length > 0 && (
-                    <Button
-                      color="danger"
-                      outline
-                      size="sm"
-                      className="text-nowrap"
-                      onClick={bulk.confirmBulkDelete}
-                      disabled={bulk.deleting}
-                    >
-                      {t("Delete Selected")} ({bulk.selectedRows.length})
-                    </Button>
-                  )}
+              </div>
+              <div className="d-flex align-items-center justify-content-end gap-1 flex-shrink-0">
+                {canDelete && bulk.selectedRows.length > 0 && (
+                  <Button
+                    color="danger"
+                    outline
+                    size="sm"
+                    className="text-nowrap"
+                    onClick={bulk.confirmBulkDelete}
+                    disabled={bulk.deleting}
+                  >
+                    {t("Delete Selected")} ({bulk.selectedRows.length})
+                  </Button>
+                )}
+                <Button
+                  color="outline-secondary"
+                  size="sm"
+                  className="text-nowrap"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {t("Export")} <Download size={14} />
+                </Button>
+                {canAdd && (
                   <Button
                     color="outline-secondary"
                     size="sm"
                     className="text-nowrap"
-                    onClick={handleExport}
-                    disabled={exporting}
+                    onClick={() => setImportModalOpen(true)}
                   >
-                    {t("Export")} <Download size={14} />
+                    {t("Import")} <Upload size={14} />
                   </Button>
-                  {canAdd && (
-                    <Button
-                      color="outline-secondary"
-                      size="sm"
-                      className="text-nowrap"
-                      onClick={() => setImportModalOpen(true)}
-                    >
-                      {t("Import")} <Upload size={14} />
-                    </Button>
-                  )}
-                  {canAdd && (
-                    <Button
-                      color="primary"
-                      className="text-nowrap"
-                      onClick={() => navigate(`${appsRoot}/customers/add`)}
-                    >
-                      {t("Add Customer")} <PlusCircle size={16} />
-                    </Button>
-                  )}
-                </div>
-              </Col>
-            </Row>
+                )}
+                {canAdd && (
+                  <Button
+                    color="primary"
+                    className="text-nowrap"
+                    onClick={() => navigate(`${appsRoot}/customers/add`)}
+                  >
+                    {t("Add Customer")} <PlusCircle size={16} />
+                  </Button>
+                )}
+              </div>
+            </div>
 
             <Row className="mt-2">
               <Col md="12" className="customer-tables">

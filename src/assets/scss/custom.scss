@@ -9617,6 +9617,17 @@ span.doc-badge-gray,
 // stacks the buttons vertically, full-width, for easy tapping. `!important`
 // beats any `flex-wrap` / `align-items-*` utility the element already carries.
 .listing-toolbar-actions {
+  // Desktop/tablet: a page can carry an inline `flex-nowrap` on this
+  // container (Export/Import/Add, sometimes squeezed into as little as a
+  // 4-of-12 column) and the conditional "Delete Selected (N)" button tips it
+  // over — buttons overflow the column and visually collide with the filter
+  // field beside them instead of dropping to a second line. Force wrapping
+  // unconditionally so an overflowing row always wraps, never overlaps.
+  // Bootstrap's own `.flex-nowrap` also carries `!important`; this wins on
+  // source order (custom.scss loads after bootstrap.css).
+  flex-wrap: wrap !important;
+  row-gap: 0.5rem;
+
   @media (max-width: 575.98px) {
     display: flex !important;
     flex-direction: column !important;

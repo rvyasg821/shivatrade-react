@@ -98,6 +98,19 @@ export const deleteRfq = createAsyncThunk("appRfq/deleteRfq", async (id) => {
     };
   }
 });
+export const deleteManyRfqs = createAsyncThunk(
+  "appRfq/deleteManyRfqs",
+  async (ids, { rejectWithValue }) => {
+    try {
+      const res = await instance.post(API_ENDPOINTS.rfq.deleteMany, { ids });
+      return res?.data?.data || { deleted: ids, skipped: [] };
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
 export const addRfqVendors = mutate("addRfqVendors", "RFQ_VND", ({ id, data }) =>
   instance.post(`${API_ENDPOINTS.rfq.vendors}/${id}/vendors`, data)
 );
