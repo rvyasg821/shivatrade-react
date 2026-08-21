@@ -6,7 +6,7 @@
 //   4. Line Items table + costing card  | Public Link / Share panel
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Input, Button } from "reactstrap";
 import {
@@ -20,6 +20,8 @@ import {
   Mail,
   Briefcase,
   RotateCcw,
+  Info,
+  ExternalLink,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 
@@ -33,6 +35,8 @@ import {
   getCurrencyDropdown,
 } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
+import instance from "@src/utility/AxiosConfig";
+import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
 import { downloadExcel } from "@src/utility/excel";
@@ -180,6 +184,32 @@ const ViewQuotation = () => {
       /* ignore quota / privacy-mode failures */
     }
   }, [showDoc]);
+
+  // Sales Order already generated from this quotation (non-cancelled), if
+  // any — same lookup the Generate-SO page uses to block a duplicate. Drives
+  // the banner below and hides "Generate Sales Order" once one exists.
+  const [existingSo, setExistingSo] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) return undefined;
+    instance
+      .get(API_ENDPOINTS.purchaseOrders.list, {
+        params: { quotation_id: id, page: 1, perPage: 50 },
+      })
+      .then((resp) => {
+        if (cancelled) return;
+        const rows = (resp?.data?.data || []).filter(
+          (r) => (r?.status || "").toLowerCase() !== "cancelled"
+        );
+        setExistingSo(rows[0] || null);
+      })
+      .catch(() => {
+        if (!cancelled) setExistingSo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const mySwal = withReactContent(Swal);
   const handleConvertToPfi = () => {
@@ -639,6 +669,25 @@ const ViewQuotation = () => {
     <QuotationCurrencyProvider value={currencyCtx}>
     <Fragment>
       <div className="app-user-view">
+        {/* Sales-Order-already-generated banner — mirrors the SO detail
+            page's invoice-coverage banner (same green/info bar style, above
+            the header). Explains why "Generate Sales Order" is gone below. */}
+        {existingSo && (
+          <div className="d-flex align-items-start gap-1 small p-1 mb-1 rounded bg-light-success text-success">
+            <Info size={14} className="mt-25 flex-shrink-0" />
+            <div>
+              <strong>
+                {t("A Sales Order has already been generated from this quotation.")}
+              </strong>{" "}
+              <Link
+                to={`${appsRoot}/purchase-orders/view/${existingSo._id}`}
+                className="text-decoration-underline"
+              >
+                {existingSo.voucher_no} <ExternalLink size={11} />
+              </Link>
+            </div>
+          </div>
+        )}
         <DetailHeader
           avatarText="Q"
           title={q?.voucher_no || "-"}
@@ -734,7 +783,7 @@ const ViewQuotation = () => {
           ratio="8-4"
           left={
             <RelatedDocsTabs
-              canGenerate={isApproved && canGeneratePo}
+              canGenerate={isApproved && canGeneratePo && !existingSo}
               onGenerate={() =>
                 navigate(`${appsRoot}/quotations/generate-so/${id}`)
               }
