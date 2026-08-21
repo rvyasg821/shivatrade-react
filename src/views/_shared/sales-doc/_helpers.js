@@ -28,6 +28,16 @@ export const fmt = (n) =>
     maximumFractionDigits: 2,
   });
 
+// Exchange-rate display — enough decimals (up to 5) that "doc_value × this
+// rate" reproduces the PDF's precise ₹ figure. A plain fmt() rounds to 2dp
+// (e.g. "95.00"), which a manual hand-check multiplies against and lands a
+// few rupees short of the actual (precisely-computed) total.
+export const fmtRate = (n) =>
+  Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 5,
+  });
+
 /**
  * Single source of truth for per-line costing - mirrors the backend
  * recompute() exactly. Used by the line-item modal breakdown, the Step 2

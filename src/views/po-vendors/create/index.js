@@ -39,7 +39,6 @@ import {
 import { getVendor } from "@src/views/vendors/store";
 import { getProductDropdown } from "@src/views/products/store";
 import { getExpenseDropdown } from "@src/views/expenses/store";
-import { getExchangeRateOptions } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
 import ExpenseGrid from "@src/views/_shared/po-vendor/ExpenseGrid";
 import { confirmAndCreateMissingPrices } from "@src/views/_shared/price-list/confirmMissingPrices";
@@ -83,7 +82,6 @@ const CreatePoVendor = () => {
   const expenseStore = useSelector((s) => s.expense);
   const poFromStore = useSelector((s) => s.purchaseOrder?.purchaseOrderItem);
   const companyStore = useSelector((s) => s.company);
-  const currencyStore = useSelector((s) => s.currency);
 
   const [creating, setCreating] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -138,7 +136,6 @@ const CreatePoVendor = () => {
     dispatch(getProductDropdown());
     dispatch(getExpenseDropdown());
     dispatch(getCompanyDetails());
-    dispatch(getExchangeRateOptions());
   }, [dispatch]);
 
   // Pre-fill Remarks from the company's default POV remarks (new POV only).
@@ -183,19 +180,6 @@ const CreatePoVendor = () => {
       })),
     [expenseStore?.expenseDropdown]
   );
-
-  // Home INR (excluded from the exchange-rate options, which list only foreign
-  // targets) + every foreign currency that has a rate configured. Unlike an
-  // export quotation, a POV to a domestic vendor is legitimately in ₹.
-  const currencyOptions = useMemo(() => {
-    const foreign = (currencyStore?.exchangeOptions || [])
-      .filter((c) => c.code !== "INR")
-      .map((c) => ({
-        value: c.code,
-        label: c.name ? `${c.code} - ${c.name}` : c.code,
-      }));
-    return [{ value: "INR", label: "INR (₹)" }, ...foreign];
-  }, [currencyStore?.exchangeOptions]);
 
 
   // product_id → part_no, so linked-mode lines (coverage has no part_no)
@@ -824,18 +808,20 @@ const CreatePoVendor = () => {
                 )}
               </div>
 
-              {/* Currency the SAVED POV renders in (lines stay in ₹). */}
+              {/* Currency the SAVED POV renders in (lines stay in ₹) — follows
+                  the selected vendor's preferred currency (auto-set above),
+                  not independently editable. */}
               <div className="col-md-3">
                 <Label className="form-label">{t("Currency")}</Label>
-                <Select
-                  classNamePrefix="select"
-                  options={currencyOptions}
-                  value={
-                    currencyOptions.find((o) => o.value === currencyCode) || null
-                  }
-                  onChange={(opt) => setCurrencyCode(opt ? opt.value : "INR")}
-                  placeholder={t("Select currency")}
-                />
+                <div
+                  className="form-control bg-light d-flex align-items-center"
+                  style={{ minHeight: 38 }}
+                >
+                  {currencyCode ? `${currencyCode} (${sym})` : "-"}
+                </div>
+                <small className="text-muted">
+                  {t("Follows the selected vendor's currency")}
+                </small>
               </div>
 
               {/* Exchange Rate field removed — a Vendor PO is settled in the
@@ -1070,15 +1056,21 @@ const CreatePoVendor = () => {
                     <th style={{ width: 80 }} className="text-end">
                       {t("Disc")} %
                     </th>
-                    <th style={{ width: 120 }} className="text-end">
-                      {t("Taxable")} ({sym})
-                    </th>
-                    <th style={{ width: 80 }} className="text-end">
-                      {t("GST")} %
-                    </th>
-                    <th style={{ width: 110 }} className="text-end">
-                      {t("GST Amt")} ({sym})
-                    </th>
+                    {gstApplies && (
+                      <th style={{ width: 120 }} className="text-end">
+                        {t("Taxable")} ({sym})
+                      </th>
+                    )}
+                    {gstApplies && (
+                      <Fragment>
+                        <th style={{ width: 80 }} className="text-end">
+                          {t("GST")} %
+                        </th>
+                        <th style={{ width: 110 }} className="text-end">
+                          {t("GST Amt")} ({sym})
+                        </th>
+                      </Fragment>
+                    )}
                     <th style={{ width: 120 }} className="text-end">
                       {t("Total")} ({sym})
                     </th>
@@ -1174,35 +1166,40 @@ const CreatePoVendor = () => {
                           }
                         />
                       </td>
-                      {/* Taxable = Qty × Rate − Disc (auto). */}
-                      <td className="text-end">
-                        {sym}
-                        {dispStr(
-                          num(r.qty) * num(r.unit_price) * discFactor(r.discount)
-                        )}
-                      </td>
-                      <td>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          bsSize="sm"
-                          className="text-end"
-                          disabled={!r.product_id || !gstApplies}
-                          value={gstApplies ? (r.tax_pct ?? "") : 0}
-                          onChange={(e) =>
-                            setRow(r.key, { tax_pct: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="text-end">
-                        {sym}
-                        {dispStr(
-                          gstApplies
-                            ? lineGst(r.qty, r.unit_price, r.tax_pct, r.discount)
-                            : 0
-                        )}
-                      </td>
+                      {/* Taxable = Qty × Rate − Disc (auto). Hidden when GST
+                          doesn't apply — it'd be identical to Total. */}
+                      {gstApplies && (
+                        <td className="text-end">
+                          {sym}
+                          {dispStr(
+                            num(r.qty) * num(r.unit_price) * discFactor(r.discount)
+                          )}
+                        </td>
+                      )}
+                      {gstApplies && (
+                        <Fragment>
+                          <td>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              bsSize="sm"
+                              className="text-end"
+                              disabled={!r.product_id}
+                              value={r.tax_pct ?? ""}
+                              onChange={(e) =>
+                                setRow(r.key, { tax_pct: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="text-end">
+                            {sym}
+                            {dispStr(
+                              lineGst(r.qty, r.unit_price, r.tax_pct, r.discount)
+                            )}
+                          </td>
+                        </Fragment>
+                      )}
                       {/* Total = Taxable + GST (auto, final line amount). */}
                       <td className="text-end fw-bold">
                         {sym}
@@ -1242,18 +1239,24 @@ const CreatePoVendor = () => {
                     <td colSpan={8} className="text-end">
                       {t("Totals")}
                     </td>
+                    {gstApplies && (
+                      <td className="text-end">
+                        {sym}
+                        {dispStr(standaloneTotal)}
+                      </td>
+                    )}
+                    {gstApplies && (
+                      <Fragment>
+                        <td />
+                        <td className="text-end">
+                          {sym}
+                          {dispStr(goodsGst)}
+                        </td>
+                      </Fragment>
+                    )}
                     <td className="text-end">
                       {sym}
-                      {dispStr(standaloneTotal)}
-                    </td>
-                    <td />
-                    <td className="text-end">
-                      {sym}
-                      {dispStr(goodsGst)}
-                    </td>
-                    <td className="text-end">
-                      {sym}
-                      {dispStr(standaloneTotal + goodsGst)}
+                      {dispStr(standaloneTotal + (gstApplies ? goodsGst : 0))}
                     </td>
                     <td />
                   </tr>
@@ -1319,14 +1322,19 @@ const CreatePoVendor = () => {
                 style={{ maxWidth: 360 }}
               >
                 <tbody>
-                  {/* Clean 4-line breakdown: goods (ex-GST) → expenses (ex-GST)
-                      → total GST (goods GST + any charge GST) → grand total. */}
+                  {/* Clean breakdown: goods (ex-GST) → expenses (ex-GST) →
+                      total GST (goods GST + any charge GST) → grand total.
+                      The "(Without GST)" qualifiers and the GST row itself
+                      only make sense when GST applies at all (INR) — a
+                      foreign-currency POV never carries GST, so skip both. */}
                   <tr>
                     <td className="text-end">
                       {t("Goods Total")}{" "}
-                      <small className="text-muted fw-normal">
-                        ({t("Without GST")})
-                      </small>
+                      {gstApplies && (
+                        <small className="text-muted fw-normal">
+                          ({t("Without GST")})
+                        </small>
+                      )}
                     </td>
                     <td className="text-end" style={{ width: 130 }}>
                       {sym}
@@ -1336,31 +1344,35 @@ const CreatePoVendor = () => {
                   <tr>
                     <td className="text-end">
                       {t("Expenses")}{" "}
-                      <small className="text-muted fw-normal">
-                        ({t("Without GST")})
-                      </small>
+                      {gstApplies && (
+                        <small className="text-muted fw-normal">
+                          ({t("Without GST")})
+                        </small>
+                      )}
                     </td>
                     <td className="text-end">
                       {sym}
                       {dispStr(expensesBase)}
                     </td>
                   </tr>
-                  <tr>
-                    <td className="text-end">
-                      {t("GST")}
-                      {chargeGst > 0 && (
-                        <small className="text-muted ms-50 fw-normal">
-                          ({sym}
-                          {dispStr(goodsGst)} + {sym}
-                          {dispStr(chargeGst)})
-                        </small>
-                      )}
-                    </td>
-                    <td className="text-end">
-                      {sym}
-                      {dispStr(totalGst)}
-                    </td>
-                  </tr>
+                  {gstApplies && (
+                    <tr>
+                      <td className="text-end">
+                        {t("GST")}
+                        {chargeGst > 0 && (
+                          <small className="text-muted ms-50 fw-normal">
+                            ({sym}
+                            {dispStr(goodsGst)} + {sym}
+                            {dispStr(chargeGst)})
+                          </small>
+                        )}
+                      </td>
+                      <td className="text-end">
+                        {sym}
+                        {dispStr(totalGst)}
+                      </td>
+                    </tr>
+                  )}
                   <tr className="table-light fw-bold">
                     <td className="text-end">{t("Grand Total")} ({sym})</td>
                     <td className="text-end">

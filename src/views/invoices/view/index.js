@@ -81,6 +81,7 @@ import {
 } from "@constant/options";
 import { getCurrencySymbol } from "@src/utility/currency";
 import CustomerCostingTable from "@src/views/_shared/sales-doc/CustomerCostingTable";
+import { fmtRate } from "@src/views/_shared/sales-doc/_helpers";
 import { formatDate, formatDateTime } from "@src/utility/dateFormat";
 import { PFI_RETIRED } from "@src/configs/appMode";
 
@@ -482,6 +483,27 @@ const ViewInvoice = () => {
   const adjustmentDoc = num(inv?.adjustment_total);
   const balanceDoc = grandDoc - num(inv?.advance_received) - adjustmentDoc;
   const grandInr = exchangeRate > 0 ? grandDoc / exchangeRate : grandDoc;
+
+  // Vendor→document rate — same "1 {doc} = X {vendor}" convention as the
+  // Costing Worksheet's own Vendor Currency box. cost_exchange_rate/
+  // source_currency_code are frozen per line; every line should carry the
+  // same value under the one-vendor-currency-per-document rule (§4), so
+  // prefer the first line that actually reflects a real conversion (a
+  // domestic line's placeholder is 1, not a real cross-currency rate).
+  const vendorLine =
+    lines.find(
+      (l) => num(l?.cost_exchange_rate) > 0 && num(l?.cost_exchange_rate) !== 1
+    ) || lines[0];
+  const vendorCcy = vendorLine?.source_currency_code;
+  const vendorRate = num(vendorLine?.cost_exchange_rate);
+  const showVendorRate =
+    !!vendorCcy &&
+    !!inv?.currency_code &&
+    vendorCcy.toUpperCase() !== inv.currency_code.toUpperCase() &&
+    vendorRate > 0;
+  const vendorRateLabel = showVendorRate
+    ? `1 ${inv.currency_code} = ${fmtRate(1 / vendorRate)} ${vendorCcy}`
+    : null;
 
   // Payment-status pill for the Payments tab summary cards (mirrors the POV
   // Payments tab). Derived from amounts so it reads right even while draft.
@@ -895,9 +917,12 @@ const ViewInvoice = () => {
       // cost_exchange_rate of exactly 1 is a reset PLACEHOLDER elsewhere in
       // the app, not a guaranteed real rate — showing it risked a false
       // "1 USD = 1.00 INR".)
-      value: `1 ${inv.currency_code || ""} = ${
-        exchangeRate > 0 ? fmt(1 / exchangeRate) : "-"
-      } INR`.trim(),
+      value:
+        (inv.currency_code || "INR").toUpperCase() === "INR"
+          ? "1 INR = 1 INR"
+          : `1 ${inv.currency_code || ""} = ${
+              exchangeRate > 0 ? fmtRate(1 / exchangeRate) : "-"
+            } INR`.trim(),
     },
   ].filter(Boolean);
 
@@ -1262,6 +1287,12 @@ const ViewInvoice = () => {
                           <div className="d-flex justify-content-between small text-muted">
                             <span>{t("INR equivalent")}</span>
                             <span>₹{fmt(grandInr)}</span>
+                          </div>
+                        )}
+                        {vendorRateLabel && (
+                          <div className="d-flex justify-content-between small text-muted">
+                            <span>{t("Vendor Rate")}</span>
+                            <span>{vendorRateLabel}</span>
                           </div>
                         )}
                         {Math.abs(roundOffDoc) >= 0.005 && (

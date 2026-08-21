@@ -61,7 +61,7 @@ const ExpenseGrid = ({
             <th style={{ width: 90 }}>{t("HSN")}</th>
             <th style={{ width: 140 }}>{t("Type")}</th>
             <th style={{ width: 90 }}>{t("Value")}</th>
-            <th style={{ width: 90 }}>{t("GST (%)")}</th>
+            {gstApplies && <th style={{ width: 90 }}>{t("GST (%)")}</th>}
             <th style={{ width: 120 }} className="text-end">
               {t("Amount")}
             </th>
@@ -167,23 +167,24 @@ const ExpenseGrid = ({
                     />
                   )}
                 </td>
-                <td>
-                  {readOnly ? (
-                    <span>{gstApplies ? num(r.gst_pct) : 0}%</span>
-                  ) : (
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      bsSize="sm"
-                      disabled={!gstApplies}
-                      value={gstApplies ? r.gst_pct ?? "" : 0}
-                      onChange={(e) =>
-                        onUpdateRow(idx, { gst_pct: e.target.value })
-                      }
-                    />
-                  )}
-                </td>
+                {gstApplies && (
+                  <td>
+                    {readOnly ? (
+                      <span>{num(r.gst_pct)}%</span>
+                    ) : (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        bsSize="sm"
+                        value={r.gst_pct ?? ""}
+                        onChange={(e) =>
+                          onUpdateRow(idx, { gst_pct: e.target.value })
+                        }
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="text-end fw-semibold">
                   {sym} {fmt2(grossAmt * rate)}
                 </td>

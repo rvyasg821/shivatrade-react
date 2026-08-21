@@ -41,7 +41,7 @@ import {
   QUOTATION_STATUS_OPTIONS,
   QUOTATION_STATUS_BADGE_COLOR,
 } from "@constant/options";
-import { fmt, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
+import { fmt, num, computeDocTotals } from "@src/views/_shared/sales-doc/_helpers";
 import SalesDocCostingCard from "@src/views/_shared/sales-doc/SalesDocCostingCard";
 import { formatDate } from "@src/utility/dateFormat";
 import { createPfiFromQuotation } from "@src/views/pfi/store";
@@ -88,7 +88,15 @@ const daysUntil = (iso) => {
 // Right-column costing card. Rendered as a child of the currency provider so
 // `useQuotationCurrency()` resolves the page-level View: USD⇄INR toggle, keeping
 // the breakdown in lock-step with the table + KPI strip.
-const CostingPanelBody = ({ lines, exchangeRate, currencyCode, freightTotal }) => {
+const CostingPanelBody = ({
+  lines,
+  exchangeRate,
+  currencyCode,
+  freightTotal,
+  grandInrOverride,
+  vendorCurrencyCode,
+  vendorRate,
+}) => {
   const totals = useMemo(
     () =>
       computeDocTotals(lines || [], exchangeRate, {
@@ -97,15 +105,24 @@ const CostingPanelBody = ({ lines, exchangeRate, currencyCode, freightTotal }) =
       }),
     [lines, exchangeRate, freightTotal]
   );
+  // grand_inr override — see grandInrPrecise above: keeps this card's INR
+  // line in lock-step with the Invoice/PDF (frozen line_total sum ÷ rate)
+  // instead of the live per-line recompute's cent-level drift.
+  const displayTotals =
+    grandInrOverride != null
+      ? { ...totals, grand_inr: grandInrOverride }
+      : totals;
   // Same layout as the Step-3 review card: full INR breakdown → 1 {ccy} = X INR
   // → round-off on the quote currency → Grand Total ({ccy}). No doc-view toggle.
   return (
     <SalesDocCostingCard
-      totals={totals}
+      totals={displayTotals}
       currencyCode={currencyCode}
       sticky={false}
       hideGst
       bare
+      vendorCurrencyCode={vendorCurrencyCode}
+      vendorRate={vendorRate}
     />
   );
 };
@@ -424,6 +441,18 @@ const ViewQuotation = () => {
 
   const linesCount = (q?.lines || []).length;
 
+  // Vendor→document rate for the Costing Breakdown's "Vendor Rate" line —
+  // cost_exchange_rate is frozen PER LINE, but under the one-vendor-currency-
+  // per-document rule (§4) every line should carry the same value; a
+  // domestic line's placeholder 1 doesn't reflect a real cross-currency rate,
+  // so prefer the first line that actually has one.
+  const vendorRate = useMemo(() => {
+    const withRate = (q?.lines || []).find(
+      (l) => num(l?.cost_exchange_rate) > 0 && num(l?.cost_exchange_rate) !== 1
+    );
+    return num((withRate || q?.lines?.[0])?.cost_exchange_rate);
+  }, [q?.lines]);
+
   // Recompute the grand total from the lines with the SAME helper the costing
   // breakdown card uses, so the header KPI matches it exactly. (Reversing the
   // stored doc-currency grand_total back to INR via /rate amplifies the
@@ -436,6 +465,23 @@ const ViewQuotation = () => {
       }),
     [q?.lines, q?.exchange_rate, q?.freight_total]
   );
+
+  // ≈₹ INR estimate — same approach as the Invoice detail page: sum each
+  // line's FROZEN line_total (not a live per-line recompute) + freight,
+  // then divide by the precise header exchange_rate. `headerTotals.grand_inr`
+  // recomputes from raw (unrounded) per-line math, which can drift a cent
+  // from the persisted line totals shown in the table above — amplified
+  // ~90-95x once divided into INR. This keeps the ₹ figure in lock-step
+  // with the Invoice/PDF instead.
+  const grandDocFrozen = useMemo(
+    () =>
+      (q?.lines || []).reduce((s, l) => s + num(l?.line_total), 0) +
+      num(q?.freight_total),
+    [q?.lines, q?.freight_total]
+  );
+  const exchangeRateQ = num(q?.exchange_rate) || 1;
+  const grandInrPrecise =
+    exchangeRateQ > 0 ? grandDocFrozen / exchangeRateQ : grandDocFrozen;
 
   const kpiItems = [
     {
@@ -455,7 +501,7 @@ const ViewQuotation = () => {
       // the Invoice/SO/POV pages.
       sub:
         showDocEffective && q?.grand_total
-          ? `≈ ₹${fmt(headerTotals.grand_inr)}`
+          ? `≈ ₹${fmt(grandInrPrecise)}`
           : null,
       icon: DollarSign,
       tone: "secondary",
@@ -701,6 +747,9 @@ const ViewQuotation = () => {
                 exchangeRate={q?.exchange_rate}
                 currencyCode={q?.currency_code}
                 freightTotal={q?.freight_total}
+                grandInrOverride={grandInrPrecise}
+                vendorCurrencyCode={q?.vendor_currency_code}
+                vendorRate={vendorRate}
               />
             </DetailPanel>
           }

@@ -13,7 +13,7 @@
 // that native value as-is. exchange_rate (₹ per 1 unit) is frozen per POV only
 // for the INR stock/books valuation.
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
@@ -207,6 +207,15 @@ const PoVendorRecoverModal = ({
   const vcFor = (vid) =>
     vendorCurrencies[vid] || { currency_code: "INR", rate_display: "1" };
   const gstAppliesFor = (vid) => vcFor(vid).currency_code === "INR";
+  // The one-currency-per-batch rule (below, on reassignment) guarantees every
+  // vendor in this table shares ONE currency, so GST applicability is a
+  // single flag for the whole table, not per-row — used to hide the
+  // Taxable/GST%/GST Amt columns entirely on a foreign-currency batch
+  // instead of just zeroing them (same treatment as the standalone POV form).
+  const assignedVendorIds = Array.from(
+    new Set(Object.values(assignment).filter(Boolean))
+  );
+  const batchGstApplies = assignedVendorIds.every((vid) => gstAppliesFor(vid));
   // NATIVE model: prices are already in the vendor's currency, so previews show
   // them AS-IS (no conversion). `inrRateFor` = ₹ per 1 unit (rate_display) and is
   // used ONLY to freeze the POV's exchange_rate for INR stock/books. (Plan §6.3.)
@@ -962,15 +971,19 @@ const PoVendorRecoverModal = ({
                     <th style={{ width: 70 }} className="text-end">
                       {t("Disc")} %
                     </th>
-                    <th style={{ width: 110 }} className="text-end">
-                      {t("Taxable")}
-                    </th>
-                    <th style={{ width: 60 }} className="text-end">
-                      {t("GST")} %
-                    </th>
-                    <th className="text-end" style={{ width: 110 }}>
-                      {t("GST Amt")}
-                    </th>
+                    {batchGstApplies && (
+                      <Fragment>
+                        <th style={{ width: 110 }} className="text-end">
+                          {t("Taxable")}
+                        </th>
+                        <th style={{ width: 60 }} className="text-end">
+                          {t("GST")} %
+                        </th>
+                        <th className="text-end" style={{ width: 110 }}>
+                          {t("GST Amt")}
+                        </th>
+                      </Fragment>
+                    )}
                     <th className="text-end" style={{ width: 120 }}>
                       {t("Total")}
                     </th>
@@ -1203,69 +1216,71 @@ const PoVendorRecoverModal = ({
                             </div>
                           )}
                         </td>
-                        {/* Taxable = To Procure × Rate − Disc (native, auto). */}
-                        <td className="text-end">
-                          {fromStock || noVendor || isDropped || !picked ? (
-                            <span className="text-muted">-</span>
-                          ) : (
-                            <span>
-                              {lineSym}
-                              {fmt(
-                                num(l.to_procure) *
-                                  rate *
-                                  discFactorFor(l) *
-                                  lineRate
+                        {batchGstApplies && (
+                          <Fragment>
+                            {/* Taxable = To Procure × Rate − Disc (native, auto). */}
+                            <td className="text-end">
+                              {fromStock || noVendor || isDropped || !picked ? (
+                                <span className="text-muted">-</span>
+                              ) : (
+                                <span>
+                                  {lineSym}
+                                  {fmt(
+                                    num(l.to_procure) *
+                                      rate *
+                                      discFactorFor(l) *
+                                      lineRate
+                                  )}
+                                </span>
                               )}
-                            </span>
-                          )}
-                        </td>
-                        <td className="text-end" style={{ minWidth: 90 }}>
-                          {fromStock || noVendor || isDropped ? (
-                            <span className="text-muted">
-                              {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
-                            </span>
-                          ) : (
-                            <div className="d-flex align-items-center justify-content-end">
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                bsSize="sm"
-                                className="text-end"
-                                style={{ width: 66 }}
-                                value={lineGstApplies ? (l.tax_pct ?? "") : 0}
-                                disabled={!lineGstApplies}
-                                onChange={(e) =>
-                                  handleTaxChange(
-                                    l.purchase_order_line_id,
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-                        </td>
-                        {/* Live GST for this line — (to_procure × rate) × GST%.
-                            A stock-covered or dropped line buys nothing, so it
-                            carries no GST. */}
-                        <td className="text-end">
-                          {fromStock || noVendor || isDropped ? (
-                            <span className="text-muted">-</span>
-                          ) : (
-                            <span>
-                              {lineSym}
-                              {fmt(
-                                (lineGstApplies
-                                  ? (num(l.to_procure) *
+                            </td>
+                            <td className="text-end" style={{ minWidth: 90 }}>
+                              {fromStock || noVendor || isDropped ? (
+                                <span className="text-muted">
+                                  {num(l.tax_pct) > 0 ? `${l.tax_pct}%` : "-"}
+                                </span>
+                              ) : (
+                                <div className="d-flex align-items-center justify-content-end">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    bsSize="sm"
+                                    className="text-end"
+                                    style={{ width: 66 }}
+                                    value={l.tax_pct ?? ""}
+                                    onChange={(e) =>
+                                      handleTaxChange(
+                                        l.purchase_order_line_id,
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </td>
+                            {/* Live GST for this line — (to_procure × rate) × GST%.
+                                A stock-covered or dropped line buys nothing, so it
+                                carries no GST. */}
+                            <td className="text-end">
+                              {fromStock || noVendor || isDropped ? (
+                                <span className="text-muted">-</span>
+                              ) : (
+                                <span>
+                                  {lineSym}
+                                  {fmt(
+                                    ((num(l.to_procure) *
                                       rate *
                                       discFactorFor(l) *
                                       num(l.tax_pct)) /
-                                      100
-                                  : 0) * lineRate
+                                      100) *
+                                      lineRate
+                                  )}
+                                </span>
                               )}
-                            </span>
-                          )}
-                        </td>
+                            </td>
+                          </Fragment>
+                        )}
                         {/* Total = Taxable + GST (native, final line amount). */}
                         <td className="text-end fw-bold">
                           {fromStock || noVendor || isDropped || !picked ? (
@@ -1474,10 +1489,6 @@ const PoVendorRecoverModal = ({
                         <div className="text-uppercase text-muted fw-semibold mb-1" style={{ fontSize: 11, letterSpacing: 0.4 }}>
                           {t("Delivery & Terms")}
                         </div>
-                        {/* Currency + Exchange Rate fields removed — a POV is
-                            native to the vendor's OWN currency (auto-resolved,
-                            shown in the ₹/$ symbols above) and inventory values
-                            stock per-currency, so no rate is needed here. */}
                         {/* Deliver-to location (ShivaTrade's receiving
                             location). Required — auto-filled to the default;
                             sets the POV's delivery_address_id → stock ledger. */}
