@@ -13,6 +13,11 @@ const STORAGE_KEY = "selectedCreator"
 // their own records by the backend regardless of what the UI sends.
 const DROPDOWN_ROLES = ["Company Admin", "Location Admin"]
 
+// Client-wide kill switch, mirrors the backend's CREATOR_SCOPE_ENABLED. When
+// off, the backend ignores created_by scoping entirely, so the picker is
+// pointless — hide it instead of showing a control with no effect.
+const CREATOR_SCOPE_ENABLED = process.env.REACT_APP_CREATOR_SCOPE_ENABLED !== "false"
+
 function getSavedCreator() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -32,7 +37,7 @@ export const initCreatorContext = createAsyncThunk(
       const user = userArg || auth?.authUserItem
       const roleName = user?.role?.name
 
-      if (!DROPDOWN_ROLES.includes(roleName)) {
+      if (!CREATOR_SCOPE_ENABLED || !DROPDOWN_ROLES.includes(roleName)) {
         return empty
       }
 
