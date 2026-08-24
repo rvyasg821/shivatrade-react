@@ -1567,6 +1567,10 @@ const InvoiceAddEdit = () => {
         product_id: row.product_id,
         product_name: row.product_name || "",
         product_code: row.product_code || "",
+        // PO is multi-vendor at line level — carry the SO line's own vendor
+        // forward (was missing → the invoice line showed "Pick vendor").
+        vendor_id: row.vendor_id || "",
+        vendor_name: row.vendor_name || "",
         part_no: row.part_no || "",
         description: row.product_name || "",
         hsn_code: row.hsn_code || "",
