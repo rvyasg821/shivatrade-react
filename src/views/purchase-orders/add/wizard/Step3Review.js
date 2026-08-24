@@ -32,6 +32,7 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
   const { control } = useFormContext();
   const lines = useWatch({ control, name: "lines" }) || [];
   const currencyCode = useWatch({ control, name: "currency_code" }) || "INR";
+  const vendorCurrencyCode = useWatch({ control, name: "vendor_currency_code" });
   const exchangeRate = useWatch({ control, name: "exchange_rate" });
   const rate = Number(exchangeRate) || 1;
   const freightTotal = useWatch({ control, name: "freight_total" });
@@ -256,7 +257,12 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
       </Col>
 
       <Col md="4">
-        <SalesDocCostingCard totals={totals} currencyCode={currencyCode} hideGst />
+        <SalesDocCostingCard
+          totals={totals}
+          currencyCode={currencyCode}
+          vendorCurrencyCode={vendorCurrencyCode}
+          hideGst
+        />
       </Col>
     </Row>
   );

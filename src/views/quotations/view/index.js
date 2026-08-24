@@ -513,6 +513,14 @@ const ViewQuotation = () => {
   const grandInrPrecise =
     exchangeRateQ > 0 ? grandDocFrozen / exchangeRateQ : grandDocFrozen;
 
+  // Neither side ever touches INR (e.g. a EUR customer against a USD
+  // vendor) — the INR equivalent is meaningless here, so hide it. Still
+  // shown whenever either the doc or vendor currency IS INR.
+  const vendorIsForeign =
+    !!q?.vendor_currency_code &&
+    q.vendor_currency_code.toUpperCase() !== "INR";
+  const showInr = !(activeSym !== "₹" && vendorIsForeign);
+
   const kpiItems = [
     {
       key: "total",
@@ -530,7 +538,7 @@ const ViewQuotation = () => {
       // out — show it as a second line so both are visible at once, same as
       // the Invoice/SO/POV pages.
       sub:
-        showDocEffective && q?.grand_total
+        showDocEffective && q?.grand_total && showInr
           ? `≈ ₹${fmt(grandInrPrecise)}`
           : null,
       icon: DollarSign,

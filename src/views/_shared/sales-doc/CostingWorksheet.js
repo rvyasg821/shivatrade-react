@@ -513,15 +513,44 @@ const CostingWorksheet = ({
 
   // Freeze each line's cost_exchange_rate = source→document = 1 / (the
   // doc→source display rate). 1 when the vendor currency == the document
-  // currency, or no rate is available yet. Tolerance compare (not string) so
-  // the reciprocal round-trip doesn't churn setValue in a loop.
+  // currency; unchanged when no rate is available YET (waiting on the seed/
+  // fetch effects above, not a genuine "no rate" case).
+  //
+  // Two guards, both needed:
+  //  1. `sourceRates[sc]` can still be `undefined` on the very first commit —
+  //     the seed effect above hasn't flushed its `setSourceRates` yet, so
+  //     without this guard this effect ran first and force-reset the line's
+  //     real saved rate to the "1" placeholder before the seed ever landed.
+  //     That corrupted `cost_exchange_rate` was then "frozen" again on the
+  //     next pass, permanently losing precision. Wait for the box to
+  //     actually resolve (seeded OR fetched) before touching the line.
+  //  2. Once resolved, skip the write when the box shows exactly what THIS
+  //     line's own already-precise stored rate would display as (i.e.
+  //     nothing the user actually changed) — comparing the display STRING,
+  //     not a tolerance on the numeric reciprocal. A precise saved rate
+  //     (0.007800) re-derived from its own 2dp-rounded display (1/0.0078 =
+  //     128.21 → 1/128.21 = 0.0077997) is a real ₹0.03-0.04/line loss.
   useEffect(() => {
     liveLines.forEach((l, idx) => {
       if (!l?.vendor_id) return; // vendorless row has no cost to convert
       const sc = (l?.source_currency_code || "INR").toUpperCase();
-      const disp = sc === docCur ? 0 : num(sourceRates[sc]?.rate);
-      const want = sc === docCur || !(disp > 0) ? "1" : String(1 / disp);
-      if (Math.abs(num(l?.cost_exchange_rate) - num(want)) > 1e-9) {
+      const currentCer = num(l?.cost_exchange_rate);
+      if (sc === docCur) {
+        if (Math.abs(currentCer - 1) > 1e-9) {
+          setValue(`lines.${idx}.cost_exchange_rate`, "1", {
+            shouldDirty: false,
+          });
+        }
+        return;
+      }
+      const seeded = sourceRates[sc];
+      if (!seeded) return; // not hydrated yet — don't stomp the line
+      const disp = num(seeded.rate);
+      const want = disp > 0 ? String(1 / disp) : "1";
+      const displayOfCurrent =
+        currentCer > 0 ? cleanDisplayRate(1 / currentCer) : "1";
+      if (String(seeded.rate ?? "") === displayOfCurrent) return;
+      if (Math.abs(currentCer - num(want)) > 1e-9) {
         setValue(`lines.${idx}.cost_exchange_rate`, want, {
           shouldDirty: false,
         });
