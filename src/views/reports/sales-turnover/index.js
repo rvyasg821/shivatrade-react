@@ -64,16 +64,6 @@ const StatTile = ({ label, value, hint }) => (
   </Col>
 );
 
-// Negative Outstanding = the customer overpaid (advance / rounding) — legitimate.
-const Outstanding = ({ value, symbol }) => {
-  const nsign = Number(value || 0) < 0;
-  return (
-    <span className={nsign ? "text-danger fw-semibold" : "fw-semibold"}>
-      {money(value, symbol)}
-    </span>
-  );
-};
-
 // One currency's table: rows + a TOTAL foot. Same markup for month/customer —
 // only the first column header changes. By-Month is naturally short (~12
 // rows/year) but By-Customer is one row per customer with activity —
@@ -106,14 +96,12 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
               <th style={{ minWidth: 140 }}>{firstColLabel}</th>
               <th className="text-end">{t("Invoices")}</th>
               <th className="text-end">{t("Sales Value")}</th>
-              <th className="text-end">{t("Received")}</th>
-              <th className="text-end">{t("Outstanding")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center text-muted py-2">
+                <td colSpan={3} className="text-center text-muted py-2">
                   {t("There are no records to display")}
                 </td>
               </tr>
@@ -124,10 +112,6 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
                   <td className="text-end">{r.invoice_count}</td>
                   <td className="text-end fw-bold">
                     {money(r.sales_value, sym)}
-                  </td>
-                  <td className="text-end">{money(r.received, sym)}</td>
-                  <td className="text-end">
-                    <Outstanding value={r.outstanding} symbol={sym} />
                   </td>
                 </tr>
               ))
@@ -142,10 +126,6 @@ const CurrencySection = ({ group, firstColLabel, loading }) => {
                 </td>
                 <td className="text-end">{totals.invoice_count ?? 0}</td>
                 <td className="text-end">{money(totals.sales_value, sym)}</td>
-                <td className="text-end">{money(totals.received, sym)}</td>
-                <td className="text-end">
-                  <Outstanding value={totals.outstanding} symbol={sym} />
-                </td>
               </tr>
             </tfoot>
           ) : null}
