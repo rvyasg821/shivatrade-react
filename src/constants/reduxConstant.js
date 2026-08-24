@@ -625,6 +625,7 @@ const initPurchaseOrderItem = {
   // received into. (Wizard: register()-ed fields MUST live in defaultValues.)
   advance_amount: "",
   advance_date: "",
+  advance_exchange_rate: "1",
   advance_notes: "",
   advance_bank_account_id: "",
   delivery_address: "",

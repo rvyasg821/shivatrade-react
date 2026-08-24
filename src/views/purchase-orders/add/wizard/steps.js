@@ -41,6 +41,7 @@ export const STEPS = [
       "remarks",
       "advance_amount",
       "advance_date",
+      "advance_exchange_rate",
       "advance_notes",
       "advance_bank_account_id",
     ],
