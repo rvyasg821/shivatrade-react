@@ -176,6 +176,14 @@ const ViewPurchaseOrder = () => {
   const grandInrPrecise =
     exchangeRatePo > 0 ? grandDocFrozen / exchangeRatePo : grandDocFrozen;
 
+  // Neither side ever touches INR (e.g. a EUR customer against a USD
+  // vendor) — the INR equivalent is meaningless here, so hide it. Still
+  // shown whenever either the doc or vendor currency IS INR.
+  const vendorIsForeign =
+    !!p?.vendor_currency_code &&
+    p.vendor_currency_code.toUpperCase() !== "INR";
+  const showInr = !(sym !== "₹" && vendorIsForeign);
+
   const kpiItems = [
     {
       key: "total",
@@ -192,7 +200,7 @@ const ViewPurchaseOrder = () => {
       // Quotation detail page already uses correctly. Domestic (₹) orders
       // need no second line.
       sub:
-        sym !== "₹" && p?.grand_total !== undefined
+        sym !== "₹" && p?.grand_total !== undefined && showInr
           ? `≈ ₹${fmt(grandInrPrecise)}`
           : null,
       icon: DollarSign,

@@ -237,7 +237,7 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" block className="btn-custom">
+              <Button type="submit" block className="btn-custom" disabled={authStore?.loading === false}>
                 {authStore?.loading ? (
                   t("Login")
                 ) : (

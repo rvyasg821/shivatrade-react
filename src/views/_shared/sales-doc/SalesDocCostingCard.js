@@ -78,19 +78,25 @@ const SalesDocCostingCard = ({
     ? `${currencySym}1 = ₹${fmtRate(1 / num(totals.rate))}`
     : null;
 
-  // "1 {doc} = X {vendor}" — vendor→customer rate, CODES not signs (matches
-  // the Costing Worksheet's own "Vendor Currency" box exactly, since that's
-  // where an operator sets this rate and expects to recognize it here).
-  // Hidden when there's nothing to convert (no vendor currency, or it
-  // matches the document currency).
+  // "1 {doc} = X {vendor}" — vendor→customer rate, currency SIGNS to match
+  // every other rate/amount on this card. Hidden when there's nothing to
+  // convert (no vendor currency, or it matches the document currency).
   const showVendorRate =
     !!vendorCurrencyCode &&
     !!currencyCode &&
     vendorCurrencyCode.toUpperCase() !== currencyCode.toUpperCase() &&
     num(vendorRate) > 0;
   const vendorRateLabel = showVendorRate
-    ? `1 ${currencyCode} = ${fmtRate(1 / num(vendorRate))} ${vendorCurrencyCode}`
+    ? `${currencySym}1 = ${getCurrencySymbol(vendorCurrencyCode) || vendorCurrencyCode}${fmtRate(1 / num(vendorRate))}`
     : null;
+
+  // Neither side ever touches INR (e.g. a EUR customer billed against a USD
+  // vendor) — the INR conversion is meaningless to the operator here, so hide
+  // the doc→INR Exchange Rate / ≈₹ / "In INR" rows entirely. Still shown
+  // whenever either the document or the vendor currency IS INR.
+  const vendorIsForeign =
+    !!vendorCurrencyCode && vendorCurrencyCode.toUpperCase() !== "INR";
+  const showInr = !(isForeign && vendorIsForeign);
 
   const Wrapper = bare ? Fragment : Card;
   const Inner = bare ? Fragment : CardBody;
@@ -249,13 +255,15 @@ const SalesDocCostingCard = ({
                 {fmt(totals.grand_currency)}
               </span>
             </div>
-            <div className="d-flex justify-content-between mt-1 text-muted">
-              <small>
-                {t("In INR")}
-                {rateLabel && viewSym !== "₹" ? ` (${rateLabel})` : ""}
-              </small>
-              <small>₹ {fmt(totals.grand_inr)}</small>
-            </div>
+            {showInr && (
+              <div className="d-flex justify-content-between mt-1 text-muted">
+                <small>
+                  {t("In INR")}
+                  {rateLabel && viewSym !== "₹" ? ` (${rateLabel})` : ""}
+                </small>
+                <small>₹ {fmt(totals.grand_inr)}</small>
+              </div>
+            )}
             {vendorRateLabel && (
               <div className="d-flex justify-content-between mt-1 text-muted">
                 <small>{t("Vendor Rate")}</small>
@@ -288,7 +296,7 @@ const SalesDocCostingCard = ({
                 {fmt(totals.grand_currency)}
               </span>
             </div>
-            {rateLabel && (
+            {rateLabel && showInr && (
               <div className="d-flex justify-content-between mt-1 text-muted">
                 <small>
                   {t("Exchange Rate")} ({rateLabel})

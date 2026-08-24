@@ -502,8 +502,16 @@ const ViewInvoice = () => {
     vendorCcy.toUpperCase() !== inv.currency_code.toUpperCase() &&
     vendorRate > 0;
   const vendorRateLabel = showVendorRate
-    ? `1 ${inv.currency_code} = ${fmtRate(1 / vendorRate)} ${vendorCcy}`
+    ? `${sym}1 = ${getCurrencySymbol(vendorCcy) || vendorCcy}${fmtRate(1 / vendorRate)}`
     : null;
+
+  // Neither side ever touches INR (e.g. a EUR customer billed against a USD
+  // vendor) — the INR equivalent / doc→INR Exchange Rate line is meaningless
+  // here, so hide it. Still shown whenever either the doc or vendor currency
+  // IS INR.
+  const vendorIsForeign =
+    !!vendorCcy && vendorCcy.toUpperCase() !== "INR";
+  const showInr = !(sym !== "₹" && vendorIsForeign);
 
   // Payment-status pill for the Payments tab summary cards (mirrors the POV
   // Payments tab). Derived from amounts so it reads right even while draft.
@@ -828,7 +836,7 @@ const ViewInvoice = () => {
       icon: DollarSign,
       tone: "secondary",
       sub:
-        grandDoc > 0 && sym !== "₹" ? `≈ ₹${fmt(grandInr)}` : null,
+        grandDoc > 0 && sym !== "₹" && showInr ? `≈ ₹${fmt(grandInr)}` : null,
     },
     {
       key: "balance",
@@ -905,7 +913,7 @@ const ViewInvoice = () => {
       label: t("GST Route"),
       value: (inv.gst_route || "").replace("_", " "),
     },
-    inv?.exchange_rate && {
+    inv?.exchange_rate && showInr && {
       icon: Percent,
       label: t("Exchange Rate"),
       // Client-facing direction, same convention as the Costing Worksheet's
@@ -1283,7 +1291,7 @@ const ViewInvoice = () => {
                     </Col>
                     <Col md="6">
                       <div className="border-top border-bottom py-1 mb-1">
-                        {sym && sym !== "₹" && (
+                        {sym && sym !== "₹" && showInr && (
                           <div className="d-flex justify-content-between small text-muted">
                             <span>{t("INR equivalent")}</span>
                             <span>₹{fmt(grandInr)}</span>

@@ -1,7 +1,7 @@
 // ── Step 4: Review & Save ────────────────────────────────────────────
 // Read-only summary + Status select + final notes (client + internal).
 
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Row, Col, Label, Input, FormFeedback } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
@@ -23,6 +23,7 @@ const Step4Review = ({
     control,
     formState: { errors },
   } = useFormContext();
+  const vendorCurrencyCode = useWatch({ control, name: "vendor_currency_code" });
 
   return (
     <Row>
@@ -112,6 +113,7 @@ const Step4Review = ({
         <SalesDocCostingCard
           totals={totals}
           currencyCode={selectedCurrencyCode}
+          vendorCurrencyCode={vendorCurrencyCode}
           hideGst
           sticky
         />
