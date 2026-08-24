@@ -29,7 +29,8 @@ import {
   OffcanvasBody,
 } from "reactstrap";
 import Select from "react-select";
-import { Download, Eye } from "react-feather";
+import { Link } from "react-router-dom";
+import { Download, ExternalLink } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import DateInput from "@components/date-input";
@@ -37,7 +38,7 @@ import EntitySearchSelect from "@components/entity-select";
 import Notification from "@components/toast/notification";
 import { getCurrencySymbol } from "@src/utility/currency";
 import instance from "@src/utility/AxiosConfig";
-import { defaultPerPageRow } from "@constant/defaultValues";
+import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { Pager, pageSlice, PAGE_SIZES } from "@src/views/reports/_shared/DrawerPager";
 import {
   useServerPagination,
@@ -122,6 +123,11 @@ const DocStatusReport = ({ config }) => {
     // When true the drill-down shows GST + GST-inclusive Total columns (the
     // coverage doc carries GST, e.g. GRNs under a POV) instead of Amount (₹).
     showCoverGst,
+    // Outbound-link route prefixes (under appsRoot) for the order document
+    // itself and for each coverage document — e.g. "/purchase-orders/view" /
+    // "/invoices/view". Omit either to skip that link (renders plain text).
+    docViewPath,
+    coverViewPath,
   } = config;
 
   const [dateFrom, setDateFrom] = useState("");
@@ -144,6 +150,11 @@ const DocStatusReport = ({ config }) => {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerPage, setDrawerPage] = useState(0);
   const [drawerSize, setDrawerSize] = useState(PAGE_SIZES[1]);
+  // Per-line ordered/covered/pending — EVERY order line, not just ones a
+  // coverage document touched (so an un-invoiced/un-received line still shows
+  // up as fully pending instead of being invisible).
+  const [lineRows, setLineRows] = useState([]);
+  const [lineLoading, setLineLoading] = useState(false);
 
   const baseParams = useCallback(
     () => ({
@@ -243,6 +254,8 @@ const DocStatusReport = ({ config }) => {
     setDrawerRows([]);
     setDrawerPage(0);
     setDrawerLoading(true);
+    setLineRows([]);
+    setLineLoading(!!endpoints.lineBreakdown);
     try {
       const resp = await instance.get(endpoints.breakdown, {
         params: {
@@ -256,6 +269,21 @@ const DocStatusReport = ({ config }) => {
       setDrawerRows([]);
     } finally {
       setDrawerLoading(false);
+    }
+    if (endpoints.lineBreakdown) {
+      try {
+        const resp = await instance.get(endpoints.lineBreakdown, {
+          params: {
+            [breakdownIdParam]: row.doc_id,
+            [coverageParam]: coverageFilter?.value,
+          },
+        });
+        setLineRows(resp?.data?.data || []);
+      } catch (e) {
+        setLineRows([]);
+      } finally {
+        setLineLoading(false);
+      }
     }
   };
   const closeDrawer = () => setDrawerDoc(null);
@@ -390,7 +418,7 @@ const DocStatusReport = ({ config }) => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table className="align-middle mb-0">
+                      <Table size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t(docNoLabel)}</th>
@@ -404,7 +432,6 @@ const DocStatusReport = ({ config }) => {
                             <th className="text-end text-nowrap">{t("Covered (₹)")}</th>
                             <th className="text-end text-nowrap">{t("Pending (₹)")}</th>
                             <th className="text-end text-nowrap">{t("Coverage")}</th>
-                            <th className="text-center text-nowrap">{t(coverLabel)}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -413,12 +440,22 @@ const DocStatusReport = ({ config }) => {
                             return (
                               <tr key={r.doc_id}>
                                 <td className="fw-semibold text-nowrap">
-                                  {r.doc_no || <Dash />}
+                                  {r.doc_no ? (
+                                    <span
+                                      role="button"
+                                      className="text-primary cursor-pointer"
+                                      onClick={() => openDrawer(r)}
+                                    >
+                                      {r.doc_no}
+                                    </span>
+                                  ) : (
+                                    <Dash />
+                                  )}
                                 </td>
                                 <td className="text-nowrap">
                                   {fmtDate(r.doc_date) || <Dash />}
                                 </td>
-                                <td style={{ minWidth: 180 }}>
+                                <td style={{ minWidth: 140 }}>
                                   {r.party_name || <Dash />}
                                   {r.currency_code && r.currency_code !== "INR" ? (
                                     <div className="small text-muted">
@@ -448,23 +485,6 @@ const DocStatusReport = ({ config }) => {
                                 <td className="text-end text-nowrap">
                                   {Number(r.coverage_pct || 0).toFixed(0)}%
                                 </td>
-                                <td className="text-center text-nowrap">
-                                  <Button
-                                    color="flat-primary"
-                                    size="sm"
-                                    className="p-25"
-                                    disabled={!r.cover_count}
-                                    title={
-                                      r.cover_count
-                                        ? t("View linked documents")
-                                        : t("None yet")
-                                    }
-                                    onClick={() => openDrawer(r)}
-                                  >
-                                    <Eye size={15} className="me-25" />
-                                    {r.cover_count || 0}
-                                  </Button>
-                                </td>
                               </tr>
                             );
                           })}
@@ -478,7 +498,6 @@ const DocStatusReport = ({ config }) => {
                             <td className="text-end">{`₹ ${grp(totals.ordered_value_inr)}`}</td>
                             <td className="text-end">{`₹ ${grp(totals.covered_value_inr)}`}</td>
                             <td className="text-end">{`₹ ${grp(totals.pending_value_inr)}`}</td>
-                            <td />
                             <td />
                           </tr>
                         </tfoot>
@@ -509,7 +528,20 @@ const DocStatusReport = ({ config }) => {
         style={{ width: "min(1040px, 96vw)" }}
       >
         <OffcanvasHeader toggle={closeDrawer}>
-          {t(coverLabel)} — {drawerDoc?.doc_no || ""}
+          {t(coverLabel)} —{" "}
+          {docViewPath && drawerDoc?.doc_id ? (
+            <Link
+              to={`${appsRoot}${docViewPath}/${drawerDoc.doc_id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="d-inline-flex align-items-center"
+            >
+              {drawerDoc?.doc_no || ""}
+              <ExternalLink size={12} className="ms-50" />
+            </Link>
+          ) : (
+            drawerDoc?.doc_no || ""
+          )}
         </OffcanvasHeader>
         <OffcanvasBody>
           {drawerDoc ? (
@@ -520,6 +552,80 @@ const DocStatusReport = ({ config }) => {
               {qty(drawerDoc.pending_qty)}
             </div>
           ) : null}
+
+          {/* Per-line detail: EVERY order line's own ordered/covered/pending
+              qty, including lines nothing has covered yet — the coverage-doc
+              list below only shows lines a document actually touched. */}
+          {endpoints.lineBreakdown && (
+            <div className="mb-2">
+              <h6 className="text-uppercase text-muted small mb-1">
+                {t("Line Items")}
+              </h6>
+              {lineLoading ? (
+                <div className="text-center py-2">
+                  <Spinner size="sm" /> {t("Loading…")}
+                </div>
+              ) : !lineRows.length ? (
+                <div className="text-center text-muted small py-1">
+                  {t("No line items.")}
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ overflowX: "auto" }}>
+                  <Table bordered size="sm" className="align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th className="text-nowrap">{t("Product")}</th>
+                        <th className="text-nowrap">{t("Status")}</th>
+                        <th className="text-end text-nowrap">{t("Ordered Qty")}</th>
+                        <th className="text-end text-nowrap">{t("Covered Qty")}</th>
+                        <th className="text-end text-nowrap">{t("Pending Qty")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lineRows.map((l) => {
+                        const meta = STATUS_META[l.status] || STATUS_META.open;
+                        return (
+                          <tr key={l.line_id}>
+                            <td style={{ minWidth: 180 }}>
+                              <div className="fw-semibold text-wrap">
+                                {l.product_name || <Dash />}
+                              </div>
+                              {l.product_code || l.hsn_code ? (
+                                <div className="small text-muted">
+                                  {l.product_code || ""}
+                                  {l.product_code && l.hsn_code ? " · " : ""}
+                                  {l.hsn_code ? `HSN ${l.hsn_code}` : ""}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="text-nowrap">
+                              <span className={`doc-badge ${meta.cls}`}>
+                                {t(meta.label)}
+                              </span>
+                            </td>
+                            <td className="text-end">{qty(l.ordered_qty)}</td>
+                            <td className="text-end">{qty(l.covered_qty)}</td>
+                            <td className="text-end">
+                              {Number(l.pending_qty) > 0 ? (
+                                <span className="text-warning fw-semibold">
+                                  {qty(l.pending_qty)}
+                                </span>
+                              ) : (
+                                qty(l.pending_qty)
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+              )}
+              <h6 className="text-uppercase text-muted small mb-1 mt-2">
+                {t(coverLabel)}
+              </h6>
+            </div>
+          )}
 
           {drawerLoading ? (
             <div className="text-center py-3">
@@ -541,13 +647,11 @@ const DocStatusReport = ({ config }) => {
                       <th className="text-end text-nowrap">{t("Qty")}</th>
                       <th className="text-end text-nowrap">{t("Rate")}</th>
                       <th className="text-end text-nowrap">{t("Amount")}</th>
-                      {showCoverGst ? (
+                      {showCoverGst && (
                         <Fragment>
                           <th className="text-end text-nowrap">{t("GST")}</th>
                           <th className="text-end text-nowrap">{t("Total")}</th>
                         </Fragment>
-                      ) : (
-                        <th className="text-end text-nowrap">{t("Amount (₹)")}</th>
                       )}
                     </tr>
                   </thead>
@@ -564,7 +668,21 @@ const DocStatusReport = ({ config }) => {
                       return (
                         <tr key={`${r.cover_id}-${r.product_code || ""}-${i}`}>
                           <td className="text-nowrap">
-                            <div className="fw-semibold">{r.cover_no}</div>
+                            <div className="fw-semibold">
+                              {coverViewPath && r.cover_id ? (
+                                <Link
+                                  to={`${appsRoot}${coverViewPath}/${r.cover_id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="d-inline-flex align-items-center"
+                                >
+                                  {r.cover_no}
+                                  <ExternalLink size={10} className="ms-50" />
+                                </Link>
+                              ) : (
+                                r.cover_no
+                              )}
+                            </div>
                             {badge ? (
                               <span className={`doc-badge ${badge.cls}`}>
                                 {t(badge.label)}
@@ -593,7 +711,7 @@ const DocStatusReport = ({ config }) => {
                           <td className="text-end text-nowrap">
                             {money(r.cover_amount, sym)}
                           </td>
-                          {showCoverGst ? (
+                          {showCoverGst && (
                             <Fragment>
                               <td className="text-end text-nowrap">
                                 {money(r.cover_gst, sym)}
@@ -602,8 +720,6 @@ const DocStatusReport = ({ config }) => {
                                 {money(r.cover_total, sym)}
                               </td>
                             </Fragment>
-                          ) : (
-                            <td className="text-end text-nowrap">{`₹ ${grp(r.cover_amount_inr)}`}</td>
                           )}
                         </tr>
                       );

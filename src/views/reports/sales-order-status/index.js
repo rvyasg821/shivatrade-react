@@ -11,8 +11,12 @@ const CONFIG = {
   endpoints: {
     list: API_ENDPOINTS.reports.salesOrderStatus,
     breakdown: API_ENDPOINTS.reports.salesOrderStatusBreakdown,
+    lineBreakdown: API_ENDPOINTS.reports.salesOrderStatusLineBreakdown,
     export: API_ENDPOINTS.reports.salesOrderStatusExport,
   },
+  // Outbound links from the drawer to each document's own detail page.
+  docViewPath: "/purchase-orders/view",
+  coverViewPath: "/invoices/view",
   exportFilename: "sales-order-status.xlsx",
   partyKind: "customer",
   partyLabel: "Customer",

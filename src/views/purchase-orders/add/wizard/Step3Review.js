@@ -4,7 +4,7 @@
 // the breakdown. The Notes + Status form sits on the left.
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { Row, Col, Label, Input } from "reactstrap";
 import Select from "react-select";
@@ -41,6 +41,28 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
     freightTotal,
   });
   const currentStatus = useWatch({ control, name: "status" }) || "draft";
+  const advanceExchangeRateField = useWatch({
+    control,
+    name: "advance_exchange_rate",
+  });
+
+  // Receipt-time rate, entered human-readable as "1 {CUR} = ₹___"
+  // (₹-per-foreign) — same field/convention as the Invoice Record Payment
+  // form. Seeds ONCE from the loaded/stored advance_exchange_rate (edit) or
+  // this order's own header rate (new SO — same-rate default, 0 forex
+  // gain/loss once an invoice seeds from it), then the operator can edit it;
+  // kept converted back to foreign-per-₹1 live in RHF state via
+  // field.onChange below (no separate submit-time conversion needed).
+  const [advRateInr, setAdvRateInr] = useState("");
+  const advRateSeeded = useRef(false);
+  useEffect(() => {
+    if (advRateSeeded.current) return;
+    const stored = Number(advanceExchangeRateField);
+    const base = stored > 0 && stored !== 1 ? stored : rate;
+    const rateInr = base > 0 ? 1 / base : 1;
+    setAdvRateInr(Number(rateInr.toFixed(2)).toString());
+    advRateSeeded.current = true;
+  }, [advanceExchangeRateField, rate]);
 
   // "Received in bank" options — active company bank accounts, preferring those
   // in the order currency (else all). Feeds the advance section below.
@@ -176,6 +198,37 @@ const Step3Review = ({ isLocked, productOptions = [] }) => {
               )}
             />
           </Col>
+          {currencyCode && currencyCode.toUpperCase() !== "INR" && (
+            <Col md="3" className="mb-2">
+              <Label className="form-label">
+                {t("Exchange rate at receipt")}
+              </Label>
+              <Controller
+                name="advance_exchange_rate"
+                control={control}
+                render={({ field }) => (
+                  <div className="d-flex align-items-center">
+                    <span className="me-1 text-nowrap">
+                      1 {currencyCode} = ₹
+                    </span>
+                    <Input
+                      type="number"
+                      step="any"
+                      min="0"
+                      disabled={isLocked}
+                      value={advRateInr}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAdvRateInr(v);
+                        const n = Number(v);
+                        field.onChange(n > 0 ? String(1 / n) : "");
+                      }}
+                    />
+                  </div>
+                )}
+              />
+            </Col>
+          )}
           <Col md="3" className="mb-2">
             <Label className="form-label">{t("Received in Bank")}</Label>
             <Controller

@@ -49,6 +49,12 @@ const GenerateSalesOrder = () => {
   const [referenceNo, setReferenceNo] = useState("");
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceDate, setAdvanceDate] = useState("");
+  // Receipt-time rate, entered human-readable as "1 {CUR} = ₹ ___"
+  // (₹-per-foreign) — same field/convention as the Invoice Record Payment
+  // form. Converted to the SO's foreign-per-₹1 on submit.
+  const [advanceExchangeRateInr, setAdvanceExchangeRateInr] = useState("");
+  const [advanceExchangeRateTouched, setAdvanceExchangeRateTouched] =
+    useState(false);
   const [advanceNotes, setAdvanceNotes] = useState("");
   // Company bank account the advance was received into ("received in bank").
   const [advanceBankId, setAdvanceBankId] = useState("");
@@ -94,6 +100,19 @@ const GenerateSalesOrder = () => {
       setReferenceNo(q.reference_no);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q?._id, q?.reference_no, quotationId]);
+
+  // Seed "1 {CUR} = ₹___" from the quotation's own stored foreign-per-₹1 rate
+  // (same default logic as the Invoice Record Payment form) — a same-rate
+  // advance yields 0 forex gain/loss on the invoice it later seeds. Only
+  // seeds once the quotation loads and the operator hasn't already typed a
+  // rate themselves.
+  useEffect(() => {
+    if (q?._id !== quotationId || advanceExchangeRateTouched) return;
+    const qRate = Number(q?.exchange_rate) || 1;
+    const rateInr = qRate > 0 ? 1 / qRate : 1;
+    setAdvanceExchangeRateInr(Number(rateInr.toFixed(2)).toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q?._id, q?.exchange_rate, quotationId]);
 
   // Check whether this quotation already spawned a Sales Order.
   useEffect(() => {
@@ -179,6 +198,13 @@ const GenerateSalesOrder = () => {
     }
     setCreating(true);
     try {
+      // Convert the human-readable "1 {CUR} = ₹___" (₹-per-foreign) back to
+      // the stored foreign-per-₹1, same as the Invoice Record Payment form.
+      // Only meaningful for a foreign order — domestic just defaults to 1.
+      const isForeign = (q?.currency_code || "INR").toUpperCase() !== "INR";
+      const rateInr = Number(advanceExchangeRateInr || 0);
+      const advanceExchangeRate =
+        isForeign && rateInr > 0 ? String(1 / rateInr) : undefined;
       const resp = await instance.post(
         `${API_ENDPOINTS.purchaseOrders.fromQuotation}/${quotationId}`,
         {
@@ -190,6 +216,7 @@ const GenerateSalesOrder = () => {
               ? undefined
               : String(advanceAmount),
           advance_date: advanceDate || undefined,
+          advance_exchange_rate: advanceExchangeRate,
           advance_notes: advanceNotes?.trim() || undefined,
           advance_bank_account_id: advanceBankId || undefined,
           // Name snapshot so the ledger/PDF survives a later bank edit/removal.
@@ -411,6 +438,30 @@ const GenerateSalesOrder = () => {
                   onChange={(_d, _s, iso) => setAdvanceDate(iso || "")}
                 />
               </div>
+
+              {(q?.currency_code || "INR").toUpperCase() !== "INR" && (
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold">
+                    {t("Exchange rate at receipt")}
+                  </label>
+                  <div className="d-flex align-items-center">
+                    <span className="me-1 text-nowrap">
+                      1 {q.currency_code} = ₹
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="form-control"
+                      value={advanceExchangeRateInr}
+                      onChange={(e) => {
+                        setAdvanceExchangeRateTouched(true);
+                        setAdvanceExchangeRateInr(e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="col-md-3">
                 <label className="form-label fw-semibold">

@@ -96,6 +96,7 @@ const PurchaseOrderWizard = () => {
         expected_delivery_date: yup.string().nullable(),
         advance_amount: yup.string().nullable(),
         advance_date: yup.string().nullable(),
+        advance_exchange_rate: yup.string().nullable(),
         advance_notes: yup.string().nullable().max(200),
         advance_bank_account_id: yup.string().nullable(),
         payment_terms: yup.string().nullable().max(100),
@@ -242,6 +243,7 @@ const PurchaseOrderWizard = () => {
             ? String(p.advance_amount)
             : "",
         advance_date: (p.advance_date || "").slice(0, 10) || "",
+        advance_exchange_rate: p.advance_exchange_rate || "1",
         advance_notes: p.advance_notes || "",
         advance_bank_account_id: p.advance_bank_account_id || "",
         lines: (p.lines || []).map((l) => ({
@@ -729,6 +731,7 @@ const PurchaseOrderWizard = () => {
           ? undefined
           : String(values.advance_amount),
       advance_date: values.advance_date || undefined,
+      advance_exchange_rate: values.advance_exchange_rate || undefined,
       advance_notes: values.advance_notes?.trim() || undefined,
       advance_bank_account_id: values.advance_bank_account_id || undefined,
       advance_bank_name: resolveBankName(values.advance_bank_account_id),
