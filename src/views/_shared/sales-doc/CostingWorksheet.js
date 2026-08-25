@@ -38,6 +38,7 @@ import {
   num,
   round2,
   fmt,
+  fmtRate,
   currencySymbol,
   computeLineCosting,
   splitFreightByQty,
@@ -1133,6 +1134,10 @@ const CostingWorksheet = ({
   const docSym = currencySymbol(docCurrencyCode) || "₹";
   // Customer / document-currency amounts (Rate/Amt {docCur}, Freight, CNF).
   const moneyDoc = (v) => `${docSym}${fmt(v)}`;
+  // The "Rate {docCur}" column (converted per-unit selling price) needs more
+  // precision than the 2dp money display — up to 5 decimals — so a manual
+  // qty × rate hand-check reproduces the row's actual Amt {docCur}.
+  const moneyDocRate = (v) => `${docSym}${fmtRate(v)}`;
   // The Rate column is the editable VENDOR price — native to the vendor's
   // (source) currency, which may differ from the document currency (e.g. a USD
   // vendor on a EUR quote). One-currency-per-document → a single source symbol.
@@ -1690,7 +1695,7 @@ const CostingWorksheet = ({
                       </td>
                     )}
                     {isForeign && (
-                      <td className="text-end ws-calc">{moneyDoc(rateDoc)}</td>
+                      <td className="text-end ws-calc">{moneyDocRate(rateDoc)}</td>
                     )}
                     <td className="text-end ws-calc fw-bold">
                       {moneyDoc(amtDoc)}
