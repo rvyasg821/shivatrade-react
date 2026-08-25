@@ -36,6 +36,7 @@ import {
   Edit2,
   AlertTriangle,
   X,
+  ShoppingCart,
 } from "react-feather";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
@@ -100,6 +101,26 @@ const fmt = (v, dp = 2) =>
     minimumFractionDigits: dp,
     maximumFractionDigits: dp,
   });
+
+// Sales Order status → the shared 4-color doc-badge palette (§1.5).
+const soStatusBadgeClass = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "completed":
+      return "doc-badge-green";
+    case "cancelled":
+      return "doc-badge-red";
+    case "confirmed":
+    case "in_process":
+      return "doc-badge-orange";
+    default:
+      return "doc-badge-gray";
+  }
+};
+const soStatusLabel = (status) =>
+  (status || "-")
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
 // Issue-invoice stock-shortage confirm — a real component (not inline JSX) so
 // it can hold its own pagination state; sweetalert2-react-content keeps it
@@ -452,6 +473,9 @@ const ViewInvoice = () => {
   const isCancelled = (inv?.status || "").toLowerCase() === "cancelled";
 
   const lines = inv?.lines || [];
+  // Every Sales Order this invoice draws lines from — an invoice can span
+  // several SOs (the multi-SO invoice picker). Powers the "Sales Orders" tab.
+  const sourceOrders = inv?.source_orders || [];
 
   // Multi-currency: line_total is ALREADY in the document currency (each cost
   // was converted source→doc in recompute), so the subtotal is the plain sum —
@@ -473,11 +497,17 @@ const ViewInvoice = () => {
     num(inv?.freight_charges) +
     num(inv?.insurance_charges) +
     num(inv?.other_charges);
-  // Keep the exact 2-decimal total, mirroring the backend recompute (round2).
-  // The grand total must equal FOB + freight + insurance + other to the cent
-  // (767.65, not 768). roundOffDoc then collapses to 0 and its line hides.
-  const grandDoc = Math.round(rawGrandDoc * 100) / 100;
-  const roundOffDoc = grandDoc - rawGrandDoc;
+  // Grand Total / Round Off come from the BACKEND (recompute()), not an
+  // independent client re-round of rawGrandDoc — for a MULTI-SO invoice the
+  // backend sums each source SO's own already-rounded share (matching that
+  // SO's own detail page/PDF exactly), which can differ by ±1 from simply
+  // rounding this invoice's own raw aggregate. Trusting the backend keeps
+  // this page in exact agreement with every PDF/Excel. Falls back to a local
+  // round only if the field is ever missing (defensive, shouldn't happen).
+  const grandDoc =
+    inv?.grand_total != null ? num(inv.grand_total) : Math.round(rawGrandDoc);
+  const roundOffDoc =
+    inv?.round_off != null ? num(inv.round_off) : grandDoc - rawGrandDoc;
   // Adjustment Notes applied to THIS invoice. Positive = the receivable was
   // reduced (a customer Credit note); negative = increased (a Debit note).
   const adjustmentDoc = num(inv?.adjustment_total);
@@ -1120,6 +1150,38 @@ const ViewInvoice = () => {
                   </NavItem>
                   <NavItem>
                     <NavLink
+                      active={activeTab === "salesOrders"}
+                      onClick={() => setActiveTab("salesOrders")}
+                      style={{
+                        color:
+                          activeTab === "salesOrders" ? "#fff" : "#1a2238",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 38,
+                        padding: "0 14px",
+                      }}
+                    >
+                      <ShoppingCart size={16} className="me-50" />
+                      {t("Sales Orders")}
+                      {sourceOrders.length > 0 && (
+                        <span
+                          className="badge ms-1"
+                          style={{
+                            background:
+                              activeTab === "salesOrders"
+                                ? "rgba(255,255,255,0.25)"
+                                : "#eef0f3",
+                            color:
+                              activeTab === "salesOrders" ? "#fff" : "#1a2238",
+                          }}
+                        >
+                          {sourceOrders.length}
+                        </span>
+                      )}
+                    </NavLink>
+                  </NavItem>
+                  <NavItem>
+                    <NavLink
                       active={activeTab === "payments"}
                       onClick={() => setActiveTab("payments")}
                       style={{
@@ -1402,6 +1464,77 @@ const ViewInvoice = () => {
                     </div>
                   </div>
                 )}
+                </TabPane>
+
+                <TabPane tabId="salesOrders">
+                <div className="mb-3">
+                  {sourceOrders.length === 0 ? (
+                    <p className="text-muted mb-0">
+                      {t("No source Sales Order resolved for this invoice.")}
+                    </p>
+                  ) : (
+                    <Table responsive bordered size="sm" className="mb-0">
+                        <thead>
+                          <tr>
+                            <th>{t("SO No.")}</th>
+                            <th>{t("Customer PO #")}</th>
+                            <th>{t("Order Date")}</th>
+                            <th>{t("Status")}</th>
+                            <th className="text-end">{t("Billed Qty")}</th>
+                            <th className="text-end">{t("Billed Value")}</th>
+                            <th className="text-end">{t("SO Grand Total")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sourceOrders.map((so) => {
+                            const soSym =
+                              getCurrencySymbol(so.currency_code) ||
+                              so.currency_code ||
+                              "";
+                            return (
+                              <tr key={so.id}>
+                                <td>
+                                  <span
+                                    role="button"
+                                    className="text-primary fw-semibold"
+                                    onClick={() =>
+                                      navigate(
+                                        `${appsRoot}/purchase-orders/view/${so.id}`,
+                                      )
+                                    }
+                                  >
+                                    {so.voucher_no || "-"}
+                                  </span>
+                                </td>
+                                <td>{so.customer_po_number || "-"}</td>
+                                <td className="text-nowrap">
+                                  {so.po_date ? formatDate(so.po_date) : "-"}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`doc-badge ${soStatusBadgeClass(so.status)}`}
+                                  >
+                                    {t(soStatusLabel(so.status))}
+                                  </span>
+                                </td>
+                                <td className="text-end">
+                                  {fmt(so.billed_qty)}
+                                </td>
+                                <td className="text-end">
+                                  {soSym}
+                                  {fmt(so.billed_value)}
+                                </td>
+                                <td className="text-end">
+                                  {soSym}
+                                  {fmt(so.grand_total)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                    </Table>
+                  )}
+                </div>
                 </TabPane>
 
                 <TabPane tabId="payments">
