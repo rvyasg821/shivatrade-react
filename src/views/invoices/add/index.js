@@ -851,7 +851,10 @@ const InvoiceAddEdit = () => {
           // so a line with no unit asked the master for "" and got nothing.
           uqc_code: uqcFor(l.unit || "Nos"),
           qty: String(cap),
-          unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+          // Full precision — a toFixed(2) here silently truncated a low
+          // per-unit price (e.g. ₹0.0308 → ₹0.03, a ~3% loss) that a huge
+          // qty amplifies into a large absolute value gap vs the source SO.
+          unit_price: String(l.unit_price ?? 0),
           // Multi-currency: carry the vendor (source) currency + frozen
           // source→doc rate from the SO line so the invoice converts each line
           // the same way (native × cost_exchange_rate). 1 for a same-currency
@@ -968,12 +971,14 @@ const InvoiceAddEdit = () => {
           ...m,
           [primaryPoId]: Number(po?.advance_amount || 0),
         }));
-      // Round to 2dp like every other seed path — SO lines can carry more.
+      // Full precision — a toFixed(2) here silently truncated a low
+      // per-unit price (e.g. ₹0.0308 → ₹0.03) that a huge qty amplifies into
+      // a large absolute value gap vs the source SO.
       setLines(
         seed.lines.map((l, i) => ({
           ...l,
           seq: i + 1,
-          unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+          unit_price: String(l.unit_price ?? 0),
         }))
       );
     })();
@@ -1265,7 +1270,11 @@ const InvoiceAddEdit = () => {
         unit: l.unit,
         uqc_code: l.uqc_code,
         qty: l.qty,
-        unit_price: String(Number(l.unit_price || 0).toFixed(2)),
+        // Full precision — a toFixed(2) here re-truncated the already-saved
+        // unit_price EVERY time the invoice was reopened for edit, silently
+        // degrading it further on each re-save (same class of bug as the
+        // Costing Worksheet's rate-precision race, fixed earlier).
+        unit_price: String(l.unit_price ?? 0),
         // Multi-currency: preserve the source currency + frozen source→doc rate.
         source_currency_code: (
           l.source_currency_code ||
@@ -1320,8 +1329,14 @@ const InvoiceAddEdit = () => {
     // currency FIRST (× cost_exchange_rate), then build in the document
     // currency. So the sums below are in the DOCUMENT currency; the INR
     // versions are derived by ÷ exchange_rate (doc-per-₹1) for the ₹ grid.
+    const rate = num(form.exchange_rate) || 1;
     let subtotalDoc = 0;
-    let igstDoc = 0;
+    // IGST is an Indian tax — it must be computed on the INR taxable value,
+    // never on the document-currency amount, even for a USD/GBP invoice
+    // (mirrors the Costing Worksheet's own igstAmtInr helper: amtDoc ÷
+    // exchange_rate × IGST%). Computing it on lineNet directly (the old bug)
+    // silently produced a USD-denominated "IGST" a hundred-fold too small.
+    let igstInr = 0;
     for (const l of lines) {
       const lineRate = num(l.cost_exchange_rate) || 1;
       const priceDoc = num(l.unit_price) * lineRate;
@@ -1345,10 +1360,12 @@ const InvoiceAddEdit = () => {
       const lineNet = round2(afterRebate + marginAmt);
       subtotalDoc = round2(subtotalDoc + lineNet);
       if (!isLut) {
-        igstDoc = round2(igstDoc + (lineNet * num(l.igst_rate_pct)) / 100);
+        const lineNetInr = rate > 0 ? lineNet / rate : lineNet;
+        igstInr = round2(
+          igstInr + (lineNetInr * num(l.igst_rate_pct)) / 100
+        );
       }
     }
-    const rate = num(form.exchange_rate) || 1;
     const subtotal = round2(subtotalDoc); // already document currency
     const subtotalInr = rate > 0 ? round2(subtotalDoc / rate) : subtotalDoc;
     const fob = round2(subtotal - num(form.discount_total));
@@ -1364,11 +1381,9 @@ const InvoiceAddEdit = () => {
     // IGST is deliberately NOT added into `grand`. On an IGST-paid export the
     // tax is refunded to the exporter, so it is not part of what the customer
     // pays — it is shown for information (and for GSTR-1) only. Folding it into
-    // the Grand Total would overstate the invoice's headline figure.
-    const igst = round2(igstDoc); // document-currency IGST
-    // ₹ version for the per-line grid footer (grid shows IGST per line in ₹).
-    const igstInr = rate > 0 ? round2(igstDoc / rate) : igstDoc;
-    return { subtotalInr, subtotal, fob, igstInr, igst, grand, balance };
+    // the Grand Total would overstate the invoice's headline figure. Always ₹
+    // (see igstInr comment above) — there is no meaningful doc-currency IGST.
+    return { subtotalInr, subtotal, fob, igstInr, grand, balance };
   }, [
     lines,
     // Switching to LUT zero-rates the whole invoice — without this dep the IGST
@@ -1578,7 +1593,9 @@ const InvoiceAddEdit = () => {
         unit: row.unit || "Nos",
         uqc_code: uqcFor(row.unit),
         qty: String(qty),
-        unit_price: String(Number(row.unit_price || 0).toFixed(2)),
+        // Full precision — a toFixed(2) here silently truncated a low
+        // per-unit price that a huge qty amplifies into a large value gap.
+        unit_price: String(row.unit_price ?? 0),
         // Multi-currency: carry the SO line's source currency + frozen
         // source→document rate so the line total converts like every other
         // line (was missing here → the total showed the raw source value
@@ -2987,7 +3004,10 @@ const InvoiceAddEdit = () => {
                       <small className="ms-25">({t("zero-rated under LUT")})</small>
                     )}
                   </span>
-                  <span>{sym}{fmt(totals.igst)}</span>
+                  {/* IGST is always ₹ (INR) — an Indian tax computed on the
+                      INR taxable value, regardless of the invoice's own
+                      document currency. */}
+                  <span>₹{fmt(totals.igstInr)}</span>
                 </div>
                 <div className="d-flex justify-content-between py-25 border-top border-bottom py-1 my-25">
                   <span className="fw-bold">{t("Grand Total")}</span>
