@@ -298,9 +298,7 @@ const SalesDocCostingCard = ({
             </div>
             {rateLabel && showInr && (
               <div className="d-flex justify-content-between mt-1 text-muted">
-                <small>
-                  {t("Exchange Rate")} ({rateLabel})
-                </small>
+                <small>{t("Exchange Rate")}</small>
                 {isForeign && <small>≈ ₹ {fmt(totals.grand_inr)}</small>}
               </div>
             )}
