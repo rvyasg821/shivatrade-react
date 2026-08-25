@@ -703,9 +703,24 @@ const PurchaseOrderWizard = () => {
   // ── Submit ──
   const buildPayload = (values) => {
     if (isLocked) {
+      // Advance/payment-receipt facts are independent of the SO's own
+      // commercial-terms lock — they record what the customer actually
+      // paid and when, which can legitimately be entered/corrected after
+      // the SO has moved past draft (e.g. the bank confirms the exchange
+      // rate a few days later). Keep them editable like internal_notes;
+      // everything else (lines, pricing, parties) stays frozen.
       return {
         status: values.status || "draft",
         internal_notes: values.internal_notes?.trim() || undefined,
+        advance_amount:
+          values.advance_amount === "" || values.advance_amount == null
+            ? undefined
+            : String(values.advance_amount),
+        advance_date: values.advance_date || undefined,
+        advance_exchange_rate: values.advance_exchange_rate || undefined,
+        advance_notes: values.advance_notes?.trim() || undefined,
+        advance_bank_account_id: values.advance_bank_account_id || undefined,
+        advance_bank_name: resolveBankName(values.advance_bank_account_id),
       };
     }
     return {
