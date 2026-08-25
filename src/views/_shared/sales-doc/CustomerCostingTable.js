@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import {
   num,
   fmt,
+  fmtRate,
   currencySymbol,
   computeLineCosting,
 } from "./_helpers";
@@ -49,6 +50,10 @@ const CustomerCostingTable = ({
   // doc currency's (₹ when the doc is INR).
   const sym = currencySymbol(docCurrencyCode) || "₹";
   const money = (v) => `${sym}${fmt(v)}`;
+  // The Rate column needs more precision than 2dp — a per-unit price under a
+  // cent (e.g. $0.00031) rounds to "$0.00" otherwise, hiding the real rate
+  // even though qty × rate still reproduces the correct Amount.
+  const moneyRate = (v) => `${sym}${fmtRate(v)}`;
 
   const rows = (lines || [])
     .filter((l) => l && l.product_id)
@@ -143,7 +148,7 @@ const CustomerCostingTable = ({
                       <span className="text-muted"> {r.unit}</span>
                     ) : null}
                   </td>
-                  <td className="text-end ws-num">{money(r.rate)}</td>
+                  <td className="text-end ws-num">{moneyRate(r.rate)}</td>
                   <td className="text-end ws-num fw-bold">{money(r.amt)}</td>
                 </tr>
               ))
