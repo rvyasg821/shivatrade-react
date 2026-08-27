@@ -420,6 +420,10 @@ const PoVendorView = () => {
       selector: (row) => (
         <div className="py-1">
           <div className="text-nowrap">
+            <span className="text-muted me-50">{t("Created")} -</span>
+            {row?.creation_date ? formatDate(row.creation_date) : ""}
+          </div>
+          <div className="small text-nowrap mt-25">
             <span className="text-muted me-50">{t("Dispatch")} -</span>
             {row?.dispatch_date ? formatDate(row.dispatch_date) : ""}
           </div>

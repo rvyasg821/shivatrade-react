@@ -335,6 +335,11 @@ export const API_ENDPOINTS = {
     balance: `/admin/po-vendor`, // append /:id/balance (re-order un-delivered qty)
     pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)
+    // Standalone create form's line-items Import/Export (NOT the Generate-
+    // POV-from-SO flow, which has no import/export of its own).
+    lineImportSample: `/admin/po-vendor/standalone-lines/sample`,
+    lineImportResolve: `/admin/po-vendor/standalone-lines/resolve`,
+    lineExport: `/admin/po-vendor/standalone-lines/export`,
   },
   // Company Admin's own-company Activity Log (backend forces own company_id).
   activityLog: {
@@ -788,6 +793,8 @@ export const API_ENDPOINTS = {
     companies: '/admin/dashboard/companies',
     companyStats: '/admin/dashboard/company-stats',
     operationsStats: '/admin/dashboard/operations-stats',
+    exportExcel: '/admin/dashboard/export/excel',
+    exportPdf: '/admin/dashboard/export/pdf',
   },
   // HRM: Holiday Calendar
   holidayCalendar: {

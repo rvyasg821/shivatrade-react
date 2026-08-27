@@ -97,6 +97,7 @@ const EditPoVendor = () => {
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [expectedArrival, setExpectedArrival] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [creationDate, setCreationDate] = useState("");
   const [notes, setNotes] = useState("");
   const [dispatchedThrough, setDispatchedThrough] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
@@ -173,6 +174,7 @@ const EditPoVendor = () => {
     // the same thing the create page does.
     setNotes(p.notes || p.effective_remarks || "");
     setInvoiceNumber(p.invoice_number || "");
+    setCreationDate(p.creation_date || "");
     // Company defaults fill a term this POV never set. Applied here too (not
     // only in the effect below) because the company may already have landed —
     // otherwise this seed would blank out what that effect just filled.
@@ -353,6 +355,9 @@ const EditPoVendor = () => {
       }
       // Invoice number is OPTIONAL — sent as-is (may be blank).
       data.invoice_number = invoiceNumber.trim();
+      // Omitted when blank — the DTO validates it as a date string, so ""
+      // would 400.
+      data.creation_date = creationDate || undefined;
       data.delivery_address_id = deliveryAddressId;
       // Omitted when blank — the DTO validates it as a date string, so ""
       // would 400. A set date can be changed but not cleared here.
@@ -832,16 +837,18 @@ const EditPoVendor = () => {
                 conversion rate is needed. */}
           </Row>
 
-          {/* Vendor's invoice number — optional (draft-only edit). */}
+          {/* Invoice Number is hidden here too — it's now finalised at GRN
+              time (per-receipt), not on the POV header. `invoiceNumber`
+              state is unused now but left in place so the submit payload
+              doesn't need special-casing. */}
           <Row>
             <Col md="6" className="mb-1">
-              <Label className="form-label">{t("Invoice Number")}</Label>
-              <Input
-                maxLength={120}
+              <Label className="form-label">{t("Creation Date")}</Label>
+              <DateInput
+                id="pov-edit-creation-date"
                 disabled={!isDraft}
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder={t("Vendor's invoice number")}
+                value={creationDate}
+                onChange={(_d, _s, iso) => setCreationDate(iso || "")}
               />
             </Col>
           </Row>

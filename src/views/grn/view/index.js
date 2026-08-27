@@ -33,6 +33,7 @@ import withReactContent from "sweetalert2-react-content";
 
 import { getGrn, updateGrn, createGrnFromPov, cleanGrnMessage } from "../store";
 import { getPoVendor } from "@src/views/po-vendors/store";
+import DateInput from "@components/date-input";
 import { stopLoading } from "../../loadingstore";
 import Notification from "@components/toast/notification";
 import instance from "@src/utility/AxiosConfig";
@@ -78,34 +79,52 @@ const GrnView = () => {
   // Editable vendor invoice number (defaults from the POV on GRN create).
   const [invoiceNo, setInvoiceNo] = useState("");
   const [savingInvoice, setSavingInvoice] = useState(false);
+  // Editable GRN creation date — defaults to today on create; on a saved GRN
+  // it's saved together with the invoice number via the one Save button.
+  const [creationDate, setCreationDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   // Seed once (keyed on the loaded doc's id) so it doesn't clobber typing.
   // Create mode → default from the POV's invoice number; detail → the saved GRN.
   useEffect(() => {
-    if (isCreate)
+    if (isCreate) {
       setInvoiceNo(povStore?.poVendorItem?.invoice_number || "");
-    else setInvoiceNo(store?.grnItem?.po_vendor_invoice_number || "");
+      setCreationDate(new Date().toISOString().slice(0, 10));
+    } else {
+      setInvoiceNo(store?.grnItem?.po_vendor_invoice_number || "");
+      setCreationDate(
+        store?.grnItem?.grn_date || new Date().toISOString().slice(0, 10)
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreate, store?.grnItem?._id, povStore?.poVendorItem?._id]);
 
-  const saveInvoiceNo = () => {
+  // Saves both fields together in one call — the invoice-number-only PUT is
+  // still used (it's the endpoint whose message this button always showed),
+  // followed by the general update for the date so both persist as one click.
+  const saveInvoiceAndDate = async () => {
     if (!id) return;
     setSavingInvoice(true);
-    instance
-      .put(`${API_ENDPOINTS.grn.invoiceNumber}/${id}`, {
+    try {
+      await instance.put(`${API_ENDPOINTS.grn.invoiceNumber}/${id}`, {
         invoice_number: invoiceNo,
-      })
-      .then(() => {
-        Notification("Success", t("Invoice number saved"), "success");
-        dispatch(getGrn(id));
-      })
-      .catch((e) =>
-        Notification(
-          "Error",
-          e?.response?.data?.message || t("Could not save invoice number"),
-          "warning"
-        )
-      )
-      .finally(() => setSavingInvoice(false));
+      });
+      if (creationDate) {
+        await instance.put(`${API_ENDPOINTS.grn.update}/${id}`, {
+          grn_date: creationDate,
+        });
+      }
+      Notification("Success", t("Invoice number & date saved"), "success");
+      dispatch(getGrn(id));
+    } catch (e) {
+      Notification(
+        "Error",
+        e?.response?.data?.message || t("Could not save"),
+        "warning"
+      );
+    } finally {
+      setSavingInvoice(false);
+    }
   };
 
   useEffect(() => {
@@ -328,7 +347,13 @@ const GrnView = () => {
       setSaving(true);
       try {
         const created = await dispatch(
-          createGrnFromPov({ povId, data: { invoice_number: invoiceNo } })
+          createGrnFromPov({
+            povId,
+            data: {
+              invoice_number: invoiceNo,
+              grn_date: creationDate || undefined,
+            },
+          })
         ).unwrap();
         const newGrn = created?.grnItem;
         if (!newGrn?._id)
@@ -541,13 +566,24 @@ const GrnView = () => {
                   placeholder={t("Vendor invoice number")}
                   onChange={(e) => setInvoiceNo(e.target.value)}
                 />
+
+                {/* Creation date — editable, defaults to today. */}
+                <span className="text-muted small fw-semibold text-nowrap ms-1">
+                  {t("Creation Date")}:
+                </span>
+                <DateInput
+                  id="grn-creation-date"
+                  value={creationDate}
+                  onChange={(_d, _s, iso) => setCreationDate(iso || "")}
+                />
+
                 <Button
                   color="primary"
                   size="sm"
                   // Create mode: the GRN isn't persisted yet, so "Save" here
-                  // saves it as a draft (carrying the invoice number). Saved
-                  // GRN: update just the invoice number in place.
-                  onClick={isCreate ? () => onSave() : saveInvoiceNo}
+                  // saves it as a draft (carrying both fields). Saved GRN: one
+                  // Save updates invoice number + date together.
+                  onClick={isCreate ? () => onSave() : saveInvoiceAndDate}
                   disabled={isCreate ? saving : savingInvoice}
                 >
                   {(isCreate ? saving : savingInvoice) ? (
