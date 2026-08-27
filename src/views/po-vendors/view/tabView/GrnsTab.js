@@ -139,6 +139,9 @@ const GrnsTab = ({ registerActions }) => {
               <th style={{ width: 140 }} className="text-nowrap">
                 {t("Date")}
               </th>
+              <th style={{ width: 150 }} className="text-nowrap">
+                {t("Invoice No")}
+              </th>
               <th style={{ width: 100 }} className="text-end">
                 {t("Received")}
               </th>
@@ -186,6 +189,9 @@ const GrnsTab = ({ registerActions }) => {
                   </td>
                   <td className="text-nowrap">
                     {g.grn_date ? formatDate(g.grn_date) : "-"}
+                  </td>
+                  <td className="text-nowrap">
+                    {g.po_vendor_invoice_number || "-"}
                   </td>
                   <td className="text-end">{num(g.received_qty).toFixed(2)}</td>
                   <td className="text-end">

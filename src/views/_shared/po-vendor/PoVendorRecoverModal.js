@@ -92,6 +92,10 @@ const PoVendorRecoverModal = ({
 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  // Business creation date applied to every POV spawned by this batch.
+  const [creationDate, setCreationDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [previewLines, setPreviewLines] = useState([]);
   const [activeVendors, setActiveVendors] = useState([]);
   // assignment[purchase_order_line_id] = vendor_id
@@ -877,6 +881,7 @@ const PoVendorRecoverModal = ({
       const result = await dispatch(
         recoverPoVendors({
           purchase_order_id: poId,
+          creation_date: creationDate || undefined,
           vendor_currencies: trimmedCurrencies,
           assignments,
           vendor_expenses: trimmedExpenses,
@@ -933,6 +938,17 @@ const PoVendorRecoverModal = ({
                 "Each line is pre-picked to the vendor chosen on the sales order (or the cheapest price-list vendor if none). Change the vendor to re-assign, or skip a line. One POV is created per unique vendor."
               )}
             </p>
+
+            <div className="row g-2 mb-2">
+              <div className="col-md-3">
+                <Label className="form-label">{t("Creation Date")}</Label>
+                <DateInput
+                  id="pov-recover-creation-date"
+                  value={creationDate}
+                  onChange={(_d, _s, iso) => setCreationDate(iso || "")}
+                />
+              </div>
+            </div>
 
             {previewLines.every((l) => l.fully_covered) && (
               <div className="alert alert-info small mb-2">
@@ -1563,25 +1579,9 @@ const PoVendorRecoverModal = ({
                                 )
                               }
                             />
-                            {/* Vendor's invoice number — optional per POV. */}
-                            <Label className="form-label small fw-semibold mb-25 mt-1">
-                              {t("Invoice Number")}
-                            </Label>
-                            <Input
-                              bsSize="sm"
-                              maxLength={120}
-                              placeholder={t("Vendor's invoice number")}
-                              value={
-                                vendorTerms[v.vendor_id]?.invoice_number || ""
-                              }
-                              onChange={(e) =>
-                                setVendorTerm(
-                                  v.vendor_id,
-                                  "invoice_number",
-                                  e.target.value
-                                )
-                              }
-                            />
+                            {/* Invoice Number is hidden at create time (per
+                                client request) — editable later on the POV
+                                edit page. */}
                           </Col>
                           <Col md="6">
                             <Label className="form-label small fw-semibold mb-25">

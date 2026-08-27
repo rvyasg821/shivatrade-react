@@ -291,6 +291,9 @@ const InvoiceAddEdit = () => {
     shipping_bill_type: "free",
     shipping_bill_no: "",
     shipping_bill_date: "",
+    // GST/Assessable-Value-only rate override — see backend entity doc
+    // comment. Blank = fall back to the invoice's own exchange_rate.
+    custom_exchange_rate: "",
     port_of_loading_id: "",
     port_of_loading_snapshot: null,
     port_of_discharge_id: "",
@@ -1224,6 +1227,7 @@ const InvoiceAddEdit = () => {
       shipping_bill_type: inv.shipping_bill_type || "free",
       shipping_bill_no: inv.shipping_bill_no || "",
       shipping_bill_date: inv.shipping_bill_date?.slice(0, 10) || "",
+      custom_exchange_rate: inv.custom_exchange_rate || "",
       port_of_loading_id: inv.port_of_loading_id || "",
       port_of_loading_snapshot: inv.port_of_loading_snapshot || null,
       port_of_discharge_id: inv.port_of_discharge_id || "",
@@ -1749,6 +1753,7 @@ const InvoiceAddEdit = () => {
       "port_of_discharge_id",
       "net_weight_kg",
       "gross_weight_kg",
+      "custom_exchange_rate",
     ];
     const cleaned = { ...form };
     OPTIONAL_NULLABLE.forEach((k) => {
@@ -2737,6 +2742,26 @@ const InvoiceAddEdit = () => {
                   {t("Shipping Bill Date required")}
                 </div>
               )}
+            </Col>
+            <Col md="4" className="mb-2">
+              <Label className="form-label">
+                {t("Custom Exchange Rate")}
+              </Label>
+              <Input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={form.custom_exchange_rate}
+                onChange={(e) =>
+                  onF("custom_exchange_rate", e.target.value)
+                }
+                placeholder={t("e.g. 91 (₹ per 1 unit)")}
+              />
+              <small className="text-muted">
+                {t(
+                  "₹ per 1 unit of the invoice currency (e.g. 91 for $1 = ₹91) — not the invoice's own Exchange Rate format. Used only for GST/Assessable Value on the Commercial PDF. Leave blank to use the invoice's own Exchange Rate."
+                )}
+              </small>
             </Col>
           </Row>
 

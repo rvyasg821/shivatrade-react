@@ -25,7 +25,8 @@ import {
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { CheckCircle, ArrowLeft, Plus, Trash2 } from "react-feather";
+import { CheckCircle, ArrowLeft, Plus, Trash2, Upload, Download } from "react-feather";
+import XLSX from "xlsx";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -84,9 +85,17 @@ const CreatePoVendor = () => {
   const companyStore = useSelector((s) => s.company);
 
   const [creating, setCreating] = useState(false);
+  // Line-items Import/Export (standalone create only — not linkedMode).
+  const [lineSampleBusy, setLineSampleBusy] = useState(false);
+  const [lineExportBusy, setLineExportBusy] = useState(false);
+  const [lineImportBusy, setLineImportBusy] = useState(false);
   const [vendorId, setVendorId] = useState("");
   // Vendor's invoice number — required free text on the POV header.
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  // Business creation date — defaults to today, editable.
+  const [creationDate, setCreationDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [deliveryAddressId, setDeliveryAddressId] = useState("");
   const [notes, setNotes] = useState("");
   // Vendor-side terms printed on the POV PDF. Free text, typed per POV — the
@@ -561,6 +570,180 @@ const CreatePoVendor = () => {
 
   const backToList = () => navigate(`${appsRoot}/po-vendors`);
 
+  // ── Line-items Import/Export (standalone create form only) ──────────
+  // Scoped to `!linkedMode` — the Generate-POV-from-SO flow has its own
+  // per-line assignment UI and no import/export.
+  const downloadBlob = (data, filename) => {
+    const url = window.URL.createObjectURL(new Blob([data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleLineSample = async () => {
+    setLineSampleBusy(true);
+    try {
+      const res = await instance.get(API_ENDPOINTS.poVendors.lineImportSample, {
+        responseType: "blob",
+      });
+      downloadBlob(res.data, "pov-line-items-sample.xlsx");
+    } catch {
+      Notification("Error", t("Failed to download sample"), "warning");
+    } finally {
+      setLineSampleBusy(false);
+    }
+  };
+
+  const handleLineExport = async () => {
+    setLineExportBusy(true);
+    try {
+      const payload = {
+        lines: lines
+          .filter((r) => r.product_id)
+          .map((r) => ({
+            product_id: r.product_id,
+            part_no: r.part_no,
+            hsn_code: r.hsn_code,
+            unit: r.unit,
+            qty: r.qty,
+            unit_price: r.unit_price,
+            discount: r.discount,
+            tax_pct: r.tax_pct,
+          })),
+      };
+      const res = await instance.post(API_ENDPOINTS.poVendors.lineExport, payload, {
+        responseType: "blob",
+      });
+      downloadBlob(res.data, "pov-line-items-export.xlsx");
+    } catch {
+      Notification("Error", t("Failed to export line items"), "warning");
+    } finally {
+      setLineExportBusy(false);
+    }
+  };
+
+  const parseLineImportSheet = async (file) => {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+    if (!aoa.length) return [];
+    const headers = aoa[0].map((c) => String(c ?? "").trim().toLowerCase());
+    const idx = {
+      product_code: headers.indexOf("product code"),
+      part_no: headers.indexOf("part no"),
+      hsn_code: headers.indexOf("hsn code"),
+      unit: headers.indexOf("unit"),
+      qty: headers.indexOf("qty"),
+      unit_price: headers.indexOf("rate"),
+      discount_pct: headers.indexOf("disc %"),
+      tax_pct: headers.indexOf("gst %"),
+    };
+    const rows = [];
+    for (let i = 1; i < aoa.length; i++) {
+      const r = aoa[i];
+      if (!r || r.every((c) => c === "" || c == null)) continue;
+      const at = (key) => (idx[key] >= 0 ? r[idx[key]] : "");
+      rows.push({
+        product_code: String(at("product_code") ?? "").trim(),
+        part_no: String(at("part_no") ?? "").trim(),
+        hsn_code: String(at("hsn_code") ?? "").trim(),
+        unit: String(at("unit") ?? "").trim(),
+        qty: String(at("qty") ?? ""),
+        unit_price: String(at("unit_price") ?? ""),
+        discount_pct: String(at("discount_pct") ?? ""),
+        tax_pct: String(at("tax_pct") ?? ""),
+      });
+    }
+    return rows;
+  };
+
+  const handleLineImportFile = async (file) => {
+    if (!file) return;
+    setLineImportBusy(true);
+    try {
+      const rows = await parseLineImportSheet(file);
+      if (!rows.length) {
+        Notification("Validation", t("No rows found in the sheet."), "warning");
+        return;
+      }
+      const res = await instance.post(API_ENDPOINTS.poVendors.lineImportResolve, {
+        vendor_id: vendorId,
+        rows,
+      });
+      const resolved = res?.data?.data?.resolved || [];
+      const errors = resolved.filter((r) => r.status === "error");
+      // Same rule as the manual product picker (onPickProduct above): a POV
+      // has ONE vendor, so a duplicate product is just a merged quantity —
+      // block it rather than silently creating a second line. Checks both
+      // against lines already on the form AND duplicates within the sheet
+      // itself (first occurrence wins).
+      const existingIds = new Set(
+        lines.filter((r) => r.product_id).map((r) => r.product_id)
+      );
+      const seenInBatch = new Set();
+      const toAdd = [];
+      const dupes = [];
+      for (const r of resolved) {
+        if (r.status !== "ok") continue;
+        if (existingIds.has(r.product_id) || seenInBatch.has(r.product_id)) {
+          dupes.push(r);
+          continue;
+        }
+        seenInBatch.add(r.product_id);
+        toAdd.push(r);
+      }
+      if (toAdd.length) {
+        setLines((prev) => [
+          ...prev.filter((r) => r.product_id),
+          ...toAdd.map((r) => ({
+            key: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+            product_id: r.product_id,
+            product_name: r.product_name,
+            part_no: r.part_no || "",
+            hsn_code: r.hsn_code || "",
+            unit: r.unit || "",
+            tax_pct: r.tax_pct || "0",
+            qty: r.qty,
+            unit_price: r.unit_price,
+            discount: r.discount || "",
+          })),
+        ]);
+      }
+      const skipped = [
+        ...errors.map((e) => e.error),
+        ...dupes.map(
+          (d) => `${d.product_code} — already in line items`
+        ),
+      ];
+      if (skipped.length) {
+        Notification(
+          toAdd.length ? "Success" : "Error",
+          t(
+            `Imported ${toAdd.length} of ${resolved.length} rows. ${skipped.length} skipped — ${skipped
+              .slice(0, 3)
+              .join("; ")}${skipped.length > 3 ? "…" : ""}`
+          ),
+          toAdd.length ? "success" : "warning"
+        );
+      } else {
+        Notification("Success", t(`Imported ${toAdd.length} rows.`), "success");
+      }
+    } catch (err) {
+      Notification(
+        "Error",
+        err?.response?.data?.message || t("Failed to import line items"),
+        "warning"
+      );
+    } finally {
+      setLineImportBusy(false);
+    }
+  };
+
   const onCreate = async () => {
     if (creating) return;
     if (!vendorId) {
@@ -619,6 +802,7 @@ const CreatePoVendor = () => {
             payload: {
               vendor_id: vendorId,
               invoice_number: invoiceNumber.trim(),
+              creation_date: creationDate || undefined,
               lines: poLines,
               delivery_address_id: deliveryAddressId || undefined,
               notes: notes?.trim() || undefined,
@@ -703,6 +887,7 @@ const CreatePoVendor = () => {
           createPoVendorStandalone({
             vendor_id: vendorId,
             invoice_number: invoiceNumber.trim(),
+            creation_date: creationDate || undefined,
             lines: payloadLines,
             delivery_address_id: deliveryAddressId || undefined,
             notes: notes?.trim() || undefined,
@@ -855,21 +1040,78 @@ const CreatePoVendor = () => {
             <div className="d-flex justify-content-between align-items-center mb-1">
               <Label className="form-label mb-0">{t("Line Items")}</Label>
               {!linkedMode && (
-                <Button
-                  size="sm"
-                  color="outline-primary"
-                  disabled={!vendorId || !deliveryAddressId}
-                  title={
-                    !vendorId
-                      ? t("Select a vendor first")
-                      : !deliveryAddressId
-                      ? t("Select Deliver To first")
-                      : undefined
-                  }
-                  onClick={() => setLines((r) => [...r, newRow()])}
-                >
-                  <Plus size={14} className="me-25" /> {t("Add Product")}
-                </Button>
+                <div className="d-flex gap-1">
+                  <Button
+                    size="sm"
+                    color="outline-secondary"
+                    disabled={lineSampleBusy}
+                    onClick={handleLineSample}
+                    title={t("Download a sample Excel for line-item import")}
+                  >
+                    {lineSampleBusy ? <Spinner size="sm" /> : t("Sample")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="outline-secondary"
+                    disabled={lineImportBusy || !vendorId}
+                    title={
+                      !vendorId
+                        ? t("Select a vendor first — Rate falls back to their price list")
+                        : undefined
+                    }
+                    onClick={() =>
+                      document.getElementById("pov-line-import-input")?.click()
+                    }
+                  >
+                    {lineImportBusy ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <Upload size={14} className="me-25" /> {t("Import Excel")}
+                      </>
+                    )}
+                  </Button>
+                  <input
+                    id="pov-line-import-input"
+                    type="file"
+                    accept=".xlsx,.xls"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) handleLineImportFile(f);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    color="outline-secondary"
+                    disabled={lineExportBusy || !lines.some((r) => r.product_id)}
+                    onClick={handleLineExport}
+                  >
+                    {lineExportBusy ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <Download size={14} className="me-25" /> {t("Export Excel")}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="outline-primary"
+                    disabled={!vendorId || !deliveryAddressId}
+                    title={
+                      !vendorId
+                        ? t("Select a vendor first")
+                        : !deliveryAddressId
+                        ? t("Select Deliver To first")
+                        : undefined
+                    }
+                    onClick={() => setLines((r) => [...r, newRow()])}
+                  >
+                    <Plus size={14} className="me-25" /> {t("Add Product")}
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -1384,15 +1626,17 @@ const CreatePoVendor = () => {
               </Table>
             )}
 
-            {/* Vendor's invoice number — optional header field. */}
+            {/* Invoice Number is hidden at create time (per client request) —
+                it's editable later on the POV edit page. `invoiceNumber`
+                state is unused now but left in place so the submit payload
+                (empty string) doesn't need special-casing. */}
             <Row className="mt-2">
               <Col md="6" className="mb-1">
-                <Label className="form-label">{t("Invoice Number")}</Label>
-                <Input
-                  maxLength={120}
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  placeholder={t("Vendor's invoice number")}
+                <Label className="form-label">{t("Creation Date")}</Label>
+                <DateInput
+                  id="pov-creation-date"
+                  value={creationDate}
+                  onChange={(_d, _s, iso) => setCreationDate(iso || "")}
                 />
               </Col>
             </Row>

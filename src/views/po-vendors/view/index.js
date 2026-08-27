@@ -549,11 +549,9 @@ const ViewPoVendor = () => {
 
   const meta = (
     <span className="d-inline-flex align-items-center flex-wrap gap-1">
-      {p?.invoice_number ? (
-        <span className="text-muted">
-          {t("Invoice No")}: {p.invoice_number}
-        </span>
-      ) : null}
+      {/* POV header Invoice No is retired from display — the invoice number
+          is now finalised per-GRN (see the GRNs tab) instead of on the
+          header, which could go stale/inconsistent with multiple GRNs. */}
       {p?.purchase_order_id ? (
         <a
           href={`${appsRoot}/purchase-orders/view/${p.purchase_order_id}`}

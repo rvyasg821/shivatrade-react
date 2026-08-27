@@ -29,6 +29,7 @@ import Notification from "@components/toast/notification";
 import { createPoVendorFromPo } from "@src/views/po-vendors/store";
 import { appsRoot } from "@constant/defaultValues";
 import LocationSelect from "@src/views/_shared/LocationSelect";
+import DateInput from "@components/date-input";
 
 const num = (v) =>
   v === null || v === undefined || v === "" ? 0 : Number(v);
@@ -64,6 +65,10 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
 
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Business creation date — defaults to today, editable.
+  const [creationDate, setCreationDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
 
   // Vendor select — PO is multi-vendor at line level. The chosen vendor
   // filters which PO lines are eligible for this POV.
@@ -107,6 +112,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
     setManualText("");
     setNotes("");
     setVendorId("");
+    setCreationDate(new Date().toISOString().slice(0, 10));
 
     instance
       .get(`${API_ENDPOINTS.purchaseOrders.coverage}/${po._id}/coverage`)
@@ -247,6 +253,7 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
           purchase_order_id: po._id,
           payload: {
             vendor_id: vendorId,
+            creation_date: creationDate || undefined,
             lines,
             delivery_address: deliveryAddressOverride,
             delivery_address_id: deliveryAddressIdOverride,
@@ -307,6 +314,16 @@ const PoVendorCreateModal = ({ isOpen, toggle, purchaseOrder }) => {
               {t("This PO has no vendor on any line. Edit the PO to assign vendors.")}
             </small>
           )}
+        </div>
+
+        {/* Business creation date — defaults to today, editable. */}
+        <div className="mb-2">
+          <Label className="form-label">{t("Creation Date")}</Label>
+          <DateInput
+            id="pov-create-from-po-creation-date"
+            value={creationDate}
+            onChange={(_d, _s, iso) => setCreationDate(iso || "")}
+          />
         </div>
 
         {/* Delivery address — inherit / pick / manual.

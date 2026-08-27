@@ -10,7 +10,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Row, Col, Card, CardBody, CardHeader, CardTitle, Table, Spinner } from "reactstrap";
+import { Row, Col, Card, CardBody, CardHeader, CardTitle, Table, Spinner, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import {
   DollarSign,
@@ -25,7 +25,9 @@ import {
   Clock,
   Users,
   Award,
+  Download,
 } from "react-feather";
+import Notification from "@components/toast/notification";
 
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
@@ -83,7 +85,12 @@ const get = (url, params) =>
 const countOf = (url, params) =>
   instance
     .get(url, { params: { page: 1, perPage: 1, ...(params || {}) } })
-    .then((r) => Number(r?.data?.pagination?.total ?? (r?.data?.data || []).length) || 0)
+    .then(
+      (r) =>
+        Number(
+          r?.data?._metadata?.pagination?.total ?? (r?.data?.data || []).length
+        ) || 0
+    )
     .catch(() => 0);
 
 const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
@@ -117,7 +124,15 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
     return { date_from, date_to };
   }, [period, customFrom, customTo]);
 
+  const periodLabel =
+    period === "month"
+      ? t("This Month")
+      : period === "custom" && customFrom && customTo
+      ? `${customFrom} — ${customTo}`
+      : t("Financial Year");
+
   const authUserItem = useSelector((s) => s.auth?.authUserItem) || null;
+  const companyData = useSelector((s) => s.auth?.companyData) || null;
   const isAdmin = isAdminUser(authUserItem);
   const perms = authUserItem?.role?.permissions || {};
 
@@ -146,6 +161,7 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
 
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(null);
 
   useEffect(() => {
     if (!anyVisible) {
@@ -256,7 +272,7 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
       icon: Box,
       tone: "secondary",
       label: t("Stock Value"),
-      value: inr(d?.invStats?.stock_value),
+      value: inr(d?.invStats?.stock_value_inr),
       sub: `${num(d?.invStats?.product_count)} ${t("products")}`,
       to: `${appsRoot}/inventory`,
     },
@@ -344,6 +360,51 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
   const topCustomers = vis.invoices ? lb.top_customers || [] : [];
   const topProducts = vis.invoices ? lb.top_products || [] : [];
 
+  // WYSIWYG export payload — reuses the already-rendered card/table data
+  // (same formatting the screen uses) so the exported file can never drift
+  // from what's on screen; the backend only styles it into a file.
+  const buildExportPayload = () => ({
+    companyName: companyData?.company_name || companyData?.name || "ShivaTrade",
+    locationName: authUserItem?.location?.name || "",
+    periodLabel,
+    kpis: kpis.map((k) => ({ label: k.label, value: String(k.value), sub: k.sub || "" })),
+    attention: attention.map((a) => ({ label: a.label, value: String(a.value), sub: a.sub || "" })),
+    counts: counts.map((c) => ({ label: c.label, value: String(c.value) })),
+    topCustomers: topCustomers.map((r) => ({
+      name: r.name,
+      invoices: `${num(r.invoices)} ${t("inv")}`,
+      amount: inr(r.amount_inr),
+    })),
+    topProducts: topProducts.map((r) => ({
+      name: r.name,
+      qty: `${num(r.qty).toLocaleString()}${r.uom ? ` ${r.uom}` : ""}`,
+      amount: inr(r.amount_inr),
+    })),
+  });
+
+  const handleExportFile = async (kind) => {
+    setExporting(kind);
+    try {
+      const url =
+        kind === "excel" ? API_ENDPOINTS.dashboard.exportExcel : API_ENDPOINTS.dashboard.exportPdf;
+      const res = await instance.post(url, buildExportPayload(), {
+        responseType: "blob",
+      });
+      const blobUrl = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `Dashboard-Summary-${new Date().toISOString().split("T")[0]}.${
+        kind === "excel" ? "xlsx" : "pdf"
+      }`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      Notification("Error", t("Failed to export dashboard"), "warning");
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (loading && !d) {
     return (
       <div className="text-center py-4">
@@ -380,6 +441,29 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
 
   return (
     <Fragment>
+      <div className="d-flex justify-content-end gap-1 mb-1">
+        <Button
+          color="secondary"
+          outline
+          size="sm"
+          disabled={!d || !!exporting}
+          onClick={() => handleExportFile("excel")}
+        >
+          <Download size={14} className="me-50" />
+          {exporting === "excel" ? t("Exporting…") : t("Export Excel")}
+        </Button>
+        <Button
+          color="secondary"
+          outline
+          size="sm"
+          disabled={!d || !!exporting}
+          onClick={() => handleExportFile("pdf")}
+        >
+          <Download size={14} className="me-50" />
+          {exporting === "pdf" ? t("Exporting…") : t("Export PDF")}
+        </Button>
+      </div>
+
       {/* Row 1 — KPIs. Uniform CSS grid so every card is the same width
           across all blocks (auto-fill keeps a fixed track size; trailing
           tracks stay empty rather than stretching the cards unevenly). */}
@@ -475,8 +559,9 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
                             {i + 1}
                           </td>
                           <td className="text-capitalize">{r.name}</td>
-                          <td className="text-end text-muted" style={{ width: 70 }}>
+                          <td className="text-end text-muted" style={{ width: 90 }}>
                             {num(r.qty).toLocaleString()}
+                            {r.uom ? ` ${r.uom}` : ""}
                           </td>
                           <td className="text-end fw-bold" style={{ width: 120 }}>
                             {inr(r.amount_inr)}

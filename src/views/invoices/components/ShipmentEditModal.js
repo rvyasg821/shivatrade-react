@@ -45,6 +45,8 @@ const blank = {
   net_weight_kg: "",
   gross_weight_kg: "",
   bl_awb_no: "",
+  // GST/Assessable-Value-only rate override — blank = use exchange_rate.
+  custom_exchange_rate: "",
 };
 
 const ShipmentEditModal = ({ open, toggle, invoiceId, invoice }) => {
@@ -72,6 +74,7 @@ const ShipmentEditModal = ({ open, toggle, invoiceId, invoice }) => {
       net_weight_kg: inv.net_weight_kg || "",
       gross_weight_kg: inv.gross_weight_kg || "",
       bl_awb_no: inv.bl_awb_no || "",
+      custom_exchange_rate: inv.custom_exchange_rate || "",
     });
   }, [open, invoice]);
 
@@ -100,6 +103,7 @@ const ShipmentEditModal = ({ open, toggle, invoiceId, invoice }) => {
       net_weight_kg: form.net_weight_kg || undefined,
       gross_weight_kg: form.gross_weight_kg || undefined,
       bl_awb_no: form.bl_awb_no || undefined,
+      custom_exchange_rate: form.custom_exchange_rate || undefined,
     };
     try {
       await dispatch(updateInvoice({ id: invoiceId, data })).unwrap();
@@ -170,6 +174,22 @@ const ShipmentEditModal = ({ open, toggle, invoiceId, invoice }) => {
               value={form.shipping_bill_date}
               onChange={(_d, _s, iso) => onF("shipping_bill_date", iso || "")}
             />
+          </Col>
+          <Col md="4" className="mb-2">
+            <Label className="form-label">{t("Custom Exchange Rate")}</Label>
+            <Input
+              type="number"
+              step="0.000001"
+              min="0"
+              value={form.custom_exchange_rate}
+              onChange={(e) => onF("custom_exchange_rate", e.target.value)}
+              placeholder={t("e.g. 91 (₹ per 1 unit)")}
+            />
+            <small className="text-muted">
+              {t(
+                "₹ per 1 unit of the invoice currency (e.g. 91 for $1 = ₹91). Used only for GST/Assessable Value on the Commercial PDF."
+              )}
+            </small>
           </Col>
           <Col md="4" className="mb-2">
             <Label className="form-label">{t("Pre-Carriage By")}</Label>
