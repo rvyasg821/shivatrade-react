@@ -429,6 +429,7 @@ export const API_ENDPOINTS = {
     pdf: `/admin/invoice`, // append /:id/pdf?doc=commercial|packing-list
     poAddable: `/admin/invoice/po-addable`, // append /:poId?exclude_invoice_id=...
     customerInvoiceable: `/admin/invoice/customer-invoiceable`, // append /:customerId
+    soAdvanceRemaining: `/admin/invoice/so-advance-remaining`, // append /:soId
     import: `/admin/invoice/import`,
     export: `/admin/invoice/export`,
     sampleExcel: `/admin/invoice/sample-excel`,

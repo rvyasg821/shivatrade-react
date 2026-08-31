@@ -243,9 +243,14 @@ const MultiSoPickerModal = ({
         }
         out.push({
           purchase_order_id: g.po_id,
-          // The source SO's advance — the form sums it across distinct SOs so
-          // the auto-managed invoice advance previews correctly before save.
+          // The source SO's ORIGINAL advance, and its currently-unclaimed
+          // remainder (other live invoices off this SO may have already
+          // claimed part of it) — the invoice form's per-SO Advance table
+          // defaults "Advance to Apply" to the remainder, not the full amount.
           so_advance_amount: g.advance_amount ?? "0",
+          so_remaining_advance: g.remaining_advance ?? g.advance_amount ?? "0",
+          so_voucher_no: g.po_voucher_no || "",
+          so_freight_total: g.freight_total ?? "0",
           purchase_order_line_id: l.purchase_order_line_id,
           po_vendor_line_id: undefined,
           product_id: l.product_id,

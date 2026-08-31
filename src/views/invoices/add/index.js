@@ -332,12 +332,18 @@ const InvoiceAddEdit = () => {
   // qty cap per line = dispatched − already_invoiced; banner + disable Save
   // when nothing has been dispatched yet.
   const [poCoverage, setPoCoverage] = useState(null);
-  // Advance amount per source SO id — used to auto-sum the invoice's advance
-  // across EVERY source SO its lines come from (the advance is auto-managed:
-  // the field is read-only and the backend is authoritative on save; this is
-  // the live preview). Seeded on generate + each SO picked. Declared here (not
-  // near the picker) so the effects above can reference it without a TDZ error.
-  const [soAdvanceById, setSoAdvanceById] = useState({});
+  // Sales-Order-wise Advance table state, per source SO id. `soAdvanceMeta`
+  // is read-only reference data (SO voucher, its original advance_amount,
+  // and its currently-unclaimed remainder from OTHER invoices) — seeded on
+  // generate + each SO picked + (edit mode) from the invoice's own
+  // so_advance_summary. `soAdvanceApplied` is the EDITABLE "Advance to
+  // Apply" column; it defaults to that SO's remaining advance the first
+  // time the SO is seen, but the operator can override it (even past what's
+  // "left" — client-approved: over-allocating is allowed). Declared here
+  // (not near the picker) so the effects above can reference them without a
+  // TDZ error.
+  const [soAdvanceMeta, setSoAdvanceMeta] = useState({});
+  const [soAdvanceApplied, setSoAdvanceApplied] = useState({});
   // Count of PO lines auto-dropped because they had 0 dispatched qty.
   // Used to render the "N of M dispatched" info banner.
   const [droppedLineCount, setDroppedLineCount] = useState(0);
@@ -512,6 +518,31 @@ const InvoiceAddEdit = () => {
       return next;
     });
   }, [packingSums]);
+
+  // Clear a stale "required" error the moment its field actually holds a
+  // valid value — this field can be filled either by typing directly (which
+  // already clears its error via onF) OR by the auto-sum effect above
+  // setting `form` directly (which doesn't go through onF), so a "required"
+  // error raised on an earlier validation attempt (e.g. before any line item
+  // carried packing data) could otherwise sit on screen forever even after
+  // the auto-sum fills a valid value in.
+  useEffect(() => {
+    setErrors((e) => {
+      let next = e;
+      const clearIfValid = (field) => {
+        if (e[field] === undefined) return;
+        const v = form[field];
+        if (v !== "" && v != null && Number(v) > 0) {
+          if (next === e) next = { ...e };
+          next[field] = undefined;
+        }
+      };
+      clearIfValid("total_packages");
+      clearIfValid("net_weight_kg");
+      clearIfValid("gross_weight_kg");
+      return next;
+    });
+  }, [form.total_packages, form.net_weight_kg, form.gross_weight_kg]);
 
   // Header edit pins the field to manual; clearing it (empty) re-arms
   // auto-tracking so it resumes summing from the per-line packing — and
@@ -720,21 +751,39 @@ const InvoiceAddEdit = () => {
   useEffect(() => {
     if (isEdit || !queryPoId) return;
     (async () => {
-      const [action, covResp] = await Promise.all([
+      const [action, covResp, remResp] = await Promise.all([
         dispatch(getPurchaseOrder(queryPoId)),
         instance
           .get(`${API_ENDPOINTS.purchaseOrders.coverage}/${queryPoId}/coverage`)
+          .catch(() => null),
+        instance
+          .get(`${API_ENDPOINTS.invoices.soAdvanceRemaining}/${queryPoId}`)
           .catch(() => null),
       ]);
       const po = action?.payload?.purchaseOrderItem;
       if (!po) return;
       const coverage = covResp?.data?.data || null;
       setPoCoverage(coverage);
-      // Seed the primary source SO's advance for the auto-sum preview.
-      setSoAdvanceById((m) => ({
+      // Seed the primary source SO's Advance table row: original
+      // advance_amount (shown in "Total Advance Received", and also the
+      // default "Advance to Apply" — the operator manually reduces it when
+      // deliberately splitting the advance across invoices) + its
+      // currently-unclaimed remainder (other live invoices off this SO may
+      // have already claimed part of it — shown in "Remaining Advance").
+      const advanceAmount = Number(po.advance_amount || 0);
+      const remaining =
+        remResp?.data?.data?.remaining_advance != null
+          ? Number(remResp.data.data.remaining_advance)
+          : advanceAmount;
+      setSoAdvanceMeta((m) => ({
         ...m,
-        [po._id]: Number(po.advance_amount || 0),
+        [po._id]: {
+          voucher_no: po.voucher_no || "",
+          advance_amount: advanceAmount,
+          remaining_advance: remaining,
+        },
       }));
+      setSoAdvanceApplied((m) => ({ ...m, [po._id]: advanceAmount }));
 
       setForm((s) => ({
         ...s,
@@ -784,10 +833,9 @@ const InvoiceAddEdit = () => {
         customer_po_no: po.customer_po_number || s.customer_po_no || "",
         // Manual tracking reference carried from the source Sales Order.
         reference_no: po.reference_no || s.reference_no || "",
-        advance_received:
-          po.advance_amount != null && po.advance_amount !== ""
-            ? String(po.advance_amount)
-            : s.advance_received,
+        // Best-guess immediate value — the Advance table effect corrects
+        // this to the exact Σ applied_amount once soAdvanceApplied is seeded.
+        advance_received: String(round2(advanceAmount)),
       }));
 
       // Map PO lines → invoice lines. qty defaults to the coverage's
@@ -914,6 +962,19 @@ const InvoiceAddEdit = () => {
         const action = await dispatch(getPurchaseOrder(primaryPoId));
         po = action?.payload?.purchaseOrderItem || null;
       }
+      // Σ freight_total over EVERY distinct source SO in the picked lines —
+      // using only the primary SO's freight (as before) silently dropped
+      // every other picked SO's freight contribution, starving the invoice's
+      // freight_charges and making each SO's own "Invoice Value" row on the
+      // PDF/Excel undercount relative to that SO's own detail page/PDF.
+      const seenFreightSoIds = new Set();
+      let totalFreight = 0;
+      for (const l of seed.lines) {
+        if (!l.purchase_order_id || seenFreightSoIds.has(l.purchase_order_id))
+          continue;
+        seenFreightSoIds.add(l.purchase_order_id);
+        totalFreight += Number(l.so_freight_total || 0);
+      }
       setForm((s) => ({
         ...s,
         // Primary SO pointer (per-line linkage is authoritative for multi-SO;
@@ -941,16 +1002,12 @@ const InvoiceAddEdit = () => {
           getCurrencySymbol(seed.currency_code) ||
           s.currency_symbol,
         exchange_rate: po?.exchange_rate || s.exchange_rate,
-        // CNF freight from the primary SO → invoice freight_charges; flip
-        // incoterm FOB→CFR (CNF) when the SO carries freight.
+        // Σ freight_total over EVERY picked source SO → invoice
+        // freight_charges; flip incoterm FOB→CFR (CNF) when any SO carries
+        // freight.
         freight_charges:
-          po?.freight_total != null && Number(po.freight_total) > 0
-            ? String(po.freight_total)
-            : s.freight_charges || "0",
-        incoterm:
-          po?.freight_total != null && Number(po.freight_total) > 0
-            ? "CFR"
-            : po?.incoterm || s.incoterm,
+          totalFreight > 0 ? String(round2(totalFreight)) : s.freight_charges || "0",
+        incoterm: totalFreight > 0 ? "CFR" : po?.incoterm || s.incoterm,
         payment_terms: po?.payment_terms || s.payment_terms,
         delivery_terms: po?.delivery_terms || s.delivery_terms,
         country_of_destination:
@@ -964,16 +1021,31 @@ const InvoiceAddEdit = () => {
         // Reference No. — carried from the primary source Sales Order, same
         // blank-only rule so it never clobbers a typed value.
         reference_no: po?.reference_no || s.reference_no || "",
-        advance_received:
-          po?.advance_amount != null && po?.advance_amount !== ""
-            ? String(po.advance_amount)
-            : s.advance_received,
       }));
-      if (primaryPoId)
-        setSoAdvanceById((m) => ({
-          ...m,
-          [primaryPoId]: Number(po?.advance_amount || 0),
-        }));
+      // Seed the Advance table for EVERY distinct source SO in the picked
+      // lines (not just the primary) — each line carries its own SO's
+      // advance_amount/remaining_advance (see select-so-lines/index.js).
+      const soMeta = {};
+      const soApplied = {};
+      for (const l of seed.lines) {
+        const soId = l.purchase_order_id;
+        if (!soId || soMeta[soId]) continue;
+        const advanceAmount = Number(l.so_advance_amount || 0);
+        soMeta[soId] = {
+          voucher_no: l.so_voucher_no || "",
+          advance_amount: advanceAmount,
+          remaining_advance: Number(
+            l.so_remaining_advance ?? advanceAmount
+          ),
+        };
+        // Default "Advance to Apply" to the FULL original advance — the
+        // operator manually reduces it when deliberately splitting.
+        soApplied[soId] = advanceAmount;
+      }
+      if (Object.keys(soMeta).length) {
+        setSoAdvanceMeta((m) => ({ ...m, ...soMeta }));
+        setSoAdvanceApplied((m) => ({ ...m, ...soApplied }));
+      }
       // Full precision — a toFixed(2) here silently truncated a low
       // per-unit price (e.g. ₹0.0308 → ₹0.03) that a huge qty amplifies into
       // a large absolute value gap vs the source SO.
@@ -988,24 +1060,40 @@ const InvoiceAddEdit = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, queryPoId]);
 
-  // Advance is auto-managed: it's the Σ of advance_amount over EVERY distinct
-  // source SO the lines come from. Only overrides the field when every source
-  // SO's advance is known here (generate + picked SOs); otherwise it leaves the
-  // value untouched and the backend computes the exact sum on save — so it can
-  // never wrongly zero the advance on edit (where per-SO advances aren't known).
+  // The displayed advance is the Σ of the editable "Advance to Apply" column
+  // across every source SO row in the Sales-Order-wise Advance table
+  // (soAdvanceApplied only ever holds entries for known source SOs — seeded
+  // by generate / SO picker / edit-mode hydration — so this doesn't need to
+  // cross-check against `lines`, which don't carry `purchase_order_id` per
+  // row once loaded from a saved edit). Only overrides the field once at
+  // least one SO's applied amount is known; otherwise the backend computes
+  // the exact sum on save.
   useEffect(() => {
-    const poIds = Array.from(
-      new Set((lines || []).map((l) => l.purchase_order_id).filter(Boolean))
-    );
-    if (!poIds.length) return;
-    if (!poIds.every((id) => soAdvanceById[id] != null)) return;
-    const sum = poIds.reduce((s, id) => s + Number(soAdvanceById[id] || 0), 0);
+    const ids = Object.keys(soAdvanceApplied);
+    if (!ids.length) return;
+    const sum = ids.reduce((s, id) => s + Number(soAdvanceApplied[id] || 0), 0);
     const next = String(round2(sum));
     setForm((f) =>
       f.advance_received === next ? f : { ...f, advance_received: next }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, soAdvanceById]);
+  }, [soAdvanceApplied]);
+
+  // A SO with no advance received has its "Advance to Apply" input disabled
+  // (nothing to apply/split there) — force its applied value to 0 too, so a
+  // stale non-zero figure (e.g. hydrated from an older invoice saved before
+  // this guard existed) can't silently keep contributing to the total.
+  useEffect(() => {
+    setSoAdvanceApplied((m) => {
+      let next = m;
+      for (const [soId, meta] of Object.entries(soAdvanceMeta)) {
+        if (Number(meta.advance_amount || 0) > 0) continue;
+        if (Number(m[soId] || 0) === 0) continue;
+        if (next === m) next = { ...m };
+        next[soId] = 0;
+      }
+      return next;
+    });
+  }, [soAdvanceMeta]);
 
   // Auto-fetch addresses when customer/consignee/notify changes so the
   // matching address picker can populate.
@@ -1305,6 +1393,28 @@ const InvoiceAddEdit = () => {
       }))
     );
     setBankSnapshots(inv.bank_snapshots || []);
+    // Hydrate the Sales-Order-wise Advance table from the backend's
+    // computed summary (see mapGet's so_advance_summary) — one row per
+    // source SO with its original advance, THIS invoice's already-saved
+    // applied portion, and what's left for other invoices off the same SO.
+    if (Array.isArray(inv.so_advance_summary) && inv.so_advance_summary.length) {
+      const meta = {};
+      const applied = {};
+      for (const r of inv.so_advance_summary) {
+        meta[r.purchase_order_id] = {
+          voucher_no: r.voucher_no || "",
+          advance_amount: Number(r.advance_amount || 0),
+          // remaining_advance here already excludes THIS invoice's own
+          // applied amount (backend subtracts both otherApplied + applied),
+          // so add it back for the table's "before this invoice" reference.
+          remaining_advance:
+            Number(r.remaining_advance || 0) + Number(r.applied_amount || 0),
+        };
+        applied[r.purchase_order_id] = Number(r.applied_amount || 0);
+      }
+      setSoAdvanceMeta(meta);
+      setSoAdvanceApplied(applied);
+    }
   }, [isEdit, store?.invoiceItem?._id]);
 
   // ── Notifications ───────────────────────────────────────────────────
@@ -1469,12 +1579,33 @@ const InvoiceAddEdit = () => {
   const appendSoLines = (picked) => {
     setSoPickerOpen(false);
     if (!picked?.length) return;
-    // Learn each picked SO's advance so the preview can include it.
-    setSoAdvanceById((m) => {
+    // Learn each newly-picked SO's Advance table row (original advance +
+    // remaining), defaulting "Advance to Apply" to the FULL original
+    // advance — the operator manually reduces it when deliberately
+    // splitting the advance across invoices. A SO already known here
+    // (re-picked / already on the invoice) is left alone so an operator's
+    // edited applied amount isn't clobbered.
+    setSoAdvanceMeta((m) => {
       const next = { ...m };
       for (const row of picked) {
-        if (row.purchase_order_id && row.so_advance_amount != null)
+        if (row.purchase_order_id && next[row.purchase_order_id] == null) {
+          next[row.purchase_order_id] = {
+            voucher_no: row.so_voucher_no || "",
+            advance_amount: Number(row.so_advance_amount || 0),
+            remaining_advance: Number(
+              row.so_remaining_advance ?? row.so_advance_amount ?? 0
+            ),
+          };
+        }
+      }
+      return next;
+    });
+    setSoAdvanceApplied((m) => {
+      const next = { ...m };
+      for (const row of picked) {
+        if (row.purchase_order_id && next[row.purchase_order_id] == null) {
           next[row.purchase_order_id] = Number(row.so_advance_amount || 0);
+        }
       }
       return next;
     });
@@ -1780,6 +1911,15 @@ const InvoiceAddEdit = () => {
         : Number(cleaned.total_packages);
     return {
     ...cleaned,
+    // Per-source-SO advance split (Sales-Order-wise Advance table) — one
+    // entry per SO row the operator has seen, so the backend respects each
+    // as an explicit choice rather than re-deriving a default for it.
+    so_advance_allocations: Object.entries(soAdvanceApplied).map(
+      ([purchase_order_id, applied_amount]) => ({
+        purchase_order_id,
+        applied_amount: String(round2(Number(applied_amount || 0))),
+      })
+    ),
     lines: lines.map((l) => ({
       _id: l._id,
       seq: l.seq,
@@ -2964,23 +3104,94 @@ const InvoiceAddEdit = () => {
                 onChange={(e) => onF("other_charges", e.target.value)}
               />
             </Col>
-            <Col md="3" className="mb-2">
-              <Label className="form-label">
-                {t("Advance Received")} ({sym || "-"})
-              </Label>
-              {/* Auto-managed: Σ of every source Sales Order's advance. Read-only
-                  — the backend is authoritative and finalises the sum on save. */}
-              <Input
-                type="number"
-                step="any"
-                value={form.advance_received}
-                readOnly
-                disabled
-              />
-              <small className="text-muted">
-                {t("Auto-summed from the source Sales Orders' advances.")}
-              </small>
-            </Col>
+          </Row>
+          {Object.keys(soAdvanceMeta).length > 0 && (
+            <Row className="mb-2">
+              <Col md="12">
+                <Label className="form-label">
+                  {t("Sales-Order-wise Advance")}
+                </Label>
+                <div className="table-responsive">
+                  <Table size="sm" bordered className="mb-0">
+                    <thead>
+                      <tr>
+                        <th>{t("Sales Order")}</th>
+                        <th className="text-end">
+                          {t("Total Advance Received")}
+                        </th>
+                        <th style={{ minWidth: 140 }}>
+                          {t("Advance to Apply")}
+                        </th>
+                        <th className="text-end">{t("Remaining Advance")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(soAdvanceMeta).map(([soId, meta]) => {
+                        const applied = Number(soAdvanceApplied[soId] || 0);
+                        // "Before this invoice" remaining (meta.remaining_advance)
+                        // minus what THIS row now applies — negative when the
+                        // operator has deliberately over-allocated.
+                        const remainingAfter = round2(
+                          meta.remaining_advance - applied
+                        );
+                        // No advance was ever collected on this SO — there's
+                        // nothing to apply/split, so the input is disabled
+                        // rather than left open to a stray non-zero value
+                        // that has no real advance behind it (fewer ways to
+                        // enter an inconsistent state).
+                        const noAdvance = Number(meta.advance_amount || 0) <= 0;
+                        return (
+                          <tr key={soId}>
+                            <td>{meta.voucher_no || soId}</td>
+                            <td className="text-end">
+                              {sym}
+                              {fmt(meta.advance_amount)}
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                step="any"
+                                bsSize="sm"
+                                value={soAdvanceApplied[soId] ?? ""}
+                                disabled={noAdvance}
+                                onChange={(e) =>
+                                  setSoAdvanceApplied((m) => ({
+                                    ...m,
+                                    [soId]: e.target.value,
+                                  }))
+                                }
+                              />
+                              {noAdvance && (
+                                <small className="text-muted d-block">
+                                  {t(
+                                    "No advance received on this Sales Order — add an advance amount there first."
+                                  )}
+                                </small>
+                              )}
+                            </td>
+                            <td
+                              className={`text-end ${
+                                remainingAfter < 0 ? "text-danger" : ""
+                              }`}
+                            >
+                              {sym}
+                              {fmt(remainingAfter)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+                <small className="text-muted">
+                  {t(
+                    "Split a Sales Order's advance across multiple invoices — apply only part of it here and the rest stays available for the next invoice off the same SO. Over-applying is allowed; Remaining Advance will show negative."
+                  )}
+                </small>
+              </Col>
+            </Row>
+          )}
+          <Row>
             <Col md="9" className="d-flex align-items-end justify-content-end">
               <div className="small text-end" style={{ minWidth: 280 }}>
                 {/* Full breakdown so the jump from FOB → Grand Total is
