@@ -327,9 +327,18 @@ const LeadList = () => {
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       minWidth: "150px", // widen so the header fits on one line
+      maxWidth: "200px", // cap it — a long manual reference must never
+      // overflow into the Contact column next to it (was `text-nowrap`,
+      // which let it visually bleed over neighboring cells).
       selector: (row) =>
         row?.reference_no ? (
-          <span className="text-nowrap">{row.reference_no}</span>
+          <span
+            className="text-truncate d-inline-block"
+            style={{ maxWidth: "100%" }}
+            title={row.reference_no}
+          >
+            {row.reference_no}
+          </span>
         ) : (
           <span className="text-muted">-</span>
         ),
