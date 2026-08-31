@@ -327,14 +327,18 @@ const LeadList = () => {
       hide: "md", // hidden on small screens (≤ md ≈ 959px)
       sortable: false,
       minWidth: "150px", // widen so the header fits on one line
-      maxWidth: "200px", // cap it — a long manual reference must never
-      // overflow into the Contact column next to it (was `text-nowrap`,
-      // which let it visually bleed over neighboring cells).
+      maxWidth: "200px",
       selector: (row) =>
         row?.reference_no ? (
+          // A fixed PX max-width on the span itself — `maxWidth: "100%"`
+          // relied on the table library's cell wrapper actually being
+          // constrained to the column's own maxWidth for custom `selector`
+          // content, which it isn't; that let a long reference keep
+          // overflowing into the Contact column regardless of the column
+          // config. This is self-contained, no outer constraint needed.
           <span
-            className="text-truncate d-inline-block"
-            style={{ maxWidth: "100%" }}
+            className="text-truncate d-inline-block align-bottom"
+            style={{ maxWidth: 180 }}
             title={row.reference_no}
           >
             {row.reference_no}
