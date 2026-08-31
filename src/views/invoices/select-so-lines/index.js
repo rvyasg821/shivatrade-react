@@ -204,6 +204,11 @@ const SelectSoLines = () => {
           product_id: l.product_id,
           product_name: l.product_name || "",
           product_code: l.product_code || "",
+          // PO is multi-vendor at line level — carry the SO line's own
+          // vendor forward (was missing → the invoice line showed "Pick
+          // vendor" instead of the SO's actual vendor).
+          vendor_id: l.vendor_id || "",
+          vendor_name: l.vendor_name || "",
           // BE already resolves this as SO line → product master.
           part_no: l.part_no || "",
           description: l.product_name || "",
@@ -213,7 +218,20 @@ const SelectSoLines = () => {
           uqc_code: uqcFor(l.unit),
           qty: String(qty),
           unit_price: String(l.unit_price || 0),
-          discount_pct: "0",
+          // Multi-currency: carry the SO line's source currency + frozen
+          // source→document rate so the invoice line total converts
+          // correctly (line total = qty × unit_price × cost_exchange_rate).
+          // Without these the rate defaults to 1 and a foreign line shows
+          // its raw source value.
+          source_currency_code: l.source_currency_code || "INR",
+          cost_exchange_rate:
+            l.cost_exchange_rate != null && l.cost_exchange_rate !== ""
+              ? String(l.cost_exchange_rate)
+              : "1",
+          // Costing snapshot — carry the SO line's own discount/margin
+          // forward (was hardcoded "0"/omitted, silently dropping both).
+          discount_pct: String(l.discount_pct || 0),
+          margin_pct: String(l.margin_pct || 0),
           tax_pct: "0",
           igst_rate_pct: String(l.tax_pct || 0),
           product_rebates_snapshot: Array.isArray(l.product_rebates_snapshot)
