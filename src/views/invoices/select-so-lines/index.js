@@ -192,6 +192,13 @@ const SelectSoLines = () => {
         }
         out.push({
           purchase_order_id: g.po_id,
+          // The source SO's ORIGINAL advance + its currently-unclaimed
+          // remainder — seeds the invoice form's per-SO Advance table (same
+          // fields MultiSoPickerModal carries).
+          so_advance_amount: g.advance_amount ?? "0",
+          so_remaining_advance: g.remaining_advance ?? g.advance_amount ?? "0",
+          so_voucher_no: g.po_voucher_no || "",
+          so_freight_total: g.freight_total ?? "0",
           purchase_order_line_id: l.purchase_order_line_id,
           po_vendor_line_id: undefined,
           product_id: l.product_id,
