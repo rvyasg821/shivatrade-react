@@ -342,7 +342,7 @@ const InventoryView = () => {
   const columns = [
     {
       name: t("#"),
-      width: "46px",
+      minWidth: "60px",
       selector: (row, index) => (
         <span className="text-muted">
           {(currentPage - 1) * rowsPerPage + index + 1}
