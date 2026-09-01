@@ -279,10 +279,10 @@ const ActivityLog = () => {
                                       {r.action || "—"}
                                     </span>
                                   </td>
-                                  <td style={{ minWidth: 260 }}>
+                                  <td style={{ minWidth: 220 }}>
                                     {r.sentence || <Dash />}
                                   </td>
-                                  <td style={{ minWidth: 160 }}>
+                                  <td style={{ minWidth: 220, whiteSpace: "nowrap" }}>
                                     {r.entity_label || r.entity_name ? (
                                       <div>
                                         <div className="fw-semibold">
