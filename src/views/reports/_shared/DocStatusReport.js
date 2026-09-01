@@ -579,11 +579,14 @@ const DocStatusReport = ({ config }) => {
                         <th className="text-end text-nowrap">{t("Ordered Qty")}</th>
                         <th className="text-end text-nowrap">{t("Covered Qty")}</th>
                         <th className="text-end text-nowrap">{t("Pending Qty")}</th>
+                        <th className="text-end text-nowrap">{t("Rate")}</th>
+                        <th className="text-end text-nowrap">{t("Pending Amt")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {lineRows.map((l) => {
                         const meta = STATUS_META[l.status] || STATUS_META.open;
+                        const lineSym = getCurrencySymbol(drawerDoc?.currency_code);
                         return (
                           <tr key={l.line_id}>
                             <td style={{ minWidth: 180 }}>
@@ -612,6 +615,18 @@ const DocStatusReport = ({ config }) => {
                                 </span>
                               ) : (
                                 qty(l.pending_qty)
+                              )}
+                            </td>
+                            <td className="text-end">
+                              {l.rate != null ? money(l.rate, lineSym) : <Dash />}
+                            </td>
+                            <td className="text-end">
+                              {Number(l.pending_qty) > 0 ? (
+                                <span className="text-warning fw-semibold">
+                                  {money(l.pending_amount, lineSym)}
+                                </span>
+                              ) : (
+                                money(l.pending_amount, lineSym)
                               )}
                             </td>
                           </tr>
