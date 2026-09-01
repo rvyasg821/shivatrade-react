@@ -755,8 +755,12 @@ html body.swal2-height-auto {
 }
 
 // Prev / next arrows — match the numbered page pills: navy outline by
-// default, navy fill + white arrow on hover. The arrow is a tim-icons font
-// glyph, so it inherits the .page-link `color` (no image filter needed).
+// default, navy fill on hover. The arrow itself is the base theme's own
+// ::before/::after background-image chevron (the tim-icons <i> glyph is
+// never actually visible — that font isn't loaded in this app). On hover
+// the pill fills navy but that chevron image is a fixed dark color baked
+// into the image, so it stays dark/near-invisible — `filter: invert(1)`
+// flips that same image to white without touching its shape or size.
 .page-item {
   &.prev,
   &.next {
@@ -769,6 +773,13 @@ html body.swal2-height-auto {
         font-size: 1rem;
         line-height: 1;
         color: inherit;
+      }
+
+      &:hover {
+        &::before,
+        &::after {
+          filter: invert(1) brightness(2);
+        }
       }
     }
   }

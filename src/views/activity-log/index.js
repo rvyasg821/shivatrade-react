@@ -236,7 +236,7 @@ const ActivityLog = () => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table className="align-middle mb-0">
+                      <Table bordered className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th style={{ width: 34 }} />
