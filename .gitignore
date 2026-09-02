@@ -49,9 +49,10 @@ Thumbs.db
 *.mov
 *.wmv
 
-# NPM lock fils
-*-lock*.json
+# NPM lock files (package-lock.json IS tracked — needed for reproducible
+# `npm ci` deploys; only other lock formats stay ignored)
 yarn.lock
+pnpm-lock.yaml
 
 # Environment file
 .env
