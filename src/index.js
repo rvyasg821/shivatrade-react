@@ -7,6 +7,15 @@ import { BrowserRouter } from 'react-router-dom'
 import { store } from './redux/store'
 import { Provider } from 'react-redux'
 
+// ** styled-components DOM prop filtering (react-data-table-component
+// forwards its own config props like sortDirection/striped/responsive/dense
+// straight to DOM elements; this filters those out before they hit the DOM)
+import { StyleSheetManager } from 'styled-components'
+import isPropValid from '@emotion/is-prop-valid'
+
+const shouldForwardProp = (propName, target) =>
+  typeof target === 'string' ? isPropValid(propName) : true
+
 // ** Intl, CASL & ThemeColors Context
 import ability from './configs/acl/ability'
 import { AbilityContext } from './utility/context/Can'
@@ -54,23 +63,25 @@ const container = document.getElementById('root')
 const root = createRoot(container)
 
 root.render(
-  <BrowserRouter>
-    <Provider store={store}>
-      <Suspense fallback={null}>
-        <AbilityContext.Provider value={ability}>
-          <ThemeContext>
-            <CurrencyProvider>
-              <CustomThemeProvider>
-                <SimpleSpinner />
-                <LazyApp />
-                <Toaster position={themeConfig.layout.toastPosition} toastOptions={{ className: 'react-hot-toast' }} />
-              </CustomThemeProvider>
-            </CurrencyProvider>
-          </ThemeContext>
-        </AbilityContext.Provider>
-      </Suspense>
-    </Provider>
-  </BrowserRouter>
+  <StyleSheetManager shouldForwardProp={shouldForwardProp}>
+    <BrowserRouter>
+      <Provider store={store}>
+        <Suspense fallback={null}>
+          <AbilityContext.Provider value={ability}>
+            <ThemeContext>
+              <CurrencyProvider>
+                <CustomThemeProvider>
+                  <SimpleSpinner />
+                  <LazyApp />
+                  <Toaster position={themeConfig.layout.toastPosition} toastOptions={{ className: 'react-hot-toast' }} />
+                </CustomThemeProvider>
+              </CurrencyProvider>
+            </ThemeContext>
+          </AbilityContext.Provider>
+        </Suspense>
+      </Provider>
+    </BrowserRouter>
+  </StyleSheetManager>
 )
 
 // If you want your app to work offline and load faster, you can change

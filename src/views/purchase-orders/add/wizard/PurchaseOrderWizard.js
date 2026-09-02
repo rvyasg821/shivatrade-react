@@ -888,6 +888,13 @@ const PurchaseOrderWizard = () => {
       store?.actionFlag === "PO_CRTD" ||
       store?.actionFlag === "PO_UPDT"
     ) {
+      if (store?.purchaseOrderItem?.rate_override_warning) {
+        Notification(
+          "Exchange rate",
+          store.purchaseOrderItem.rate_override_warning,
+          "warning"
+        );
+      }
       Notification("Success", store?.success || t("Saved"), "success");
       dispatch(cleanPurchaseOrderMessage());
       navigate(`${appsRoot}/purchase-orders`, { replace: true });
