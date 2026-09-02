@@ -24,6 +24,14 @@ const PrivateRoute = ({ children, route }) => {
       return (<Navigate to='/login' />)
     }
 
+    // ** Forced first-login password change (SECURITY_HARDENING_PLAN.md B4)
+    // Bounces any authenticated user still carrying the flag straight to the
+    // set-new-password screen — covers direct/back-nav into /apps/*, not just
+    // the immediately-post-login redirect (getHomeRoute handles that one).
+    if (currentUser?.must_reset_password) {
+      return <Navigate to='/auth/set-new-password' replace />
+    }
+
     // Note: Super Admin role name is 'Admin' in database
     const isSystemAdmin = currentUser?.isSystemUser || currentUser?.role?.name === 'Super Admin' || currentUser?.role?.name === 'Admin' || currentUser?.userType === 'admin'
 

@@ -23,6 +23,7 @@ import { APP_MODE } from "../configs/appMode";
 const Login = lazy(() => import("@src/views/auth/login"));
 const ForgotPassword = lazy(() => import("@src/views/auth/forgotPassword"));
 const ResetPassword = lazy(() => import("@src/views/auth/resetPassword"));
+const ForceResetPassword = lazy(() => import("@src/views/auth/forceResetPassword"));
 const Error = lazy(() => import("@src/views/pages/misc/Error"));
 const NotAuthorized = lazy(() => import("@src/views/pages/misc/NotAuthorized"));
 const Company = lazy(() => import("@src/views/company/CompanyTable"));
@@ -94,6 +95,11 @@ const Router = ({ allRoutes }) => {
       children: [
         { path: "/reset-password/:token", element: <ResetPassword /> },
       ],
+    },
+    {
+      path: "/auth/set-new-password",
+      element: <BlankLayout />,
+      children: [{ path: "/auth/set-new-password", element: <ForceResetPassword /> }],
     },
     {
       path: "/auth/not-auth",

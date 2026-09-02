@@ -151,9 +151,9 @@ const CompanySettingsPage = () => {
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    const allowed = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
+    const allowed = ['image/png', 'image/jpeg', 'image/webp']
     if (!allowed.includes(file.type)) {
-      Notification('Error', 'Only PNG, JPG, SVG, and WebP files are allowed', 'warning')
+      Notification('Error', 'Only PNG, JPG, and WebP files are allowed', 'warning')
       return
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -880,7 +880,7 @@ const CompanySettingsPage = () => {
                         <Label className='btn btn-outline-primary btn-sm mb-0 d-flex align-items-center gap-50' style={{ cursor: 'pointer' }}>
                           <Upload size={14} />
                           {logoUploading ? 'Uploading...' : 'Upload Logo'}
-                          <Input type='file' accept='image/png,image/jpeg,image/svg+xml,image/webp'
+                          <Input type='file' accept='image/png,image/jpeg,image/webp'
                             onChange={handleLogoUpload} hidden disabled={logoUploading} />
                         </Label>
                         <small className='text-muted d-block mt-50'>PNG, JPG, SVG or WebP. Max 5MB.</small>

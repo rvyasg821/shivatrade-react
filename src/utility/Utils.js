@@ -191,6 +191,10 @@ const getUserData = () => JSON.parse(localStorage.getItem(storageUserKeyName));
 const getHomeRoute = (user, companyData = null) => {
   if (!user || !user?._id) return "/login";
 
+  // Forced first-login password change (SECURITY_HARDENING_PLAN.md B4) —
+  // overrides every role's normal destination until cleared.
+  if (user?.must_reset_password) return "/auth/set-new-password";
+
   const roleName = user?.role?.name;
   const isSystemAdmin = user?.isSystemUser || roleName === 'Super Admin' || roleName === 'Admin';
 

@@ -119,9 +119,9 @@ const Step1CompanyDetails = ({ section = "all" }) => {
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const allowed = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+    const allowed = ["image/png", "image/jpeg", "image/webp"];
     if (!allowed.includes(file.type)) {
-      Notification("Error", t("Only PNG, JPG, SVG, and WebP files are allowed"), "warning");
+      Notification("Error", t("Only PNG, JPG, and WebP files are allowed"), "warning");
       e.target.value = "";
       return;
     }
@@ -617,7 +617,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                   )}
                   <Upload size={14} />
                   {logoUploading ? t("Uploading...") : t("Upload Logo")}
-                  <Input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  <Input type="file" accept="image/png,image/jpeg,image/webp"
                     onChange={handleLogoUpload} hidden disabled={isReadOnly || logoUploading} />
                 </Label>
                 <small className="text-muted d-block mt-25">{t("PNG, JPG, SVG or WebP. Max 5MB.")}</small>
