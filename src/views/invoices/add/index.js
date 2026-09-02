@@ -1420,7 +1420,16 @@ const InvoiceAddEdit = () => {
   // ── Notifications ───────────────────────────────────────────────────
 
   useEffect(() => {
-    if (store?.success) Notification("Success", store.success, "success");
+    if (store?.success) {
+      if (store?.invoiceItem?.rate_override_warning) {
+        Notification(
+          "Exchange rate",
+          store.invoiceItem.rate_override_warning,
+          "warning"
+        );
+      }
+      Notification("Success", store.success, "success");
+    }
     if (store?.error) Notification("Error", store.error, "warning");
     if (store?.success || store?.error) dispatch(cleanInvoiceMessage());
   }, [store?.success, store?.error, dispatch]);
