@@ -1,6 +1,8 @@
 // Vendor PO (POV) import — thin wrapper over the shared 2-step import modal.
 // THREE sheets: "VPOs" (header), "LineItems" (products), "VendorCharges"
-// (per-charge with GST). Joined by voucher_no. Existing voucher_no is SKIPPED.
+// (per-charge with GST). Joined by voucher_no. An existing voucher_no
+// UPDATES that voucher's line tax_pct from the sheet (e.g. re-uploading a
+// corrected file) — qty/rate/status are left untouched.
 import { Badge, Alert, Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
@@ -19,7 +21,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("LineItems sheet: voucher_no + product_code (must exist), qty (> 0), rate; part_no / hsn / uom / gst_pct optional. VPO is INR-only")}</li>
       <li>{t("VendorCharges sheet: voucher_no + charge_code (must exist as an expense), type (fixed/percent), value, gst_pct — one row per charge")}</li>
       <li>{t("Optional advance_amount / advance_date / advance_notes record an advance payment to the vendor on create")}</li>
-      <li>{t("The original voucher number is preserved; an existing voucher is skipped (safe to re-run). Download the sample to see all three sheets.")}</li>
+      <li>{t("The original voucher number is preserved. Re-uploading an existing voucher_no updates that voucher's line GST% from the sheet (qty/rate/status untouched) — safe to re-run to correct a GST rate. Download the sample to see all three sheets.")}</li>
       <li>{t("Accepts .xlsx / .xls files (max 5 MB)")}</li>
     </ol>
   );
@@ -30,8 +32,11 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
         <Badge className="doc-badge doc-badge-green">
           {preview.summary.valid_new} {t("New")}
         </Badge>
+        <Badge className="doc-badge doc-badge-orange">
+          {preview.summary.valid_update || 0} {t("GST% Update (exists)")}
+        </Badge>
         <Badge className="doc-badge doc-badge-gray">
-          {preview.summary.skipped || 0} {t("Skip (exists)")}
+          {preview.summary.skipped || 0} {t("Skip")}
         </Badge>
         <Badge className="doc-badge doc-badge-red">
           {preview.summary.errors} {t("Errors")}
@@ -88,7 +93,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       sampleFilename="vpo-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
-      computeValidCount={(s) => s?.valid_new || 0}
+      computeValidCount={(s) => (s?.valid_new || 0) + (s?.valid_update || 0)}
       confirmLabel={(n) => `${t("Confirm Import")} (${n})`}
     />
   );
