@@ -365,6 +365,7 @@ const AdjustmentNotes = () => {
     {
       name: t("Amount"),
       right: true,
+      minWidth: "150px",
       selector: (r) => `${currencySymbol(r?.currency_code)}${fmt(r?.amount)}`,
     },
     {

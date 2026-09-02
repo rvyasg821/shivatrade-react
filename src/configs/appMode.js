@@ -21,6 +21,12 @@ export const IS_SINGLE_TENANT = APP_MODE === 'single';
 // "New PFI" buttons) are hidden. Flip to false to restore the PFI UI.
 export const PFI_RETIRED = true;
 
+// Payroll hidden at the client's request — nav, routes, and BE controllers
+// (admin + employee) are all hide-only. Backend module/services stay
+// registered (providers only) since nothing else in the app currently
+// depends on them either way. Flip to false to restore.
+export const PAYROLL_HIDDEN = true;
+
 // Nav item ids to drop from the sidebar / horizontal menu when single-tenant.
 export const HIDDEN_NAV_IDS = [
     ...(IS_SINGLE_TENANT
@@ -44,6 +50,8 @@ export const HIDDEN_NAV_IDS = [
         : []),
     // ── PFI retired (Sales S4) ──
     ...(PFI_RETIRED ? ['pfi'] : []), // pfiModuleSlug
+    // ── Payroll hidden (client request) ──
+    ...(PAYROLL_HIDDEN ? ['payroll'] : []), // payrollGroupSlug
 ];
 
 // Route base paths to drop from the router when single-tenant. Matching is
@@ -73,6 +81,9 @@ export const HIDDEN_ROUTE_PATHS = [
     // ── PFI retired (Sales S4) — hides /apps/pfi (list/add/edit/view/
     //    preview) AND the public share link '/p/:token'. ──
     ...(PFI_RETIRED ? ['/apps/pfi', '/p/:token'] : []),
+    // ── Payroll hidden (client request) — hides schedules/elements/runs
+    //    AND the employee self-service payslips page. ──
+    ...(PAYROLL_HIDDEN ? ['/apps/payroll', '/apps/my-payslips'] : []),
 ];
 
 // Backend permission module-slugs to hide from the role-permission catalog UI.
