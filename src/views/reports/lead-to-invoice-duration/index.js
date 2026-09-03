@@ -245,6 +245,15 @@ const LeadToInvoiceDuration = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("Lead / Quote / SO / Invoice No")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
               <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("From")}</Label>
                 <DateInput
@@ -282,15 +291,6 @@ const LeadToInvoiceDuration = () => {
                   classNamePrefix="select"
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                />
-              </Col>
-              <Col sm="6" md="3" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("Lead / Quote / SO / Invoice No")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
             </Row>

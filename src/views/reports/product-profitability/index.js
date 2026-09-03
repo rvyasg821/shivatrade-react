@@ -434,6 +434,15 @@ const ProductProfitability = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("Product name / code")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
               <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("From")}</Label>
                 <DateInput
@@ -461,15 +470,6 @@ const ProductProfitability = () => {
                   isClearable
                   placeholder={t("All Categories")}
                   classNamePrefix="select"
-                />
-              </Col>
-              <Col sm="6" md="3" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("Product name / code")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
               <Col sm="12" md="2" className="mb-1 d-flex align-items-end">

@@ -379,6 +379,15 @@ const HsnSummary = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("HSN code")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
               <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("From")}</Label>
                 <DateInput
@@ -409,15 +418,6 @@ const HsnSummary = () => {
                   isClearable
                   placeholder={t("All routes")}
                   classNamePrefix="select"
-                />
-              </Col>
-              <Col sm="6" md="3" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("HSN code")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
             </Row>
