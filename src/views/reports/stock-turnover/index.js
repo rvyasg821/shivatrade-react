@@ -236,6 +236,15 @@ const StockTurnover = () => {
           <CardBody>
             <Row>
               <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("Product name / code")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("From")}</Label>
                 <DateInput
                   id="stk-from"
@@ -276,15 +285,6 @@ const StockTurnover = () => {
                   placeholder={t("All products")}
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("Product name / code")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
             </Row>

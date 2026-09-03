@@ -244,6 +244,15 @@ const AdvanceVsInvoice = () => {
         <Card className="overflow-hidden">
           <CardBody>
             <Row>
+              <Col sm="6" md="3" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("Sales Order No / Customer")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
               <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("From")}</Label>
                 <DateInput
@@ -281,15 +290,6 @@ const AdvanceVsInvoice = () => {
                   classNamePrefix="select"
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                />
-              </Col>
-              <Col sm="6" md="3" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("Sales Order No / Customer")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
             </Row>

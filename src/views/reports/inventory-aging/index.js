@@ -257,6 +257,15 @@ const InventoryAging = () => {
           <CardBody>
             <Row>
               <Col sm="6" md="2" className="mb-1">
+                <Label className="form-label">{t("Search")}</Label>
+                <Input
+                  type="text"
+                  value={searchInput}
+                  placeholder={t("Product name / code")}
+                  onChange={(e) => setSearchInput(e?.target?.value)}
+                />
+              </Col>
+              <Col sm="6" md="2" className="mb-1">
                 <Label className="form-label">{t("As of")}</Label>
                 <DateInput
                   id="iag-asof"
@@ -288,15 +297,6 @@ const InventoryAging = () => {
                   placeholder={t("All products")}
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
-                <Label className="form-label">{t("Search")}</Label>
-                <Input
-                  type="text"
-                  value={searchInput}
-                  placeholder={t("Product name / code")}
-                  onChange={(e) => setSearchInput(e?.target?.value)}
                 />
               </Col>
             </Row>
