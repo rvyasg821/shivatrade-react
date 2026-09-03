@@ -2,13 +2,6 @@
 import navbar from "./navbar";
 import layout from "./layout";
 import authentication from "./authentication";
-import todo from "@src/views/apps/todo/store";
-import chat from "@src/views/apps/chat/store";
-import users from "@src/views/apps/user/store";
-import email from "@src/views/apps/email/store";
-import calendar from "@src/views/apps/calendar/store";
-import dataTables from "@src/views/tables/data-tables/store";
-import permissions from "@src/views/apps/roles-permissions/store";
 
 import auth from "@src/views/auth/store";
 import register from "@src/views/auth/register/store/"
@@ -97,17 +90,10 @@ const rootReducer = {
   company,
   trackingLogs,
   role,
-  todo,
-  chat,
-  email,
-  users,
   navbar,
   layout,
   payment,
   subscription,
-  calendar,
-  dataTables,
-  permissions,
   location,
   category,
   vendorCategory,
