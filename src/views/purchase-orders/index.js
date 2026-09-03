@@ -294,7 +294,8 @@ const PurchaseOrderView = () => {
     return formatMoney(amount, row?.currency_code);
   };
 
-  const columns = [
+  const columns = useMemo(() => {
+    const cols = [
     {
       name: t("SO #"),
       sortField: "voucher_no",
@@ -437,7 +438,7 @@ const PurchaseOrderView = () => {
     },
   ];
 
-  columns.push({
+    cols.push({
     name: t("Action"),
     center: true,
     minWidth: "170px", // reserve room for the action icons so the last (Delete) isn't clipped on mobile
@@ -501,7 +502,10 @@ const PurchaseOrderView = () => {
         )}
       </div>
     ),
-  });
+    });
+    return cols;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, canDelete, t]);
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());

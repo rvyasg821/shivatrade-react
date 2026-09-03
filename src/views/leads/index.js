@@ -1,5 +1,5 @@
 // ** React Imports
-import { Fragment, useState, useEffect, useCallback, useLayoutEffect } from "react";
+import { Fragment, useState, useEffect, useCallback, useLayoutEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
@@ -273,7 +273,8 @@ const LeadList = () => {
   const statusLabel = (val) =>
     LEAD_STATUS_OPTIONS.find((s) => s.value === val)?.label || val || "-";
 
-  const columns = [
+  const columns = useMemo(() => {
+    const cols = [
     {
       name: t("Company"),
       sortField: "company_name",
@@ -464,7 +465,7 @@ const LeadList = () => {
   ];
 
   {
-    columns.push({
+    cols.push({
       name: t("Action"),
       center: true,
       minWidth: "190px", // reserve room for up to 5 icons so the last (Delete) isn't clipped on mobile
@@ -590,6 +591,9 @@ const LeadList = () => {
       ),
     });
   }
+    return cols;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, canDelete, t]);
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());

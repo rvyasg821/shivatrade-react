@@ -1478,28 +1478,35 @@ const CostingWorksheet = ({
                       />
                     </td>
                     <td>
-                      <WorksheetVendorSelect
-                        classNamePrefix="select"
-                        menuPortalTarget={document.body}
-                        styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                        options={vendorOptsFor(l)}
-                        isLoading={!!loadingByProduct[l.product_id]}
-                        value={
-                          vendorOptsFor(l).find(
-                            (o) => o.value === l.vendor_id
-                          ) ||
-                          (l.vendor_id
-                            ? { value: l.vendor_id, label: l.vendor_name || "—" }
-                            : null)
-                        }
-                        isDisabled={readOnly || !l.product_id || !vendorCurrency}
-                        onChange={(opt) => onPickVendor(idx, opt)}
-                        placeholder={
-                          !vendorCurrency
-                            ? t("Select vendor currency first")
-                            : t("Pick vendor")
-                        }
-                      />
+                      {(() => {
+                        // Computed once — was called twice (options + value
+                        // lookup), running the same per-row filter twice.
+                        const rowVendorOpts = vendorOptsFor(l);
+                        return (
+                          <WorksheetVendorSelect
+                            classNamePrefix="select"
+                            menuPortalTarget={document.body}
+                            styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                            options={rowVendorOpts}
+                            isLoading={!!loadingByProduct[l.product_id]}
+                            value={
+                              rowVendorOpts.find(
+                                (o) => o.value === l.vendor_id
+                              ) ||
+                              (l.vendor_id
+                                ? { value: l.vendor_id, label: l.vendor_name || "—" }
+                                : null)
+                            }
+                            isDisabled={readOnly || !l.product_id || !vendorCurrency}
+                            onChange={(opt) => onPickVendor(idx, opt)}
+                            placeholder={
+                              !vendorCurrency
+                                ? t("Select vendor currency first")
+                                : t("Pick vendor")
+                            }
+                          />
+                        );
+                      })()}
                     </td>
                     {/* Part No is editable in draft and overrides the product
                         master for THIS document only (same rule as HSN below —

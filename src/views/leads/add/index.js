@@ -230,9 +230,18 @@ const LeadForm = () => {
   // computation was removed with lead line pricing: a lead has no prices.)
 
   useLayoutEffect(() => {
-    dispatch(getProductDropdown());
-    dispatch(getExchangeRateOptions());
-    dispatch(getVendorDropdown());
+    // "Already loaded" guards (matches the pattern already used in
+    // CostingWorksheet.js) — skip a re-fetch if this visit already has the
+    // dropdown from an earlier one this session.
+    if (!(productStore?.productDropdown || []).length) {
+      dispatch(getProductDropdown());
+    }
+    if (!(currencyStore?.exchangeOptions || []).length) {
+      dispatch(getExchangeRateOptions());
+    }
+    if (!(vendorStore?.vendorDropdown || []).length) {
+      dispatch(getVendorDropdown());
+    }
     if (isEditMode) {
       dispatch(getLead(id));
     } else {
@@ -899,6 +908,7 @@ const LeadForm = () => {
                           "Product specs, target price, RFQ details - the brief reps reference throughout the deal."
                         )}
                         {...field}
+                        value={field.value ?? ""}
                       />
                     )}
                   />

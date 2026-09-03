@@ -159,24 +159,28 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
 
   const anyVisible = Object.values(vis).some(Boolean);
 
-  const [d, setD] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Split into two independent fetch groups so toggling the period doesn't
+  // needlessly re-hit the endpoints that never depended on it. `dPeriod`
+  // holds the time-windowed figures (deps include period/customFrom/customTo);
+  // `dStatic` holds the always-live current-state figures (mount/visibility-
+  // only deps) — quoteStatsLive/grnStats/dnOpen/invStats/customers/vendors/
+  // products never read `dateParams` in the first place.
+  const [dPeriod, setDPeriod] = useState(null);
+  const [dStatic, setDStatic] = useState(null);
+  const [loadingPeriod, setLoadingPeriod] = useState(true);
+  const [loadingStatic, setLoadingStatic] = useState(true);
   const [exporting, setExporting] = useState(null);
+  const d = dPeriod || dStatic ? { ...dStatic, ...dPeriod } : null;
+  const loading = loadingPeriod || loadingStatic;
 
   useEffect(() => {
     if (!anyVisible) {
-      setLoading(false);
+      setLoadingPeriod(false);
       return;
     }
     let mounted = true;
-    setLoading(true);
+    setLoadingPeriod(true);
 
-    // Fetch only what the role can see; everything else stays undefined.
-    // Time-based figures pass the period window (dateParams); current-state
-    // cards omit it. quoteStatsLive is an UNFILTERED quotation fetch that backs
-    // the always-live "Quotations draft / sent" attention count (the filtered
-    // quoteStats drives the period-scoped KPI total instead). SO "waiting for
-    // POV" and invoice "overdue" stay live server-side, so no twin fetch there.
     const jobs = {
       invoiceStats: vis.invoices
         ? get(API_ENDPOINTS.invoices.stats, dateParams)
@@ -190,16 +194,45 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
       quoteStats: vis.quotations
         ? get(API_ENDPOINTS.quotations.stats, dateParams)
         : null,
+      povStats: vis.pov ? get(API_ENDPOINTS.poVendors.stats, dateParams) : null,
+      leadStats: vis.leads ? get(API_ENDPOINTS.leads.stats, dateParams) : null,
+    };
+
+    Promise.all(Object.values(jobs)).then((vals) => {
+      if (!mounted) return;
+      const keys = Object.keys(jobs);
+      const out = {};
+      keys.forEach((k, i) => (out[k] = vals[i]));
+      setDPeriod(out);
+      setLoadingPeriod(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyVisible, authUserItem?._id, period, customFrom, customTo]);
+
+  useEffect(() => {
+    if (!anyVisible) {
+      setLoadingStatic(false);
+      return;
+    }
+    let mounted = true;
+    setLoadingStatic(true);
+
+    // Current-state cards (Stock Value, Needs attention, entity counts) —
+    // never scoped to a period, so this effect only re-fires on mount / when
+    // module visibility or the user changes, not on period toggles.
+    const jobs = {
       quoteStatsLive: vis.quotations
         ? get(API_ENDPOINTS.quotations.stats)
         : null,
-      povStats: vis.pov ? get(API_ENDPOINTS.poVendors.stats, dateParams) : null,
       grnStats: vis.pov ? get(API_ENDPOINTS.grn.stats) : null,
       dnOpen: vis.pov
         ? countOf(API_ENDPOINTS.debitNotes.list, { status: "issued" })
         : null,
       invStats: vis.inventory ? get(API_ENDPOINTS.inventory.stats) : null,
-      leadStats: vis.leads ? get(API_ENDPOINTS.leads.stats, dateParams) : null,
       customers: vis.customers ? countOf(API_ENDPOINTS.customers.list) : null,
       vendors: vis.vendors ? countOf(API_ENDPOINTS.vendors.list) : null,
       products: vis.products ? countOf(API_ENDPOINTS.products.list) : null,
@@ -210,15 +243,15 @@ const ErpDashboard = ({ period = "fy", customFrom = "", customTo = "" }) => {
       const keys = Object.keys(jobs);
       const out = {};
       keys.forEach((k, i) => (out[k] = vals[i]));
-      setD(out);
-      setLoading(false);
+      setDStatic(out);
+      setLoadingStatic(false);
     });
 
     return () => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anyVisible, authUserItem?._id, period, customFrom, customTo]);
+  }, [anyVisible, authUserItem?._id]);
 
   if (!anyVisible) return null;
 
