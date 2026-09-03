@@ -339,7 +339,7 @@ const InventoryView = () => {
 
   const rows = store?.inventoryItems || [];
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       name: t("#"),
       minWidth: "60px",
@@ -524,7 +524,9 @@ const InventoryView = () => {
         </div>
       ),
     },
-  ];
+  ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentPage, rowsPerPage, t]);
 
   return (
     <Fragment>

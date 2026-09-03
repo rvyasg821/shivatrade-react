@@ -79,7 +79,7 @@ const GroupedTable = ({ groups, totals, t, inr }) => {
   }
 
   return (
-    <Table responsive className="mb-0 align-middle">
+    <Table bordered size="sm" responsive className="mb-0 align-middle">
       <thead className="table-dark">
         <tr>
           <th>{t("Product")}</th>
@@ -146,7 +146,7 @@ const GroupedTable = ({ groups, totals, t, inr }) => {
         ))}
       </tbody>
       <tfoot>
-        <tr className="fw-bolder" style={{ borderTop: "2px solid #d8d6de" }}>
+        <tr className="fw-bolder">
           <td>{t("Grand Total")}</td>
           <td />
           <td className="text-end">{inr(totals.qty_sold)}</td>

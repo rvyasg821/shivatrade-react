@@ -481,13 +481,28 @@ const QuotationWizard = () => {
   }, [liveCurrencyCode, currencyStore?.exchangeOptions, isEdit]);
 
   // ── Initial loads ───────────────────────────────────────────────────
+  // "Already loaded" guards (matches the pattern already used in
+  // CostingWorksheet.js) — skip a re-fetch if this visit already has the
+  // dropdown from an earlier one this session.
   useEffect(() => {
-    dispatch(getExchangeRateOptions());
-    dispatch(getCurrencyDropdown());
-    dispatch(getProductDropdown());
-    dispatch(getExpenseDropdown());
-    dispatch(getRebateDropdown());
-    dispatch(getVendorDropdown());
+    if (!(currencyStore?.exchangeOptions || []).length) {
+      dispatch(getExchangeRateOptions());
+    }
+    if (!(currencyStore?.currencyDropdown || []).length) {
+      dispatch(getCurrencyDropdown());
+    }
+    if (!(productStore?.productDropdown || []).length) {
+      dispatch(getProductDropdown());
+    }
+    if (!(expenseStore?.expenseDropdown || []).length) {
+      dispatch(getExpenseDropdown());
+    }
+    if (!(rebateStore?.rebateDropdown || []).length) {
+      dispatch(getRebateDropdown());
+    }
+    if (!(vendorStore?.vendorDropdown || []).length) {
+      dispatch(getVendorDropdown());
+    }
     if (isEdit) {
       dispatch(getQuotation(id));
     } else {

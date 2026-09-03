@@ -158,10 +158,20 @@ const ViewLead = () => {
 
   useEffect(() => {
     if (id) dispatch(getLead(id));
-    dispatch(getExchangeRateOptions());
-    dispatch(getCategoryDropdown());
-    dispatch(getProductDropdown());
-    dispatch(getVendorDropdown());
+    // "Already loaded" guards (matches the pattern already used in
+    // CostingWorksheet.js) — skip a re-fetch if this visit already has the
+    // dropdown from an earlier one this session.
+    if (!(exchangeOptions || []).length) dispatch(getExchangeRateOptions());
+    if (!(categoryStore?.categoryDropdown || []).length) {
+      dispatch(getCategoryDropdown());
+    }
+    if (!(productStore?.productDropdown || []).length) {
+      dispatch(getProductDropdown());
+    }
+    if (!(vendorStore?.vendorDropdown || []).length) {
+      dispatch(getVendorDropdown());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, dispatch]);
 
   // ── Lookups (id → name) for chips ──

@@ -308,7 +308,7 @@ const LeadToInvoiceDuration = () => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t("Lead")}</th>
@@ -373,7 +373,6 @@ const LeadToInvoiceDuration = () => {
                         <tfoot>
                           <tr
                             className="fw-bolder"
-                            style={{ borderTop: "2px solid #d8d6de" }}
                           >
                             <td colSpan={5}>{t("Average (days)")}</td>
                             <td className="text-end">

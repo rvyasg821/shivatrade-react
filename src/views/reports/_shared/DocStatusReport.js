@@ -418,7 +418,7 @@ const DocStatusReport = ({ config }) => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table size="sm" className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t(docNoLabel)}</th>

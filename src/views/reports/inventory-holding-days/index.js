@@ -306,7 +306,7 @@ const InventoryHoldingDays = () => {
                       className="table-responsive"
                       style={{ overflowX: "auto" }}
                     >
-                      <Table className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t("Product")}</th>
@@ -343,6 +343,15 @@ const InventoryHoldingDays = () => {
                               <tr
                                 key={r.product_id}
                                 className={slow ? "table-warning" : ""}
+                                // Keep the warning background tint but not its
+                                // border color — see stock-turnover/index.js
+                                // for why (.table-warning also recolors
+                                // --bs-table-border-color on a bordered table).
+                                style={
+                                  slow
+                                    ? { "--bs-table-border-color": "var(--bs-border-color)" }
+                                    : undefined
+                                }
                               >
                                 <td style={{ minWidth: 220 }}>
                                   <div className="fw-semibold text-wrap">
@@ -403,7 +412,6 @@ const InventoryHoldingDays = () => {
                         <tfoot>
                           <tr
                             className="fw-bolder"
-                            style={{ borderTop: "2px solid #d8d6de" }}
                           >
                             <td colSpan={2}>{t("Overall")}</td>
                             <td className="text-end">

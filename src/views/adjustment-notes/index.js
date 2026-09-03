@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams, Link } from "react-router-dom";
 import {
@@ -265,7 +265,7 @@ const AdjustmentNotes = () => {
       });
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       name: t("Voucher"),
       minWidth: "210px",
@@ -399,7 +399,9 @@ const AdjustmentNotes = () => {
         </div>
       ),
     },
-  ];
+  ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canVoid, t]);
 
   return (
     <Fragment>

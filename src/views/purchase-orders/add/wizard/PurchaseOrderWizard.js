@@ -196,14 +196,31 @@ const PurchaseOrderWizard = () => {
   const isLocked = isEdit && liveStatus && liveStatus !== "draft";
 
   // ── Initial dropdowns + edit hydration ──
+  // "Already loaded" guards (matches the pattern already used in
+  // CostingWorksheet.js) — skip a re-fetch if this visit already has the
+  // dropdown from an earlier one this session.
   useEffect(() => {
-    dispatch(getVendorDropdown());
-    dispatch(getProductDropdown());
-    dispatch(getExchangeRateOptions());
-    dispatch(getCurrencyDropdown());
-    dispatch(getCompanyDetails());
-    dispatch(getExpenseDropdown());
-    dispatch(getRebateDropdown());
+    if (!(vendorStore?.vendorDropdown || []).length) {
+      dispatch(getVendorDropdown());
+    }
+    if (!(productStore?.productDropdown || []).length) {
+      dispatch(getProductDropdown());
+    }
+    if (!(currencyStore?.exchangeOptions || []).length) {
+      dispatch(getExchangeRateOptions());
+    }
+    if (!(currencyStore?.currencyDropdown || []).length) {
+      dispatch(getCurrencyDropdown());
+    }
+    if (!companyStore?.companyItem) {
+      dispatch(getCompanyDetails());
+    }
+    if (!(expenseStore?.expenseDropdown || []).length) {
+      dispatch(getExpenseDropdown());
+    }
+    if (!(rebateStore?.rebateDropdown || []).length) {
+      dispatch(getRebateDropdown());
+    }
     if (isEdit) {
       dispatch(getPurchaseOrder(id));
     } else {

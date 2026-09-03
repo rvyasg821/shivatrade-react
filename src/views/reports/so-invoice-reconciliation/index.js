@@ -336,7 +336,7 @@ const SoInvoiceReconciliation = () => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t("Invoice No")}</th>
@@ -368,6 +368,15 @@ const SoInvoiceReconciliation = () => {
                               <tr
                                 key={`${r.invoice_id}-${r.product_code || ""}-${r.so_no || ""}`}
                                 className={changed ? "table-warning" : ""}
+                                // Keep the warning background tint but not its
+                                // border color — see stock-turnover/index.js
+                                // for why (.table-warning also recolors
+                                // --bs-table-border-color on a bordered table).
+                                style={
+                                  changed
+                                    ? { "--bs-table-border-color": "var(--bs-border-color)" }
+                                    : undefined
+                                }
                               >
                                 <td className="fw-semibold text-nowrap">
                                   {r.invoice_no || <Dash />}
@@ -450,7 +459,6 @@ const SoInvoiceReconciliation = () => {
                         <tfoot>
                           <tr
                             className="fw-bolder"
-                            style={{ borderTop: "2px solid #d8d6de" }}
                           >
                             <td colSpan={6}>{t("Totals (INR)")}</td>
                             {/* SO Qty / SO Rate columns */}

@@ -1,5 +1,5 @@
 // ** React Imports
-import { Fragment, useState, useEffect, useCallback, useLayoutEffect } from "react";
+import { Fragment, useState, useEffect, useCallback, useLayoutEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 // ** Store
@@ -196,7 +196,8 @@ const VendorList = () => {
 
   const categoryOptions = vendorCategoryOptions;
 
-  const columns = [
+  const columns = useMemo(() => {
+    const cols = [
     {
       name: t("Company"),
       sortField: "company_name",
@@ -325,8 +326,8 @@ const VendorList = () => {
     },
   ];
 
-  if (canEdit || canDelete) {
-    columns.push({
+    if (canEdit || canDelete) {
+    cols.push({
       name: t("Action"),
       center: true,
       cell: (row) => (
@@ -378,7 +379,10 @@ const VendorList = () => {
         </div>
       ),
     });
-  }
+    }
+    return cols;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, canDelete, t]);
 
   useEffect(() => {
     if (!store?.loading) dispatch(startLoading());

@@ -305,7 +305,7 @@ const StockTurnover = () => {
                       className="table-responsive"
                       style={{ overflowX: "auto" }}
                     >
-                      <Table className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t("Product")}</th>
@@ -351,6 +351,16 @@ const StockTurnover = () => {
                               <tr
                                 key={r.product_id}
                                 className={slow ? "table-warning" : ""}
+                                // Keep the warning background tint but not its
+                                // border color — Bootstrap's .table-warning
+                                // also recolors --bs-table-border-color, which
+                                // on a bordered table made this one row's grid
+                                // lines a different color than every other row.
+                                style={
+                                  slow
+                                    ? { "--bs-table-border-color": "var(--bs-border-color)" }
+                                    : undefined
+                                }
                               >
                                 <td style={{ minWidth: 220 }}>
                                   <div className="fw-semibold text-wrap">
@@ -396,14 +406,13 @@ const StockTurnover = () => {
                         <tfoot>
                           <tr
                             className="fw-bolder"
-                            style={{ borderTop: "2px solid #d8d6de" }}
                           >
                             <td colSpan={6}>{t("Totals (INR)")}</td>
-                            <td className="text-end">
+                            <td className="text-end text-nowrap">
                               {`₹ ${grp(totals.avg_inventory_value_inr)}`}
                             </td>
                             <td className="text-end">{qty(totals.qty_sold)}</td>
-                            <td className="text-end">
+                            <td className="text-end text-nowrap">
                               {`₹ ${grp(totals.cogs_inr)}`}
                             </td>
                             <td className="text-end">

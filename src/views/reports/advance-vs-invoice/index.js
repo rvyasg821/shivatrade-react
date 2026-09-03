@@ -307,7 +307,7 @@ const AdvanceVsInvoice = () => {
                 ) : (
                   <Fragment>
                     <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table className="align-middle mb-0">
+                      <Table bordered size="sm" className="align-middle mb-0">
                         <thead className="table-dark">
                           <tr>
                             <th className="text-nowrap">{t("Sales Order")}</th>
@@ -397,7 +397,6 @@ const AdvanceVsInvoice = () => {
                         <tfoot>
                           <tr
                             className="fw-bolder"
-                            style={{ borderTop: "2px solid #d8d6de" }}
                           >
                             <td colSpan={4}>{t("Totals (INR)")}</td>
                             <td className="text-end text-nowrap">{`₹ ${grp(totals.so_value_inr)}`}</td>
