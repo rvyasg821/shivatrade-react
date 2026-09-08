@@ -17,6 +17,7 @@ import {
   Button,
   CardBody,
   UncontrolledTooltip,
+  Spinner,
 } from "reactstrap";
 import Select from "react-select";
 
@@ -435,7 +436,11 @@ const CustomerList = () => {
                   onClick={handleExport}
                   disabled={exporting}
                 >
-                  {t("Export")} <Download size={14} />
+                  {exporting ? (
+                    <span><Spinner size="sm" className="me-50" /> {t("Exporting…")}</span>
+                  ) : (
+                    <span>{t("Export")} <Download size={14} /></span>
+                  )}
                 </Button>
                 {canAdd && (
                   <Button

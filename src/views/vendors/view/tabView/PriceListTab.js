@@ -4,7 +4,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, UncontrolledTooltip } from "reactstrap";
+import { Button, Spinner, UncontrolledTooltip } from "reactstrap";
 import EntitySearchSelect from "@components/entity-select";
 import { Edit, PlusCircle, Upload, Download, Clock } from "react-feather";
 import { useTranslation } from "react-i18next";
@@ -242,7 +242,11 @@ const PriceListTab = () => {
                 onClick={handleExport}
                 disabled={exporting}
               >
-                {t("Export")} <Download size={14} />
+                {exporting ? (
+                  <span><Spinner size="sm" className="me-50" /> {t("Exporting…")}</span>
+                ) : (
+                  <span>{t("Export")} <Download size={14} /></span>
+                )}
               </Button>
             )}
             {(canAdd || canEdit) && (

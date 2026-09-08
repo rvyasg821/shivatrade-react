@@ -17,6 +17,7 @@ import {
   Input,
   Button,
   UncontrolledTooltip,
+  Spinner,
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
@@ -569,7 +570,11 @@ const InvoicesList = () => {
                   onClick={handleExport}
                   disabled={exporting}
                 >
-                  {t("Export")} <Download size={14} />
+                  {exporting ? (
+                    <span><Spinner size="sm" className="me-50" /> {t("Exporting…")}</span>
+                  ) : (
+                    <span>{t("Export")} <Download size={14} /></span>
+                  )}
                 </Button>
                 {canCreate && (
                   <Button

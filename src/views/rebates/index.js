@@ -5,6 +5,7 @@ import { deleteRebate, deleteManyRebates, getRebateList, cleanRebateMessage } fr
 import { startLoading, stopLoading } from "../loadingstore";
 import {
   Col, Badge, Row, Card, Input, Button, CardBody, UncontrolledTooltip,
+  Spinner,
 } from "reactstrap";
 import Select from "react-select";
 import Notification from "@components/toast/notification";
@@ -217,7 +218,11 @@ const RebateList = () => {
                     </Button>
                   )}
                   <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={handleExport} disabled={exporting}>
-                    {t("Export")} <Download size={14} />
+                    {exporting ? (
+                      <span><Spinner size="sm" className="me-50" /> {t("Exporting…")}</span>
+                    ) : (
+                      <span>{t("Export")} <Download size={14} /></span>
+                    )}
                   </Button>
                   {canAdd && (
                     <Button color="outline-secondary" size="sm" className="text-nowrap" onClick={() => setImportModalOpen(true)}>
