@@ -325,6 +325,33 @@ const navigationItems = [
         resource: expensesModuleSlug,
         companyOnly: true,
       },
+      // Geo masters. No `action`/`resource` — those run an ability check against
+      // a permission row that does not exist yet for these modules, which would
+      // hide the item from everyone. The route's `permissionId` still gates it.
+      {
+        id: countriesModuleSlug,
+        permissionId: countriesModuleSlug,
+        companyOnly: true,
+        title: rolePermissionName[countriesModuleSlug],
+        icon: <Globe size={20} />,
+        navLink: `${appsRoot}/countries`,
+      },
+      {
+        id: statesModuleSlug,
+        permissionId: statesModuleSlug,
+        companyOnly: true,
+        title: rolePermissionName[statesModuleSlug],
+        icon: <Map size={20} />,
+        navLink: `${appsRoot}/states`,
+      },
+      {
+        id: citiesModuleSlug,
+        permissionId: citiesModuleSlug,
+        companyOnly: true,
+        title: rolePermissionName[citiesModuleSlug],
+        icon: <MapPin size={20} />,
+        navLink: `${appsRoot}/cities`,
+      },
     ],
   },
 
@@ -623,33 +650,6 @@ const navigationItems = [
         title: rolePermissionName[locationsModuleSlug],
         icon: <MapPin size={20} />,
         navLink: `${appsRoot}/locations`,
-      },
-      // Geo masters. No `action`/`resource` — those run an ability check against
-      // a permission row that does not exist yet for these modules, which would
-      // hide the item from everyone. The route's `permissionId` still gates it.
-      {
-        id: countriesModuleSlug,
-        permissionId: countriesModuleSlug,
-        companyOnly: true,
-        title: rolePermissionName[countriesModuleSlug],
-        icon: <Globe size={20} />,
-        navLink: `${appsRoot}/countries`,
-      },
-      {
-        id: statesModuleSlug,
-        permissionId: statesModuleSlug,
-        companyOnly: true,
-        title: rolePermissionName[statesModuleSlug],
-        icon: <Map size={20} />,
-        navLink: `${appsRoot}/states`,
-      },
-      {
-        id: citiesModuleSlug,
-        permissionId: citiesModuleSlug,
-        companyOnly: true,
-        title: rolePermissionName[citiesModuleSlug],
-        icon: <MapPin size={20} />,
-        navLink: `${appsRoot}/cities`,
       },
     ],
   },
