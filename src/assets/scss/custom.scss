@@ -3481,6 +3481,17 @@ body #root .wrapper .ps__rail-y {
   border-right-color: transparent !important;
 }
 
+// The white loader above is meant for solid/colored buttons (login,
+// btn-primary, etc.) — on a light/outline button (white background) it's
+// invisible. Restore the spinner to the button's own text color there.
+// Two-class selector so it beats the single-class !important rule above
+// regardless of source order.
+.btn-outline-secondary .spinner-border,
+.btn-outline-primary .spinner-border {
+  border-color: currentColor !important;
+  border-right-color: transparent !important;
+}
+
 //login loader
 .spinner-border-login {
   border: 0.25em solid #ffffff !important;
