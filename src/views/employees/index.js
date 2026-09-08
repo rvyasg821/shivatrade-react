@@ -27,6 +27,7 @@ import {
   Input,
   Button,
   CardBody,
+  Spinner,
   UncontrolledTooltip,
 } from "reactstrap";
 import Select from "react-select";
@@ -87,8 +88,11 @@ const EmployeeList = () => {
   // location, but NOT by the status filter — Active and Inactive are two of
   // the tiles, so filtering the table to ACTIVE must not zero the other one.
   const [stats, setStats] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       const params = {};
       if (selectedLocationId) params.location_id = selectedLocationId;
@@ -101,6 +105,8 @@ const EmployeeList = () => {
       URL.revokeObjectURL(url);
     } catch {
       Notification("Error", t("Export failed"), "warning");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -554,8 +560,12 @@ const EmployeeList = () => {
                     {t("Delete Selected")} ({bulk.selectedRows.length})
                   </Button>
                 )}
-                <Button color="outline-secondary" size="sm" onClick={handleExport}>
-                  <Download size={14} className="me-50" />{t("Export")}
+                <Button color="outline-secondary" size="sm" onClick={handleExport} disabled={exporting}>
+                  {exporting ? (
+                    <><Spinner size="sm" className="me-50" /> {t("Exporting…")}</>
+                  ) : (
+                    <><Download size={14} className="me-50" />{t("Export")}</>
+                  )}
                 </Button>
                 {canAddEmployee && (
                   <Button color="outline-secondary" size="sm" onClick={() => setImportModal(true)}>

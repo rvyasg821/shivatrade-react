@@ -102,7 +102,10 @@ const AttendanceAdminPage = () => {
   // Edit record modal
   const [editModal, setEditModal] = useState(false)
   const [editData, setEditData] = useState(null)
+  const [exporting, setExporting] = useState(false)
   const handleExport = async () => {
+    if (exporting) return
+    setExporting(true)
     try {
       const params = {}
       if (selectedLocationId) params.location_id = selectedLocationId
@@ -117,6 +120,8 @@ const AttendanceAdminPage = () => {
       URL.revokeObjectURL(url)
     } catch {
       Notification('Error', 'Export failed', 'warning')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -665,8 +670,12 @@ const AttendanceAdminPage = () => {
             <CardHeader className='border-bottom py-1 d-flex align-items-center justify-content-between flex-wrap gap-1'>
               <CardTitle tag='h5' className='mb-0'>Attendance Records</CardTitle>
               <div className='d-flex gap-1 listing-toolbar-actions'>
-                <Button color='outline-secondary' size='sm' onClick={handleExport}>
-                  <Download size={14} className='me-50' />Export
+                <Button color='outline-secondary' size='sm' onClick={handleExport} disabled={exporting}>
+                  {exporting ? (
+                    <><Spinner size='sm' className='me-50' /> Exporting…</>
+                  ) : (
+                    <><Download size={14} className='me-50' />Export</>
+                  )}
                 </Button>
                 {canWrite && (
                   <Button color='outline-secondary' size='sm' onClick={() => setImportModal(true)}>
