@@ -10,7 +10,7 @@
 // silently dropping the rows the filter happened to be hiding.
 
 import { useState } from "react";
-import { Button } from "reactstrap";
+import { Button, Spinner } from "reactstrap";
 import { Download, Upload } from "react-feather";
 import { useTranslation } from "react-i18next";
 import instance from "@src/utility/AxiosConfig";
@@ -60,7 +60,15 @@ const ImportExportButtons = ({
         onClick={handleExport}
         disabled={exporting}
       >
-        {t("Export")} <Download size={14} />
+        {exporting ? (
+          <>
+            <Spinner size="sm" className="me-50" /> {t("Exporting…")}
+          </>
+        ) : (
+          <>
+            {t("Export")} <Download size={14} />
+          </>
+        )}
       </Button>
       {canImport && (
         <Button
