@@ -436,9 +436,21 @@ html body.swal2-height-auto {
 
     .rdt_TableCol {
       .rdt_TableCol_Sortable {
+        // Header labels ("Currency", "Outward", …) were wrapping mid-word
+        // once a table ran out of horizontal room. nowrap them — the table
+        // already scrolls sideways (responsive), so a long header just
+        // pushes the column wider instead of breaking words. RDTC sets
+        // `overflow: hidden` on BOTH this element (ColumnSortable) and its
+        // inner text div (ColumnText) — both need unsetting, or the header
+        // just gets clipped (RDTC's ColumnText also centers overflow, which
+        // clips from both ends) instead of the column widening.
+        overflow: unset;
+        white-space: nowrap;
+        text-overflow: unset;
+
         div {
-          // overflow: unset;
-          white-space: normal;
+          overflow: unset;
+          white-space: nowrap;
           text-overflow: unset;
         }
       }
