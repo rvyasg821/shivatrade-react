@@ -6,7 +6,7 @@
 // quotation / PFI / PO wizards only differ by `docType`.
 
 import { useState } from "react";
-import { Button } from "reactstrap";
+import { Button, Spinner } from "reactstrap";
 import { Upload, FileText } from "react-feather";
 import { useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -51,6 +51,10 @@ const LineItemImportExportBar = ({
   const { t } = useTranslation();
   const liveLines = useWatch({ control, name: "lines" }) || [];
   const [importOpen, setImportOpen] = useState(false);
+  // Separate flags — Export Excel and Export Report are independent buttons
+  // (only one of a costing doc's two export calls is ever in flight).
+  const [exporting, setExporting] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
 
   // Used by the resolver to classify rows as new vs updated. Form lines
   // carry IDs (the product/vendor pickers store product_id / vendor_id), so
@@ -67,6 +71,8 @@ const LineItemImportExportBar = ({
       Notification("Info", t("No lines to export yet"), "info");
       return;
     }
+    if (exporting) return;
+    setExporting(true);
     try {
       const res = await instance.post(
         API_ENDPOINTS.salesDocImport.export,
@@ -87,6 +93,8 @@ const LineItemImportExportBar = ({
       downloadBlob(res.data, `${prefix}-lines-${id}-${datePart}.xlsx`);
     } catch {
       Notification("Error", t("Failed to generate the file"), "warning");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -99,6 +107,8 @@ const LineItemImportExportBar = ({
       Notification("Info", t("No lines to export yet"), "info");
       return;
     }
+    if (exportingReport) return;
+    setExportingReport(true);
     try {
       const res = await instance.post(
         API_ENDPOINTS.salesDocImport.export,
@@ -122,6 +132,8 @@ const LineItemImportExportBar = ({
       );
     } catch {
       Notification("Error", t("Failed to generate the file"), "warning");
+    } finally {
+      setExportingReport(false);
     }
   };
 
@@ -284,10 +296,18 @@ const LineItemImportExportBar = ({
           outline
           size="sm"
           onClick={handleExport}
-          disabled={!liveLines.length}
+          disabled={!liveLines.length || exporting}
         >
-          <FileText size={14} className="me-50" />
-          {t("Export Excel")}
+          {exporting ? (
+            <>
+              <Spinner size="sm" className="me-50" /> {t("Exporting…")}
+            </>
+          ) : (
+            <>
+              <FileText size={14} className="me-50" />
+              {t("Export Excel")}
+            </>
+          )}
         </Button>
 
         {isCostingDoc && (
@@ -296,10 +316,18 @@ const LineItemImportExportBar = ({
             outline
             size="sm"
             onClick={handleExportFormatted}
-            disabled={!liveLines.length}
+            disabled={!liveLines.length || exportingReport}
           >
-            <FileText size={14} className="me-50" />
-            {t("Export Report")}
+            {exportingReport ? (
+              <>
+                <Spinner size="sm" className="me-50" /> {t("Exporting…")}
+              </>
+            ) : (
+              <>
+                <FileText size={14} className="me-50" />
+                {t("Export Report")}
+              </>
+            )}
           </Button>
         )}
       </div>

@@ -20,6 +20,7 @@ import {
 import Select from "react-select";
 import { Download, AlertTriangle } from "react-feather";
 import { useTranslation } from "react-i18next";
+import ReportBackButton from "@src/views/reports/_shared/ReportBackButton";
 
 import DateInput from "@components/date-input";
 import DatatablePagination from "@components/datatable/DatatablePagination";
@@ -338,6 +339,7 @@ const HsnSummary = () => {
               <Download size={14} className="me-50" />
               {exporting ? t("Exporting…") : t("Export")}
             </Button>
+            <ReportBackButton />
           </div>
         </div>
 
