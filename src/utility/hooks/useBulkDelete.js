@@ -6,6 +6,12 @@
 // delete function (which must respect the module's own delete guard on the
 // server) and reports how many were deleted vs skipped.
 //
+// Selection PERSISTS across pages: `onSelectedRowsChange` only ever reports
+// the checkbox state of the rows currently rendered on screen (one page's
+// worth), so it's reconciled into a persistent id-keyed map rather than
+// replacing the whole selection outright — otherwise paging away and back
+// silently drops whatever was checked on the previous page.
+//
 // Usage:
 //   const bulk = useBulkDelete({
 //     entityLabel: "categories",
@@ -23,9 +29,11 @@
 //     selectableRows={canDelete}
 //     onSelectedRowsChange={bulk.onSelectedRowsChange}
 //     clearSelectedRows={bulk.toggleCleared}
+//     selectableRowSelected={bulk.isRowSelected}
+//     keyField={bulk.idKey}
 //     ...
 //   />
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import { useTranslation } from "react-i18next";
@@ -45,16 +53,59 @@ export const useBulkDelete = ({
   idKey = "_id",
 }) => {
   const { t } = useTranslation();
-  const [selectedRows, setSelectedRows] = useState([]);
+  // id -> row, accumulated across every page visited (not just the current one).
+  const [selectedMap, setSelectedMap] = useState(new Map());
   // Flipping this prop tells react-data-table-component to clear its checkboxes.
   const [toggleCleared, setToggleCleared] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const onSelectedRowsChange = (state) =>
-    setSelectedRows(state?.selectedRows || []);
+  const selectedRows = useMemo(() => Array.from(selectedMap.values()), [
+    selectedMap,
+  ]);
+  const selectedIds = useMemo(() => new Set(selectedMap.keys()), [
+    selectedMap,
+  ]);
+
+  // `pageRows` = every row currently rendered (the current page), so a row
+  // absent from `state.selectedRows` but present in `pageRows` is a genuine
+  // uncheck, not a row that simply isn't on screen. Rows on OTHER pages are
+  // left untouched in the map.
+  //
+  // react-data-table-component re-derives its checkboxes from the
+  // `selectableRowSelected` prop in a `useEffect` keyed on that prop's
+  // *identity* — so if this handler always returns a brand-new Map (even
+  // when nothing actually changed), the resulting new `isRowSelected`
+  // reference re-triggers that effect, which re-fires this handler, which
+  // makes another new Map... an infinite loop that shows as the checkbox
+  // rapidly flickering. Bailing out with the *same* Map reference when the
+  // selected id set is unchanged lets React skip the re-render and breaks
+  // the cycle.
+  const onSelectedRowsChange = (state, pageRows) => {
+    const checkedIds = new Set(
+      (state?.selectedRows || []).map((r) => r?.[idKey]).filter(Boolean)
+    );
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      for (const row of pageRows || []) {
+        const id = row?.[idKey];
+        if (!id) continue;
+        if (checkedIds.has(id)) next.set(id, row);
+        else next.delete(id);
+      }
+      if (next.size === prev.size && [...next.keys()].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
+  };
+
+  const isRowSelected = useCallback(
+    (row) => selectedIds.has(row?.[idKey]),
+    [selectedIds, idKey]
+  );
 
   const clearSelection = () => {
-    setSelectedRows([]);
+    setSelectedMap(new Map());
     setToggleCleared((v) => !v);
   };
 
@@ -120,9 +171,11 @@ export const useBulkDelete = ({
 
   return {
     selectedRows,
+    idKey,
     toggleCleared,
     deleting,
     onSelectedRowsChange,
+    isRowSelected,
     confirmBulkDelete,
     clearSelection,
   };

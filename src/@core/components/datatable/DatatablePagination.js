@@ -30,6 +30,11 @@ const DatatablePagination = ({
   selectableRows = false,
   onSelectedRowsChange,
   clearSelectedRows = false,
+  // Reflects a caller-persisted selection (e.g. useBulkDelete) back onto the
+  // checkboxes when a page's rows re-render, so paging away and back shows
+  // previously-checked rows as still checked instead of just uncounted.
+  selectableRowSelected,
+  keyField,
 }) => {
   /* Page change function */
   const { t } = useTranslation()
@@ -152,6 +157,15 @@ const DatatablePagination = ({
           onSort={onSortChange}
           persistTableHead={true}
           paginationServer={true}
+          // Without this, RDTC's own internal CHANGE_PAGE reducer case wipes
+          // its selection state on every page change (since paginationServer
+          // is true and this defaults to false) BEFORE the new page's data
+          // even arrives — firing onSelectedRowsChange with an empty
+          // selection against the *old* page's still-current rows, which a
+          // persisted-selection caller (useBulkDelete) then reads as "every
+          // row on this page was just unchecked." This is the real cause of
+          // the page-1→page-2 selection loss, not the persistence logic.
+          paginationServerOptions={{ persistSelectedOnPageChange: true }}
           progressPending={!loading}
           className="react-dataTable"
           noDataComponent={
@@ -161,8 +175,10 @@ const DatatablePagination = ({
           defaultSortField={pagination?.orderBy ? pagination.orderBy : ""}
           paginationDefaultPage={getCurrentPage()}
           selectableRows={selectableRows}
-          onSelectedRowsChange={onSelectedRowsChange}
+          onSelectedRowsChange={(state) => onSelectedRowsChange?.(state, data)}
           clearSelectedRows={clearSelectedRows}
+          selectableRowSelected={selectableRowSelected}
+          keyField={keyField}
           customStyles={selectableRows ? {
             headRow: {
               style: {

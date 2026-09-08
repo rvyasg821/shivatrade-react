@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   useLayoutEffect,
+  useMemo,
 } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
@@ -102,8 +103,13 @@ const DiscountList = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
-  /* Multi-select */
-  const [selectedRows, setSelectedRows] = useState([]);
+  /* Multi-select — persisted by id across pages (onSelectedRowsChange only
+   * reports the checkbox state of the currently-rendered page, so a plain
+   * replace would drop whatever was checked on a page navigated away from). */
+  const [selectedMap, setSelectedMap] = useState(new Map());
+  const selectedRows = useMemo(() => Array.from(selectedMap.values()), [selectedMap]);
+  const selectedIds = useMemo(() => new Set(selectedMap.keys()), [selectedMap]);
+  const isRowSelected = useCallback((row) => selectedIds.has(row?._id), [selectedIds]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
   // Fetch list
@@ -214,9 +220,27 @@ const DiscountList = () => {
       });
   };
 
-  // Multi-select handler
-  const handleRowSelected = useCallback((state) => {
-    setSelectedRows(state.selectedRows || []);
+  // Multi-select handler — reconcile only the rows currently on screen
+  // (pageRows) against the checked subset, leaving other pages' selections
+  // in selectedMap untouched. Bails out with the same Map reference when
+  // nothing actually changed — otherwise react-data-table-component's
+  // internal selection-sync effect (keyed on selectableRowSelected's
+  // identity) and this handler retrigger each other forever, which shows as
+  // the checkbox rapidly flickering.
+  const handleRowSelected = useCallback((state, pageRows) => {
+    const checkedIds = new Set((state?.selectedRows || []).map((r) => r?._id).filter(Boolean));
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      for (const row of pageRows || []) {
+        if (!row?._id) continue;
+        if (checkedIds.has(row._id)) next.set(row._id, row);
+        else next.delete(row._id);
+      }
+      if (next.size === prev.size && [...next.keys()].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   // Bulk delete
@@ -245,7 +269,7 @@ const DiscountList = () => {
             const ids = selectedRows.map((row) => row._id);
             await dispatch(deleteManyDiscounts(ids)).unwrap();
             setToggleCleared((prev) => !prev);
-            setSelectedRows([]);
+            setSelectedMap(new Map());
             handleDiscountList();
           } catch (error) {
             Notification("Error", error?.error || t("Bulk delete failed"), "warning");
@@ -467,6 +491,8 @@ const DiscountList = () => {
                   selectableRows={!!canDeleteDiscount}
                   onSelectedRowsChange={handleRowSelected}
                   clearSelectedRows={toggleCleared}
+                  selectableRowSelected={isRowSelected}
+                  keyField="_id"
                 />
               </Col>
             </Row>

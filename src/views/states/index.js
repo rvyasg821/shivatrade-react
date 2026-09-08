@@ -378,6 +378,8 @@ const StateList = () => {
                   handlePagination={handlePagination}
                   selectableRows={canDelete}
                   onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  selectableRowSelected={bulk.isRowSelected}
+                  keyField={bulk.idKey}
                   clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>
