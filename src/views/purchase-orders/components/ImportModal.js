@@ -1,7 +1,10 @@
 // Sales Order import — thin wrapper over the shared 2-step import modal.
 // Document-level import: rows sharing a voucher_no form one Sales Order (header
-// from the first row, product rows become line items). Existing voucher_no is
-// SKIPPED (Sales Orders are transactional — re-import never rewrites them).
+// from the first row, product rows become line items). An existing voucher_no
+// is NOT skipped — its advance_* fields (amount/date/exchange rate/bank/notes)
+// get UPDATED (those are receipt facts that can legitimately arrive/change
+// after the SO was first created); nothing else about the SO is ever touched
+// on a re-import.
 import { Badge, Alert, Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
@@ -21,7 +24,8 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("Rebates & expenses use the SAME costing-worksheet format: one column per code (e.g. DBK(%), PACKING) — put the per-line value in the cell, blank to skip. Download the sample to get your company's exact code columns.")}</li>
       <li>{t("quotation_voucher_no is optional — links the SO to its source Quotation and ties each line back to the matching quotation line")}</li>
       <li>{t("Dates accept DD/MM/YYYY or YYYY-MM-DD. exchange_rate is ₹ per 1 unit of the currency (e.g. 83 for USD), like the form; currency_code / rate default from the linked quotation, else INR. freight_total is in the SO's currency (e.g. 50 = $50). status defaults to 'draft'.")}</li>
-      <li>{t("The original voucher number is preserved; an existing voucher is skipped (safe to re-run). Download the sample to see both sheets.")}</li>
+      <li>{t("advance_exchange_rate is ₹ per 1 unit of currency too (blank = 1, i.e. domestic). advance_bank_account_no is matched against the company's saved bank accounts by account NUMBER (not bank name) — unmatched still imports the amount, just without a linked bank record.")}</li>
+      <li>{t("Re-importing an EXISTING voucher_no does not create a duplicate or touch its customer/lines/terms — it only updates that SO's advance_amount, advance_date, advance_exchange_rate, advance_bank_account_no and advance_notes. Everything else in the row is ignored for an existing SO. Download the sample to see both sheets.")}</li>
       <li>{t("Accepts .xlsx / .xls files (max 5 MB) — CSV can't carry two sheets")}</li>
     </ol>
   );
@@ -31,6 +35,9 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <div className="d-flex gap-2 mb-2 flex-wrap">
         <Badge className="doc-badge doc-badge-green">
           {preview.summary.valid_new} {t("New")}
+        </Badge>
+        <Badge className="doc-badge doc-badge-orange">
+          {preview.summary.valid_update || 0} {t("Advance Update (exists)")}
         </Badge>
         <Badge className="doc-badge doc-badge-gray">
           {preview.summary.skipped || 0} {t("Skip (exists)")}
@@ -94,7 +101,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       sampleFilename="sales-order-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
-      computeValidCount={(s) => s?.valid_new || 0}
+      computeValidCount={(s) => (s?.valid_new || 0) + (s?.valid_update || 0)}
       confirmLabel={(n) => `${t("Confirm Import")} (${n})`}
     />
   );
