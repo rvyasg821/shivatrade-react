@@ -687,9 +687,9 @@ const PoVendorView = () => {
                   disabled={exporting}
                 >
                   {exporting ? (
-                    <span><Spinner size="sm" className="me-50" /> {t("Exporting…")}</span>
+                    <><Spinner size="sm" className="me-50" /> {t("Exporting…")}</>
                   ) : (
-                    <span>{t("Export")} <Download size={14} /></span>
+                    <>{t("Export")} <Download size={14} /></>
                   )}
                 </Button>
                 {canCreate && (
