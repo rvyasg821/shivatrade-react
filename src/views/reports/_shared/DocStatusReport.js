@@ -40,6 +40,7 @@ import { getCurrencySymbol } from "@src/utility/currency";
 import instance from "@src/utility/AxiosConfig";
 import { appsRoot, defaultPerPageRow } from "@constant/defaultValues";
 import { Pager, pageSlice, PAGE_SIZES } from "@src/views/reports/_shared/DrawerPager";
+import ReportBackButton from "@src/views/reports/_shared/ReportBackButton";
 import {
   useServerPagination,
   ServerPaginationBar,
@@ -311,6 +312,7 @@ const DocStatusReport = ({ config }) => {
               <Download size={14} className="me-50" />
               {exporting ? t("Exporting…") : t("Export")}
             </Button>
+            <ReportBackButton />
           </div>
         </div>
 
