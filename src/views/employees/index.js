@@ -586,6 +586,8 @@ const EmployeeList = () => {
                   handlePagination={handlePagination}
                   selectableRows={canDeleteEmployeeGlobal}
                   onSelectedRowsChange={bulk.onSelectedRowsChange}
+                  selectableRowSelected={bulk.isRowSelected}
+                  keyField={bulk.idKey}
                   clearSelectedRows={bulk.toggleCleared}
                 />
               </Col>

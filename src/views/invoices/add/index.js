@@ -826,6 +826,14 @@ const InvoiceAddEdit = () => {
             : po.incoterm || "FOB",
         payment_terms: po.payment_terms || "",
         delivery_terms: po.delivery_terms || "",
+        // Sales Order's "Dispatched Through" uses the same Sea-FCL/Sea-LCL/
+        // Air/Air Courier values as the invoice's Mode field, so it carries
+        // forward as-is. Older SOs saved with the retired free-text values
+        // ("By Sea" etc.) won't match SHIPPING_MODE_OPTIONS and are left for
+        // the user to pick manually.
+        mode: SHIPPING_MODE_OPTIONS.some((o) => o.value === po.dispatched_through)
+          ? po.dispatched_through
+          : s.mode || "",
         country_of_destination:
           po.country_of_final_destination || po.country_of_destination || "",
         // Carry the buyer's PO# + advance already collected from the source
@@ -1010,6 +1018,10 @@ const InvoiceAddEdit = () => {
         incoterm: totalFreight > 0 ? "CFR" : po?.incoterm || s.incoterm,
         payment_terms: po?.payment_terms || s.payment_terms,
         delivery_terms: po?.delivery_terms || s.delivery_terms,
+        // Same Dispatched Through → Mode carry-forward as the single-SO path.
+        mode: SHIPPING_MODE_OPTIONS.some((o) => o.value === po?.dispatched_through)
+          ? po.dispatched_through
+          : s.mode,
         country_of_destination:
           seed.country_of_destination ||
           po?.country_of_final_destination ||

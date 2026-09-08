@@ -12,7 +12,7 @@ import { ExternalLink } from "react-feather";
 // (react hooks import removed — no local rate state on this step anymore)
 import { appsRoot } from "@constant/defaultValues";
 import { PFI_RETIRED } from "@src/configs/appMode";
-import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS, DISPATCH_MODE_OPTIONS } from "@constant/options";
+import { VENDOR_PAYMENT_TERMS_OPTIONS, VENDOR_INCOTERMS_OPTIONS, SHIPPING_MODE_OPTIONS } from "@constant/options";
 import DateInput from "@components/date-input";
 import { useBooksClosedUpto, isClosedPeriod, closedPeriodMessage } from "@src/hooks/useBooksClosed";
 
@@ -330,9 +330,9 @@ const Step1Vendor = ({
               classNamePrefix="select"
               isClearable
               isDisabled={isLocked}
-              options={DISPATCH_MODE_OPTIONS}
+              options={SHIPPING_MODE_OPTIONS}
               value={
-                DISPATCH_MODE_OPTIONS.find((o) => o.value === field.value) ||
+                SHIPPING_MODE_OPTIONS.find((o) => o.value === field.value) ||
                 null
               }
               onChange={(opt) => field.onChange(opt ? opt.value : "")}

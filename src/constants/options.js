@@ -77,13 +77,6 @@ const VENDOR_PAYMENT_TERMS_OPTIONS = PAYMENT_TERMS_OPTIONS;
 // universal `INCOTERMS_OPTIONS` symbol.
 const VENDOR_INCOTERMS_OPTIONS = INCOTERMS_OPTIONS;
 
-// Mode of dispatch printed on the Sales Order PDF ("Dispatched through").
-const DISPATCH_MODE_OPTIONS = [
-  { value: "By Sea", label: "By Sea" },
-  { value: "By Road", label: "By Road" },
-  { value: "By Air", label: "By Air" },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Customer module
 // ─────────────────────────────────────────────────────────────────────────────
@@ -427,7 +420,9 @@ const SHIPPING_TERMINAL_STEPS = [
 ];
 
 // Sea + Air only. Road / rail / multimodal locked out per
-// SHIPPING_MODULE_PLAN.md §3.
+// SHIPPING_MODULE_PLAN.md §3. Also used for the Sales Order "Dispatched
+// Through" dropdown so its value carries forward unchanged onto the
+// Invoice's Mode field.
 const SHIPPING_MODE_OPTIONS = [
   { value: "sea_fcl", label: "Sea - FCL" },
   { value: "sea_lcl", label: "Sea - LCL" },
@@ -522,7 +517,6 @@ export {
   PAYMENT_TERMS_OPTIONS,
   VENDOR_PAYMENT_TERMS_OPTIONS,
   VENDOR_INCOTERMS_OPTIONS,
-  DISPATCH_MODE_OPTIONS,
   CUSTOMER_ADDRESS_TYPES,
   CUSTOMER_ADDRESS_TYPE_OPTIONS,
   PRODUCT_UOM_OPTIONS,
