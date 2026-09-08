@@ -179,6 +179,10 @@ const DatatablePagination = ({
           clearSelectedRows={clearSelectedRows}
           selectableRowSelected={selectableRowSelected}
           keyField={keyField}
+          // Header-label nowrap (they were wrapping mid-word) is handled in
+          // custom.scss (.rdt_TableCol_Sortable div) — a customStyles.headCells
+          // rule here can't win against that selector's specificity, so don't
+          // re-add one; it would just be dead code.
           customStyles={selectableRows ? {
             headRow: {
               style: {
