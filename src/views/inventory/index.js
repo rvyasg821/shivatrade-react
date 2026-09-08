@@ -34,7 +34,6 @@ import {
   Card,
   Input,
   CardBody,
-  UncontrolledTooltip,
   Label,
   Badge,
   Button,
@@ -50,7 +49,7 @@ import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 
 import { useTranslation } from "react-i18next";
 
-import { Activity, Download } from "react-feather";
+import { Download } from "react-feather";
 
 import { defaultPerPageRow } from "@constant/defaultValues";
 
@@ -361,7 +360,14 @@ const InventoryView = () => {
       wrap: true,
       selector: (row) => (
         <div className="py-50">
-          <div className="fw-bold">{row?.product_name || "-"}</div>
+          {/* Opens the same Stock Movements drawer the removed Action
+              column used to — the product name is now the entry point. */}
+          <div
+            className="fw-bold cursor-pointer text-primary"
+            onClick={() => row?.product_id && setOpenProductId(row.product_id)}
+          >
+            {row?.product_name || "-"}
+          </div>
           <div className="d-flex align-items-center flex-wrap gap-1 mt-25">
             {row?.product_code ? (
               <span className="small text-muted text-nowrap">
@@ -499,30 +505,6 @@ const InventoryView = () => {
           </span>
         );
       },
-    },
-    {
-      name: t("Action"),
-      center: true,
-      minWidth: "90px",
-      cell: (row, index) => (
-        <div className="d-flex align-items-center justify-content-center">
-          {/* Stock Movements — the product's IN/OUT ledger + running balance
-              (every GRN-in / sale-out with its source voucher). */}
-          <span
-            className="cursor-pointer text-primary"
-            id={`inv-mov-${row?.product_id || index}`}
-            onClick={() => row?.product_id && setOpenProductId(row.product_id)}
-          >
-            <Activity size={18} />
-            <UncontrolledTooltip
-              placement="top"
-              target={`inv-mov-${row?.product_id || index}`}
-            >
-              {t("Stock Movements")}
-            </UncontrolledTooltip>
-          </span>
-        </div>
-      ),
     },
   ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
