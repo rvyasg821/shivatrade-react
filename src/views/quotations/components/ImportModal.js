@@ -1,7 +1,9 @@
 // Quotation import — thin wrapper over the shared 2-step import modal.
 // Document-level import: rows sharing a voucher_no form one quotation (header
-// from the first row, product rows become line items). Existing voucher_no is
-// SKIPPED (quotations are transactional — re-import never rewrites them).
+// from the first row, product rows become line items). Re-importing an
+// EXISTING voucher_no is a FULL UPDATE (2026-09-09) — every header field and
+// every line item is replaced from the sheet, matching the Sales Order
+// pattern (see purchase-order.import-export.service.ts).
 import { Badge, Alert, Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
@@ -20,7 +22,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("LineItems sheet: each row needs voucher_no + product_code (must exist), qty (> 0) and unit_price; full costing supported (vendor_code, margin, discount, tax, part_no, hs_code, unit, weights)")}</li>
       <li>{t("Rebates & expenses use the SAME costing-worksheet format: one column per code (e.g. DBK(%), PACKING) — put the per-line value in the cell, blank to skip. Download the sample to get your company's exact code columns.")}</li>
       <li>{t("Dates accept DD/MM/YYYY or YYYY-MM-DD; currency_code is 3 letters. exchange_rate is ₹ per 1 unit of that currency (e.g. 83 for USD), like the form — required for a foreign currency, 1 for INR. freight_total is in the quote's currency (e.g. 50 = $50). status defaults to 'draft'.")}</li>
-      <li>{t("The original voucher number is preserved; an existing voucher is skipped (safe to re-run). Download the sample to see both sheets.")}</li>
+      <li>{t("Re-importing an EXISTING voucher_no does not create a duplicate — it UPDATES that quotation instead: every header field and every line item is replaced with what's in the sheet (matched to existing lines by product code). Works even on a locked (non-draft) quotation. Download the sample to see both sheets.")}</li>
       <li>{t("Accepts .xlsx / .xls files (max 5 MB) — CSV can't carry two sheets")}</li>
     </ol>
   );
@@ -31,8 +33,8 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
         <Badge className="doc-badge doc-badge-green">
           {preview.summary.valid_new} {t("New")}
         </Badge>
-        <Badge className="doc-badge doc-badge-gray">
-          {preview.summary.skipped || 0} {t("Skip (exists)")}
+        <Badge className="doc-badge doc-badge-orange">
+          {preview.summary.valid_update || 0} {t("Update (exists)")}
         </Badge>
         <Badge className="doc-badge doc-badge-red">
           {preview.summary.errors} {t("Errors")}
@@ -93,7 +95,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       sampleFilename="quotation-import-sample.xlsx"
       instructions={instructions}
       renderPreview={renderPreview}
-      computeValidCount={(s) => s?.valid_new || 0}
+      computeValidCount={(s) => (s?.valid_new || 0) + (s?.valid_update || 0)}
       confirmLabel={(n) => `${t("Confirm Import")} (${n})`}
     />
   );
