@@ -1,9 +1,12 @@
 // Invoice import — thin wrapper over the shared 2-step import modal.
 // FOUR sheets: "Invoices" (header), "LineItems" (products + costing), "Banks"
 // (bank snapshots). Joined by voucher_no. Imports WITHOUT a Sales Order
-// (decision-5). An existing voucher_no UPDATES that invoice's line
-// tax_pct/igst_rate_pct from the sheet (e.g. re-uploading a corrected
-// file) — qty/price/status are left untouched.
+// (decision-5). An existing voucher_no is a FULL UPDATE (2026-09-09) —
+// every header field and every line item is replaced from the sheet — but
+// ONLY while that invoice is still DRAFT; an ISSUED+ invoice is a real tax
+// document with financial fields/lines frozen, so that row is skipped
+// instead (matches the same edit lock the invoice already enforces
+// elsewhere — there's no "revert to draft" for Invoice).
 import { Badge, Alert, Table } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { CheckCircle } from "react-feather";
@@ -21,7 +24,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("exchange_rate is ₹ per 1 unit of the currency (e.g. 83 for USD), like the form. Freight/insurance/other charges are in the invoice currency")}</li>
       <li>{t("Port of Loading comes from your Company profile automatically; Port of Discharge is free text on the sheet")}</li>
       <li>{t("status: 'issued' (or paid/partially_paid — receipts imported separately) issues the invoice preserving the number, snapshotting the ₹ total, and NOT moving stock. 'draft' leaves it a draft")}</li>
-      <li>{t("The original voucher number is preserved. Re-uploading an existing voucher_no updates that invoice's line tax_pct/igst_rate_pct from the sheet (qty/price/status untouched) — safe to re-run to correct a GST rate. Download the sample to see all sheets & your rebate/expense columns")}</li>
+      <li>{t("Re-importing an EXISTING voucher_no does not create a duplicate — it UPDATES that invoice instead: every header field and every line item is replaced with what's in the sheet. Only works while the invoice is still DRAFT — an already-issued invoice's row is skipped, since its financial fields and lines are frozen once sent. Download the sample to see all sheets & your rebate/expense columns")}</li>
       <li>{t("Accepts .xlsx / .xls files (max 5 MB)")}</li>
     </ol>
   );
@@ -33,10 +36,10 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
           {preview.summary.valid_new} {t("New")}
         </Badge>
         <Badge className="doc-badge doc-badge-orange">
-          {preview.summary.valid_update || 0} {t("GST% Update (exists)")}
+          {preview.summary.valid_update || 0} {t("Update (exists)")}
         </Badge>
         <Badge className="doc-badge doc-badge-gray">
-          {preview.summary.skipped || 0} {t("Skip")}
+          {preview.summary.skipped || 0} {t("Skip (already issued)")}
         </Badge>
         <Badge className="doc-badge doc-badge-red">
           {preview.summary.errors} {t("Errors")}
