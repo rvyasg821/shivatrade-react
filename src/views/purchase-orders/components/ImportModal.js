@@ -25,7 +25,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
       <li>{t("quotation_voucher_no is optional — links the SO to its source Quotation and ties each line back to the matching quotation line")}</li>
       <li>{t("Dates accept DD/MM/YYYY or YYYY-MM-DD. exchange_rate is ₹ per 1 unit of the currency (e.g. 83 for USD), like the form; currency_code / rate default from the linked quotation, else INR. freight_total is in the SO's currency (e.g. 50 = $50). status defaults to 'draft'.")}</li>
       <li>{t("advance_exchange_rate is ₹ per 1 unit of currency too (blank = 1, i.e. domestic). advance_bank_account_no is matched against the company's saved bank accounts by account NUMBER (not bank name) — unmatched still imports the amount, just without a linked bank record.")}</li>
-      <li>{t("Re-importing an EXISTING voucher_no does not create a duplicate or touch its customer/lines/terms — it only updates that SO's advance_amount, advance_date, advance_exchange_rate, advance_bank_account_no and advance_notes. Everything else in the row is ignored for an existing SO. Download the sample to see both sheets.")}</li>
+      <li>{t("Re-importing an EXISTING voucher_no does not create a duplicate — it UPDATES that SO instead: every header field and every line item is replaced with what's in the sheet (matched to existing lines by product code). Works even on a confirmed SO. Download the sample to see both sheets.")}</li>
       <li>{t("Accepts .xlsx / .xls files (max 5 MB) — CSV can't carry two sheets")}</li>
     </ol>
   );
@@ -37,7 +37,7 @@ const ImportModal = ({ isOpen, toggle, onSuccess }) => {
           {preview.summary.valid_new} {t("New")}
         </Badge>
         <Badge className="doc-badge doc-badge-orange">
-          {preview.summary.valid_update || 0} {t("Advance Update (exists)")}
+          {preview.summary.valid_update || 0} {t("Update (exists)")}
         </Badge>
         <Badge className="doc-badge doc-badge-gray">
           {preview.summary.skipped || 0} {t("Skip (exists)")}
