@@ -121,6 +121,9 @@ const DebitNoteView = () => {
           rejected_qty: String(num(gl.rejected_qty)),
           returned_qty: num(gl.rejected_qty).toFixed(2),
           unit_price: num(pl?.unit_price).toFixed(2),
+          // Always the source POV line's own discount — never an
+          // independent override (see backend's createFromGrn comment).
+          discount_pct: num(pl?.discount_pct),
           remarks: "",
         };
       });
@@ -179,12 +182,17 @@ const DebitNoteView = () => {
       [lineId]: { ...prev[lineId], [key]: value },
     }));
 
+  // Line amount = returned qty × unit price × (1 − discount%). Discount is
+  // never edited here — always the source POV line's own snapshot.
+  const lineAmountOf = (l, e) =>
+    num(e.returned_qty) * num(e.unit_price) * (1 - num(l.discount_pct) / 100);
+
   // Live total preview from the editable fields.
   const previewTotal = useMemo(() => {
     if (!dn?.lines) return 0;
     return dn.lines.reduce((sum, l) => {
       const e = edits[l._id] || {};
-      return sum + num(e.returned_qty) * num(e.unit_price);
+      return sum + lineAmountOf(l, e);
     }, 0);
   }, [dn?.lines, edits]);
 
@@ -396,6 +404,9 @@ const DebitNoteView = () => {
                   <th className="text-end" style={{ width: 140 }}>
                     {t("Unit Price")}
                   </th>
+                  <th className="text-end" style={{ width: 80 }}>
+                    {t("Disc")}
+                  </th>
                   <th className="text-end" style={{ width: 130 }}>
                     {t("Amount")}
                   </th>
@@ -405,7 +416,7 @@ const DebitNoteView = () => {
               <tbody>
                 {(dn.lines || []).map((l, i) => {
                   const e = edits[l._id] || {};
-                  const lineAmt = num(e.returned_qty) * num(e.unit_price);
+                  const lineAmt = lineAmountOf(l, e);
                   return (
                     <tr key={l._id}>
                       <td className="text-muted">{i + 1}</td>
@@ -460,6 +471,11 @@ const DebitNoteView = () => {
                           </span>
                         )}
                       </td>
+                      <td className="text-end text-nowrap">
+                        {num(l.discount_pct) > 0
+                          ? `${num(l.discount_pct)}%`
+                          : "-"}
+                      </td>
                       <td className="text-end fw-semibold text-nowrap">
                         {sym}
                         {fmtMoney(lineAmt)}
@@ -484,7 +500,7 @@ const DebitNoteView = () => {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={6} className="text-end fw-bold">
+                  <td colSpan={7} className="text-end fw-bold">
                     {t("Total")}
                   </td>
                   <td className="text-end fw-bold text-nowrap">

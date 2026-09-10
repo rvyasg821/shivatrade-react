@@ -148,15 +148,6 @@ const GrnsTab = ({ registerActions }) => {
               <th style={{ width: 100 }} className="text-end">
                 {t("Rejected")}
               </th>
-              <th style={{ width: 110 }} className="text-end text-nowrap">
-                {t("Unit Price")}
-              </th>
-              <th style={{ width: 120 }} className="text-end">
-                {t("Amount")}
-              </th>
-              <th style={{ width: 120 }} className="text-end">
-                {t("GST")}
-              </th>
               <th style={{ width: 130 }} className="text-end">
                 {t("Total Amt")}
               </th>
@@ -202,27 +193,6 @@ const GrnsTab = ({ registerActions }) => {
                     ) : (
                       num(g.rejected_qty).toFixed(2)
                     )}
-                  </td>
-                  <td className="text-end text-nowrap">
-                    {g.unit_price != null && g.unit_price !== "" ? (
-                      <>
-                        {getCurrencySymbol(g.currency_code || "INR") || ""}
-                        {money(g.unit_price)}
-                      </>
-                    ) : (
-                      <span className="text-muted" title={t("Lines have different prices")}>
-                        {t("Mixed")}
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-end text-nowrap fw-semibold">
-                    {getCurrencySymbol(g.currency_code || "INR") || ""}
-                    {money(g.total_value)}
-                  </td>
-                  {/* Read-only GST = taxable × POV GST% (vendor currency). */}
-                  <td className="text-end text-nowrap">
-                    {getCurrencySymbol(g.currency_code || "INR") || ""}
-                    {money(g.gst_value)}
                   </td>
                   {/* GST-inclusive total = Amount + GST. */}
                   <td className="text-end text-nowrap fw-semibold">
