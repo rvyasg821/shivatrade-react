@@ -280,7 +280,9 @@ const ManageVendorPricing = () => {
       product_id: productId,
       // Price is native to the VENDOR's currency (falls back to default).
       currency_id: (rowCurrency(r) || currency)._id,
-      unit_price: Number(r.unit_price).toFixed(2),
+      // No toFixed(2): price_list.unit_price is numeric(18,8) (sub-rupee rates
+      // on million-unit orders), so rounding here would silently drop it.
+      unit_price: String(Number(r.unit_price)),
       lead_time_days:
         r.lead_time_days !== "" ? Number(r.lead_time_days) : undefined,
       effective_date: r.effective_date,

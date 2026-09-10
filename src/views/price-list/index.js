@@ -227,11 +227,14 @@ const PriceListView = () => {
   });
 
 
+  // maximumFractionDigits is 8, not 2, because price_list.unit_price is
+  // numeric(18,8) — sub-rupee rates on million-unit orders. Capping at 2dp
+  // would render ₹0.027 as "0.03" and hide the real price from the user.
   const formatNumber = (v) =>
     v !== null && v !== undefined && v !== ""
       ? Number(v).toLocaleString("en-IN", {
           minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
+          maximumFractionDigits: 8,
         })
       : "-";
 
