@@ -730,6 +730,9 @@ const GrnView = () => {
                     {t("Price")}
                     {grn?.currency_code ? ` (${grn.currency_code})` : ""}
                   </th>
+                  <th className="text-end" style={{ width: 80 }}>
+                    {t("Disc")}
+                  </th>
                   <th className="text-end" style={{ width: 120 }}>
                     {t("Amount")}
                   </th>
@@ -833,6 +836,9 @@ const GrnView = () => {
                       <td className="text-end text-nowrap">
                         {sym}
                         {money(priceOf(l))}
+                      </td>
+                      <td className="text-end text-nowrap">
+                        {discOf(l) > 0 ? `${discOf(l)}%` : "-"}
                       </td>
                       <td className="text-end text-nowrap fw-semibold">
                         {sym}
