@@ -56,6 +56,9 @@ import {
 import { getCompanyDetails } from "@src/views/auth/profile/editCompany/store";
 import { getExchangeRateOptions } from "@src/views/currencies/store";
 import { getCurrencySymbol } from "@src/utility/currency";
+// Rate formatter (up to 5dp). tax_pct is numeric(7,4) — historical imports can
+// carry a blended rate like 13.7546%, which fmt()'s 2dp would hide.
+import { fmtRate } from "@src/views/_shared/sales-doc/_helpers";
 import { appsRoot } from "@constant/defaultValues";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
@@ -690,7 +693,7 @@ const EditPoVendor = () => {
                               />
                             ) : (
                               <div className="text-end text-muted">
-                                {gstApplies ? fmt(l.tax_pct) : fmt(0)}
+                                {gstApplies ? fmtRate(l.tax_pct) : fmtRate(0)}
                               </div>
                             )}
                           </td>
