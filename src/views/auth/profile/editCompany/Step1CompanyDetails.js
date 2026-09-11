@@ -26,6 +26,7 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
 import { bankAccountsSchema, toBankAccountsPayload } from "@src/views/_shared/company/bankAccounts";
+import { toAddressesPayload } from "@src/views/_shared/company/addresses";
 import DateInput from "@components/date-input";
 import PortSelect from "@src/views/_shared/port-master/PortSelect";
 import instance from "@src/utility/AxiosConfig";
@@ -336,6 +337,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
         authorised_signatory_name: company.authorised_signatory_name || "",
         footer_address: company.footer_address || "",
         addresses: (company.addresses || []).map((a) => ({
+          _id: a._id,
           type: a.type || "corporate",
           label: a.label || "",
           address_line1: a.address_line1 || "",
@@ -348,6 +350,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
           is_default: !!a.is_default,
         })),
         bank_accounts: (company.bank_accounts || []).map((b) => ({
+          _id: b._id,
           bank_name: b.bank_name || "",
           account_holder_name: b.account_holder_name || "",
           account_number: b.account_number || "",
@@ -400,7 +403,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       company_code: values.company_code,
       license_number: values.license_number,
       tax_number: values.tax_number,
-      pan: values.pan || undefined,
+      pan: values.pan || "",
       paye_reference: values.paye_reference,
       pension_provider: values.pension_provider,
       is_sponsor_licence: values.is_sponsor_licence || false,
@@ -412,22 +415,24 @@ const Step1CompanyDetails = ({ section = "all" }) => {
       state: values.state,
       city: values.city,
       zipcode: values.zipcode,
-      iec: values.iec || undefined,
-      lut_no: values.lut_no || undefined,
+      iec: values.iec || "",
+      lut_no: values.lut_no || "",
       // Truncate any ISO timestamp (DateInput / Flatpickr emits a full ISO)
       // to YYYY-MM-DD so it matches the `date` column shape on the BE.
       lut_date: values.lut_date
         ? String(values.lut_date).slice(0, 10)
-        : undefined,
-      cin: values.cin || undefined,
+        : "",
+      cin: values.cin || "",
+      // Cleared values are sent as "" / null so the backend clears them —
+      // `undefined` used to mean "not sent", keeping the old value.
       default_port_of_loading:
-        values.default_port_of_loading?.trim() || undefined,
+        values.default_port_of_loading?.trim() || "",
       default_port_of_loading_id:
-        values.default_port_of_loading_id || undefined,
+        values.default_port_of_loading_id || "",
       default_port_of_loading_snapshot:
-        values.default_port_of_loading_snapshot || undefined,
+        values.default_port_of_loading_snapshot || null,
       default_declaration_text:
-        values.default_declaration_text?.trim() || undefined,
+        values.default_declaration_text?.trim() || "",
       default_terms:
         values.default_terms != null
           ? values.default_terms.trim()
@@ -458,25 +463,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
           : undefined,
       footer_address:
         values.footer_address != null ? values.footer_address.trim() : undefined,
-      addresses: (values.addresses || [])
-        .filter((a) =>
-          a.address_line1?.trim() ||
-          a.city?.trim() ||
-          a.country?.trim() ||
-          a.label?.trim()
-        )
-        .map((a) => ({
-          type: a.type || "corporate",
-          label: a.label?.trim() || undefined,
-          address_line1: a.address_line1?.trim() || undefined,
-          address_line2: a.address_line2?.trim() || undefined,
-          city: a.city?.trim() || undefined,
-          state: a.state?.trim() || undefined,
-          country: a.country?.trim() || undefined,
-          postcode: a.postcode?.trim() || undefined,
-          gstin: a.gstin?.trim() || undefined,
-          is_default: !!a.is_default,
-        })),
+      addresses: toAddressesPayload(values.addresses),
       bank_accounts: toBankAccountsPayload(values.bank_accounts),
     };
 
@@ -494,7 +481,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
         Notification("Success", t("Company profile updated successfully!"), "success");
       })
       .catch((error) => {
-        Notification("Error", error?.message || t("Failed to update company profile"), "warning");
+        Notification("Error", error?.error || error?.message || t("Failed to update company profile"), "warning");
       })
       .finally(() => {
         setSubmitting(false);

@@ -37,6 +37,9 @@ export const toBankAccountsPayload = (rows) =>
   (rows || [])
     .filter((b) => !isBlankBankRow(b))
     .map((b) => ({
+      // Lets the backend update the account in place — re-creating it gave
+      // it a new id and orphaned documents that stored the old one.
+      _id: b._id || undefined,
       bank_name: b.bank_name.trim(),
       account_holder_name: b.account_holder_name?.trim() || undefined,
       account_number: b.account_number.trim(),

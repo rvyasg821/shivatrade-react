@@ -6,6 +6,7 @@ import instance from "@src/utility/AxiosConfig";
 
 // ** Api endpoints
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
+import { apiErrorMessage } from "@src/utility/apiError";
 
 // ===================== Helper =====================
 function buildAbilityFromPermissions(userData) {
@@ -250,7 +251,7 @@ export const updateCompanyProfile = createAsyncThunk(
       return rejectWithValue({
         actionFlag: "UPDATE_COMPANY_ERR",
         success: "",
-        error: error?.message || "Something went wrong",
+        error: apiErrorMessage(error, "Something went wrong"),
       });
     }
   }
@@ -291,7 +292,7 @@ export const updateCompanyDetails = createAsyncThunk(
       return rejectWithValue({
         actionFlag: "UPDATE_COMPANY_DETAILS_ERR",
         success: "",
-        error: error?.message || "Something went wrong",
+        error: apiErrorMessage(error, "Something went wrong"),
       });
     }
   }
