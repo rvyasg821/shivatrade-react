@@ -25,6 +25,7 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Notification from "@components/toast/notification";
+import { bankAccountsSchema, toBankAccountsPayload } from "@src/views/_shared/company/bankAccounts";
 import DateInput from "@components/date-input";
 import PortSelect from "@src/views/_shared/port-master/PortSelect";
 import instance from "@src/utility/AxiosConfig";
@@ -183,6 +184,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
     state: yup.string().nullable(),
     city: yup.string().nullable(),
     zipcode: yup.string().nullable(),
+    bank_accounts: bankAccountsSchema(t),
   });
 
   const { reset, control, setValue, getValues, handleSubmit, formState: { errors } } = useForm({
@@ -370,6 +372,12 @@ const Step1CompanyDetails = ({ section = "all" }) => {
     setValue(name, value);
     setValue("country_code", data);
   };
+  // Bank accounts sit far below the fold — without this an invalid submit
+  // looks like the Save button did nothing.
+  const onInvalid = () => {
+    Notification("Error", t("Please fix the highlighted fields before saving."), "warning");
+  };
+
   const onSubmit = (values) => {
     const dialCode = values.country_code?.dialCode || "";
     let mobileValue = values.mobile || "";
@@ -469,24 +477,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
           gstin: a.gstin?.trim() || undefined,
           is_default: !!a.is_default,
         })),
-      bank_accounts: (values.bank_accounts || [])
-        .filter((b) => b.bank_name?.trim() && b.account_number?.trim() && b.currency_id)
-        .map((b) => ({
-          bank_name: b.bank_name.trim(),
-          account_holder_name: b.account_holder_name?.trim() || undefined,
-          account_number: b.account_number.trim(),
-          ifsc: b.ifsc?.trim() || undefined,
-          swift_code: b.swift_code?.trim() || undefined,
-          iban: b.iban?.trim() || undefined,
-          ad_code: b.ad_code?.trim() || undefined,
-          currency_id: b.currency_id,
-          branch_name: b.branch_name?.trim() || undefined,
-          branch_address: b.branch_address?.trim() || undefined,
-          account_type: b.account_type || "current",
-          is_default: !!b.is_default,
-          notes: b.notes?.trim() || undefined,
-          is_active: b.is_active !== false,
-        })),
+      bank_accounts: toBankAccountsPayload(values.bank_accounts),
     };
 
     // Only include country_code when mobile is provided
@@ -518,7 +509,7 @@ const Step1CompanyDetails = ({ section = "all" }) => {
     <Fragment>
       <Card>
         <CardBody>
-          <Form autoComplete="off" onSubmit={handleSubmit(onSubmit)}>
+          <Form autoComplete="off" onSubmit={handleSubmit(onSubmit, onInvalid)}>
 
             {showCompany && (<>
             {/* ── Company Information ── */}
@@ -1073,8 +1064,10 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                     <Label className="form-label">{t("Bank Name")} <span className="text-danger">*</span></Label>
                     <Controller name={`bank_accounts.${idx}.bank_name`} control={control}
                       render={({ field }) => (
-                        <Input disabled={isReadOnly} {...field} value={field.value || ""} />
+                        <Input disabled={isReadOnly} {...field} value={field.value || ""}
+                          invalid={!!errors.bank_accounts?.[idx]?.bank_name} />
                       )} />
+                    <FormFeedback>{errors.bank_accounts?.[idx]?.bank_name?.message}</FormFeedback>
                   </Col>
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Account Holder Name")}</Label>
@@ -1087,8 +1080,10 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                     <Label className="form-label">{t("Account Number")} <span className="text-danger">*</span></Label>
                     <Controller name={`bank_accounts.${idx}.account_number`} control={control}
                       render={({ field }) => (
-                        <Input disabled={isReadOnly} {...field} value={field.value || ""} />
+                        <Input disabled={isReadOnly} {...field} value={field.value || ""}
+                          invalid={!!errors.bank_accounts?.[idx]?.account_number} />
                       )} />
+                    <FormFeedback>{errors.bank_accounts?.[idx]?.account_number?.message}</FormFeedback>
                   </Col>
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Currency")} <span className="text-danger">*</span></Label>
@@ -1100,6 +1095,9 @@ const Step1CompanyDetails = ({ section = "all" }) => {
                           onChange={(opt) => field.onChange(opt ? opt.value : "")}
                           styles={selectStyles} />
                       )} />
+                    {errors.bank_accounts?.[idx]?.currency_id && (
+                      <div className="invalid-feedback d-block">{errors.bank_accounts[idx].currency_id.message}</div>
+                    )}
                   </Col>
                   <Col md="6" className="mb-2">
                     <Label className="form-label">{t("Account Type")}</Label>

@@ -45,6 +45,7 @@ import {
 // ** Styles
 import "react-phone-input-2/lib/style.css";
 import Notification from "@components/toast/notification";
+import { bankAccountsSchema, toBankAccountsPayload } from "@src/views/_shared/company/bankAccounts";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { useNavigate, useParams } from "react-router-dom";
@@ -100,6 +101,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
     state: yup.string().transform((v) => (v === "" ? null : v)).nullable(),
     city: yup.string().transform((v) => (v === "" ? null : v)).nullable(),
     zipcode: yup.string().transform((v) => (v === "" ? null : v)).nullable(),
+    bank_accounts: bankAccountsSchema(t),
   });
 
   const {
@@ -317,6 +319,12 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
       dispatch(getCompany(id));
     }
   }, [dispatch, id?.id]);
+  // Bank accounts sit far below the fold — without this an invalid submit
+  // looks like the Save button did nothing.
+  const onInvalid = () => {
+    Notification("Error", t("Please fix the highlighted fields before saving."), "warning");
+  };
+
   const onSubmit = async (values) => {
     if (emailExists) {
       Notification("Error", t("This email already exists."), "warning");
@@ -385,24 +393,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
             gstin: a.gstin?.trim() || undefined,
             is_default: !!a.is_default,
           })),
-        bank_accounts: (values.bank_accounts || [])
-          .filter((b) => b.bank_name?.trim() && b.account_number?.trim() && b.currency_id)
-          .map((b) => ({
-            bank_name: b.bank_name.trim(),
-            account_holder_name: b.account_holder_name?.trim() || undefined,
-            account_number: b.account_number.trim(),
-            ifsc: b.ifsc?.trim() || undefined,
-            swift_code: b.swift_code?.trim() || undefined,
-            iban: b.iban?.trim() || undefined,
-            ad_code: b.ad_code?.trim() || undefined,
-            currency_id: b.currency_id,
-            branch_name: b.branch_name?.trim() || undefined,
-            branch_address: b.branch_address?.trim() || undefined,
-            account_type: b.account_type || "current",
-            is_default: !!b.is_default,
-            notes: b.notes?.trim() || undefined,
-            is_active: b.is_active !== false,
-          })),
+        bank_accounts: toBankAccountsPayload(values.bank_accounts),
       };
 
       const companyId = store.companyItem?._id || id?.id;
@@ -448,7 +439,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
             <Fragment>
 
 
-            <Form autoComplete="off" onSubmit={handleSubmit(onSubmit)}>
+            <Form autoComplete="off" onSubmit={handleSubmit(onSubmit, onInvalid)}>
 
               {/* ── Company Information ── */}
               <h6 className="fw-bold text-uppercase text-muted mb-1 mt-1">{t("Company Information")}</h6>
@@ -860,7 +851,9 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                     <Col md="6" className="mb-2">
                       <Label>{t("Bank Name")} <span className="text-danger">*</span></Label>
                       <Controller name={`bank_accounts.${idx}.bank_name`} control={control}
-                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                        render={({ field }) => <Input {...field} value={field.value || ""}
+                          invalid={!!errors.bank_accounts?.[idx]?.bank_name} />} />
+                      <FormFeedback>{errors.bank_accounts?.[idx]?.bank_name?.message}</FormFeedback>
                     </Col>
                     <Col md="6" className="mb-2">
                       <Label>{t("Account Holder Name")}</Label>
@@ -870,7 +863,9 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                     <Col md="6" className="mb-2">
                       <Label>{t("Account Number")} <span className="text-danger">*</span></Label>
                       <Controller name={`bank_accounts.${idx}.account_number`} control={control}
-                        render={({ field }) => <Input {...field} value={field.value || ""} />} />
+                        render={({ field }) => <Input {...field} value={field.value || ""}
+                          invalid={!!errors.bank_accounts?.[idx]?.account_number} />} />
+                      <FormFeedback>{errors.bank_accounts?.[idx]?.account_number?.message}</FormFeedback>
                     </Col>
                     <Col md="3" className="mb-2">
                       <Label>{t("Currency")} <span className="text-danger">*</span></Label>
@@ -881,6 +876,9 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
                             onChange={(opt) => field.onChange(opt ? opt.value : "")}
                             styles={selectStyles} />
                         )} />
+                      {errors.bank_accounts?.[idx]?.currency_id && (
+                        <div className="invalid-feedback d-block">{errors.bank_accounts[idx].currency_id.message}</div>
+                      )}
                     </Col>
                     <Col md="3" className="mb-2">
                       <Label>{t("Account Type")}</Label>
