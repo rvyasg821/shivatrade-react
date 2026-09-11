@@ -46,6 +46,7 @@ import {
 import "react-phone-input-2/lib/style.css";
 import Notification from "@components/toast/notification";
 import { bankAccountsSchema, toBankAccountsPayload } from "@src/views/_shared/company/bankAccounts";
+import { toAddressesPayload } from "@src/views/_shared/company/addresses";
 import instance from "@src/utility/AxiosConfig";
 import { API_ENDPOINTS } from "@src/utility/ApiEndPoints";
 import { useNavigate, useParams } from "react-router-dom";
@@ -279,6 +280,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
           company.default_port_of_loading_snapshot || null,
         default_declaration_text: company.default_declaration_text || "",
         addresses: (company.addresses || []).map((a) => ({
+          _id: a._id,
           type: a.type || "corporate",
           label: a.label || "",
           address_line1: a.address_line1 || "",
@@ -291,6 +293,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
           is_default: !!a.is_default,
         })),
         bank_accounts: (company.bank_accounts || []).map((b) => ({
+          _id: b._id,
           bank_name: b.bank_name || "",
           account_holder_name: b.account_holder_name || "",
           account_number: b.account_number || "",
@@ -362,37 +365,19 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
         state: values.state,
         city: values.city,
         zipcode: values.zipcode,
-        iec: values.iec || undefined,
-        lut_no: values.lut_no || undefined,
-        lut_date: values.lut_date || undefined,
-        cin: values.cin || undefined,
+        iec: values.iec || "",
+        lut_no: values.lut_no || "",
+        lut_date: values.lut_date ? String(values.lut_date).slice(0, 10) : "",
+        cin: values.cin || "",
         default_port_of_loading:
-          values.default_port_of_loading?.trim() || undefined,
+          values.default_port_of_loading?.trim() || "",
         default_port_of_loading_id:
-          values.default_port_of_loading_id || undefined,
+          values.default_port_of_loading_id || "",
         default_port_of_loading_snapshot:
-          values.default_port_of_loading_snapshot || undefined,
+          values.default_port_of_loading_snapshot || null,
         default_declaration_text:
-          values.default_declaration_text?.trim() || undefined,
-        addresses: (values.addresses || [])
-          .filter((a) =>
-            a.address_line1?.trim() ||
-            a.city?.trim() ||
-            a.country?.trim() ||
-            a.label?.trim()
-          )
-          .map((a) => ({
-            type: a.type || "corporate",
-            label: a.label?.trim() || undefined,
-            address_line1: a.address_line1?.trim() || undefined,
-            address_line2: a.address_line2?.trim() || undefined,
-            city: a.city?.trim() || undefined,
-            state: a.state?.trim() || undefined,
-            country: a.country?.trim() || undefined,
-            postcode: a.postcode?.trim() || undefined,
-            gstin: a.gstin?.trim() || undefined,
-            is_default: !!a.is_default,
-          })),
+          values.default_declaration_text?.trim() || "",
+        addresses: toAddressesPayload(values.addresses),
         bank_accounts: toBankAccountsPayload(values.bank_accounts),
       };
 
@@ -408,7 +393,7 @@ const CompanyProfileForm = ({ onCompanyUpdated }) => {
             if (onCompanyUpdated) onCompanyUpdated();
           }
         } catch (err) {
-          Notification("Error", err?.message || "Update failed", "warning");
+          Notification("Error", err?.error || err?.message || "Update failed", "warning");
         }
       } else {
         // Create new company
