@@ -28,6 +28,7 @@ import {
   Row,
   Card,
   Input,
+  Badge,
   Button,
   CardBody,
   UncontrolledTooltip,
@@ -94,6 +95,8 @@ const PoVendorView = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  // Type filter: "" = All, "true" = Drop-Ship only, "false" = Warehouse only.
+  const [dropShipFilter, setDropShipFilter] = useState("");
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   const handleList = useCallback(
@@ -106,7 +109,8 @@ const PoVendorView = () => {
       vendorId = vendorFilter,
       status = statusFilter,
       from = dateFrom,
-      to = dateTo
+      to = dateTo,
+      dropShip = dropShipFilter
     ) => {
       const params = {
         orderBy: sortCol,
@@ -119,6 +123,7 @@ const PoVendorView = () => {
       if (status) params.status = status;
       if (from) params.date_from = from;
       if (to) params.date_to = to;
+      if (dropShip) params.is_drop_ship = dropShip;
       params.created_by = selectedCreator;
       dispatch(getPoVendorList(params));
     },
@@ -132,6 +137,7 @@ const PoVendorView = () => {
       statusFilter,
       dateFrom,
       dateTo,
+      dropShipFilter,
       selectedCreator,
       dispatch,
     ]
@@ -193,7 +199,15 @@ const PoVendorView = () => {
       );
     }
     return () => clearTimeout(handler);
-  }, [searchInput, vendorFilter, statusFilter, dateFrom, dateTo, selectedCreator]);
+  }, [
+    searchInput,
+    vendorFilter,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    dropShipFilter,
+    selectedCreator,
+  ]);
 
   useEffect(() => {
     if (store?.actionFlag || store?.success || store?.error) {
@@ -454,7 +468,16 @@ const PoVendorView = () => {
       selector: (row) => {
         const c = PO_VENDOR_STATUS_COLOR_MAP[row?.status] || "#6c757d";
         const label = (row?.status || "-").replace(/_/g, " ");
-        return <StatusPill label={label} hex={c} />;
+        return (
+          <div className="d-flex flex-column align-items-center gap-25">
+            <StatusPill label={label} hex={c} />
+            {row?.is_drop_ship && (
+              <Badge className="doc-badge doc-badge-orange">
+                {t("Drop-Ship")}
+              </Badge>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -612,28 +635,55 @@ const PoVendorView = () => {
             <div className="d-flex align-items-center flex-nowrap gap-2">
               <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <Row>
-                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
                     <Input
                       type="text"
                       id="search-pov"
                       value={searchInput}
                       className="w-100"
-                      placeholder={t("Search voucher / LR / e-way")}
+                      placeholder={t("Search voucher/LR/e-way")}
                       onChange={(e) => handleSearch(e?.target?.value)}
                     />
                   </Col>
-                  <Col sm="6" md="3" className="mb-2 mb-md-0">
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
                     <EntitySearchSelect
                       kind="vendor"
                       isClearable
-                      placeholder={t("Filter by Vendor")}
+                      placeholder={t("Vendor")}
                       value={vendorFilter || null}
                       onChange={(opt) =>
                         setVendorFilter(opt ? opt.value : "")
                       }
+                      // Field itself stays narrow (matches its sibling
+                      // filters), but the open menu widens to fit a full
+                      // vendor name on one line instead of wrapping every
+                      // option across 3-4 lines.
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
+                      styles={{
+                        placeholder: (base) => ({
+                          ...base,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }),
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                        menu: (base) => ({
+                          ...base,
+                          width: "max-content",
+                          minWidth: "100%",
+                          maxWidth: "360px",
+                        }),
+                        option: (base) => ({
+                          ...base,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }),
+                      }}
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
                     <Select
                       isClearable
                       classNamePrefix="select"
@@ -649,7 +699,32 @@ const PoVendorView = () => {
                       }
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
+                    <Select
+                      isClearable
+                      classNamePrefix="select"
+                      placeholder={t("Type")}
+                      options={[
+                        { value: "false", label: t("Warehouse") },
+                        { value: "true", label: t("Drop-Ship") },
+                      ]}
+                      value={
+                        dropShipFilter
+                          ? {
+                              value: dropShipFilter,
+                              label:
+                                dropShipFilter === "true"
+                                  ? t("Drop-Ship")
+                                  : t("Warehouse"),
+                            }
+                          : null
+                      }
+                      onChange={(opt) =>
+                        setDropShipFilter(opt ? opt.value : "")
+                      }
+                    />
+                  </Col>
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
                     <DateInput
                       id="pov-date-from"
                       value={dateFrom}
@@ -657,7 +732,7 @@ const PoVendorView = () => {
                       placeholder={t("Dispatch From")}
                     />
                   </Col>
-                  <Col sm="6" md="2" className="mb-2 mb-md-0">
+                  <Col sm="6" md="4" lg="2" className="mb-2 mb-lg-0">
                     <DateInput
                       id="pov-date-to"
                       value={dateTo}

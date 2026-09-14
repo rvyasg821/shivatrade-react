@@ -153,35 +153,54 @@ const IssueStockPreviewTable = ({ rows, fmtN, t }) => {
               <tr>
                 <th>{t("Product")}</th>
                 <th className="text-end">{t("Qty out")}</th>
+                <th className="text-end">{t("Drop-Ship")}</th>
                 <th className="text-end">{t("Available")}</th>
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((r) => (
-                <tr
-                  key={r.key}
-                  style={r.short ? { background: "#fdecea" } : undefined}
-                >
-                  <td className="text-start">
-                    {r.name}
-                    {r.code ? (
-                      <span className="text-muted"> · {r.code}</span>
-                    ) : null}
-                  </td>
-                  <td className="text-end text-danger fw-semibold text-nowrap">
-                    −{fmtN(r.required)}
-                    {r.uom ? ` ${r.uom}` : ""}
-                  </td>
-                  <td
-                    className={`text-end text-nowrap fw-semibold ${
-                      r.short ? "text-danger" : "text-success"
-                    }`}
+              {pageRows.map((r) => {
+                // A line fully covered by drop-ship (nothing left to pull
+                // from stock) never needs to be flagged short.
+                const dropShip = Number(r.dropShip) || 0;
+                return (
+                  <tr
+                    key={r.key}
+                    style={r.short ? { background: "#fdecea" } : undefined}
                   >
-                    {r.available === null ? "—" : fmtN(r.available)}
-                    {r.available !== null && r.uom ? ` ${r.uom}` : ""}
-                  </td>
-                </tr>
-              ))}
+                    <td className="text-start">
+                      {r.name}
+                      {r.code ? (
+                        <span className="text-muted"> · {r.code}</span>
+                      ) : null}
+                    </td>
+                    <td className="text-end text-danger fw-semibold text-nowrap">
+                      {r.required > 0 ? `−${fmtN(r.required)}` : "0"}
+                      {r.required > 0 && r.uom ? ` ${r.uom}` : ""}
+                    </td>
+                    <td className="text-end text-muted text-nowrap">
+                      {dropShip > 0 ? (
+                        <>
+                          {fmtN(dropShip)}
+                          {r.uom ? ` ${r.uom}` : ""}
+                          <div style={{ fontSize: "0.7rem" }}>
+                            {t("shipped by vendor")}
+                          </div>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td
+                      className={`text-end text-nowrap fw-semibold ${
+                        r.short ? "text-danger" : "text-success"
+                      }`}
+                    >
+                      {r.available === null ? "—" : fmtN(r.available)}
+                      {r.available !== null && r.uom ? ` ${r.uom}` : ""}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -588,6 +607,7 @@ const ViewInvoice = () => {
       code: r.product_code || "",
       uom: r.uom || "",
       required: Number(r.required) || 0,
+      dropShip: Number(r.drop_ship) || 0,
       available: Number(r.available) || 0,
       short: !!r.short,
     }));

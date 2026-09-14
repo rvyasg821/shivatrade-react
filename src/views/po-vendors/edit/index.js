@@ -102,6 +102,7 @@ const EditPoVendor = () => {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [creationDate, setCreationDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [isDropShip, setIsDropShip] = useState(false);
   const [dispatchedThrough, setDispatchedThrough] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [deliveryTerms, setDeliveryTerms] = useState("");
@@ -178,6 +179,7 @@ const EditPoVendor = () => {
     setNotes(p.notes || p.effective_remarks || "");
     setInvoiceNumber(p.invoice_number || "");
     setCreationDate(p.creation_date || "");
+    setIsDropShip(!!p.is_drop_ship);
     // Company defaults fill a term this POV never set. Applied here too (not
     // only in the effect below) because the company may already have landed —
     // otherwise this seed would blank out what that effect just filled.
@@ -378,6 +380,12 @@ const EditPoVendor = () => {
     // Sales-Order traceability links — always editable (a reference field), so
     // sent regardless of status. Empty array clears the links.
     data.linked_sales_order_ids = pickedSoIds;
+
+    // Drop-Ship — draft and dispatched only; locked once a GRN exists
+    // (checkbox is disabled below, so this only fires a real change).
+    if (isDraft || status === "dispatched") {
+      data.is_drop_ship = isDropShip;
+    }
 
     // Quantity is editable in draft and dispatched — block a save that would
     // send 0 / blank, which the backend rejects anyway (ordered_qty must be > 0).
@@ -838,6 +846,42 @@ const EditPoVendor = () => {
             {/* Exchange Rate field removed — the POV is native to the vendor's
                 currency and inventory values stock per-currency, so no INR
                 conversion rate is needed. */}
+          </Row>
+
+          {/* Drop-Ship — draft/dispatched only; locked once a GRN exists
+              (the checkbox stays visible but disabled, with a tooltip, so the
+              operator understands why it's frozen instead of it vanishing). */}
+          <Row>
+            <Col md="12" className="mb-1">
+              <div className="form-check">
+                <Input
+                  type="checkbox"
+                  id="pov-edit-drop-ship"
+                  checked={isDropShip}
+                  disabled={
+                    (!isDraft && status !== "dispatched") ||
+                    !!p.drop_ship_locked
+                  }
+                  onChange={(e) => setIsDropShip(e.target.checked)}
+                />
+                <Label
+                  htmlFor="pov-edit-drop-ship"
+                  className="form-check-label fw-semibold"
+                >
+                  {t("Drop-Ship")}{" "}
+                  <span className="text-muted fw-normal small">
+                    {t(
+                      "(vendor ships directly to the customer — no stock added)"
+                    )}
+                  </span>
+                </Label>
+                {p.drop_ship_locked && (
+                  <div className="text-muted small">
+                    {t("Locked — a GRN exists on this PO.")}
+                  </div>
+                )}
+              </div>
+            </Col>
           </Row>
 
           {/* Invoice Number is hidden here too — it's now finalised at GRN

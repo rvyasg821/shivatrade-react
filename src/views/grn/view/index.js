@@ -11,6 +11,7 @@ import {
   Input,
   Button,
   Badge,
+  Alert,
   Spinner,
   Table,
 } from "reactstrap";
@@ -171,6 +172,7 @@ const GrnView = () => {
       purchase_order_voucher_no: pov.purchase_order_voucher_no,
       // Vendor currency of the POV — the Price column renders in it.
       currency_code: pov.currency_code,
+      is_drop_ship: !!pov.is_drop_ship,
       grn_date: null,
       lines,
     });
@@ -532,6 +534,11 @@ const GrnView = () => {
               >
                 {grn.status}
               </Badge>
+              {grn.is_drop_ship && (
+                <Badge className="doc-badge doc-badge-orange ms-1">
+                  {t("Drop-Ship")}
+                </Badge>
+              )}
             </h4>
             <div className="mt-50">
               <div
@@ -651,6 +658,14 @@ const GrnView = () => {
           </div>
         </CardBody>
       </Card>
+
+      {grn.is_drop_ship && (
+        <Alert color="warning" className="py-75 px-1 mb-1">
+          {t(
+            "Drop-ship — the vendor delivered directly to the customer. This GRN books the vendor bill & GST only; no stock is added."
+          )}
+        </Alert>
+      )}
 
       <Card>
         <CardHeader className="d-flex justify-content-between align-items-center">

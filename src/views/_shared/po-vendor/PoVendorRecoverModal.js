@@ -140,6 +140,10 @@ const PoVendorRecoverModal = ({
       ...curr,
       [vendorId]: { ...(curr[vendorId] || {}), [field]: value },
     }));
+  // Per-vendor Drop-Ship flag — this vendor's spawned POV never receives
+  // stock; its GRN books the vendor bill/GST only, and the invoice qty it
+  // covers skips the stock gate (DROP_SHIP_ORDERS_PLAN). Shape: { [vendor_id]: boolean }.
+  const [vendorDropShip, setVendorDropShip] = useState({});
   const [companyLocations, setCompanyLocations] = useState([]);
   const defaultLocationId = useMemo(() => {
     const def =
@@ -876,6 +880,13 @@ const PoVendorRecoverModal = ({
       };
     }
 
+    // Per-vendor Drop-Ship flag — only send true entries (omitted = normal
+    // warehouse POV).
+    const trimmedDropShip = {};
+    for (const vid of submittingVendorIds) {
+      if (vendorDropShip[vid]) trimmedDropShip[vid] = true;
+    }
+
     setCreating(true);
     try {
       const result = await dispatch(
@@ -891,6 +902,9 @@ const PoVendorRecoverModal = ({
           vendor_delivery_locations: trimmedLocations,
           vendor_terms: Object.keys(trimmedTerms).length
             ? trimmedTerms
+            : undefined,
+          vendor_drop_ship: Object.keys(trimmedDropShip).length
+            ? trimmedDropShip
             : undefined,
         })
       ).unwrap();
@@ -1504,6 +1518,33 @@ const PoVendorRecoverModal = ({
                         {/* Delivery & Terms */}
                         <div className="text-uppercase text-muted fw-semibold mb-1" style={{ fontSize: 11, letterSpacing: 0.4 }}>
                           {t("Delivery & Terms")}
+                        </div>
+                        {/* Drop-Ship: this vendor ships straight to the SO's
+                            customer — no stock is ever received into our
+                            warehouse for this POV (DROP_SHIP_ORDERS_PLAN). */}
+                        <div className="form-check mb-1">
+                          <Input
+                            type="checkbox"
+                            id={`drop-ship-${v.vendor_id}`}
+                            checked={!!vendorDropShip[v.vendor_id]}
+                            onChange={(e) =>
+                              setVendorDropShip((curr) => ({
+                                ...curr,
+                                [v.vendor_id]: e.target.checked,
+                              }))
+                            }
+                          />
+                          <Label
+                            htmlFor={`drop-ship-${v.vendor_id}`}
+                            className="form-check-label small fw-semibold"
+                          >
+                            {t("Drop-Ship")}{" "}
+                            <span className="text-muted fw-normal">
+                              {t(
+                                "(vendor ships directly to the customer — no stock added)"
+                              )}
+                            </span>
+                          </Label>
                         </div>
                         {/* Deliver-to location (ShivaTrade's receiving
                             location). Required — auto-filled to the default;

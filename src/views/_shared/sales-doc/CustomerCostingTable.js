@@ -4,7 +4,7 @@
 // hidden. Used by the quotation Step-3 review and the quotation detail page.
 
 import { Fragment } from "react";
-import { Table } from "reactstrap";
+import { Table, Badge } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -135,6 +135,18 @@ const CustomerCostingTable = ({
                   <td style={{ whiteSpace: "normal" }}>
                     <div className="fw-semibold text-capitalize text-wrap">
                       {r.name}
+                      {/* Invoice-only: drop_ship_qty doesn't exist on
+                          SO/Quotation lines, so this is a no-op there. */}
+                      {num(r.l.drop_ship_qty) > 0 && (
+                        <Badge
+                          className="doc-badge doc-badge-gray ms-50"
+                          title={t(
+                            "Shipped by vendor directly to the customer"
+                          )}
+                        >
+                          {t("DS")}
+                        </Badge>
+                      )}
                     </div>
                     {!showHsn && r.hsn ? (
                       <div className="small text-muted">
