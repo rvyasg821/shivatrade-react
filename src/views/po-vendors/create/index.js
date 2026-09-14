@@ -1032,6 +1032,11 @@ const CreatePoVendor = () => {
                     placeholder={t("Select sales order(s)")}
                     noOptionsMessage={() => t("No sales orders")}
                   />
+                  <div className="text-muted small mt-25">
+                    {t(
+                      "Drop-ship POs are created from the Sales Order → Generate POV."
+                    )}
+                  </div>
                 </div>
               )}
             </div>

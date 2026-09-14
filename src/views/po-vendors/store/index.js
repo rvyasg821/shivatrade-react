@@ -143,11 +143,14 @@ export const recoverPoVendors = createAsyncThunk(
   async (
     {
       purchase_order_id,
+      creation_date,
       assignments,
+      vendor_currencies,
       vendor_expenses,
       vendor_advances,
       vendor_delivery_locations,
       vendor_terms,
+      vendor_drop_ship,
     },
     { rejectWithValue }
   ) => {
@@ -155,11 +158,14 @@ export const recoverPoVendors = createAsyncThunk(
       const resp = await instance.post(
         `${API_ENDPOINTS.poVendors.recover}/${purchase_order_id}`,
         {
+          creation_date,
           assignments,
+          vendor_currencies,
           vendor_expenses,
           vendor_advances,
           vendor_delivery_locations,
           vendor_terms,
+          vendor_drop_ship,
         }
       );
       const body = resp?.data;

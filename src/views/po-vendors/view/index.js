@@ -36,7 +36,7 @@ import {
   Repeat,
   Edit2,
 } from "react-feather";
-import { Button } from "reactstrap";
+import { Button, Badge } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -549,6 +549,11 @@ const ViewPoVendor = () => {
 
   const meta = (
     <span className="d-inline-flex align-items-center flex-wrap gap-1">
+      {p?.is_drop_ship ? (
+        <Badge className="doc-badge doc-badge-orange">
+          {t("Drop-Ship")}
+        </Badge>
+      ) : null}
       {/* POV header Invoice No is retired from display — the invoice number
           is now finalised per-GRN (see the GRNs tab) instead of on the
           header, which could go stale/inconsistent with multiple GRNs. */}
