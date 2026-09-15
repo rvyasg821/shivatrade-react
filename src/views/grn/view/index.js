@@ -572,6 +572,7 @@ const GrnView = () => {
                   value={invoiceNo}
                   placeholder={t("Vendor invoice number")}
                   onChange={(e) => setInvoiceNo(e.target.value)}
+                  disabled={!isCreate && isLocked}
                 />
 
                 {/* Creation date — editable, defaults to today. */}
@@ -582,23 +583,26 @@ const GrnView = () => {
                   id="grn-creation-date"
                   value={creationDate}
                   onChange={(_d, _s, iso) => setCreationDate(iso || "")}
+                  disabled={!isCreate && isLocked}
                 />
 
-                <Button
-                  color="primary"
-                  size="sm"
-                  // Create mode: the GRN isn't persisted yet, so "Save" here
-                  // saves it as a draft (carrying both fields). Saved GRN: one
-                  // Save updates invoice number + date together.
-                  onClick={isCreate ? () => onSave() : saveInvoiceAndDate}
-                  disabled={isCreate ? saving : savingInvoice}
-                >
-                  {(isCreate ? saving : savingInvoice) ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    t("Save")
-                  )}
-                </Button>
+                {(isCreate || !isLocked) && (
+                  <Button
+                    color="primary"
+                    size="sm"
+                    // Create mode: the GRN isn't persisted yet, so "Save" here
+                    // saves it as a draft (carrying both fields). Saved GRN: one
+                    // Save updates invoice number + date together.
+                    onClick={isCreate ? () => onSave() : saveInvoiceAndDate}
+                    disabled={isCreate ? saving : savingInvoice}
+                  >
+                    {(isCreate ? saving : savingInvoice) ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      t("Save")
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
