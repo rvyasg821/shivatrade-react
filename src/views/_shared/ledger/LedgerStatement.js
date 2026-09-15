@@ -71,7 +71,9 @@ const LedgerStatement = ({ kind, partyId }) => {
       const url = window.URL.createObjectURL(new Blob([resp.data]));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${kind}-ledger.xlsx`;
+      a.download = `${kind}-ledger${
+        data?.party_code ? `-${data.party_code}` : ""
+      }.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();

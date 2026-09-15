@@ -6,7 +6,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { Row, Col, Card, CardBody, Badge } from "reactstrap";
-import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive, Clipboard, DollarSign, RefreshCw } from "react-feather";
+import { TrendingUp, FileText, Users, BarChart2, Percent, GitPullRequest, Repeat, Clock, Archive, Clipboard, DollarSign, RefreshCw, BookOpen } from "react-feather";
 import { useTranslation } from "react-i18next";
 
 import { appsRoot } from "@constant/defaultValues";
@@ -132,6 +132,24 @@ const REPORTS = [
       "Closing stock aged over 30 / 60 / 90 / 120 days — qty & value tied up in slow-moving items.",
     icon: Archive,
     to: `${appsRoot}/reports/inventory-aging`,
+    live: true,
+  },
+  {
+    key: "customer-ledger-summary",
+    title: "Customer Ledger Summary",
+    description:
+      "Opening, Debit, Credit and Closing balance per customer for the selected period — click a row for the full statement.",
+    icon: BookOpen,
+    to: `${appsRoot}/reports/customer-ledger-summary`,
+    live: true,
+  },
+  {
+    key: "vendor-ledger-summary",
+    title: "Vendor Ledger Summary",
+    description:
+      "Opening, Debit, Credit and Closing balance per vendor for the selected period — click a row for the full statement.",
+    icon: BookOpen,
+    to: `${appsRoot}/reports/vendor-ledger-summary`,
     live: true,
   },
 ];
