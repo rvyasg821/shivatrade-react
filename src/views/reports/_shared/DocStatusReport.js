@@ -64,17 +64,21 @@ const fmtDate = (v) => {
 
 const Dash = () => <span className="text-muted">—</span>;
 
-// open | partial | closed → label + doc-badge colour (green = fully covered).
+// open | partial | closed | pre_closed → label + doc-badge colour (green =
+// fully covered; pre_closed is red — a manual override, not a natural full
+// delivery, see PRE_CLOSE_MODULE_PLAN.md).
 const STATUS_META = {
   open: { label: "Open", cls: "doc-badge-gray" },
   partial: { label: "Partially Closed", cls: "doc-badge-orange" },
   closed: { label: "Closed", cls: "doc-badge-green" },
+  pre_closed: { label: "Pre-Closed", cls: "doc-badge-red" },
 };
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
   { value: "open", label: "Open" },
   { value: "partial", label: "Partially Closed" },
   { value: "closed", label: "Closed" },
+  { value: "pre_closed", label: "Pre-Closed" },
 ];
 
 const StatTile = ({ label, value, hint }) => (

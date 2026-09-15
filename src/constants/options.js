@@ -187,6 +187,7 @@ const PURCHASE_ORDER_STATUS_OPTIONS = [
   { value: "confirmed", label: "Confirmed" },
   { value: "in_process", label: "In Process" },
   { value: "completed", label: "Completed" },
+  { value: "pre_closed", label: "Pre-Closed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -195,6 +196,7 @@ const PURCHASE_ORDER_STATUS_BADGE_COLOR = {
   confirmed: "primary",
   in_process: "warning",
   completed: "success",
+  pre_closed: "dark",
   cancelled: "danger",
 };
 
@@ -203,6 +205,7 @@ const PURCHASE_ORDER_STATUS_COLOR_MAP = {
   confirmed: "#0dcaf0",
   in_process: "#fd7e14",
   completed: "#198754",
+  pre_closed: "#5e5873",
   cancelled: "#dc3545",
 };
 
@@ -210,6 +213,7 @@ const PO_VENDOR_STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "dispatched", label: "Dispatched" },
   { value: "closed", label: "Closed" },
+  { value: "pre_closed", label: "Pre-Closed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -217,6 +221,7 @@ const PO_VENDOR_STATUS_BADGE_COLOR = {
   draft: "secondary",
   dispatched: "info",
   closed: "success",
+  pre_closed: "warning",
   cancelled: "danger",
 };
 
@@ -224,6 +229,7 @@ const PO_VENDOR_STATUS_COLOR_MAP = {
   draft: "#6c757d",
   dispatched: "#0dcaf0",
   closed: "#198754",
+  pre_closed: "#ff9f43",
   cancelled: "#dc3545",
 };
 

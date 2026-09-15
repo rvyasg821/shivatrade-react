@@ -35,6 +35,7 @@ import {
   Inbox,
   Repeat,
   Edit2,
+  Lock,
 } from "react-feather";
 import { Button, Badge } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -47,6 +48,8 @@ import {
   cleanPoVendorMessage,
   cancelPoVendor,
   createBalancePoVendor,
+  preClosePoVendor,
+  revertPreClosePoVendor,
 } from "@src/views/po-vendors/store";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -75,6 +78,7 @@ const PIPELINE_STEPS = [
 
 const TERMINAL_STEPS = [
   { value: "cancelled", label: "Cancelled", color: "danger" },
+  { value: "pre_closed", label: "Pre-Closed", color: "warning" },
 ];
 
 const num = (v) =>
@@ -192,6 +196,10 @@ const ViewPoVendor = () => {
   // detail response — it nets off any balance POV already raised from this one,
   // and caps a PO-backed line at the parent PO line's pending.
   const canCreateBalance = canUpdate && !!p?.has_balance;
+  // Pre-Close (PRE_CLOSE_MODULE_PLAN.md) — only from dispatched; revert only
+  // from pre_closed, back to dispatched.
+  const canPreClose = canUpdate && statusLower === "dispatched";
+  const canRevertPreClose = canUpdate && statusLower === "pre_closed";
 
   const handleCreateBalance = () => {
     mySwal
@@ -279,6 +287,66 @@ const ViewPoVendor = () => {
       });
   };
 
+  const handlePreClose = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mySwal
+      .fire({
+        title: t("Pre-Close this POV?"),
+        html:
+          `<div class="text-start">` +
+          `<label class="form-label small mb-25">${t(
+            "Completion date"
+          )}</label>` +
+          `<input id="preclose-date" type="date" class="form-control mb-1" value="${today}" />` +
+          `<label class="form-label small mb-25">${t(
+            "Reason (optional)"
+          )}</label>` +
+          `<textarea id="preclose-reason" class="form-control" rows="2" placeholder="${t(
+            "e.g. Vendor confirmed only partial stock available"
+          )}"></textarea>` +
+          `</div>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, pre-close"),
+        cancelButtonText: t("Keep open"),
+        customClass: {
+          confirmButton: "btn btn-warning",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+        preConfirm: () => ({
+          date: document.getElementById("preclose-date")?.value || today,
+          reason: document.getElementById("preclose-reason")?.value || "",
+        }),
+      })
+      .then((result) => {
+        if (result.isConfirmed) {
+          dispatch(preClosePoVendor({ id, ...result.value }));
+        }
+      });
+  };
+
+  const handleRevertPreClose = () => {
+    mySwal
+      .fire({
+        title: t("Revert this Pre-Close?"),
+        text: t(
+          "Returns the POV to Dispatched. The order value goes back to the full ordered quantity."
+        ),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, revert"),
+        cancelButtonText: t("Keep pre-closed"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (result.isConfirmed) dispatch(revertPreClosePoVendor(id));
+      });
+  };
 
   // ── KPI calculations ──
   const lines = p?.lines || [];
@@ -500,6 +568,22 @@ const ViewPoVendor = () => {
       label: t("Revert to Draft"),
       color: "primary",
       onClick: handleRevert,
+    });
+  }
+  if (canPreClose) {
+    headerActions.push({
+      icon: Lock,
+      label: t("Pre-Close"),
+      color: "warning",
+      onClick: handlePreClose,
+    });
+  }
+  if (canRevertPreClose) {
+    headerActions.push({
+      icon: RotateCcw,
+      label: t("Revert Pre-Close"),
+      color: "primary",
+      onClick: handleRevertPreClose,
     });
   }
   headerActions.push({

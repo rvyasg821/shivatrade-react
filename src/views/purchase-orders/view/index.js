@@ -32,6 +32,8 @@ import {
   getPurchaseOrder,
   updatePurchaseOrder,
   cleanPurchaseOrderMessage,
+  preClosePurchaseOrder,
+  revertPreClosePurchaseOrder,
 } from "@src/views/purchase-orders/store";
 import Notification from "@components/toast/notification";
 import { openPdfViewer } from "@src/utility/pdf";
@@ -66,6 +68,7 @@ const PIPELINE_STEPS = [
 
 const TERMINAL_STEPS = [
   { value: "cancelled", label: "Cancelled", color: "danger" },
+  { value: "pre_closed", label: "Pre-Closed", color: "dark" },
 ];
 
 const fmt = (v) =>
@@ -396,6 +399,89 @@ const ViewPurchaseOrder = () => {
       confirmButtonText: t("Yes, revert"),
     });
 
+  // Pre-Close (PRE_CLOSE_MODULE_PLAN.md) — a separate flow from changeStatus
+  // above: it captures a backdated date + reason, not just a bare status flip.
+  const preCloseAction = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mySwal
+      .fire({
+        title: t("Pre-Close this Sales Order?"),
+        html:
+          `<div class="text-start">` +
+          `<label class="form-label small mb-25">${t(
+            "Completion date"
+          )}</label>` +
+          `<input id="so-preclose-date" type="date" class="form-control mb-1" value="${today}" />` +
+          `<label class="form-label small mb-25">${t(
+            "Reason (optional)"
+          )}</label>` +
+          `<textarea id="so-preclose-reason" class="form-control" rows="2" placeholder="${t(
+            "e.g. Client confirmed order complete"
+          )}"></textarea>` +
+          `</div>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, pre-close"),
+        cancelButtonText: t("Keep open"),
+        customClass: {
+          confirmButton: "btn btn-warning",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+        preConfirm: () => ({
+          date: document.getElementById("so-preclose-date")?.value || today,
+          reason: document.getElementById("so-preclose-reason")?.value || "",
+        }),
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(preClosePurchaseOrder({ id, ...result.value }))
+          .unwrap()
+          .then(() => dispatch(getPurchaseOrder(id)))
+          .catch((err) =>
+            Notification(
+              "Error",
+              typeof err === "string"
+                ? err
+                : err?.message || t("Could not pre-close"),
+              "warning"
+            )
+          );
+      });
+  };
+
+  const revertPreCloseAction = () => {
+    mySwal
+      .fire({
+        title: t("Revert this Pre-Close?"),
+        text: t("Returns the Sales Order to Confirmed."),
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: t("Yes, revert"),
+        cancelButtonText: t("Keep pre-closed"),
+        customClass: {
+          confirmButton: "btn btn-primary",
+          cancelButton: "btn btn-outline-secondary ms-1",
+        },
+        buttonsStyling: false,
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+        dispatch(revertPreClosePurchaseOrder(id))
+          .unwrap()
+          .then(() => dispatch(getPurchaseOrder(id)))
+          .catch((err) =>
+            Notification(
+              "Error",
+              typeof err === "string"
+                ? err
+                : err?.message || t("Could not revert"),
+              "warning"
+            )
+          );
+      });
+  };
+
   // Generate Invoice now lives on the PO Coverage tab next to "Create POV"
   // — it's gated on dispatched POV qty, which the Coverage tab already shows.
   // Status transitions → a single "Change Status" dropdown (consistent with
@@ -441,6 +527,12 @@ const ViewPurchaseOrder = () => {
         dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
       });
+      statusActions.push({
+        key: "pre_closed",
+        label: t("Pre-Close"),
+        dotColor: dot("pre_closed"),
+        onClick: preCloseAction,
+      });
     } else if (statusLower === "in_process") {
       statusActions.push({
         key: "completed",
@@ -460,12 +552,25 @@ const ViewPurchaseOrder = () => {
         dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
       });
+      statusActions.push({
+        key: "pre_closed",
+        label: t("Pre-Close"),
+        dotColor: dot("pre_closed"),
+        onClick: preCloseAction,
+      });
     } else if (statusLower === "completed" || statusLower === "cancelled") {
       statusActions.push({
         key: "draft",
         label: t("Revert to Draft"),
         dotColor: dot("draft"),
         onClick: () => revertAction("draft"),
+      });
+    } else if (statusLower === "pre_closed") {
+      statusActions.push({
+        key: "confirmed",
+        label: t("Revert Pre-Close"),
+        dotColor: dot("confirmed"),
+        onClick: revertPreCloseAction,
       });
     }
   }
