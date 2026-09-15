@@ -102,6 +102,8 @@ const PurchaseOrderStatusReport = lazy(() => import('@src/views/reports/purchase
 const StockTurnoverReport = lazy(() => import('@src/views/reports/stock-turnover'));
 const InventoryHoldingDaysReport = lazy(() => import('@src/views/reports/inventory-holding-days'));
 const InventoryAgingReport = lazy(() => import('@src/views/reports/inventory-aging'));
+const CustomerLedgerSummaryReport = lazy(() => import('@src/views/reports/customer-ledger-summary'));
+const VendorLedgerSummaryReport = lazy(() => import('@src/views/reports/vendor-ledger-summary'));
 const AdjustmentNotes = lazy(() => import('@src/views/adjustment-notes'));
 const CityList = lazy(() => import('@src/views/cities'));
 const AddCity = lazy(() => import('@src/views/cities/add'));
@@ -785,6 +787,16 @@ const AppRoutes = [
   {
     path: `${appsRoot}/reports/inventory-aging`,
     element: <InventoryAgingReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/customer-ledger-summary`,
+    element: <CustomerLedgerSummaryReport />,
+    meta: { permissionId: reportsModuleSlug, action: 'list' },
+  },
+  {
+    path: `${appsRoot}/reports/vendor-ledger-summary`,
+    element: <VendorLedgerSummaryReport />,
     meta: { permissionId: reportsModuleSlug, action: 'list' },
   },
   {

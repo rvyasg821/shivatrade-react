@@ -392,6 +392,10 @@ export const API_ENDPOINTS = {
     inventoryAging: `/admin/reports/inventory-aging`,
     inventoryAgingBreakdown: `/admin/reports/inventory-aging/breakdown`,
     inventoryAgingExport: `/admin/reports/inventory-aging/export`,
+    customerLedgerSummary: `/admin/reports/customer-ledger-summary`,
+    customerLedgerSummaryExport: `/admin/reports/customer-ledger-summary/export`,
+    vendorLedgerSummary: `/admin/reports/vendor-ledger-summary`,
+    vendorLedgerSummaryExport: `/admin/reports/vendor-ledger-summary/export`,
   },
   adjustmentNotes: {
     list: `/admin/adjustment-notes`,
