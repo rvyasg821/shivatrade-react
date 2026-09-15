@@ -169,6 +169,71 @@ export const updatePurchaseOrder = createAsyncThunk(
   }
 );
 
+// ─── Pre-Close (PRE_CLOSE_MODULE_PLAN.md) ──────────────────────────────
+
+export const preClosePurchaseOrder = createAsyncThunk(
+  "appPurchaseOrder/preClosePurchaseOrder",
+  async ({ id, date, reason }, { rejectWithValue }) => {
+    try {
+      const response = await instance
+        .post(`${API_ENDPOINTS.purchaseOrders.preClose}/${id}/pre-close`, {
+          date: date || undefined,
+          reason: reason || undefined,
+        })
+        .then((items) => items.data)
+        .catch((error) => error);
+      if (response?.statusCode && response?.data) {
+        return {
+          purchaseOrderItem: response.data,
+          actionFlag: "PO_PRE_CLOSED",
+          success: response?.message || "",
+          error: "",
+        };
+      }
+      const errorMessage =
+        response?.response?.data?.message ||
+        response?.message ||
+        "Failed to pre-close Sales Order";
+      return rejectWithValue(errorMessage);
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message || error.message || error;
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const revertPreClosePurchaseOrder = createAsyncThunk(
+  "appPurchaseOrder/revertPreClosePurchaseOrder",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await instance
+        .post(
+          `${API_ENDPOINTS.purchaseOrders.revertPreClose}/${id}/revert-pre-close`
+        )
+        .then((items) => items.data)
+        .catch((error) => error);
+      if (response?.statusCode && response?.data) {
+        return {
+          purchaseOrderItem: response.data,
+          actionFlag: "PO_PRE_CLOSE_REVERTED",
+          success: response?.message || "",
+          error: "",
+        };
+      }
+      const errorMessage =
+        response?.response?.data?.message ||
+        response?.message ||
+        "Failed to revert pre-close";
+      return rejectWithValue(errorMessage);
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message || error.message || error;
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
 // ─── Delete ───────────────────────────────────────────────────────────
 
 async function deletePurchaseOrderRequest(id) {
@@ -306,6 +371,36 @@ export const appPurchaseOrderSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(updatePurchaseOrder.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(preClosePurchaseOrder.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(preClosePurchaseOrder.fulfilled, (state, action) => {
+        state.purchaseOrderItem =
+          action.payload?.purchaseOrderItem || initPurchaseOrderItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(preClosePurchaseOrder.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(revertPreClosePurchaseOrder.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(revertPreClosePurchaseOrder.fulfilled, (state, action) => {
+        state.purchaseOrderItem =
+          action.payload?.purchaseOrderItem || initPurchaseOrderItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(revertPreClosePurchaseOrder.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })

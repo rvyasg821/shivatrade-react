@@ -311,6 +311,8 @@ export const API_ENDPOINTS = {
     coverage: `/admin/purchase-order`, // append /:id/coverage
     pfiCoverage: `/admin/purchase-order/pfi-coverage`, // append /:pfiId
     quotationCoverage: `/admin/purchase-order/quotation-coverage`, // append /:quotationId
+    preClose: `/admin/purchase-order`, // append /:id/pre-close
+    revertPreClose: `/admin/purchase-order`, // append /:id/revert-pre-close
   },
   poVendors: {
     list: `/admin/po-vendor/list`,
@@ -332,6 +334,8 @@ export const API_ENDPOINTS = {
     dispatch: `/admin/po-vendor`, // append /:id/dispatch
     cancel: `/admin/po-vendor`, // append /:id/cancel
     revertDraft: `/admin/po-vendor`, // append /:id/revert-draft
+    preClose: `/admin/po-vendor`, // append /:id/pre-close
+    revertPreClose: `/admin/po-vendor`, // append /:id/revert-pre-close
     balance: `/admin/po-vendor`, // append /:id/balance (re-order un-delivered qty)
     pdf: `/admin/po-vendor`, // append /:id/pdf (authed; opened in the in-app viewer). Payment voucher: /:id/payment-pdf/:paymentId
     payments: `/admin/po-vendor/payments`, // append /:id (POST record); /:id/void/:paymentId (POST void)

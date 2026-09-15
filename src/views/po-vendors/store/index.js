@@ -330,6 +330,59 @@ export const revertPoVendorToDraft = createAsyncThunk(
   }
 );
 
+// ─── Pre-Close (PRE_CLOSE_MODULE_PLAN.md) ──────────────────────────────
+
+export const preClosePoVendor = createAsyncThunk(
+  "appPoVendor/preClosePoVendor",
+  async ({ id, date, reason }, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.preClose}/${id}/pre-close`,
+        { date: date || undefined, reason: reason || undefined }
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_PRE_CLOSED",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to pre-close POV");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
+export const revertPreClosePoVendor = createAsyncThunk(
+  "appPoVendor/revertPreClosePoVendor",
+  async (id, { rejectWithValue }) => {
+    try {
+      const resp = await instance.post(
+        `${API_ENDPOINTS.poVendors.revertPreClose}/${id}/revert-pre-close`
+      );
+      const body = resp?.data;
+      if (body?.statusCode && body?.data) {
+        return {
+          poVendorItem: body.data,
+          actionFlag: "POV_PRE_CLOSE_REVERTED",
+          success: body?.message || "",
+          error: "",
+        };
+      }
+      return rejectWithValue(body?.message || "Failed to revert pre-close");
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || error.message || error
+      );
+    }
+  }
+);
+
 // ─── Create balance POV (re-order the un-delivered qty) ────────────────
 //
 // Returns the NEW draft POV. It is kept out of `poVendorItem` so the source
@@ -630,6 +683,36 @@ export const appPoVendorSlice = createSlice({
         state.error = action.payload?.error;
       })
       .addCase(revertPoVendorToDraft.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(preClosePoVendor.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(preClosePoVendor.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(preClosePoVendor.rejected, (state, action) => {
+        state.loading = true;
+        state.error = action.payload || "";
+      })
+      .addCase(revertPreClosePoVendor.pending, (state) => {
+        state.loading = false;
+      })
+      .addCase(revertPreClosePoVendor.fulfilled, (state, action) => {
+        state.poVendorItem =
+          action.payload?.poVendorItem || initPoVendorItem;
+        state.loading = true;
+        state.actionFlag = action.payload?.actionFlag;
+        state.success = action.payload?.success;
+        state.error = action.payload?.error;
+      })
+      .addCase(revertPreClosePoVendor.rejected, (state, action) => {
         state.loading = true;
         state.error = action.payload || "";
       })
