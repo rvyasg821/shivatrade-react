@@ -364,6 +364,13 @@ const AdvanceVsInvoice = () => {
                                         </a>
                                       ))}
                                     </div>
+                                  ) : r.note ? (
+                                    <span
+                                      className="small text-warning"
+                                      title={r.note}
+                                    >
+                                      {t(r.note)}
+                                    </span>
                                   ) : (
                                     <Dash />
                                   )}
