@@ -396,7 +396,14 @@ const PoVendorRecoverModal = ({
   // the per-vendor advance); converted to ₹ wherever an INR rate is needed and
   // on submit. Blank reverts the line to its price-list rate.
   const handleRateChange = (lineId, val) => {
-    setRateOverride((s) => ({ ...s, [lineId]: val }));
+    // min="0" on the input is cosmetic only (doesn't block typing/pasting a
+    // negative value) — the backend now rejects a negative unit_price
+    // outright (found via a full-app test pass), so floor it here too
+    // instead of round-tripping to a server error. A lone "-" (still typing
+    // a negative number) parses as NaN and is left alone, not clamped.
+    const n = Number(val);
+    const floored = Number.isFinite(n) && n < 0 ? "0" : val;
+    setRateOverride((s) => ({ ...s, [lineId]: floored }));
   };
 
   // GST% is editable — defaults from the product/HSN master, override when a
