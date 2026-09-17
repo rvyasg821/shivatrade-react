@@ -1205,9 +1205,16 @@ const RfqView = () => {
                             onBlur={(e) => {
                               const v = e.target.value;
                               if (v !== "" && !Number.isNaN(Number(v))) {
+                                // min="0" above is cosmetic only (doesn't
+                                // block typing/pasting a negative value) —
+                                // the backend now rejects a negative price
+                                // outright (found via a full-app test pass),
+                                // so floor it here too instead of round-
+                                // tripping to a server error.
+                                const n = Math.max(0, Number(v));
                                 setPriceMap((m) => ({
                                   ...m,
-                                  [k]: Number(v).toFixed(2),
+                                  [k]: n.toFixed(2),
                                 }));
                               }
                             }}

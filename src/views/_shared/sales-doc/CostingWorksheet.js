@@ -1573,7 +1573,16 @@ const CostingWorksheet = ({
                         value={l.unit_price}
                         display={l.unit_price ? fmt(num(l.unit_price)) : null}
                         readOnly={readOnly}
-                        onCommit={(v) => setField(idx, "unit_price", v)}
+                        onCommit={(v) =>
+                          // The backend now rejects a negative unit_price
+                          // outright (found via a full-app test pass) — this
+                          // cell had no floor at all before, so a mistyped
+                          // "-" produced a negative-total document that only
+                          // surfaced as a server error on Save. Floor it to 0
+                          // here instead, matching the min="0" already used
+                          // on the equivalent RFQ/POV price inputs.
+                          setField(idx, "unit_price", num(v) < 0 ? "0" : v)
+                        }
                       />
                     </td>
                     <td className="p-0">
