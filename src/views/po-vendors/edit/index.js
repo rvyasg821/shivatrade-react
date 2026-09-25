@@ -60,6 +60,10 @@ import { getCurrencySymbol } from "@src/utility/currency";
 // carry a blended rate like 13.7546%, which fmt()'s 2dp would hide.
 import { fmtRate } from "@src/views/_shared/sales-doc/_helpers";
 import { appsRoot } from "@constant/defaultValues";
+import { getProductDropdown } from "@src/views/products/store";
+import EntitySearchSelect from "@components/entity-select";
+import { confirmAndCreateMissingPrices } from "@src/views/_shared/price-list/confirmMissingPrices";
+import { Plus, Trash2, RotateCcw } from "react-feather";
 
 const num = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 const round2 = (n) =>
@@ -79,12 +83,21 @@ const EditPoVendor = () => {
   const store = useSelector((s) => s.poVendor);
   const companyStore = useSelector((s) => s.company);
   const currencyStore = useSelector((s) => s.currency);
+  const productStore = useSelector((s) => s.product);
   const co = companyStore?.companyItem;
   const p = store?.poVendorItem || {};
   const backTo = `${appsRoot}/po-vendors/view/${id}`;
   const status = (p?.status || "").toLowerCase();
   const isDraft = status === "draft";
   const loaded = p?._id === id;
+  // Adding a new product line — draft only (matches every other line edit
+  // rule on this page). Works for both a standalone POV and one generated
+  // from a Sales Order: an added line on a linked POV carries no
+  // purchase_order_line_id (same "ad-hoc" shape the Generate-POV page's own
+  // "Add a product not on this Sales Order" picker uses), so it never
+  // counts toward that SO's own coverage numbers.
+  const isStandalone = !p?.purchase_order_id;
+  const canAddLine = isDraft;
 
   const povLines = useMemo(() => p?.lines || [], [p]);
   const hasToleranceHold = povLines.some((l) => l.tolerance_hold);
@@ -123,6 +136,22 @@ const EditPoVendor = () => {
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
+  // New product rows added on this page — each edited inline in the same
+  // table as the existing lines: { key, product_id, product_name, part_no,
+  // hsn_code, unit, tax_pct, unit_price, ordered_qty, discount_pct }. Sent
+  // as part of a full `lines` replace on save, alongside the existing
+  // lines' current values.
+  const [newLines, setNewLines] = useState([]);
+  // Product picked per EXISTING line (keyed by POV line `_id`) — lets the
+  // operator swap which product a row is for, directly in the table (like
+  // the Costing Worksheet). Seeded from each line's own product_id; a value
+  // that no longer matches the original means the row was swapped.
+  const [productIdByLine, setProductIdByLine] = useState({});
+  // Existing lines marked for removal on save (draft only) — kept in the
+  // table, struck through, with a restore option, rather than vanishing
+  // immediately (same "drop / restore" UX as the Generate-POV page).
+  const [removedByLine, setRemovedByLine] = useState({});
+
   // Sales-Order traceability links (soft, reference only). Options are the
   // company's confirmed / in-process Sales Orders; value is an array of ids.
   const [soOptions, setSoOptions] = useState([]);
@@ -138,6 +167,7 @@ const EditPoVendor = () => {
     if (id) dispatch(getPoVendor(id));
     dispatch(getCompanyDetails());
     dispatch(getExchangeRateOptions());
+    dispatch(getProductDropdown());
   }, [id, dispatch]);
 
   // Load Sales-Order options for the traceability multi-select (confirmed /
@@ -199,12 +229,14 @@ const EditPoVendor = () => {
     const hsns = {};
     const parts = {};
     const qtys = {};
+    const prods = {};
     for (const l of p.lines || []) {
       rates[l._id] = String(num(l.unit_price));
       taxes[l._id] = String(num(l.tax_pct));
       discs[l._id] = String(num(l.discount_pct));
       hsns[l._id] = l.hsn_code || "";
       parts[l._id] = l.part_no || "";
+      prods[l._id] = l.product_id || "";
       // On a dispatched POV the qty field auto-fills with what was actually
       // dispatched (which may be an over-dispatch, e.g. 15 vs ordered 10). It is
       // the single source of truth: saving sets BOTH ordered and dispatched to
@@ -224,6 +256,7 @@ const EditPoVendor = () => {
     setHsnByLine(hsns);
     setPartByLine(parts);
     setQtyByLine(qtys);
+    setProductIdByLine(prods);
     // Seed the Sales-Order traceability links from the loaded POV snapshot.
     setPickedSoIds(
       Array.isArray(p.linked_sales_orders)
@@ -300,14 +333,26 @@ const EditPoVendor = () => {
     return String(Math.round(toDisp(num(v)) * 10000) / 10000);
   };
 
+  // New-row maths — mirrors lineTotal/lineGst above but reads straight off
+  // the row object (new rows have no POV line `_id` to key state maps by).
+  const newLineTotal = (nl) =>
+    round2(num(nl.ordered_qty) * num(nl.unit_price) * (1 - num(nl.discount_pct) / 100));
+  const newLineGst = (nl) =>
+    gstApplies ? round2((newLineTotal(nl) * num(nl.tax_pct)) / 100) : 0;
+
   const totals = useMemo(() => {
     let goods = 0;
     let gst = 0;
     let wasGoods = 0;
     for (const l of povLines) {
+      if (removedByLine[l._id]) continue;
       goods += lineTotal(l);
       gst += lineGst(l);
       wasGoods += round2(num(l.ordered_qty) * num(l.unit_price));
+    }
+    for (const nl of newLines) {
+      goods += newLineTotal(nl);
+      gst += newLineGst(nl);
     }
     return {
       goods: round2(goods),
@@ -319,7 +364,7 @@ const EditPoVendor = () => {
       delta: round2(goods - wasGoods),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [povLines, rateByLine, taxByLine, qtyByLine, discByLine, gstApplies]);
+  }, [povLines, rateByLine, taxByLine, qtyByLine, discByLine, gstApplies, removedByLine, newLines]);
 
   const setRate = (lineId, v) => {
     if (v === "") return setRateByLine((s) => ({ ...s, [lineId]: "" }));
@@ -345,6 +390,126 @@ const EditPoVendor = () => {
       [lineId]: String(Math.min(100, Math.max(0, num(v)))),
     }));
   };
+
+  // ── Inline product editing (draft only) ─────────────────────────────────
+  // Vendor's rate for a product, from its price list — auto-fills the rate
+  // when a match exists (same lookup the create form / Costing Worksheet use).
+  const fetchVendorPrice = (productId) =>
+    new Promise((resolve) => {
+      const vId = p.vendor_id;
+      if (!productId || !vId) return resolve(null);
+      instance
+        .get(`${API_ENDPOINTS.priceList.byProduct}/${productId}`)
+        .then((resp) => {
+          const match = (resp?.data?.data || []).find((r) => r.vendor_id === vId);
+          resolve(match?.unit_price != null ? String(match.unit_price) : null);
+        })
+        .catch(() => resolve(null));
+    });
+
+  // Every product currently in play on this POV (kept existing lines' LIVE
+  // pick + new rows) — used to block picking the same product twice.
+  const productsInUse = (excludeKey) => {
+    const set = new Set();
+    for (const l of povLines) {
+      if (removedByLine[l._id]) continue;
+      const pid = productIdByLine[l._id] || l.product_id;
+      if (pid && l._id !== excludeKey) set.add(pid);
+    }
+    for (const nl of newLines) {
+      if (nl.product_id && nl.key !== excludeKey) set.add(nl.product_id);
+    }
+    return set;
+  };
+
+  // Swap the product on an EXISTING line. A pick that differs from the
+  // line's original product_id detaches it from its source PO line on save
+  // (sent as an ad-hoc product_id line instead of purchase_order_line_id) —
+  // same mechanism the Generate-POV page's own product picker uses.
+  const onPickProductForExistingLine = async (lineId, opt) => {
+    if (!opt) return; // required field — isClearable is off below
+    if (productsInUse(lineId).has(opt.value)) {
+      Notification(
+        "Validation",
+        t("This product is already on the PO — edit that line's quantity instead."),
+        "warning"
+      );
+      return;
+    }
+    const raw = opt.raw || {};
+    setProductIdByLine((s) => ({ ...s, [lineId]: opt.value }));
+    setHsnByLine((s) => ({ ...s, [lineId]: raw.hsn_code || "" }));
+    setPartByLine((s) => ({ ...s, [lineId]: raw.part_no || "" }));
+    setTaxByLine((s) => ({
+      ...s,
+      [lineId]: raw.tax_pct != null ? String(raw.tax_pct) : "0",
+    }));
+    const price = await fetchVendorPrice(opt.value);
+    setRateByLine((s) => ({ ...s, [lineId]: price != null ? price : "0" }));
+  };
+
+  const toggleRemoveLine = (lineId) =>
+    setRemovedByLine((s) => ({ ...s, [lineId]: !s[lineId] }));
+
+  const updateNewLine = (key, patch) =>
+    setNewLines((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, ...patch } : r))
+    );
+
+  const addBlankRow = () => {
+    setNewLines((rows) => [
+      ...rows,
+      {
+        key: `new-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+        product_id: "",
+        product_name: "",
+        part_no: "",
+        hsn_code: "",
+        unit: "",
+        tax_pct: "0",
+        unit_price: "",
+        ordered_qty: "1",
+        discount_pct: "0",
+      },
+    ]);
+  };
+
+  const onPickProductForNewLine = async (key, opt) => {
+    if (!opt) {
+      updateNewLine(key, {
+        product_id: "",
+        product_name: "",
+        part_no: "",
+        hsn_code: "",
+        unit: "",
+        tax_pct: "0",
+        unit_price: "",
+      });
+      return;
+    }
+    if (productsInUse(key).has(opt.value)) {
+      Notification(
+        "Validation",
+        t("This product is already on the PO — edit that line's quantity instead."),
+        "warning"
+      );
+      return;
+    }
+    const raw = opt.raw || {};
+    updateNewLine(key, {
+      product_id: opt.value,
+      product_name: raw.name || opt.label || "",
+      part_no: raw.part_no || "",
+      hsn_code: raw.hsn_code || "",
+      unit: raw.unit_of_measure || "",
+      tax_pct: raw.tax_pct != null ? String(raw.tax_pct) : "0",
+    });
+    const price = await fetchVendorPrice(opt.value);
+    updateNewLine(key, { unit_price: price != null ? price : "" });
+  };
+
+  const removeNewLine = (key) =>
+    setNewLines((rows) => rows.filter((r) => r.key !== key));
 
   const onSave = async (overrideFlag) => {
     if (saving) return;
@@ -390,7 +555,9 @@ const EditPoVendor = () => {
     // Quantity is editable in draft and dispatched — block a save that would
     // send 0 / blank, which the backend rejects anyway (ordered_qty must be > 0).
     if (canEditQty) {
-      const bad = povLines.find((l) => num(qtyByLine[l._id]) <= 0);
+      const bad = povLines.find(
+        (l) => !removedByLine[l._id] && num(qtyByLine[l._id]) <= 0
+      );
       if (bad) {
         Notification(
           "Validation",
@@ -401,10 +568,80 @@ const EditPoVendor = () => {
       }
     }
 
-    // `line_edits` patches in place by POV line id — unlike `lines` it never
-    // deletes/recreates rows and needs no purchase_order_line_id, so it works
-    // on a standalone POV too. Only send what this status allows.
-    if (povLines.length && (canEditRate || canEditGst)) {
+    // A line whose product was swapped away from its original detaches from
+    // its source PO line (sent as ad-hoc product_id instead) on save.
+    const keptLines = povLines.filter((l) => !removedByLine[l._id]);
+    const swappedLines = keptLines.filter(
+      (l) => productIdByLine[l._id] && productIdByLine[l._id] !== l.product_id
+    );
+    const anyRemoved = povLines.some((l) => removedByLine[l._id]);
+    const needsFullReplace =
+      newLines.length > 0 || anyRemoved || swappedLines.length > 0;
+
+    if (newLines.some((l) => !l.product_id)) {
+      Notification("Validation", t("Pick a product on every new row."), "warning");
+      return;
+    }
+    if (newLines.some((l) => num(l.ordered_qty) <= 0)) {
+      Notification("Validation", t("Quantity must be greater than 0 on every new row."), "warning");
+      return;
+    }
+    if (keptLines.length === 0 && newLines.length === 0) {
+      Notification("Validation", t("A Vendor PO needs at least one line."), "warning");
+      return;
+    }
+
+    if (needsFullReplace) {
+      // Adding, removing or swapping a product line replaces the whole line
+      // set server-side (the backend deletes + recreates) — so this save
+      // sends `lines` (kept existing lines' CURRENT edited values + the new
+      // ones) instead of `line_edits`, which only ever patches lines that
+      // already exist. An existing UNCHANGED line on a LINKED (from-SO) POV
+      // keeps its purchase_order_line_id so it stays matched to that SO
+      // line; a standalone line, or one whose product was swapped, is
+      // matched by product_id instead (ad-hoc — same shape createStandalone/
+      // the Generate-POV page's own product picker use).
+      data.lines = [
+        ...keptLines.map((l) => ({
+          ...(isStandalone || swappedLines.includes(l)
+            ? { product_id: productIdByLine[l._id] || l.product_id }
+            : { purchase_order_line_id: l.purchase_order_line_id }),
+          ordered_qty: String(num(qtyByLine[l._id])),
+          unit_price: String(num(rateByLine[l._id])),
+          discount_pct: String(num(discByLine[l._id])),
+          tax_pct: gstApplies ? String(num(taxByLine[l._id])) : "0",
+          hsn_code: String(hsnByLine[l._id] ?? "").trim(),
+          part_no: String(partByLine[l._id] ?? "").trim(),
+        })),
+        ...newLines.map((l) => ({
+          product_id: l.product_id,
+          ordered_qty: l.ordered_qty,
+          unit_price: l.unit_price,
+          discount_pct: l.discount_pct,
+          tax_pct: gstApplies ? l.tax_pct : "0",
+          hsn_code: l.hsn_code,
+          part_no: l.part_no,
+        })),
+      ];
+      // Same "auto-add missing (vendor, product) to the price list" UX the
+      // create form offers — one confirm, then the entries are created at
+      // the rate just entered. Cancelling here aborts the whole save.
+      const proceed = await confirmAndCreateMissingPrices({
+        lines: [...newLines, ...swappedLines.map((l) => ({
+          product_id: productIdByLine[l._id],
+          unit_price: rateByLine[l._id],
+        }))].map((l) => ({
+          product_id: l.product_id,
+          vendor_id: p.vendor_id,
+          unit_price: l.unit_price,
+        })),
+        t,
+      });
+      if (!proceed) return;
+    } else if (povLines.length && (canEditRate || canEditGst)) {
+      // `line_edits` patches in place by POV line id — unlike `lines` it never
+      // deletes/recreates rows and needs no purchase_order_line_id, so it works
+      // on a standalone POV too. Only send what this status allows.
       data.line_edits = povLines.map((l) => ({
         _id: l._id,
         // GST is an Indian INR tax — force 0 on a foreign-currency POV.
@@ -493,13 +730,24 @@ const EditPoVendor = () => {
               this page is opened after dispatch (client #3). ── */}
           <div className="d-flex align-items-center justify-content-between mb-1">
             <h5 className="mb-0">{t("Line Items")}</h5>
-            <small className="text-muted">
-              {canEditGst
-                ? t("Quantity, rate and GST are editable while the PO is a draft.")
-                : canEditRate
-                  ? t("Quantity and rate are editable at this status.")
-                  : t("Read-only at this status.")}
-            </small>
+            <div className="d-flex align-items-center gap-1">
+              <small className="text-muted">
+                {canEditGst
+                  ? t("Quantity, rate and GST are editable while the PO is a draft.")
+                  : canEditRate
+                    ? t("Quantity and rate are editable at this status.")
+                    : t("Read-only at this status.")}
+              </small>
+              {canAddLine && (
+                <Button
+                  color="outline-primary"
+                  size="sm"
+                  onClick={addBlankRow}
+                >
+                  <Plus size={14} className="me-25" /> {t("Add Product")}
+                </Button>
+              )}
+            </div>
           </div>
 
           {!povLines.length ? (
@@ -541,23 +789,56 @@ const EditPoVendor = () => {
                       <th style={{ width: 140 }} className="text-end">
                         {t("Total")} ({sym})
                       </th>
+                      {isDraft && (
+                        <th style={{ width: 50 }} className="text-center">
+                          {t("Action")}
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {povLines.map((l, idx) => {
                       const changed =
                         Math.abs(lineRate(l) - num(l.unit_price)) > 0.001;
+                      const isRemoved = !!removedByLine[l._id];
                       return (
-                        <tr key={l._id}>
+                        <tr
+                          key={l._id}
+                          style={
+                            isRemoved
+                              ? { opacity: 0.4, textDecoration: "line-through" }
+                              : {}
+                          }
+                        >
                           <td>{idx + 1}</td>
-                          <td>
-                            <div className="fw-semibold">
-                              {l?.product_name || "-"}
-                            </div>
-                            {l?.product_code && (
-                              <small className="text-muted">
-                                {l.product_code}
-                              </small>
+                          <td style={{ minWidth: 200 }}>
+                            {isDraft ? (
+                              <EntitySearchSelect
+                                kind="product"
+                                eager={false}
+                                menuPortalTarget={
+                                  typeof document !== "undefined" ? document.body : null
+                                }
+                                styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                                isClearable={false}
+                                isDisabled={isRemoved}
+                                value={productIdByLine[l._id] || null}
+                                onChange={(opt) =>
+                                  onPickProductForExistingLine(l._id, opt)
+                                }
+                                placeholder={t("Search product")}
+                              />
+                            ) : (
+                              <Fragment>
+                                <div className="fw-semibold">
+                                  {l?.product_name || "-"}
+                                </div>
+                                {l?.product_code && (
+                                  <small className="text-muted">
+                                    {l.product_code}
+                                  </small>
+                                )}
+                              </Fragment>
                             )}
                           </td>
                           {/* HSN + Part No — draft-only, same rule as GST%.
@@ -713,9 +994,170 @@ const EditPoVendor = () => {
                             {sym}
                             {fmt(toDisp(round2(lineTotal(l) + lineGst(l))))}
                           </td>
+                          {isDraft && (
+                            <td className="text-center">
+                              <Button
+                                color={isRemoved ? "flat-secondary" : "flat-danger"}
+                                size="sm"
+                                className="p-25"
+                                title={isRemoved ? t("Restore") : t("Remove")}
+                                onClick={() => toggleRemoveLine(l._id)}
+                              >
+                                {isRemoved ? (
+                                  <RotateCcw size={14} />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
+                    {isDraft &&
+                      newLines.map((nl) => (
+                        <tr key={nl.key}>
+                          <td>—</td>
+                          <td style={{ minWidth: 200 }}>
+                            <EntitySearchSelect
+                              kind="product"
+                              eager={false}
+                              menuPortalTarget={
+                                typeof document !== "undefined" ? document.body : null
+                              }
+                              styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                              isClearable
+                              value={nl.product_id || null}
+                              onChange={(opt) => onPickProductForNewLine(nl.key, opt)}
+                              placeholder={t("Search product")}
+                            />
+                          </td>
+                          <td>
+                            <Input
+                              type="text"
+                              bsSize="sm"
+                              placeholder={t("HSN")}
+                              value={nl.hsn_code}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, { hsn_code: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <Input
+                              type="text"
+                              bsSize="sm"
+                              placeholder={t("Part No")}
+                              value={nl.part_no}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, { part_no: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>{nl.unit || "-"}</td>
+                          <td>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              bsSize="sm"
+                              className="text-end"
+                              value={nl.ordered_qty}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, {
+                                  ordered_qty:
+                                    e.target.value === ""
+                                      ? ""
+                                      : String(Math.max(0, num(e.target.value))),
+                                })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              bsSize="sm"
+                              className="text-end"
+                              value={nl.unit_price}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, {
+                                  unit_price:
+                                    e.target.value === ""
+                                      ? ""
+                                      : String(Math.max(0, num(e.target.value))),
+                                })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              bsSize="sm"
+                              className="text-end"
+                              value={nl.discount_pct}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, {
+                                  discount_pct:
+                                    e.target.value === ""
+                                      ? ""
+                                      : String(
+                                          Math.min(100, Math.max(0, num(e.target.value)))
+                                        ),
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="text-end">
+                            {sym}
+                            {fmt(newLineTotal(nl))}
+                          </td>
+                          <td>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              bsSize="sm"
+                              className="text-end"
+                              disabled={!gstApplies}
+                              value={gstApplies ? nl.tax_pct : 0}
+                              onChange={(e) =>
+                                updateNewLine(nl.key, {
+                                  tax_pct:
+                                    e.target.value === ""
+                                      ? ""
+                                      : String(
+                                          Math.min(100, Math.max(0, num(e.target.value)))
+                                        ),
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="text-end">
+                            {sym}
+                            {fmt(newLineGst(nl))}
+                          </td>
+                          <td className="text-end fw-semibold">
+                            {sym}
+                            {fmt(round2(newLineTotal(nl) + newLineGst(nl)))}
+                          </td>
+                          <td className="text-center">
+                            <Button
+                              color="flat-danger"
+                              size="sm"
+                              className="p-25"
+                              onClick={() => removeNewLine(nl.key)}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                   <tfoot>
                     {/* "Goods" not "POV total": vendor charges are added on

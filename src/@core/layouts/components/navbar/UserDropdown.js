@@ -78,6 +78,18 @@ const UserDropdown = () => {
 
   // Final user avatar (preview from backend or default)
   const userAvatar = getBackendImageUrl(authUserItem?.photo) || false;
+
+  // Header shows the COMPANY's contact first + last name (not the login
+  // user's own `name`, which can carry unrelated text) — falls back to
+  // `name` for user types with no company attached (e.g. Super Admin).
+  const companyContactName = [
+    authUserItem?.company?.contact_first_name,
+    authUserItem?.company?.contact_last_name,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const displayName = companyContactName || authUserItem?.name || "";
+
   return (
     <UncontrolledDropdown tag="li" className="dropdown-user nav-item">
       <DropdownToggle
@@ -90,7 +102,7 @@ const UserDropdown = () => {
 
         <div className="user-nav d-sm-flex d-none">
           <span className="user-name fw-bold text-capitalize">
-            {authUserItem?.name || ""}
+            {displayName}
           </span>
           {/* <span className='user-status'>{authUserItem?.role?.name || ''}</span> */}
         </div>
