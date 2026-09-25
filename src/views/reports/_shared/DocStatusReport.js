@@ -143,10 +143,18 @@ const DocStatusReport = ({ config }) => {
   const [searchInput, setSearchInput] = useState("");
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Currency filter — options come from the response's own
+  // `available_currencies` (data-driven, same pattern as Sales Turnover),
+  // not a fixed master list. Native/₹ is a display-only toggle: every row
+  // already carries both `*_inr` and `*_native`, so switching it never
+  // re-fetches.
+  const [currencyFilter, setCurrencyFilter] = useState(null);
+  const [showNative, setShowNative] = useState(false);
   const [data, setData] = useState({
     period_label: "",
     rows: [],
     totals: {},
+    available_currencies: [],
     pagination: { total: 0, perPage: defaultPerPageRow },
   });
 
@@ -169,6 +177,7 @@ const DocStatusReport = ({ config }) => {
       status: statusFilter?.value || undefined,
       [coverageParam]: coverageFilter?.value || undefined,
       search: searchInput || undefined,
+      currency: currencyFilter?.value || undefined,
     }),
     [
       dateFrom,
@@ -179,6 +188,7 @@ const DocStatusReport = ({ config }) => {
       searchInput,
       partyParam,
       coverageParam,
+      currencyFilter,
     ]
   );
 
@@ -194,6 +204,7 @@ const DocStatusReport = ({ config }) => {
           period_label: payload.period_label || "",
           rows: payload.rows || [],
           totals: payload.totals || {},
+          available_currencies: payload.available_currencies || [],
           pagination: payload.pagination || { total: 0, perPage },
         });
       } catch (e) {
@@ -230,7 +241,7 @@ const DocStatusReport = ({ config }) => {
     }
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, dateFrom, dateTo, party, statusFilter, coverageFilter]);
+  }, [searchInput, dateFrom, dateTo, party, statusFilter, coverageFilter, currencyFilter]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -296,6 +307,22 @@ const DocStatusReport = ({ config }) => {
   const rows = data.rows || [];
   const totals = data.totals || {};
   const drawerMeta = pageSlice(drawerRows, drawerPage, drawerSize);
+  const currencyOptions = (data.available_currencies || []).map((c) => ({
+    value: c,
+    label: c,
+  }));
+  // Native display needs the (currency-filtered) rows to share ONE currency
+  // — `totals.native_currency_code` is null when the current filter still
+  // spans more than one (e.g. "All currencies" with a mixed-currency book).
+  // Falls back to ₹ totals in that case rather than showing a meaningless
+  // cross-currency sum.
+  const nativeReady = showNative && !!totals.native_currency_code;
+  const totalsSym = nativeReady
+    ? getCurrencySymbol(totals.native_currency_code) || totals.native_currency_code
+    : "₹";
+  const totalsOrdered = nativeReady ? totals.ordered_value_native : totals.ordered_value_inr;
+  const totalsCovered = nativeReady ? totals.covered_value_native : totals.covered_value_inr;
+  const totalsPending = nativeReady ? totals.pending_value_native : totals.pending_value_inr;
 
   return (
     <Fragment>
@@ -337,16 +364,20 @@ const DocStatusReport = ({ config }) => {
             hint={t("fully covered")}
           />
           <StatTile
-            label={t("Pending Value (₹)")}
-            value={`₹ ${grp(totals.pending_value_inr)}`}
-            hint={t("ordered − covered")}
+            label={t("Pending Value")}
+            value={money(totalsPending, totalsSym)}
+            hint={
+              nativeReady
+                ? t("ordered − covered")
+                : t("ordered − covered, ₹")
+            }
           />
         </Row>
 
         <Card className="overflow-hidden">
           <CardBody>
-            <Row>
-              <Col sm="6" md="2" className="mb-1">
+            <div className="d-flex flex-wrap align-items-end gap-2 mb-1">
+              <div style={{ flex: "1 1 130px", minWidth: 130 }}>
                 <Label className="form-label">{t("Search")}</Label>
                 <Input
                   type="text"
@@ -354,8 +385,8 @@ const DocStatusReport = ({ config }) => {
                   placeholder={t(searchPlaceholder)}
                   onChange={(e) => setSearchInput(e?.target?.value)}
                 />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
+              </div>
+              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
                 <Label className="form-label">
                   {t("From")} ({t(dateLabel)})
                 </Label>
@@ -365,8 +396,8 @@ const DocStatusReport = ({ config }) => {
                   onChange={(d, str, iso) => setDateFrom(iso || "")}
                   placeholder={t("YYYY-MM-DD")}
                 />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
+              </div>
+              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
                 <Label className="form-label">
                   {t("To")} ({t(dateLabel)})
                 </Label>
@@ -376,8 +407,8 @@ const DocStatusReport = ({ config }) => {
                   onChange={(d, str, iso) => setDateTo(iso || "")}
                   placeholder={t("YYYY-MM-DD")}
                 />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
+              </div>
+              <div style={{ flex: "1 1 130px", minWidth: 130 }}>
                 <Label className="form-label">{t(partyLabel)}</Label>
                 <EntitySearchSelect
                   kind={partyKind}
@@ -386,8 +417,8 @@ const DocStatusReport = ({ config }) => {
                   isClearable
                   placeholder={t(partyPlaceholder)}
                 />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
+              </div>
+              <div style={{ flex: "1 1 130px", minWidth: 130 }}>
                 <Label className="form-label">{t("Status")}</Label>
                 <Select
                   value={statusFilter}
@@ -397,8 +428,8 @@ const DocStatusReport = ({ config }) => {
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
-              </Col>
-              <Col sm="6" md="2" className="mb-1">
+              </div>
+              <div style={{ flex: "1 1 130px", minWidth: 130 }}>
                 <Label className="form-label">{t("Coverage by")}</Label>
                 <Select
                   value={coverageFilter}
@@ -408,8 +439,35 @@ const DocStatusReport = ({ config }) => {
                   menuPortalTarget={document.body}
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
-              </Col>
-            </Row>
+              </div>
+              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
+                <Label className="form-label">{t("Currency")}</Label>
+                <Select
+                  value={currencyFilter}
+                  onChange={(sel) => setCurrencyFilter(sel)}
+                  options={currencyOptions}
+                  isClearable
+                  classNamePrefix="select"
+                  placeholder={t("All currencies")}
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                />
+              </div>
+              <div
+                className="form-check mb-1"
+                style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}
+              >
+                <Input
+                  type="checkbox"
+                  id={`${idPrefix}-native`}
+                  checked={showNative}
+                  onChange={(e) => setShowNative(e.target.checked)}
+                />
+                <Label className="form-check-label" for={`${idPrefix}-native`}>
+                  {t("Show native currency")}
+                </Label>
+              </div>
+            </div>
 
             <Row className="mt-1">
               <Col md="12">
@@ -434,9 +492,15 @@ const DocStatusReport = ({ config }) => {
                             <th className="text-end text-nowrap">{t("Ordered Qty")}</th>
                             <th className="text-end text-nowrap">{t("Covered Qty")}</th>
                             <th className="text-end text-nowrap">{t("Pending Qty")}</th>
-                            <th className="text-end text-nowrap">{t("Ordered (₹)")}</th>
-                            <th className="text-end text-nowrap">{t("Covered (₹)")}</th>
-                            <th className="text-end text-nowrap">{t("Pending (₹)")}</th>
+                            <th className="text-end text-nowrap">
+                              {showNative ? t("Ordered") : t("Ordered (₹)")}
+                            </th>
+                            <th className="text-end text-nowrap">
+                              {showNative ? t("Covered") : t("Covered (₹)")}
+                            </th>
+                            <th className="text-end text-nowrap">
+                              {showNative ? t("Pending") : t("Pending (₹)")}
+                            </th>
                             <th className="text-end text-nowrap">{t("Coverage")}</th>
                           </tr>
                         </thead>
@@ -485,9 +549,21 @@ const DocStatusReport = ({ config }) => {
                                     qty(r.pending_qty)
                                   )}
                                 </td>
-                                <td className="text-end text-nowrap">{`₹ ${grp(r.ordered_value_inr)}`}</td>
-                                <td className="text-end text-nowrap">{`₹ ${grp(r.covered_value_inr)}`}</td>
-                                <td className="text-end text-nowrap">{`₹ ${grp(r.pending_value_inr)}`}</td>
+                                <td className="text-end text-nowrap">
+                                  {showNative
+                                    ? money(r.ordered_value_native, getCurrencySymbol(r.currency_code))
+                                    : `₹ ${grp(r.ordered_value_inr)}`}
+                                </td>
+                                <td className="text-end text-nowrap">
+                                  {showNative
+                                    ? money(r.covered_value_native, getCurrencySymbol(r.currency_code))
+                                    : `₹ ${grp(r.covered_value_inr)}`}
+                                </td>
+                                <td className="text-end text-nowrap">
+                                  {showNative
+                                    ? money(r.pending_value_native, getCurrencySymbol(r.currency_code))
+                                    : `₹ ${grp(r.pending_value_inr)}`}
+                                </td>
                                 <td className="text-end text-nowrap">
                                   {Number(r.coverage_pct || 0).toFixed(0)}%
                                 </td>
@@ -500,10 +576,14 @@ const DocStatusReport = ({ config }) => {
                             className="fw-bolder"
                             style={{ borderTop: "2px solid #d8d6de" }}
                           >
-                            <td colSpan={7}>{t("Totals (INR)")}</td>
-                            <td className="text-end">{`₹ ${grp(totals.ordered_value_inr)}`}</td>
-                            <td className="text-end">{`₹ ${grp(totals.covered_value_inr)}`}</td>
-                            <td className="text-end">{`₹ ${grp(totals.pending_value_inr)}`}</td>
+                            <td colSpan={7}>
+                              {nativeReady
+                                ? t("Totals ({{code}})", { code: totals.native_currency_code })
+                                : t("Totals (INR)")}
+                            </td>
+                            <td className="text-end">{money(totalsOrdered, totalsSym)}</td>
+                            <td className="text-end">{money(totalsCovered, totalsSym)}</td>
+                            <td className="text-end">{money(totalsPending, totalsSym)}</td>
                             <td />
                           </tr>
                         </tfoot>
