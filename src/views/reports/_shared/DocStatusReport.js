@@ -145,11 +145,11 @@ const DocStatusReport = ({ config }) => {
   const [loading, setLoading] = useState(false);
   // Currency filter — options come from the response's own
   // `available_currencies` (data-driven, same pattern as Sales Turnover),
-  // not a fixed master list. Native/₹ is a display-only toggle: every row
-  // already carries both `*_inr` and `*_native`, so switching it never
-  // re-fetches.
+  // not a fixed master list. Every row always shows its OWN native amount
+  // (no toggle) — matches the Inventory report's pattern. The summary
+  // card/footer totals switch to native automatically once the filter
+  // narrows the table to one currency; "All currencies" (mixed) shows ₹.
   const [currencyFilter, setCurrencyFilter] = useState(null);
-  const [showNative, setShowNative] = useState(false);
   const [data, setData] = useState({
     period_label: "",
     rows: [],
@@ -311,12 +311,13 @@ const DocStatusReport = ({ config }) => {
     value: c,
     label: c,
   }));
-  // Native display needs the (currency-filtered) rows to share ONE currency
-  // — `totals.native_currency_code` is null when the current filter still
+  // Native totals need the (currency-filtered) rows to share ONE currency —
+  // `totals.native_currency_code` is null when the current filter still
   // spans more than one (e.g. "All currencies" with a mixed-currency book).
   // Falls back to ₹ totals in that case rather than showing a meaningless
-  // cross-currency sum.
-  const nativeReady = showNative && !!totals.native_currency_code;
+  // cross-currency sum. Automatic — no toggle: picking one currency in the
+  // filter is what turns this on.
+  const nativeReady = !!totals.native_currency_code;
   const totalsSym = nativeReady
     ? getCurrencySymbol(totals.native_currency_code) || totals.native_currency_code
     : "₹";
@@ -453,20 +454,6 @@ const DocStatusReport = ({ config }) => {
                   styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
                 />
               </div>
-              <div
-                className="form-check mb-1"
-                style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}
-              >
-                <Input
-                  type="checkbox"
-                  id={`${idPrefix}-native`}
-                  checked={showNative}
-                  onChange={(e) => setShowNative(e.target.checked)}
-                />
-                <Label className="form-check-label" for={`${idPrefix}-native`}>
-                  {t("Show native currency")}
-                </Label>
-              </div>
             </div>
 
             <Row className="mt-1">
@@ -492,15 +479,9 @@ const DocStatusReport = ({ config }) => {
                             <th className="text-end text-nowrap">{t("Ordered Qty")}</th>
                             <th className="text-end text-nowrap">{t("Covered Qty")}</th>
                             <th className="text-end text-nowrap">{t("Pending Qty")}</th>
-                            <th className="text-end text-nowrap">
-                              {showNative ? t("Ordered") : t("Ordered (₹)")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {showNative ? t("Covered") : t("Covered (₹)")}
-                            </th>
-                            <th className="text-end text-nowrap">
-                              {showNative ? t("Pending") : t("Pending (₹)")}
-                            </th>
+                            <th className="text-end text-nowrap">{t("Ordered")}</th>
+                            <th className="text-end text-nowrap">{t("Covered")}</th>
+                            <th className="text-end text-nowrap">{t("Pending")}</th>
                             <th className="text-end text-nowrap">{t("Coverage")}</th>
                           </tr>
                         </thead>
@@ -550,19 +531,13 @@ const DocStatusReport = ({ config }) => {
                                   )}
                                 </td>
                                 <td className="text-end text-nowrap">
-                                  {showNative
-                                    ? money(r.ordered_value_native, getCurrencySymbol(r.currency_code))
-                                    : `₹ ${grp(r.ordered_value_inr)}`}
+                                  {money(r.ordered_value_native, getCurrencySymbol(r.currency_code))}
                                 </td>
                                 <td className="text-end text-nowrap">
-                                  {showNative
-                                    ? money(r.covered_value_native, getCurrencySymbol(r.currency_code))
-                                    : `₹ ${grp(r.covered_value_inr)}`}
+                                  {money(r.covered_value_native, getCurrencySymbol(r.currency_code))}
                                 </td>
                                 <td className="text-end text-nowrap">
-                                  {showNative
-                                    ? money(r.pending_value_native, getCurrencySymbol(r.currency_code))
-                                    : `₹ ${grp(r.pending_value_inr)}`}
+                                  {money(r.pending_value_native, getCurrencySymbol(r.currency_code))}
                                 </td>
                                 <td className="text-end text-nowrap">
                                   {Number(r.coverage_pct || 0).toFixed(0)}%
