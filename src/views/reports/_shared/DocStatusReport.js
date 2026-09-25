@@ -81,14 +81,17 @@ const STATUS_OPTIONS = [
   { value: "pre_closed", label: "Pre-Closed" },
 ];
 
-const StatTile = ({ label, value, hint }) => (
+const StatTile = ({ label, value, subValue, hint }) => (
   <Col md="3" sm="6" className="mb-1">
     <Card className="mb-0 border">
       <CardBody className="py-1">
         <div className="text-muted small">{label}</div>
-        <div className="fw-bolder" style={{ fontSize: "1.35rem" }}>
+        <div className="fw-bolder text-nowrap" style={{ fontSize: "1.35rem" }}>
           {value}
         </div>
+        {subValue ? (
+          <div className="text-muted small text-nowrap">{subValue}</div>
+        ) : null}
         {hint ? <div className="text-muted small">{hint}</div> : null}
       </CardBody>
     </Card>
@@ -367,11 +370,10 @@ const DocStatusReport = ({ config }) => {
           <StatTile
             label={t("Pending Value")}
             value={money(totalsPending, totalsSym)}
-            hint={
-              nativeReady
-                ? t("ordered − covered")
-                : t("ordered − covered, ₹")
+            subValue={
+              nativeReady ? `₹ ${grp(totals.pending_value_inr)}` : undefined
             }
+            hint={t("ordered − covered")}
           />
         </Row>
 
@@ -535,19 +537,19 @@ const DocStatusReport = ({ config }) => {
                                     qty(r.pending_qty)
                                   )}
                                 </td>
-                                <td className="text-end p-1">
+                                <td className="text-end p-1 text-nowrap">
                                   {money(r.ordered_value_native, getCurrencySymbol(r.currency_code))}
                                   {r.currency_code !== "INR" && (
                                     <div className="small text-muted text-nowrap">{`₹ ${grp(r.ordered_value_inr)}`}</div>
                                   )}
                                 </td>
-                                <td className="text-end p-1">
+                                <td className="text-end p-1 text-nowrap">
                                   {money(r.covered_value_native, getCurrencySymbol(r.currency_code))}
                                   {r.currency_code !== "INR" && (
                                     <div className="small text-muted text-nowrap">{`₹ ${grp(r.covered_value_inr)}`}</div>
                                   )}
                                 </td>
-                                <td className="text-end p-1">
+                                <td className="text-end p-1 text-nowrap">
                                   {money(r.pending_value_native, getCurrencySymbol(r.currency_code))}
                                   {r.currency_code !== "INR" && (
                                     <div className="small text-muted text-nowrap">{`₹ ${grp(r.pending_value_inr)}`}</div>
@@ -570,19 +572,19 @@ const DocStatusReport = ({ config }) => {
                                 ? t("Totals ({{code}})", { code: totals.native_currency_code })
                                 : t("Totals (INR)")}
                             </td>
-                            <td className="text-end p-1">
+                            <td className="text-end p-1 text-nowrap">
                               {money(totalsOrdered, totalsSym)}
                               {nativeReady && (
                                 <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.ordered_value_inr)}`}</div>
                               )}
                             </td>
-                            <td className="text-end p-1">
+                            <td className="text-end p-1 text-nowrap">
                               {money(totalsCovered, totalsSym)}
                               {nativeReady && (
                                 <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.covered_value_inr)}`}</div>
                               )}
                             </td>
-                            <td className="text-end p-1">
+                            <td className="text-end p-1 text-nowrap">
                               {money(totalsPending, totalsSym)}
                               {nativeReady && (
                                 <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.pending_value_inr)}`}</div>
