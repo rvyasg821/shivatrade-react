@@ -468,21 +468,26 @@ const DocStatusReport = ({ config }) => {
                   </div>
                 ) : (
                   <Fragment>
-                    <div className="table-responsive" style={{ overflowX: "auto" }}>
-                      <Table bordered size="sm" className="align-middle mb-0">
+                    <div style={{ overflowX: "hidden" }}>
+                      <Table
+                        bordered
+                        size="sm"
+                        className="align-middle mb-0"
+                        style={{ tableLayout: "auto" }}
+                      >
                         <thead className="table-dark">
                           <tr>
-                            <th className="text-nowrap">{t(docNoLabel)}</th>
-                            <th className="text-nowrap">{t("Date")}</th>
-                            <th className="text-nowrap">{t(partyLabel)}</th>
-                            <th className="text-nowrap">{t("Status")}</th>
-                            <th className="text-end text-nowrap">{t("Ordered Qty")}</th>
-                            <th className="text-end text-nowrap">{t("Covered Qty")}</th>
-                            <th className="text-end text-nowrap">{t("Pending Qty")}</th>
-                            <th className="text-end text-nowrap">{t("Ordered")}</th>
-                            <th className="text-end text-nowrap">{t("Covered")}</th>
-                            <th className="text-end text-nowrap">{t("Pending")}</th>
-                            <th className="text-end text-nowrap">{t("Coverage")}</th>
+                            <th className="p-1">{t(docNoLabel)}</th>
+                            <th className="p-1">{t("Date")}</th>
+                            <th className="p-1">{t(partyLabel)}</th>
+                            <th className="p-1">{t("Status")}</th>
+                            <th className="text-end p-1">{t("Ordered Qty")}</th>
+                            <th className="text-end p-1">{t("Covered Qty")}</th>
+                            <th className="text-end p-1">{t("Pending Qty")}</th>
+                            <th className="text-end p-1">{t("Ordered")}</th>
+                            <th className="text-end p-1">{t("Covered")}</th>
+                            <th className="text-end p-1">{t("Pending")}</th>
+                            <th className="text-end p-1">{t("Coverage")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -490,7 +495,7 @@ const DocStatusReport = ({ config }) => {
                             const meta = STATUS_META[r.status] || STATUS_META.open;
                             return (
                               <tr key={r.doc_id}>
-                                <td className="fw-semibold text-nowrap">
+                                <td className="fw-semibold p-1">
                                   {r.doc_no ? (
                                     <span
                                       role="button"
@@ -503,10 +508,10 @@ const DocStatusReport = ({ config }) => {
                                     <Dash />
                                   )}
                                 </td>
-                                <td className="text-nowrap">
+                                <td className="p-1 text-nowrap">
                                   {fmtDate(r.doc_date) || <Dash />}
                                 </td>
-                                <td style={{ minWidth: 140 }}>
+                                <td className="p-1">
                                   {r.party_name || <Dash />}
                                   {r.currency_code && r.currency_code !== "INR" ? (
                                     <div className="small text-muted">
@@ -514,14 +519,14 @@ const DocStatusReport = ({ config }) => {
                                     </div>
                                   ) : null}
                                 </td>
-                                <td className="text-nowrap">
+                                <td className="p-1">
                                   <span className={`doc-badge ${meta.cls}`}>
                                     {t(meta.label)}
                                   </span>
                                 </td>
-                                <td className="text-end">{qty(r.ordered_qty)}</td>
-                                <td className="text-end">{qty(r.covered_qty)}</td>
-                                <td className="text-end">
+                                <td className="text-end p-1">{qty(r.ordered_qty)}</td>
+                                <td className="text-end p-1">{qty(r.covered_qty)}</td>
+                                <td className="text-end p-1">
                                   {Number(r.pending_qty) > 0 ? (
                                     <span className="text-warning fw-semibold">
                                       {qty(r.pending_qty)}
@@ -530,16 +535,25 @@ const DocStatusReport = ({ config }) => {
                                     qty(r.pending_qty)
                                   )}
                                 </td>
-                                <td className="text-end text-nowrap">
+                                <td className="text-end p-1">
                                   {money(r.ordered_value_native, getCurrencySymbol(r.currency_code))}
+                                  {r.currency_code !== "INR" && (
+                                    <div className="small text-muted text-nowrap">{`₹ ${grp(r.ordered_value_inr)}`}</div>
+                                  )}
                                 </td>
-                                <td className="text-end text-nowrap">
+                                <td className="text-end p-1">
                                   {money(r.covered_value_native, getCurrencySymbol(r.currency_code))}
+                                  {r.currency_code !== "INR" && (
+                                    <div className="small text-muted text-nowrap">{`₹ ${grp(r.covered_value_inr)}`}</div>
+                                  )}
                                 </td>
-                                <td className="text-end text-nowrap">
+                                <td className="text-end p-1">
                                   {money(r.pending_value_native, getCurrencySymbol(r.currency_code))}
+                                  {r.currency_code !== "INR" && (
+                                    <div className="small text-muted text-nowrap">{`₹ ${grp(r.pending_value_inr)}`}</div>
+                                  )}
                                 </td>
-                                <td className="text-end text-nowrap">
+                                <td className="text-end p-1">
                                   {Number(r.coverage_pct || 0).toFixed(0)}%
                                 </td>
                               </tr>
@@ -551,15 +565,30 @@ const DocStatusReport = ({ config }) => {
                             className="fw-bolder"
                             style={{ borderTop: "2px solid #d8d6de" }}
                           >
-                            <td colSpan={7}>
+                            <td colSpan={7} className="p-1">
                               {nativeReady
                                 ? t("Totals ({{code}})", { code: totals.native_currency_code })
                                 : t("Totals (INR)")}
                             </td>
-                            <td className="text-end">{money(totalsOrdered, totalsSym)}</td>
-                            <td className="text-end">{money(totalsCovered, totalsSym)}</td>
-                            <td className="text-end">{money(totalsPending, totalsSym)}</td>
-                            <td />
+                            <td className="text-end p-1">
+                              {money(totalsOrdered, totalsSym)}
+                              {nativeReady && (
+                                <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.ordered_value_inr)}`}</div>
+                              )}
+                            </td>
+                            <td className="text-end p-1">
+                              {money(totalsCovered, totalsSym)}
+                              {nativeReady && (
+                                <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.covered_value_inr)}`}</div>
+                              )}
+                            </td>
+                            <td className="text-end p-1">
+                              {money(totalsPending, totalsSym)}
+                              {nativeReady && (
+                                <div className="small text-muted fw-normal text-nowrap">{`₹ ${grp(totals.pending_value_inr)}`}</div>
+                              )}
+                            </td>
+                            <td className="p-1" />
                           </tr>
                         </tfoot>
                       </Table>
