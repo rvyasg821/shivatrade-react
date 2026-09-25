@@ -132,35 +132,15 @@ const navigationItems = [
     navLink: `${appsRoot}/dashboard`,
   },
 
+  // Parties (standalone)
   {
-    id: reportsModuleSlug,
-    permissionId: reportsModuleSlug,
+    id: customersModuleSlug,
+    title: rolePermissionName[customersModuleSlug],
+    icon: <UserCheck size={20} />,
+    navLink: `${appsRoot}/customers`,
+    permissionId: customersModuleSlug,
+    resource: customersModuleSlug,
     companyOnly: true,
-    title: rolePermissionName[reportsModuleSlug],
-    icon: <TrendingUp size={20} />,
-    navLink: `${appsRoot}/reports`,
-  },
-
-  {
-    id: adjustmentNotesModuleSlug,
-    permissionId: adjustmentNotesModuleSlug,
-    companyOnly: true,
-    title: rolePermissionName[adjustmentNotesModuleSlug],
-    icon: <Repeat size={20} />,
-    navLink: `${appsRoot}/adjustment-notes`,
-  },
-
-  // Company Admin's own-company Activity Log. `companyAdminOnly` shows it only
-  // to the Company Admin role (a Company Admin's ability is built from explicit
-  // permissions, so RBAC on a new slug couldn't grant it); the backend
-  // additionally 403s any non-company-admin.
-  {
-    id: activityLogModuleSlug,
-    companyOnly: true,
-    companyAdminOnly: true,
-    title: rolePermissionName[activityLogModuleSlug],
-    icon: <Eye size={20} />,
-    navLink: `${appsRoot}/activity-log`,
   },
 
   // Sales
@@ -227,16 +207,23 @@ const navigationItems = [
     ],
   },
 
-  // Parties (standalone)
+  // PO Vendor - promoted to a top-level entry (out of the Purchase group)
+  // since it's the only item that lives there for now. Tracking sidebar
+  // entry remains hidden; its permission slug (`trackingModuleSlug`) is
+  // still wired for the per-POV Tracking tab + BE checks.
   {
-    id: customersModuleSlug,
-    title: rolePermissionName[customersModuleSlug],
-    icon: <UserCheck size={20} />,
-    navLink: `${appsRoot}/customers`,
-    permissionId: customersModuleSlug,
-    resource: customersModuleSlug,
+    id: poVendorsModuleSlug,
+    title: rolePermissionName[poVendorsModuleSlug],
+    icon: <CheckSquare size={20} />,
+    navLink: `${appsRoot}/po-vendors`,
+    permissionId: poVendorsModuleSlug,
+    resource: poVendorsModuleSlug,
     companyOnly: true,
   },
+
+  // GRN (Goods Receipt Note) and Debit Notes are no longer top-level nav
+  // items — they live inside the Vendor PO (POV) detail as tabs (GRNs /
+  // Debit Notes). Their list/detail routes remain for deep links + Back.
 
   // Catalogue
   {
@@ -355,24 +342,6 @@ const navigationItems = [
     ],
   },
 
-  // PO Vendor - promoted to a top-level entry (out of the Purchase group)
-  // since it's the only item that lives there for now. Tracking sidebar
-  // entry remains hidden; its permission slug (`trackingModuleSlug`) is
-  // still wired for the per-POV Tracking tab + BE checks.
-  {
-    id: poVendorsModuleSlug,
-    title: rolePermissionName[poVendorsModuleSlug],
-    icon: <CheckSquare size={20} />,
-    navLink: `${appsRoot}/po-vendors`,
-    permissionId: poVendorsModuleSlug,
-    resource: poVendorsModuleSlug,
-    companyOnly: true,
-  },
-
-  // GRN (Goods Receipt Note) and Debit Notes are no longer top-level nav
-  // items — they live inside the Vendor PO (POV) detail as tabs (GRNs /
-  // Debit Notes). Their list/detail routes remain for deep links + Back.
-
   // Inventory - received-goods register (read-only view of POV closures).
   {
     id: inventoryModuleSlug,
@@ -384,16 +353,29 @@ const navigationItems = [
     companyOnly: true,
   },
 
-  // People group (Employees + HRM tools)
-  // Admin tier sees this labeled "People" (management view).
-  // Employee tier sees "My Records" (self-service view) - swapped at
-  // render time in VerticalLayout based on the user's role tier.
   {
-    id: 'people',
-    title: 'People',
-    titleSelfService: 'HRM',
-    icon: <Users size={20} />,
+    id: adjustmentNotesModuleSlug,
+    permissionId: adjustmentNotesModuleSlug,
     companyOnly: true,
+    title: rolePermissionName[adjustmentNotesModuleSlug],
+    icon: <Repeat size={20} />,
+    navLink: `${appsRoot}/adjustment-notes`,
+  },
+
+  {
+    id: reportsModuleSlug,
+    permissionId: reportsModuleSlug,
+    companyOnly: true,
+    title: rolePermissionName[reportsModuleSlug],
+    icon: <TrendingUp size={20} />,
+    navLink: `${appsRoot}/reports`,
+  },
+
+  // Master
+  {
+    id: masterGroupSlug,
+    title: 'Master',
+    icon: <Grid size={20} />,
     children: [
       {
         id: employeesModuleSlug,
@@ -405,6 +387,88 @@ const navigationItems = [
         icon: <UserCheck size={20} />,
         navLink: `${appsRoot}/employees`,
       },
+      {
+        id: rolesModuleSlug,
+        permissionId: 'role',
+        action: 'read',
+        resource: 'role',
+        title: rolePermissionName[rolesModuleSlug],
+        icon: <Shield size={20} />,
+        navLink: `${appsRoot}/roles`,
+      },
+      {
+        id: usersModuleSlug,
+        permissionId: 'user',
+        action: 'read',
+        resource: 'user',
+        title: rolePermissionName[usersModuleSlug],
+        icon: <Users size={20} />,
+        navLink: `${appsRoot}/users`,
+      },
+      {
+        id: locationsModuleSlug,
+        permissionId: 'location',
+        action: 'read',
+        resource: 'location',
+        companyOnly: true,
+        adminLevel: true,
+        title: rolePermissionName[locationsModuleSlug],
+        icon: <MapPin size={20} />,
+        navLink: `${appsRoot}/locations`,
+      },
+      {
+        id: 'employeeLookups',
+        permissionId: 'employee',
+        action: 'read',
+        resource: 'employee',
+        companyOnly: true,
+        adminLevel: true,
+        title: 'Designations & Departments',
+        icon: <Sliders size={20} />,
+        navLink: `${appsRoot}/employees/lookups`,
+      },
+      {
+        id: agentModuleSlug,
+        permissionId: 'agent',
+        action: 'read',
+        resource: 'agent',
+        title: rolePermissionName[agentModuleSlug],
+        icon: <MdOutlineSupportAgent size={20} />,
+        navLink: `${appsRoot}/agents`,
+      },
+    ],
+  },
+
+  // ── Everything below is unchanged from before the reorder — same items,
+  // same grouping/visibility rules, just pushed after the 9 reordered items
+  // above (Dashboard, Customers, Sales, PO Vendor, Catalogue, Inventory,
+  // Adjustment Notes, Reports, Master). ──
+
+  // Company Admin's own-company Activity Log. `companyAdminOnly` shows it only
+  // to the Company Admin role (a Company Admin's ability is built from explicit
+  // permissions, so RBAC on a new slug couldn't grant it); the backend
+  // additionally 403s any non-company-admin.
+  {
+    id: activityLogModuleSlug,
+    companyOnly: true,
+    companyAdminOnly: true,
+    title: rolePermissionName[activityLogModuleSlug],
+    icon: <Eye size={20} />,
+    navLink: `${appsRoot}/activity-log`,
+  },
+
+  // People group (HRM tools). Employee + Designations&Departments moved into
+  // Master above; this group keeps the self-service/admin HRM items.
+  // Admin tier sees this labeled "People" (management view).
+  // Employee tier sees "My Records" (self-service view) - swapped at
+  // render time in VerticalLayout based on the user's role tier.
+  {
+    id: 'people',
+    title: 'People',
+    titleSelfService: 'HRM',
+    icon: <Users size={20} />,
+    companyOnly: true,
+    children: [
       {
         id: attendanceModuleSlug,
         permissionId: attendanceModuleSlug,
@@ -463,17 +527,6 @@ const navigationItems = [
         icon: <Calendar size={20} />,
         navLink: `${appsRoot}/holiday-calendar`,
         companyOnly: true,
-      },
-      {
-        id: 'employeeLookups',
-        permissionId: 'employee',
-        action: 'read',
-        resource: 'employee',
-        companyOnly: true,
-        adminLevel: true,
-        title: 'Designations & Departments',
-        icon: <Sliders size={20} />,
-        navLink: `${appsRoot}/employees/lookups`,
       },
     ],
   },
@@ -605,53 +658,6 @@ const navigationItems = [
     icon: <Tool size={20} />,
     navLink: `${appsRoot}/tools`,
     adminLevel: true,
-  },
-
-  // Master
-  {
-    id: masterGroupSlug,
-    title: 'Master',
-    icon: <Grid size={20} />,
-    children: [
-      {
-        id: rolesModuleSlug,
-        permissionId: 'role',
-        action: 'read',
-        resource: 'role',
-        title: rolePermissionName[rolesModuleSlug],
-        icon: <Shield size={20} />,
-        navLink: `${appsRoot}/roles`,
-      },
-      {
-        id: usersModuleSlug,
-        permissionId: 'user',
-        action: 'read',
-        resource: 'user',
-        title: rolePermissionName[usersModuleSlug],
-        icon: <Users size={20} />,
-        navLink: `${appsRoot}/users`,
-      },
-      {
-        id: agentModuleSlug,
-        permissionId: 'agent',
-        action: 'read',
-        resource: 'agent',
-        title: rolePermissionName[agentModuleSlug],
-        icon: <MdOutlineSupportAgent size={20} />,
-        navLink: `${appsRoot}/agents`,
-      },
-      {
-        id: locationsModuleSlug,
-        permissionId: 'location',
-        action: 'read',
-        resource: 'location',
-        companyOnly: true,
-        adminLevel: true,
-        title: rolePermissionName[locationsModuleSlug],
-        icon: <MapPin size={20} />,
-        navLink: `${appsRoot}/locations`,
-      },
-    ],
   },
 ];
 

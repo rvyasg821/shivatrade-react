@@ -35,7 +35,9 @@ import {
 } from "reactstrap";
 import Select from "react-select";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, RotateCcw, X, Plus } from "react-feather";
+import { AlertTriangle, RotateCcw, X, Plus, Trash2 } from "react-feather";
+import EntitySearchSelect from "@components/entity-select";
+import { getProductDropdown } from "@src/views/products/store";
 import {
   usePagination,
   TablePaginationBar,
@@ -98,6 +100,15 @@ const PoVendorRecoverModal = ({
   );
   const [previewLines, setPreviewLines] = useState([]);
   const [activeVendors, setActiveVendors] = useState([]);
+  // Ad-hoc products picked directly on this screen (not on the source SO at
+  // all) — each: { key, product_id, product_name, hsn_code, unit, tax_pct,
+  // vendor_id, unit_price, ordered_qty, discount_pct }. Sent as extra entries
+  // in `assignments` on submit, riding in whichever vendor's POV matches.
+  const [adhocLines, setAdhocLines] = useState([]);
+  const [adhocProduct, setAdhocProduct] = useState(null);
+  const [adhocVendorId, setAdhocVendorId] = useState("");
+  const [adhocQty, setAdhocQty] = useState("1");
+  const [adhocRate, setAdhocRate] = useState("");
   // assignment[purchase_order_line_id] = vendor_id
   const [assignment, setAssignment] = useState({});
   // dropped[purchase_order_line_id] = true → exclude from batch
@@ -183,6 +194,7 @@ const PoVendorRecoverModal = ({
     if (isOpen && !currencyStore?.exchangeOptions?.length) {
       dispatch(getExchangeRateOptions());
     }
+    if (isOpen) dispatch(getProductDropdown());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
   const expenseOptions = useMemo(
@@ -512,6 +524,89 @@ const PoVendorRecoverModal = ({
   const discFactorFor = (l) =>
     1 - num(discountOverride[l.purchase_order_line_id]) / 100;
 
+  // ── Ad-hoc product picker — a product NOT on the source SO at all ──────
+  const fetchAdhocVendorPrice = (productId, vId) =>
+    new Promise((resolve) => {
+      if (!productId || !vId) return resolve(null);
+      instance
+        .get(`${API_ENDPOINTS.priceList.byProduct}/${productId}`)
+        .then((resp) => {
+          const match = (resp?.data?.data || []).find((r) => r.vendor_id === vId);
+          resolve(match?.unit_price != null ? String(match.unit_price) : null);
+        })
+        .catch(() => resolve(null));
+    });
+
+  const onPickAdhocProduct = async (opt) => {
+    setAdhocProduct(opt || null);
+    if (!opt || !adhocVendorId) {
+      setAdhocRate("");
+      return;
+    }
+    const price = await fetchAdhocVendorPrice(opt.value, adhocVendorId);
+    setAdhocRate(price != null ? price : "");
+  };
+
+  const onPickAdhocVendor = async (vId) => {
+    setAdhocVendorId(vId);
+    if (adhocProduct && vId) {
+      const price = await fetchAdhocVendorPrice(adhocProduct.value, vId);
+      setAdhocRate(price != null ? price : "");
+    }
+  };
+
+  const addAdhocLine = () => {
+    if (!adhocProduct) {
+      Notification("Validation", t("Pick a product first."), "warning");
+      return;
+    }
+    if (!adhocVendorId) {
+      Notification("Validation", t("Pick a vendor for this product."), "warning");
+      return;
+    }
+    if (num(adhocQty) <= 0) {
+      Notification("Validation", t("Quantity must be greater than 0."), "warning");
+      return;
+    }
+    const dup = adhocLines.some(
+      (l) => l.product_id === adhocProduct.value && l.vendor_id === adhocVendorId
+    );
+    if (dup) {
+      Notification(
+        "Validation",
+        t("This product + vendor is already added — edit that line's quantity instead."),
+        "warning"
+      );
+      return;
+    }
+    const raw = adhocProduct.raw || {};
+    setAdhocLines((rows) => [
+      ...rows,
+      {
+        key: `adhoc-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+        product_id: adhocProduct.value,
+        product_name: raw.name || adhocProduct.label || "",
+        hsn_code: raw.hsn_code || "",
+        unit: raw.unit_of_measure || "",
+        tax_pct: raw.tax_pct != null ? String(raw.tax_pct) : "0",
+        vendor_id: adhocVendorId,
+        vendor_name:
+          activeVendors.find((v) => v.vendor_id === adhocVendorId)?.vendor_name ||
+          "",
+        unit_price: adhocRate || "0",
+        ordered_qty: String(Math.max(0, num(adhocQty))),
+        discount_pct: "0",
+      },
+    ]);
+    setAdhocProduct(null);
+    setAdhocVendorId("");
+    setAdhocQty("1");
+    setAdhocRate("");
+  };
+
+  const removeAdhocLine = (key) =>
+    setAdhocLines((rows) => rows.filter((r) => r.key !== key));
+
   // Group active assignments by vendor → "N POVs" preview + goods total (₹).
   const vendorSummary = useMemo(() => {
     const map = new Map();
@@ -536,13 +631,27 @@ const PoVendorRecoverModal = ({
       existing.total += num(l.to_procure) * effRate(l, vid) * discFactorFor(l);
       map.set(vid, existing);
     }
+    // Ad-hoc products (picked directly, not from the source SO) fold into
+    // the same per-vendor summary — a vendor introduced ONLY via an ad-hoc
+    // line still gets its own charges/terms/currency block below.
+    for (const l of adhocLines) {
+      const existing = map.get(l.vendor_id) || {
+        vendor_id: l.vendor_id,
+        vendor_name: l.vendor_name,
+        lines: 0,
+        total: 0,
+      };
+      existing.lines += 1;
+      existing.total += num(l.ordered_qty) * num(l.unit_price);
+      map.set(l.vendor_id, existing);
+    }
     return Array.from(map.values()).sort((a, b) =>
       (a.vendor_name || "").localeCompare(b.vendor_name || "")
     );
     // effRate reads rateOverride + vendorCurrencies (native), so the
     // per-vendor goods total recomputes when either changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewLines, assignment, dropped, activeVendors, rateOverride, discountOverride, vendorCurrencies]);
+  }, [previewLines, assignment, dropped, activeVendors, rateOverride, discountOverride, vendorCurrencies, adhocLines]);
 
   // Default each vendor's currency to INR once vendors are known. Blank-only,
   // so an operator's explicit per-vendor pick is never clobbered. (The vendor
@@ -753,6 +862,20 @@ const PoVendorRecoverModal = ({
           return String(num(ov));
         })(),
       }));
+
+    // Ad-hoc products — no purchase_order_line_id, just product_id + vendor.
+    for (const l of adhocLines) {
+      assignments.push({
+        product_id: l.product_id,
+        vendor_id: l.vendor_id,
+        ordered_qty: l.ordered_qty,
+        unit_price: l.unit_price,
+        discount_pct: l.discount_pct,
+        tax_pct: gstAppliesFor(l.vendor_id) ? l.tax_pct : "0",
+        hsn_code: l.hsn_code || undefined,
+      });
+    }
+
     if (assignments.length === 0) {
       // Nothing left to buy — either everything is in stock, or no rows kept.
       const allFromStock = previewLines.some(
@@ -1380,6 +1503,127 @@ const PoVendorRecoverModal = ({
               totalRows={totalRows}
               className="d-flex justify-content-between align-items-center flex-wrap gap-1 mt-1 mb-2"
             />
+
+            {/* Add a product that isn't on this Sales Order at all — rides
+                in the same per-vendor POV, with no SO-line link. */}
+            <div className="border rounded p-1 mb-2">
+              <div className="fw-semibold small mb-50">
+                {t("Add a product not on this Sales Order")}
+              </div>
+              <Row className="g-1 align-items-end">
+                <Col md={4}>
+                  <Label className="small mb-25">{t("Product")}</Label>
+                  <EntitySearchSelect
+                    kind="product"
+                    eager={false}
+                    menuPortalTarget={
+                      typeof document !== "undefined" ? document.body : null
+                    }
+                    styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
+                    isClearable
+                    value={adhocProduct?.value || null}
+                    onChange={onPickAdhocProduct}
+                    placeholder={t("Search product")}
+                  />
+                </Col>
+                <Col md={3}>
+                  <Label className="small mb-25">{t("Vendor")}</Label>
+                  <Select
+                    classNamePrefix="select"
+                    options={activeVendors.map((v) => ({
+                      value: v.vendor_id,
+                      label: v.vendor_name,
+                    }))}
+                    value={
+                      activeVendors
+                        .map((v) => ({ value: v.vendor_id, label: v.vendor_name }))
+                        .find((o) => o.value === adhocVendorId) || null
+                    }
+                    onChange={(opt) => onPickAdhocVendor(opt?.value || "")}
+                    placeholder={t("Select vendor")}
+                  />
+                </Col>
+                <Col md={2}>
+                  <Label className="small mb-25">{t("Qty")}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    bsSize="sm"
+                    value={adhocQty}
+                    onChange={(e) => setAdhocQty(e.target.value)}
+                  />
+                </Col>
+                <Col md={2}>
+                  <Label className="small mb-25">{t("Rate")}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    bsSize="sm"
+                    value={adhocRate}
+                    onChange={(e) => setAdhocRate(e.target.value)}
+                  />
+                </Col>
+                <Col md={1}>
+                  <Button color="primary" size="sm" outline onClick={addAdhocLine}>
+                    <Plus size={14} />
+                  </Button>
+                </Col>
+              </Row>
+
+              {adhocLines.length > 0 && (
+                <Table
+                  bordered
+                  size="sm"
+                  className="align-middle mb-0 mt-1"
+                >
+                  <thead className="table-light">
+                    <tr>
+                      <th>{t("Product")}</th>
+                      <th>{t("Vendor")}</th>
+                      <th style={{ width: 90 }} className="text-end">
+                        {t("Qty")}
+                      </th>
+                      <th style={{ width: 110 }} className="text-end">
+                        {t("Rate")}
+                      </th>
+                      <th style={{ width: 50 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adhocLines.map((l) => (
+                      <tr key={l.key}>
+                        <td>
+                          <div className="fw-semibold">{l.product_name}</div>
+                          {l.hsn_code && (
+                            <small className="text-muted">
+                              {t("HSN")}: {l.hsn_code}
+                            </small>
+                          )}
+                        </td>
+                        <td>{l.vendor_name}</td>
+                        <td className="text-end">{l.ordered_qty}</td>
+                        <td className="text-end">
+                          {symFor(l.vendor_id)}
+                          {fmt(num(l.unit_price))}
+                        </td>
+                        <td className="text-center">
+                          <Button
+                            color="flat-danger"
+                            size="sm"
+                            className="p-25"
+                            onClick={() => removeAdhocLine(l.key)}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </div>
 
             {/* Per-vendor charges — mirrors the old quotation → SO popup. */}
             {vendorSummary.length > 0 && (
